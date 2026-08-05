@@ -1,3 +1,17 @@
 {
-    "preset": "laravel"
+    "preset": "psr12",
+    "rules": {
+        "ordered_imports": true,
+        "ordered_traits": true,
+        "blank_line_after_namespace": true,
+        "blank_line_after_opening_tag": true,
+        "no_unused_imports": true,
+        "strict_param": true,
+        "declare_strict_types": true,
+        "trim_array_spaces": true,
+        "array_syntax": {
+            "syntax": "short"
+        }
+    },
+    "exclude": ["docker"]
 }

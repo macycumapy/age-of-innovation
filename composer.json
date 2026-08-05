@@ -54,6 +54,12 @@
             "Composer\\Config::disableProcessTimeout",
             "@php artisan dev"
         ],
+        "pint": [
+            "./vendor/bin/pint"
+        ],
+        "analyse": [
+            "./vendor/bin/phpstan analyse --memory-limit=2G"
+        ],
         "lint": [
             "pint --parallel"
         ],

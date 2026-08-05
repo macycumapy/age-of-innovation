@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Tests\Feature\Settings;
 
 use App\Models\User;
@@ -30,7 +32,8 @@ class SecurityTest extends TestCase
         $this->actingAs($user)
             ->withSession(['auth.password_confirmed_at' => time()])
             ->get(route('security.edit'))
-            ->assertInertia(fn (Assert $page) => $page
+            ->assertInertia(
+                fn (Assert $page) => $page
                 ->component('settings/Security')
                 ->where('canManagePasskeys', true)
                 ->where('passkeys', [])
@@ -68,7 +71,8 @@ class SecurityTest extends TestCase
             ->withSession(['auth.password_confirmed_at' => time()])
             ->get(route('security.edit'))
             ->assertOk()
-            ->assertInertia(fn (Assert $page) => $page
+            ->assertInertia(
+                fn (Assert $page) => $page
                 ->component('settings/Security')
                 ->where('canManagePasskeys', false)
                 ->where('passkeys', [])
