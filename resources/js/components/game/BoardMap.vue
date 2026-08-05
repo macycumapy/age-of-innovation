@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import type { BoardState, TerrainType } from '@/types';
+import gameBoardUrl from '../../../images/game_board.webp';
 
 type Props = {
     board: BoardState;
@@ -8,10 +9,15 @@ type Props = {
 
 const props = defineProps<Props>();
 
-const hexSize = 38;
-const hexWidth = Math.sqrt(3) * hexSize;
-const hexHeight = hexSize * 2;
-const padding = 12;
+const boardWidth = 2004;
+const boardHeight = 1285;
+const boardOriginX = 327;
+const boardOriginY = 135;
+const columnSpacing = 128;
+const rowOffset = 64;
+const rowSpacing = 111;
+const hexRadiusX = 62;
+const hexRadiusY = 72;
 
 const terrainColors: Record<TerrainType, string> = {
     desert: '#e9c65c',
@@ -33,56 +39,43 @@ const terrainNames: Record<TerrainType, string> = {
     wasteland: 'Пустошь',
 };
 
-const polygonPoints = Array.from({ length: 6 }, (_, index) => {
-    const angle = ((60 * index - 30) * Math.PI) / 180;
-
-    return `${hexSize * Math.cos(angle)},${hexSize * Math.sin(angle)}`;
-}).join(' ');
+const polygonPoints = [
+    `0,${-hexRadiusY}`,
+    `${hexRadiusX},${-hexRadiusY / 2}`,
+    `${hexRadiusX},${hexRadiusY / 2}`,
+    `0,${hexRadiusY}`,
+    `${-hexRadiusX},${hexRadiusY / 2}`,
+    `${-hexRadiusX},${-hexRadiusY / 2}`,
+].join(' ');
 
 const rawHexes = computed(() =>
     props.board.hexes.map((hex) => ({
         ...hex,
-        x: hexWidth * (hex.q + hex.r / 2),
-        y: hexSize * 1.5 * hex.r,
+        x: boardOriginX + columnSpacing * hex.q + rowOffset * hex.r,
+        y: boardOriginY + rowSpacing * hex.r,
     })),
-);
-
-const bounds = computed(() => {
-    const xCoordinates = rawHexes.value.map((hex) => hex.x);
-    const yCoordinates = rawHexes.value.map((hex) => hex.y);
-
-    return {
-        minX: Math.min(...xCoordinates) - hexWidth / 2 - padding,
-        minY: Math.min(...yCoordinates) - hexHeight / 2 - padding,
-        width:
-            Math.max(...xCoordinates) -
-            Math.min(...xCoordinates) +
-            hexWidth +
-            padding * 2,
-        height:
-            Math.max(...yCoordinates) -
-            Math.min(...yCoordinates) +
-            hexHeight +
-            padding * 2,
-    };
-});
-
-const viewBox = computed(
-    () =>
-        `${bounds.value.minX} ${bounds.value.minY} ${bounds.value.width} ${bounds.value.height}`,
 );
 </script>
 
 <template>
     <div
-        class="overflow-x-auto rounded-xl border border-sky-950/30 bg-sky-800 p-3 shadow-inner dark:border-sky-300/20 dark:bg-sky-950"
+        class="overflow-x-auto rounded-xl border border-border bg-black shadow-inner"
     >
         <svg
-            :viewBox="viewBox"
+            :viewBox="`0 0 ${boardWidth} ${boardHeight}`"
             class="block h-auto w-full min-w-[48rem]"
             role="img"
             aria-label="Игровая карта"
         >
+            <image
+                :href="gameBoardUrl"
+                x="0"
+                y="0"
+                :width="boardWidth"
+                :height="boardHeight"
+                preserveAspectRatio="xMidYMid meet"
+            />
+
             <g
                 v-for="hex in rawHexes"
                 :key="hex.id"
@@ -94,16 +87,21 @@ const viewBox = computed(
                 <polygon
                     :points="polygonPoints"
                     :fill="terrainColors[hex.terrain]"
+                    fill-opacity="0"
                     stroke="#f5eed9"
-                    stroke-width="3"
+                    stroke-opacity="0.8"
+                    stroke-width="2"
                     stroke-linejoin="round"
                 />
                 <text
                     y="4"
                     text-anchor="middle"
-                    fill="rgba(255, 255, 255, 0.78)"
-                    font-size="10"
+                    fill="rgba(255, 255, 255, 0.9)"
+                    font-size="18"
                     font-weight="600"
+                    paint-order="stroke"
+                    stroke="rgba(0, 0, 0, 0.6)"
+                    stroke-width="3"
                 >
                     {{ hex.q }}:{{ hex.r }}
                 </text>
