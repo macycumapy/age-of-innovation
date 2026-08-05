@@ -1,13 +1,18 @@
 <script setup lang="ts">
 import { Head } from '@inertiajs/vue3';
-import PlaceholderPattern from '@/components/PlaceholderPattern.vue';
+import BoardMap from '@/components/game/BoardMap.vue';
 import { dashboard } from '@/routes';
+import type { BoardState } from '@/types';
+
+defineProps<{
+    board: BoardState;
+}>();
 
 defineOptions({
     layout: {
         breadcrumbs: [
             {
-                title: 'Dashboard',
+                title: 'Игровая карта',
                 href: dashboard(),
             },
         ],
@@ -16,32 +21,16 @@ defineOptions({
 </script>
 
 <template>
-    <Head title="Dashboard" />
+    <Head title="Игровая карта" />
 
-    <div
-        class="flex h-full flex-1 flex-col gap-4 overflow-x-auto rounded-xl p-4"
-    >
-        <div class="grid auto-rows-min gap-4 md:grid-cols-3">
-            <div
-                class="relative aspect-video overflow-hidden rounded-xl border border-sidebar-border/70 dark:border-sidebar-border"
-            >
-                <PlaceholderPattern />
-            </div>
-            <div
-                class="relative aspect-video overflow-hidden rounded-xl border border-sidebar-border/70 dark:border-sidebar-border"
-            >
-                <PlaceholderPattern />
-            </div>
-            <div
-                class="relative aspect-video overflow-hidden rounded-xl border border-sidebar-border/70 dark:border-sidebar-border"
-            >
-                <PlaceholderPattern />
-            </div>
+    <div class="flex h-full flex-1 flex-col gap-4 overflow-hidden p-4">
+        <div>
+            <h1 class="text-2xl font-semibold">Игровая карта</h1>
+            <p class="text-sm text-muted-foreground">
+                Статическое отображение стороны поля для 3–5 игроков
+            </p>
         </div>
-        <div
-            class="relative min-h-[100vh] flex-1 rounded-xl border border-sidebar-border/70 md:min-h-min dark:border-sidebar-border"
-        >
-            <PlaceholderPattern />
-        </div>
+
+        <BoardMap :board="board" />
     </div>
 </template>
