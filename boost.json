@@ -1,0 +1,15 @@
+{
+    "agents": [
+        "junie",
+        "codex"
+    ],
+    "cloud": false,
+    "guidelines": true,
+    "skills": [
+        "fortify-development",
+        "laravel-best-practices",
+        "wayfinder-development",
+        "inertia-vue-development",
+        "tailwindcss-development"
+    ]
+}
