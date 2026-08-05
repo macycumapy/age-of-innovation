@@ -4,8 +4,9 @@ declare(strict_types=1);
 
 namespace App\Models;
 
-use App\Enums\GamePhase;
-use App\Enums\GameStatus;
+use App\Domain\Game\Data\GameStateData;
+use App\Domain\Game\Enums\GamePhase;
+use App\Domain\Game\Enums\GameStatus;
 use Database\Factories\GameFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Collection;
@@ -22,7 +23,7 @@ use Illuminate\Support\Carbon;
  * @property GamePhase $phase Текущая фаза раунда.
  * @property int|null $active_player_id Пользователь, от которого ожидается следующее действие.
  * @property int $version Монотонно возрастающая версия состояния для контроля конкурентных изменений.
- * @property array<string, mixed> $state Авторитетный снимок полного состояния партии.
+ * @property GameStateData $state Авторитетный снимок полного состояния партии.
  * @property string $rules_version Версия правил, по которой создана и проверяется партия.
  * @property string $random_seed Начальное значение для воспроизводимой случайной подготовки партии.
  * @property Carbon|null $started_at Дата и время выхода партии из лобби.
@@ -84,7 +85,7 @@ class Game extends Model
         return [
             'status' => GameStatus::class,
             'phase' => GamePhase::class,
-            'state' => 'array',
+            'state' => GameStateData::class,
             'started_at' => 'datetime',
             'finished_at' => 'datetime',
         ];

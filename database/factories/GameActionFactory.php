@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Database\Factories;
 
-use App\Enums\GameActionType;
+use App\Domain\Game\Enums\GameActionType;
 use App\Models\Game;
 use App\Models\GameAction;
 use App\Models\User;

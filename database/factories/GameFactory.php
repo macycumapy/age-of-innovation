@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Database\Factories;
 
-use App\Enums\GamePhase;
-use App\Enums\GameStatus;
+use App\Domain\Game\Enums\GamePhase;
+use App\Domain\Game\Enums\GameStatus;
 use App\Models\Game;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Str;

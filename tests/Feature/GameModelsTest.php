@@ -4,12 +4,13 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
-use App\Enums\Faction;
-use App\Enums\GameActionType;
-use App\Enums\GamePhase;
-use App\Enums\GameStatus;
-use App\Enums\PlayerColor;
-use App\Enums\TerrainType;
+use App\Domain\Game\Data\GameStateData;
+use App\Domain\Game\Enums\Faction;
+use App\Domain\Game\Enums\GameActionType;
+use App\Domain\Game\Enums\GamePhase;
+use App\Domain\Game\Enums\GameStatus;
+use App\Domain\Game\Enums\PlayerColor;
+use App\Domain\Game\Enums\TerrainType;
 use App\Models\Game;
 use App\Models\GameAction;
 use App\Models\GamePlayer;
@@ -39,7 +40,8 @@ class GameModelsTest extends TestCase
             'sequence' => 1,
         ]);
 
-        $this->assertSame(1, $game->state['schemaVersion']);
+        $this->assertInstanceOf(GameStateData::class, $game->state);
+        $this->assertSame(1, $game->state->schemaVersion);
         $this->assertSame(GameStatus::Lobby, $game->status);
         $this->assertSame(GamePhase::Setup, $game->phase);
         $this->assertTrue($game->activePlayer->is($activePlayer));

@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Models;
 
-use App\Enums\Faction;
-use App\Enums\PlayerColor;
-use App\Enums\TerrainType;
+use App\Domain\Game\Enums\Faction;
+use App\Domain\Game\Enums\PlayerColor;
+use App\Domain\Game\Enums\TerrainType;
 use Database\Factories\GamePlayerFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
