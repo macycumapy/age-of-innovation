@@ -15,18 +15,20 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Carbon;
 
 /**
- * @property int $id
- * @property int $game_id
- * @property int $user_id
- * @property int $seat
- * @property PlayerColor|null $color
- * @property Faction|null $faction
- * @property TerrainType|null $homeland
- * @property bool $is_ready
- * @property int|null $result_place
- * @property int|null $final_score
- * @property Carbon|null $created_at
- * @property Carbon|null $updated_at
+ * @property int $id Уникальный идентификатор участника партии.
+ * @property int $game_id Партия, в которой участвует пользователь.
+ * @property int $user_id Пользователь, управляющий участником.
+ * @property int $seat Постоянная позиция игрока в партии.
+ * @property PlayerColor|null $color Выбранный цвет компонентов.
+ * @property Faction|null $faction Выбранное сообщество.
+ * @property TerrainType|null $homeland Выбранный тип родной местности.
+ * @property bool $is_ready Подтвердил ли участник готовность в лобби.
+ * @property int|null $result_place Итоговое место после завершения партии.
+ * @property int|null $final_score Итоговое количество победных очков.
+ * @property Carbon|null $created_at Дата и время присоединения участника.
+ * @property Carbon|null $updated_at Дата и время последнего обновления участника.
+ * @property-read Game $game Партия, в которой участвует пользователь.
+ * @property-read User $user Пользователь, управляющий участником.
  */
 #[Fillable([
     'game_id',

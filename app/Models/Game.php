@@ -8,6 +8,7 @@ use App\Enums\GamePhase;
 use App\Enums\GameStatus;
 use Database\Factories\GameFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -15,19 +16,22 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 
 /**
- * @property int $id
- * @property GameStatus $status
- * @property int $round
- * @property GamePhase $phase
- * @property int|null $active_player_id
- * @property int $version
- * @property array<string, mixed> $state
- * @property string $rules_version
- * @property string $random_seed
- * @property Carbon|null $started_at
- * @property Carbon|null $finished_at
- * @property Carbon|null $created_at
- * @property Carbon|null $updated_at
+ * @property int $id Уникальный идентификатор партии.
+ * @property GameStatus $status Текущий статус жизненного цикла партии.
+ * @property int $round Номер текущего раунда от 1 до 6.
+ * @property GamePhase $phase Текущая фаза раунда.
+ * @property int|null $active_player_id Пользователь, от которого ожидается следующее действие.
+ * @property int $version Монотонно возрастающая версия состояния для контроля конкурентных изменений.
+ * @property array<string, mixed> $state Авторитетный снимок полного состояния партии.
+ * @property string $rules_version Версия правил, по которой создана и проверяется партия.
+ * @property string $random_seed Начальное значение для воспроизводимой случайной подготовки партии.
+ * @property Carbon|null $started_at Дата и время выхода партии из лобби.
+ * @property Carbon|null $finished_at Дата и время завершения партии.
+ * @property Carbon|null $created_at Дата и время создания партии.
+ * @property Carbon|null $updated_at Дата и время последнего обновления партии.
+ * @property-read User|null $activePlayer Пользователь, от которого ожидается следующее действие.
+ * @property-read Collection<int, GamePlayer> $players Участники партии.
+ * @property-read Collection<int, GameAction> $actions Упорядоченная история действий партии.
  */
 #[Fillable([
     'status',
