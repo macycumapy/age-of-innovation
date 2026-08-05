@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Enums\Faction;
+use App\Enums\PlayerColor;
+use App\Enums\TerrainType;
 use Database\Factories\GamePlayerFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -16,9 +19,9 @@ use Illuminate\Support\Carbon;
  * @property int $game_id
  * @property int $user_id
  * @property int $seat
- * @property string|null $color
- * @property string|null $faction
- * @property string|null $homeland
+ * @property PlayerColor|null $color
+ * @property Faction|null $faction
+ * @property TerrainType|null $homeland
  * @property bool $is_ready
  * @property int|null $result_place
  * @property int|null $final_score
@@ -62,6 +65,9 @@ class GamePlayer extends Model
     protected function casts(): array
     {
         return [
+            'color' => PlayerColor::class,
+            'faction' => Faction::class,
+            'homeland' => TerrainType::class,
             'is_ready' => 'boolean',
         ];
     }

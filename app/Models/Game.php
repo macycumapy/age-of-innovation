@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Enums\GamePhase;
+use App\Enums\GameStatus;
 use Database\Factories\GameFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -14,9 +16,9 @@ use Illuminate\Support\Carbon;
 
 /**
  * @property int $id
- * @property string $status
+ * @property GameStatus $status
  * @property int $round
- * @property string $phase
+ * @property GamePhase $phase
  * @property int|null $active_player_id
  * @property int $version
  * @property array<string, mixed> $state
@@ -46,9 +48,9 @@ class Game extends Model
 
     /** @var array<string, mixed> */
     protected $attributes = [
-        'status' => 'lobby',
+        'status' => GameStatus::Lobby->value,
         'round' => 1,
-        'phase' => 'setup',
+        'phase' => GamePhase::Setup->value,
         'version' => 0,
         'state' => '[]',
         'rules_version' => '1.2',
@@ -76,6 +78,8 @@ class Game extends Model
     protected function casts(): array
     {
         return [
+            'status' => GameStatus::class,
+            'phase' => GamePhase::class,
             'state' => 'array',
             'started_at' => 'datetime',
             'finished_at' => 'datetime',

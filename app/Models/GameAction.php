@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Enums\GameActionType;
 use Database\Factories\GameActionFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -16,7 +17,7 @@ use Illuminate\Support\Carbon;
  * @property int $game_id
  * @property int $sequence
  * @property int|null $player_id
- * @property string $type
+ * @property GameActionType $type
  * @property array<string, mixed> $payload
  * @property array<int, array<string, mixed>>|null $events
  * @property int $state_version_before
@@ -55,6 +56,7 @@ class GameAction extends Model
     protected function casts(): array
     {
         return [
+            'type' => GameActionType::class,
             'payload' => 'array',
             'events' => 'array',
         ];

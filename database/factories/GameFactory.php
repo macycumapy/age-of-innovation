@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Database\Factories;
 
+use App\Enums\GamePhase;
+use App\Enums\GameStatus;
 use App\Models\Game;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Str;
@@ -15,9 +17,9 @@ class GameFactory extends Factory
     public function definition(): array
     {
         return [
-            'status' => 'lobby',
+            'status' => GameStatus::Lobby,
             'round' => 1,
-            'phase' => 'setup',
+            'phase' => GamePhase::Setup,
             'active_player_id' => null,
             'version' => 0,
             'state' => ['schemaVersion' => 1],
@@ -31,8 +33,8 @@ class GameFactory extends Factory
     public function active(): static
     {
         return $this->state(fn (array $attributes): array => [
-            'status' => 'active',
-            'phase' => 'income',
+            'status' => GameStatus::Active,
+            'phase' => GamePhase::Income,
             'started_at' => now(),
         ]);
     }
@@ -40,8 +42,8 @@ class GameFactory extends Factory
     public function finished(): static
     {
         return $this->state(fn (array $attributes): array => [
-            'status' => 'finished',
-            'phase' => 'finished',
+            'status' => GameStatus::Finished,
+            'phase' => GamePhase::Finished,
             'started_at' => now()->subHour(),
             'finished_at' => now(),
         ]);

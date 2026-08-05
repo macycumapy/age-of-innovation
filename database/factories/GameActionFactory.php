@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Database\Factories;
 
+use App\Enums\GameActionType;
 use App\Models\Game;
 use App\Models\GameAction;
 use App\Models\User;
@@ -21,7 +22,7 @@ class GameActionFactory extends Factory
             'game_id' => Game::factory(),
             'sequence' => $versionBefore + 1,
             'player_id' => User::factory(),
-            'type' => 'pass',
+            'type' => GameActionType::Pass,
             'payload' => [],
             'events' => [],
             'state_version_before' => $versionBefore,

@@ -4,6 +4,12 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use App\Enums\Faction;
+use App\Enums\GameActionType;
+use App\Enums\GamePhase;
+use App\Enums\GameStatus;
+use App\Enums\PlayerColor;
+use App\Enums\TerrainType;
 use App\Models\Game;
 use App\Models\GameAction;
 use App\Models\GamePlayer;
@@ -24,6 +30,9 @@ class GameModelsTest extends TestCase
         ]);
         $gamePlayer = GamePlayer::factory()->recycle($game)->recycle($activePlayer)->create([
             'seat' => 1,
+            'color' => PlayerColor::Yellow,
+            'faction' => Faction::Inventors,
+            'homeland' => TerrainType::Desert,
         ]);
         $action = GameAction::factory()->recycle($game)->create([
             'player_id' => $activePlayer->id,
@@ -31,11 +40,17 @@ class GameModelsTest extends TestCase
         ]);
 
         $this->assertSame(1, $game->state['schemaVersion']);
+        $this->assertSame(GameStatus::Lobby, $game->status);
+        $this->assertSame(GamePhase::Setup, $game->phase);
         $this->assertTrue($game->activePlayer->is($activePlayer));
         $this->assertTrue($game->players->contains($gamePlayer));
         $this->assertTrue($game->actions->contains($action));
         $this->assertTrue($gamePlayer->user->is($activePlayer));
+        $this->assertSame(PlayerColor::Yellow, $gamePlayer->color);
+        $this->assertSame(Faction::Inventors, $gamePlayer->faction);
+        $this->assertSame(TerrainType::Desert, $gamePlayer->homeland);
         $this->assertTrue($action->player->is($activePlayer));
+        $this->assertSame(GameActionType::Pass, $action->type);
     }
 
     public function test_game_action_casts_payload_and_events_to_arrays(): void
