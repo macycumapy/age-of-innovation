@@ -80,6 +80,7 @@ const rawHexes = computed(() =>
                 v-for="hex in rawHexes"
                 :key="hex.id"
                 :transform="`translate(${hex.x} ${hex.y})`"
+                class="board-hex-group cursor-pointer"
             >
                 <title>
                     {{ terrainNames[hex.terrain] }} ({{ hex.q }}, {{ hex.r }})
@@ -87,8 +88,7 @@ const rawHexes = computed(() =>
                 <polygon
                     :points="polygonPoints"
                     :fill="terrainColors[hex.terrain]"
-                    fill-opacity="0"
-                    stroke="#f5eed9"
+                    class="board-hex"
                     stroke-opacity="0.8"
                     stroke-width="2"
                     stroke-linejoin="round"
@@ -109,3 +109,14 @@ const rawHexes = computed(() =>
         </svg>
     </div>
 </template>
+
+<style scoped>
+.board-hex {
+    fill-opacity: 0;
+    transition: fill-opacity 150ms ease-in-out;
+}
+
+.board-hex-group:hover .board-hex {
+    fill-opacity: 0.42;
+}
+</style>
