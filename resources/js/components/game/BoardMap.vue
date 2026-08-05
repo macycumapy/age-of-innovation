@@ -18,6 +18,7 @@ const rowOffset = 64;
 const rowSpacing = 111;
 const hexRadiusX = 62;
 const hexRadiusY = 72;
+const cornerRatio = 0.1;
 
 const terrainColors: Record<TerrainType, string> = {
     desert: '#e9c65c',
@@ -39,14 +40,34 @@ const terrainNames: Record<TerrainType, string> = {
     wasteland: 'Пустошь',
 };
 
-const polygonPoints = [
-    `0,${-hexRadiusY}`,
-    `${hexRadiusX},${-hexRadiusY / 2}`,
-    `${hexRadiusX},${hexRadiusY / 2}`,
-    `0,${hexRadiusY}`,
-    `${-hexRadiusX},${hexRadiusY / 2}`,
-    `${-hexRadiusX},${-hexRadiusY / 2}`,
-].join(' ');
+const hexVertices = [
+    { x: 0, y: -hexRadiusY },
+    { x: hexRadiusX, y: -hexRadiusY / 2 },
+    { x: hexRadiusX, y: hexRadiusY / 2 },
+    { x: 0, y: hexRadiusY },
+    { x: -hexRadiusX, y: hexRadiusY / 2 },
+    { x: -hexRadiusX, y: -hexRadiusY / 2 },
+];
+
+const pointTowards = (
+    from: { x: number; y: number },
+    to: { x: number; y: number },
+) => ({
+    x: from.x + (to.x - from.x) * cornerRatio,
+    y: from.y + (to.y - from.y) * cornerRatio,
+});
+
+const roundedHexPath = hexVertices
+    .map((vertex, index) => {
+        const previous = hexVertices.at(index - 1) ?? hexVertices.at(-1)!;
+        const next = hexVertices[(index + 1) % hexVertices.length];
+        const start = pointTowards(vertex, previous);
+        const end = pointTowards(vertex, next);
+
+        return `${index === 0 ? `M ${start.x},${start.y}` : `L ${start.x},${start.y}`} Q ${vertex.x},${vertex.y} ${end.x},${end.y}`;
+    })
+    .join(' ')
+    .concat(' Z');
 
 const rawHexes = computed(() =>
     props.board.hexes.map((hex) => ({
@@ -85,8 +106,8 @@ const rawHexes = computed(() =>
                 <title>
                     {{ terrainNames[hex.terrain] }} ({{ hex.q }}, {{ hex.r }})
                 </title>
-                <polygon
-                    :points="polygonPoints"
+                <path
+                    :d="roundedHexPath"
                     :fill="terrainColors[hex.terrain]"
                     class="board-hex"
                     stroke-opacity="0.8"
