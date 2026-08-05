@@ -17,7 +17,7 @@ class BoardStateData extends Data
     /**
      * @param list<BoardHexStateData> $hexes
      * @param list<BridgeStateData> $bridges
-    */
+     */
     public function __construct(
         public MapVariant $variant = MapVariant::ThreeToFivePlayers,
         public array $hexes = [],
