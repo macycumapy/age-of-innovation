@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Actions\Fortify;
+namespace App\Domain\Fortify\Actions;
 
 use App\Concerns\PasswordValidationRules;
 use App\Concerns\ProfileValidationRules;
