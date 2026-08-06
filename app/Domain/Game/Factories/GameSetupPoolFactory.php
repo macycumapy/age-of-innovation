@@ -19,6 +19,7 @@ use App\Domain\Game\Enums\RoundScoringTile;
 use App\Domain\Game\Enums\TerrainType;
 use App\Domain\Game\Enums\TownTile;
 use InvalidArgumentException;
+use Random\Engine\Xoshiro256StarStar;
 use Random\Randomizer;
 use RuntimeException;
 
@@ -59,6 +60,19 @@ final class GameSetupPoolFactory
             townTiles: TownTile::cases(),
             twoPlayerAreaTile: $playerCount === 2 ? $this->randomizer->getInt(1, 4) : null,
         );
+    }
+
+    public function createFromSeed(
+        int $playerCount,
+        string $seed,
+        ?MapVariant $mapVariant = null,
+    ): GameSetupPoolData {
+        $factory = clone $this;
+        $factory->randomizer = new Randomizer(
+            new Xoshiro256StarStar(hash('sha256', $seed, true)),
+        );
+
+        return $factory->create($playerCount, $mapVariant);
     }
 
     private function defaultMapVariant(int $playerCount): MapVariant

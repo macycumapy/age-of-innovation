@@ -18,6 +18,7 @@ use Spatie\LaravelData\Data;
  * @property list<string> $availableInventionIds Доступные изобретения.
  * @property list<string> $availableCompetencyIds Доступные компетенции.
  * @property list<string> $roundBonusIds Бонусы раунда, участвующие в партии.
+ * @property GameSetupPoolData|null $setupPool Пул компонентов, сформированный при старте партии.
  * @property PendingInteractionData|null $pendingInteraction Незавершённое решение игрока, блокирующее продолжение партии.
  */
 class GameStateData extends Data
@@ -44,6 +45,7 @@ class GameStateData extends Data
         public array $availableInventionIds = [],
         public array $availableCompetencyIds = [],
         public array $roundBonusIds = [],
+        public ?GameSetupPoolData $setupPool = null,
         public ?PendingInteractionData $pendingInteraction = null,
     ) {
     }

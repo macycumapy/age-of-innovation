@@ -109,6 +109,14 @@ final class GameSetupPoolFactoryTest extends TestCase
         $this->assertSame(MapVariant::OneToThreePlayers, $pool->mapVariant);
     }
 
+    public function test_stored_seed_reproduces_setup_pool(): void
+    {
+        $firstPool = $this->factory(1)->createFromSeed(4, 'stored-game-seed');
+        $secondPool = $this->factory(999)->createFromSeed(4, 'stored-game-seed');
+
+        $this->assertSame($firstPool->toArray(), $secondPool->toArray());
+    }
+
     public function test_it_rejects_unsupported_player_count(): void
     {
         $this->expectException(InvalidArgumentException::class);
