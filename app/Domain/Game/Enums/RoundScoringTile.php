@@ -30,4 +30,36 @@ enum RoundScoringTile: string
     case TrackEngineering = 'track_engineering';
     /** 5 ПО за изобретение; за каждые 2 уровня права — 3 силы. */
     case InnovationLaw = 'innovation_law';
+
+    public function goal(): RoundScoringGoal
+    {
+        return match ($this) {
+            self::WorkshopLaw, self::WorkshopBanking => RoundScoringGoal::Workshop,
+            self::GuildLaw, self::GuildMedicine => RoundScoringGoal::Guild,
+            self::SchoolBanking => RoundScoringGoal::School,
+            self::PalaceUniversityMedicine,
+            self::PalaceUniversityBanking => RoundScoringGoal::PalaceOrUniversity,
+            self::SpadeEngineering => RoundScoringGoal::Spade,
+            self::KnowledgeMedicine => RoundScoringGoal::Knowledge,
+            self::TownEngineering => RoundScoringGoal::Town,
+            self::TrackEngineering => RoundScoringGoal::ShippingOrTerraforming,
+            self::InnovationLaw => RoundScoringGoal::Innovation,
+        };
+    }
+
+    public function knowledgeDiscipline(): KnowledgeDiscipline
+    {
+        return match ($this) {
+            self::WorkshopLaw, self::GuildLaw, self::InnovationLaw => KnowledgeDiscipline::Law,
+            self::WorkshopBanking,
+            self::SchoolBanking,
+            self::PalaceUniversityBanking => KnowledgeDiscipline::Banking,
+            self::GuildMedicine,
+            self::PalaceUniversityMedicine,
+            self::KnowledgeMedicine => KnowledgeDiscipline::Medicine,
+            self::SpadeEngineering,
+            self::TownEngineering,
+            self::TrackEngineering => KnowledgeDiscipline::Engineering,
+        };
+    }
 }
