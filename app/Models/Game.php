@@ -7,8 +7,10 @@ namespace App\Models;
 use App\Domain\Game\Data\GameStateData;
 use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\GameStatus;
+use App\Models\Builders\GameBuilder;
 use Database\Factories\GameFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Attributes\UseEloquentBuilder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -33,6 +35,7 @@ use Illuminate\Support\Carbon;
  * @property-read User|null $activePlayer Пользователь, от которого ожидается следующее действие.
  * @property-read Collection<int, GamePlayer> $players Участники партии.
  * @property-read Collection<int, GameAction> $actions Упорядоченная история действий партии.
+ * @method static GameBuilder query()
  */
 #[Fillable([
     'status',
@@ -46,6 +49,7 @@ use Illuminate\Support\Carbon;
     'started_at',
     'finished_at',
 ])]
+#[UseEloquentBuilder(GameBuilder::class)]
 class Game extends Model
 {
     /** @use HasFactory<GameFactory> */

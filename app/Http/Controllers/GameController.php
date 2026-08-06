@@ -23,13 +23,30 @@ class GameController extends Controller
         $user = $request->user();
 
         $games = Game::query()
-            ->whereHas('players', fn (Builder $query): Builder => $query->where('user_id', $user->id))
+            ->availableTo($user)
+            ->withExists([
+                'players as is_joined' => fn (Builder $query): Builder => $query->where('user_id', $user->id),
+            ])
             ->withCount('players')
             ->latest()
+            ->latest('id')
             ->get();
 
         return Inertia::render('games/Index', [
             'games' => GameResource::collection($games),
+        ]);
+    }
+
+    public function show(Request $request, Game $game): Response
+    {
+        /** @var User $user */
+        $user = $request->user();
+
+        $game->load(['players.user'])->loadCount('players');
+        $game->setAttribute('is_joined', $game->players->contains('user_id', $user->id));
+
+        return Inertia::render('games/Show', [
+            'game' => new GameResource($game),
         ]);
     }
 

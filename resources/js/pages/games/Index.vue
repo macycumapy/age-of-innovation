@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Form, Head } from '@inertiajs/vue3';
+import { Form, Head, Link } from '@inertiajs/vue3';
 import GameController from '@/actions/App/Http/Controllers/GameController';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
@@ -10,7 +10,7 @@ import {
     CardHeader,
     CardTitle,
 } from '@/components/ui/card';
-import { index } from '@/routes/games';
+import { index, show } from '@/routes/games';
 import type { GameCollection, GameStatus, MapVariant } from '@/types';
 
 defineProps<{
@@ -142,6 +142,16 @@ const formatDate = (date: string | null): string =>
                         <p class="text-muted-foreground">
                             Создана {{ formatDate(game.createdAt) }}
                         </p>
+
+                        <Button as-child class="mt-3">
+                            <Link :href="show(game.id)">
+                                {{
+                                    game.isJoined
+                                        ? 'Открыть подготовку'
+                                        : 'Посмотреть игру'
+                                }}
+                            </Link>
+                        </Button>
                     </CardContent>
                 </Card>
             </div>
