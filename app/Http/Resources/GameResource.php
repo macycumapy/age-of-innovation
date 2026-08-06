@@ -57,6 +57,12 @@ class GameResource extends JsonResource
                 ],
                 $this->state->planningSelections,
             ),
+            'pendingInteraction' => $this->state->pendingInteraction === null ? null : [
+                'type' => $this->state->pendingInteraction->type->value,
+                'playerId' => $this->state->pendingInteraction->playerId,
+                'optionIds' => $this->state->pendingInteraction->optionIds,
+                'context' => $this->state->pendingInteraction->context,
+            ],
             'createdAt' => $this->created_at?->toISOString(),
         ];
     }

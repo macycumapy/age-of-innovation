@@ -25,6 +25,7 @@ export type GameResource = {
         canStart: boolean;
         planningBundles: PlanningBundle[];
         planningSelections: PlanningSelection[];
+        pendingInteraction: PendingInteraction | null;
     };
 };
 
@@ -75,6 +76,22 @@ export type PlanningBundle = {
 export type PlanningSelection = {
     playerId: number;
     bundle: PlanningBundle;
+};
+
+export type KnowledgeDiscipline =
+    | 'banking'
+    | 'law'
+    | 'engineering'
+    | 'medicine';
+
+export type PendingInteraction = {
+    type: 'choose_starting_resources';
+    playerId: number;
+    optionIds: KnowledgeDiscipline[];
+    context: {
+        bookCount: number;
+        knowledgeStepCount: number;
+    };
 };
 
 export type TerrainType =

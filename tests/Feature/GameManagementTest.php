@@ -5,9 +5,13 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Domain\Game\Data\GameStateData;
+use App\Domain\Game\Data\PlanningBundleData;
+use App\Domain\Game\Enums\Faction;
 use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\GameStatus;
 use App\Domain\Game\Enums\MapVariant;
+use App\Domain\Game\Enums\PendingInteractionType;
+use App\Domain\Game\Enums\TerrainType;
 use App\Domain\Game\Factories\BoardStateFactory;
 use App\Models\Builders\GameBuilder;
 use App\Models\Game;
@@ -330,9 +334,13 @@ class GameManagementTest extends TestCase
         $game->refresh();
 
         $activeUser = $users->firstWhere('id', $game->active_player_id);
-        $bundle = $game->state->setupPool->planningBundles[0];
+        $bundle = collect($game->state->setupPool->planningBundles)->first(
+            static fn (PlanningBundleData $bundle): bool => $bundle->homeland !== TerrainType::Wasteland
+                && $bundle->faction !== Faction::Lizards,
+        );
 
         $this->assertInstanceOf(User::class, $activeUser);
+        $this->assertInstanceOf(PlanningBundleData::class, $bundle);
 
         $this->actingAs($activeUser)
             ->post(route('games.planning-bundle.store', $game), [
@@ -407,5 +415,68 @@ class GameManagementTest extends TestCase
             ->assertForbidden();
 
         $this->assertCount(7, $game->refresh()->state->setupPool->planningBundles);
+    }
+
+    public function test_player_must_distribute_starting_resources_before_the_next_player_chooses(): void
+    {
+        $users = User::factory()->count(2)->create();
+        $game = Game::factory()->create(['random_seed' => 'starting-resources-seed']);
+
+        foreach ($users as $index => $user) {
+            GamePlayer::factory()->ready()->create([
+                'game_id' => $game->id,
+                'user_id' => $user->id,
+                'seat' => $index + 1,
+            ]);
+        }
+
+        $this->actingAs($users[0])->post(route('games.start', $game));
+        $game->refresh();
+
+        $activeUser = $users->firstWhere('id', $game->active_player_id);
+        $state = $game->state;
+        $bundle = collect($state->setupPool->planningBundles)->first(
+            static fn (PlanningBundleData $bundle): bool => $bundle->homeland === TerrainType::Wasteland,
+        );
+
+        $this->assertInstanceOf(User::class, $activeUser);
+        $this->assertInstanceOf(PlanningBundleData::class, $bundle);
+
+        $bundle->faction = Faction::Lizards;
+        $game->update(['state' => $state]);
+
+        $this->actingAs($activeUser)
+            ->post(route('games.planning-bundle.store', $game), [
+                'homeland' => TerrainType::Wasteland->value,
+            ])
+            ->assertRedirect(route('games.show', $game));
+
+        $game->refresh();
+        $player = $game->players()->whereBelongsTo($activeUser)->sole();
+
+        $this->assertSame($activeUser->id, $game->active_player_id);
+        $this->assertSame(PendingInteractionType::ChooseStartingResources, $game->state->pendingInteraction?->type);
+        $this->assertSame($player->id, $game->state->pendingInteraction?->playerId);
+        $this->assertSame(1, $game->state->players[0]->resources->books->unassigned);
+        $this->assertSame(2, $game->state->players[0]->knowledge->unassignedSteps);
+
+        $this->post(route('games.starting-resources.store', $game))
+            ->assertSessionHasErrors(['book_discipline', 'knowledge_disciplines']);
+
+        $this->assertNotNull($game->refresh()->state->pendingInteraction);
+
+        $this->post(route('games.starting-resources.store', $game), [
+            'book_discipline' => 'banking',
+            'knowledge_disciplines' => ['law', 'law'],
+        ])->assertRedirect(route('games.show', $game));
+
+        $game->refresh();
+
+        $this->assertNull($game->state->pendingInteraction);
+        $this->assertSame(0, $game->state->players[0]->resources->books->unassigned);
+        $this->assertSame(1, $game->state->players[0]->resources->books->banking);
+        $this->assertSame(0, $game->state->players[0]->knowledge->unassignedSteps);
+        $this->assertSame(2, $game->state->players[0]->knowledge->law);
+        $this->assertNotSame($activeUser->id, $game->active_player_id);
     }
 }

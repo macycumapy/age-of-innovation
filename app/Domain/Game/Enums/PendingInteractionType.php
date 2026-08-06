@@ -6,6 +6,8 @@ namespace App\Domain\Game\Enums;
 
 enum PendingInteractionType: string
 {
+    /** Выбор дисциплины стартовой книги и распределение стартовых шагов знаний. */
+    case ChooseStartingResources = 'choose_starting_resources';
     case PowerOffer = 'power_offer';
     case ChooseTown = 'choose_town';
     case ChoosePalace = 'choose_palace';

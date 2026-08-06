@@ -8,6 +8,7 @@ use App\Http\Controllers\GamePlayerController;
 use App\Http\Controllers\GamePlayerReadinessController;
 use App\Http\Controllers\GameStartController;
 use App\Http\Controllers\PlanningBundleController;
+use App\Http\Controllers\StartingResourcesController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -22,6 +23,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('games/{game}/start', GameStartController::class)->name('games.start');
     Route::post('games/{game}/planning-bundle', [PlanningBundleController::class, 'store'])
         ->name('games.planning-bundle.store');
+    Route::post('games/{game}/starting-resources', [StartingResourcesController::class, 'store'])
+        ->name('games.starting-resources.store');
 
     Route::get('dashboard', function (BoardStateFactory $boardStateFactory): Response {
         return Inertia::render('Dashboard', [

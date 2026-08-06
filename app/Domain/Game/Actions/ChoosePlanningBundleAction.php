@@ -4,22 +4,26 @@ declare(strict_types=1);
 
 namespace App\Domain\Game\Actions;
 
+use App\Domain\Game\Data\PendingInteractionData;
 use App\Domain\Game\Data\PlanningBundleData;
 use App\Domain\Game\Data\PlayerPlanningSelectionData;
 use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\GameStatus;
+use App\Domain\Game\Enums\KnowledgeDiscipline;
+use App\Domain\Game\Enums\PendingInteractionType;
 use App\Domain\Game\Enums\TerrainType;
 use App\Domain\Game\Factories\GamePlayerStateFactory;
 use App\Models\Game;
-use App\Models\GamePlayer;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 final class ChoosePlanningBundleAction
 {
-    public function __construct(private GamePlayerStateFactory $playerStateFactory)
-    {
+    public function __construct(
+        private GamePlayerStateFactory $playerStateFactory,
+        private DetermineNextPlanningPlayerAction $determineNextPlanningPlayer,
+    ) {
     }
 
     public function execute(Game $game, User $user, TerrainType $homeland): Game
@@ -81,47 +85,32 @@ final class ChoosePlanningBundleAction
                 new PlayerPlanningSelectionData($player->id, $bundle),
             ];
             $state->players = [...$state->players, $playerState];
-            $nextPlayer = $this->nextPlayer($lockedGame, $player);
+            $requiresStartingChoice = $playerState->resources->books->unassigned > 0
+                || $playerState->knowledge->unassignedSteps > 0;
+
+            if ($requiresStartingChoice) {
+                $state->pendingInteraction = new PendingInteractionData(
+                    type: PendingInteractionType::ChooseStartingResources,
+                    playerId: $player->id,
+                    optionIds: array_column(KnowledgeDiscipline::cases(), 'value'),
+                    context: [
+                        'bookCount' => $playerState->resources->books->unassigned,
+                        'knowledgeStepCount' => $playerState->knowledge->unassignedSteps,
+                    ],
+                );
+            }
+
+            $nextPlayerId = $requiresStartingChoice
+                ? $player->user_id
+                : $this->determineNextPlanningPlayer->execute($lockedGame, $player)->user_id;
 
             $lockedGame->update([
-                'active_player_id' => $nextPlayer->user_id,
+                'active_player_id' => $nextPlayerId,
                 'version' => $lockedGame->version + 1,
                 'state' => $state,
             ]);
 
             return $lockedGame->refresh();
         });
-    }
-
-    private function nextPlayer(Game $game, GamePlayer $currentPlayer): GamePlayer
-    {
-        $playersById = $game->players()->get()->keyBy('id');
-        $turnOrder = $game->state->turnOrder;
-        $currentIndex = array_search($currentPlayer->id, $turnOrder, true);
-
-        if ($currentIndex === false) {
-            throw ValidationException::withMessages([
-                'game' => 'Нарушен порядок игроков в состоянии партии.',
-            ]);
-        }
-
-        foreach (range(1, count($turnOrder)) as $offset) {
-            $playerId = $turnOrder[($currentIndex + $offset) % count($turnOrder)];
-            $candidate = $playersById->get($playerId);
-
-            if ($candidate instanceof GamePlayer && $candidate->faction === null) {
-                return $candidate;
-            }
-        }
-
-        $firstPlayer = $playersById->get($turnOrder[0]);
-
-        if (! $firstPlayer instanceof GamePlayer) {
-            throw ValidationException::withMessages([
-                'game' => 'Не найден первый игрок партии.',
-            ]);
-        }
-
-        return $firstPlayer;
     }
 }

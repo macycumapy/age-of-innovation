@@ -5,6 +5,7 @@ import GamePlayerController from '@/actions/App/Http/Controllers/GamePlayerContr
 import GamePlayerReadinessController from '@/actions/App/Http/Controllers/GamePlayerReadinessController';
 import GameStartController from '@/actions/App/Http/Controllers/GameStartController';
 import PlanningBundleController from '@/actions/App/Http/Controllers/PlanningBundleController';
+import StartingResourcesController from '@/actions/App/Http/Controllers/StartingResourcesController';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
 import {
@@ -19,6 +20,7 @@ import type {
     Faction,
     GamePlayerSummary,
     GameResource,
+    KnowledgeDiscipline,
     MapVariant,
     RoundBonus,
     TerrainType,
@@ -84,6 +86,14 @@ const canChoosePlanningBundle = computed(
         currentPlayer.value?.faction === null,
 );
 
+const canChooseStartingResources = computed(
+    () =>
+        props.game.data.pendingInteraction?.type ===
+            'choose_starting_resources' &&
+        props.game.data.pendingInteraction.playerId === currentPlayer.value?.id &&
+        props.game.data.activePlayerId === page.props.auth.user.id,
+);
+
 const allPlanningBundlesChosen = computed(() =>
     props.game.data.players.every((player) => player.faction !== null),
 );
@@ -140,6 +150,13 @@ const roundBonusNames: Record<RoundBonus, string> = {
     pass_school: 'Школы при пасе',
     power_coins: 'Сила и монеты',
     coins: 'Монеты',
+};
+
+const knowledgeDisciplineNames: Record<KnowledgeDiscipline, string> = {
+    banking: 'Банковское дело',
+    law: 'Право',
+    engineering: 'Инженерное дело',
+    medicine: 'Медицина',
 };
 
 function planningBundleButtonLabel(processing: boolean): string {
@@ -334,7 +351,10 @@ function planningSelectionDetails(playerId: number): string {
         <Card v-if="game.data.status === 'active'">
             <CardHeader>
                 <CardTitle>Выбор стартового комплекта</CardTitle>
-                <CardDescription v-if="canChoosePlanningBundle">
+                <CardDescription v-if="canChooseStartingResources">
+                    Завершите распределение стартовых ресурсов.
+                </CardDescription>
+                <CardDescription v-else-if="canChoosePlanningBundle">
                     Выберите родную местность, сообщество и бонус раунда.
                 </CardDescription>
                 <CardDescription v-else-if="allPlanningBundlesChosen">
@@ -370,7 +390,9 @@ function planningSelectionDetails(playerId: number): string {
                             :class="[
                                 'flex items-start gap-3 rounded-lg border p-3',
                                 player.user.id === game.data.activePlayerId &&
-                                player.faction === null
+                                (player.faction === null ||
+                                    game.data.pendingInteraction?.playerId ===
+                                        player.id)
                                     ? 'border-primary bg-primary/5'
                                     : 'bg-muted/30',
                             ]"
@@ -388,11 +410,18 @@ function planningSelectionDetails(playerId: number): string {
                                     v-if="
                                         player.user.id ===
                                             game.data.activePlayerId &&
-                                        player.faction === null
+                                        (player.faction === null ||
+                                            game.data.pendingInteraction
+                                                ?.playerId === player.id)
                                     "
                                     class="text-xs font-medium text-primary"
                                 >
-                                    Выбирает сейчас
+                                    {{
+                                        game.data.pendingInteraction?.playerId ===
+                                        player.id
+                                            ? 'Распределяет ресурсы'
+                                            : 'Выбирает сейчас'
+                                    }}
                                 </p>
                                 <p
                                     v-else-if="player.id === nextPlayer?.id"
@@ -432,6 +461,100 @@ function planningSelectionDetails(playerId: number): string {
                         </li>
                     </ol>
                 </div>
+
+                <Form
+                    v-if="canChooseStartingResources"
+                    v-bind="StartingResourcesController.store.form(game.data.id)"
+                    #default="{ errors, processing }"
+                    class="mb-6 grid gap-5 rounded-xl border border-primary/40 bg-primary/5 p-5"
+                >
+                    <div class="grid gap-1">
+                        <h3 class="font-semibold">
+                            Распределите стартовые ресурсы
+                        </h3>
+                        <p class="text-sm text-muted-foreground">
+                            Этот выбор завершает получение вашего стартового
+                            комплекта.
+                        </p>
+                    </div>
+
+                    <label
+                        v-if="
+                            (game.data.pendingInteraction?.context.bookCount ??
+                                0) > 0
+                        "
+                        class="grid gap-2 text-sm font-medium"
+                    >
+                        Дисциплина дополнительной книги
+                        <select
+                            name="book_discipline"
+                            required
+                            class="border-input bg-background h-9 rounded-md border px-3 text-sm shadow-xs"
+                        >
+                            <option value="" disabled selected>
+                                Выберите дисциплину
+                            </option>
+                            <option
+                                v-for="discipline in game.data
+                                    .pendingInteraction?.optionIds"
+                                :key="discipline"
+                                :value="discipline"
+                            >
+                                {{ knowledgeDisciplineNames[discipline] }}
+                            </option>
+                        </select>
+                        <InputError :message="errors.book_discipline" />
+                    </label>
+
+                    <div
+                        v-if="
+                            (game.data.pendingInteraction?.context
+                                .knowledgeStepCount ?? 0) > 0
+                        "
+                        class="grid gap-3"
+                    >
+                        <p class="text-sm font-medium">
+                            Распределение шагов знаний
+                        </p>
+                        <label
+                            v-for="step in game.data.pendingInteraction?.context
+                                .knowledgeStepCount"
+                            :key="step"
+                            class="grid gap-2 text-sm"
+                        >
+                            Шаг {{ step }}
+                            <select
+                                name="knowledge_disciplines[]"
+                                required
+                                class="border-input bg-background h-9 rounded-md border px-3 text-sm shadow-xs"
+                            >
+                                <option value="" disabled selected>
+                                    Выберите дисциплину
+                                </option>
+                                <option
+                                    v-for="discipline in game.data
+                                        .pendingInteraction?.optionIds"
+                                    :key="discipline"
+                                    :value="discipline"
+                                >
+                                    {{ knowledgeDisciplineNames[discipline] }}
+                                </option>
+                            </select>
+                        </label>
+                        <InputError
+                            :message="
+                                errors.knowledge_disciplines ??
+                                errors['knowledge_disciplines.0'] ??
+                                errors['knowledge_disciplines.1']
+                            "
+                        />
+                    </div>
+
+                    <InputError :message="errors.game" />
+                    <Button type="submit" :disabled="processing">
+                        {{ processing ? 'Сохранение…' : 'Подтвердить выбор' }}
+                    </Button>
+                </Form>
 
                 <div
                     class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3"
