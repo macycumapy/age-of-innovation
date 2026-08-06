@@ -132,6 +132,42 @@ class GameManagementTest extends TestCase
         $this->assertSame(3, $game->players()->count());
     }
 
+    public function test_player_can_confirm_and_cancel_readiness(): void
+    {
+        $user = User::factory()->create();
+        $gamePlayer = GamePlayer::factory()->create([
+            'user_id' => $user->id,
+            'is_ready' => false,
+        ]);
+
+        $this->actingAs($user)
+            ->patch(route('games.players.readiness.update', [$gamePlayer->game, $gamePlayer]), [
+                'is_ready' => true,
+            ])
+            ->assertRedirect(route('games.show', $gamePlayer->game));
+
+        $this->assertTrue($gamePlayer->refresh()->is_ready);
+
+        $this->patch(route('games.players.readiness.update', [$gamePlayer->game, $gamePlayer]), [
+            'is_ready' => false,
+        ])->assertRedirect(route('games.show', $gamePlayer->game));
+
+        $this->assertFalse($gamePlayer->refresh()->is_ready);
+    }
+
+    public function test_player_cannot_change_another_players_readiness(): void
+    {
+        $gamePlayer = GamePlayer::factory()->create();
+
+        $this->actingAs(User::factory()->create())
+            ->patch(route('games.players.readiness.update', [$gamePlayer->game, $gamePlayer]), [
+                'is_ready' => true,
+            ])
+            ->assertForbidden();
+
+        $this->assertFalse($gamePlayer->refresh()->is_ready);
+    }
+
     public function test_user_can_create_a_game_and_becomes_its_first_player(): void
     {
         $user = User::factory()->create();

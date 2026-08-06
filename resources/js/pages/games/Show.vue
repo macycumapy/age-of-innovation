@@ -1,6 +1,8 @@
 <script setup lang="ts">
-import { Form, Head, Link } from '@inertiajs/vue3';
+import { Form, Head, Link, usePage } from '@inertiajs/vue3';
+import { computed } from 'vue';
 import GamePlayerController from '@/actions/App/Http/Controllers/GamePlayerController';
+import GamePlayerReadinessController from '@/actions/App/Http/Controllers/GamePlayerReadinessController';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
 import {
@@ -13,9 +15,17 @@ import {
 import { index } from '@/routes/games';
 import type { GameResource, MapVariant } from '@/types';
 
-defineProps<{
+const props = defineProps<{
     game: GameResource;
 }>();
+
+const page = usePage();
+
+const currentPlayer = computed(() =>
+    props.game.data.players.find(
+        (player) => player.user.id === page.props.auth.user.id,
+    ),
+);
 
 defineOptions({
     layout: {
@@ -95,8 +105,8 @@ const mapVariantNames: Record<MapVariant, string> = {
         <Card v-if="game.data.status === 'lobby'">
             <CardHeader>
                 <CardTitle>Присоединение</CardTitle>
-                <CardDescription v-if="game.data.isJoined">
-                    Вы уже участвуете в этой игре.
+                <CardDescription v-if="currentPlayer">
+                    Подтвердите готовность к началу партии.
                 </CardDescription>
                 <CardDescription
                     v-else-if="game.data.playersCount >= game.data.maxPlayers"
@@ -107,9 +117,41 @@ const mapVariantNames: Record<MapVariant, string> = {
                     Займите свободное место в этой партии.
                 </CardDescription>
             </CardHeader>
+            <CardContent v-if="currentPlayer">
+                <Form
+                    v-bind="
+                        GamePlayerReadinessController.update.form({
+                            game: game.data.id,
+                            gamePlayer: currentPlayer.id,
+                        })
+                    "
+                    #default="{ errors, processing }"
+                    class="grid gap-3"
+                >
+                    <input
+                        type="hidden"
+                        name="is_ready"
+                        :value="currentPlayer.isReady ? '0' : '1'"
+                    />
+                    <InputError :message="errors.is_ready" />
+                    <Button
+                        type="submit"
+                        :variant="currentPlayer.isReady ? 'outline' : 'default'"
+                        :disabled="processing"
+                    >
+                        {{
+                            processing
+                                ? 'Сохранение…'
+                                : currentPlayer.isReady
+                                  ? 'Отменить готовность'
+                                  : 'Я готов'
+                        }}
+                    </Button>
+                </Form>
+            </CardContent>
             <CardContent
                 v-if="
-                    !game.data.isJoined &&
+                    !currentPlayer &&
                     game.data.playersCount < game.data.maxPlayers
                 "
             >
