@@ -85,9 +85,11 @@ class GameManagementTest extends TestCase
             ->assertOk()
             ->assertInertia(
                 fn (Assert $page) => $page
-                ->component('games/Show')
-                ->where('game.data.id', $game->id)
-                ->where('game.data.isJoined', false)
+                    ->component('games/Show')
+                    ->where('game.data.id', $game->id)
+                    ->where('game.data.board.variant', MapVariant::ThreeToFivePlayers->value)
+                    ->has('game.data.board.hexes')
+                    ->where('game.data.isJoined', false)
                 ->where('game.data.playersCount', 1)
                 ->where('game.data.players.0.user.name', $owner->name)
             );

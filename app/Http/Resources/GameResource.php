@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Resources;
 
+use App\Domain\Game\Data\BoardHexStateData;
 use App\Domain\Game\Data\PlanningBundleData;
 use App\Domain\Game\Data\PlayerPlanningSelectionData;
 use App\Domain\Game\Enums\GameStatus;
@@ -31,6 +32,19 @@ class GameResource extends JsonResource
             'isOwner' => $owner?->user_id === $request->user()?->id,
             'activePlayerId' => $this->active_player_id,
             'turnOrder' => $this->state->turnOrder,
+            'board' => [
+                'variant' => $this->state->board->variant->value,
+                'hexes' => array_map(
+                    static fn (BoardHexStateData $hex): array => [
+                        'id' => $hex->id,
+                        'q' => $hex->q,
+                        'r' => $hex->r,
+                        'initialTerrain' => $hex->initialTerrain->value,
+                        'terrain' => $hex->terrain->value,
+                    ],
+                    $this->state->board->hexes,
+                ),
+            ],
             'canStart' => $playersLoaded
                 && $this->status === GameStatus::Lobby
                 && $this->players->count() >= 2

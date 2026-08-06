@@ -6,6 +6,7 @@ import GamePlayerReadinessController from '@/actions/App/Http/Controllers/GamePl
 import GameStartController from '@/actions/App/Http/Controllers/GameStartController';
 import PlanningBundleController from '@/actions/App/Http/Controllers/PlanningBundleController';
 import StartingResourcesController from '@/actions/App/Http/Controllers/StartingResourcesController';
+import BoardMap from '@/components/game/BoardMap.vue';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
 import {
@@ -96,6 +97,12 @@ const canChooseStartingResources = computed(
 
 const allPlanningBundlesChosen = computed(() =>
     props.game.data.players.every((player) => player.faction !== null),
+);
+
+const setupChoicesCompleted = computed(
+    () =>
+        allPlanningBundlesChosen.value &&
+        props.game.data.pendingInteraction === null,
 );
 
 defineOptions({
@@ -348,7 +355,9 @@ function planningSelectionDetails(playerId: number): string {
             </CardContent>
         </Card>
 
-        <Card v-if="game.data.status === 'active'">
+        <Card
+            v-if="game.data.status === 'active' && !setupChoicesCompleted"
+        >
             <CardHeader>
                 <CardTitle>Выбор стартового комплекта</CardTitle>
                 <CardDescription v-if="canChooseStartingResources">
@@ -602,5 +611,19 @@ function planningSelectionDetails(playerId: number): string {
                 </div>
             </CardContent>
         </Card>
+
+        <section
+            v-if="game.data.status === 'active' && setupChoicesCompleted"
+            class="grid gap-4"
+        >
+            <div>
+                <h2 class="text-xl font-semibold">Игровая карта</h2>
+                <p class="text-sm text-muted-foreground">
+                    Все игроки выбрали стартовые комплекты.
+                </p>
+            </div>
+
+            <BoardMap :board="game.data.board" />
+        </section>
     </div>
 </template>

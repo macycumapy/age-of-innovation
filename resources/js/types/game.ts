@@ -22,6 +22,7 @@ export type GameResource = {
         isOwner: boolean;
         activePlayerId: number | null;
         turnOrder: number[];
+        board: BoardState;
         canStart: boolean;
         planningBundles: PlanningBundle[];
         planningSelections: PlanningSelection[];
