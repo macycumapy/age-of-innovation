@@ -240,6 +240,14 @@ class GameManagementTest extends TestCase
             $game->state->turnOrder,
         );
         $this->assertContains($game->active_player_id, [$owner->id, $secondUser->id]);
+
+        $this->actingAs($owner)
+            ->get(route('games.show', $game))
+            ->assertInertia(
+                fn (Assert $page) => $page
+                    ->where('game.data.turnOrder', $game->state->turnOrder)
+                    ->where('game.data.activePlayerId', $game->active_player_id),
+            );
     }
 
     public function test_only_owner_can_start_game(): void
@@ -303,5 +311,94 @@ class GameManagementTest extends TestCase
             ->assertSessionHasErrors('game');
 
         $this->assertSame(GameStatus::Lobby, $game->refresh()->status);
+    }
+
+    public function test_active_player_can_choose_planning_bundle(): void
+    {
+        $users = User::factory()->count(2)->create();
+        $game = Game::factory()->create(['random_seed' => 'planning-selection-seed']);
+
+        foreach ($users as $index => $user) {
+            GamePlayer::factory()->ready()->create([
+                'game_id' => $game->id,
+                'user_id' => $user->id,
+                'seat' => $index + 1,
+            ]);
+        }
+
+        $this->actingAs($users[0])->post(route('games.start', $game));
+        $game->refresh();
+
+        $activeUser = $users->firstWhere('id', $game->active_player_id);
+        $bundle = $game->state->setupPool->planningBundles[0];
+
+        $this->assertInstanceOf(User::class, $activeUser);
+
+        $this->actingAs($activeUser)
+            ->post(route('games.planning-bundle.store', $game), [
+                'homeland' => $bundle->homeland->value,
+            ])
+            ->assertRedirect(route('games.show', $game));
+
+        $game->refresh();
+        $player = $game->players()->whereBelongsTo($activeUser)->sole();
+
+        $this->assertSame($bundle->homeland, $player->homeland);
+        $this->assertSame($bundle->faction, $player->faction);
+        $this->assertNotNull($player->color);
+        $this->assertCount(6, $game->state->setupPool->planningBundles);
+        $this->assertCount(1, $game->state->planningSelections);
+        $this->assertSame($player->id, $game->state->planningSelections[0]->playerId);
+        $this->assertNotSame($activeUser->id, $game->active_player_id);
+
+        $this->get(route('games.show', $game))
+            ->assertOk()
+            ->assertInertia(
+                fn (Assert $page) => $page
+                    ->where('game.data.planningSelections.0.playerId', $player->id)
+                    ->where(
+                        'game.data.planningSelections.0.bundle.homeland',
+                        $bundle->homeland->value,
+                    )
+                    ->where(
+                        'game.data.planningSelections.0.bundle.faction',
+                        $bundle->faction->value,
+                    )
+                    ->where(
+                        'game.data.planningSelections.0.bundle.roundBonus',
+                        $bundle->roundBonus->value,
+                    ),
+            );
+    }
+
+    public function test_inactive_player_cannot_choose_planning_bundle(): void
+    {
+        $owner = User::factory()->create();
+        $otherUser = User::factory()->create();
+        $game = Game::factory()->create();
+        GamePlayer::factory()->ready()->create([
+            'game_id' => $game->id,
+            'user_id' => $owner->id,
+            'seat' => 1,
+        ]);
+        GamePlayer::factory()->ready()->create([
+            'game_id' => $game->id,
+            'user_id' => $otherUser->id,
+            'seat' => 2,
+        ]);
+
+        $this->actingAs($owner)->post(route('games.start', $game));
+        $game->refresh();
+
+        $inactiveUser = $game->active_player_id === $owner->id ? $otherUser : $owner;
+        $bundle = $game->state->setupPool->planningBundles[0];
+
+        $this->actingAs($inactiveUser)
+            ->post(route('games.planning-bundle.store', $game), [
+                'homeland' => $bundle->homeland->value,
+            ])
+            ->assertForbidden();
+
+        $this->assertCount(7, $game->refresh()->state->setupPool->planningBundles);
     }
 }

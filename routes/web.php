@@ -7,6 +7,7 @@ use App\Http\Controllers\GameController;
 use App\Http\Controllers\GamePlayerController;
 use App\Http\Controllers\GamePlayerReadinessController;
 use App\Http\Controllers\GameStartController;
+use App\Http\Controllers\PlanningBundleController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -19,6 +20,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::patch('games/{game}/players/{gamePlayer}/readiness', [GamePlayerReadinessController::class, 'update'])
         ->name('games.players.readiness.update');
     Route::post('games/{game}/start', GameStartController::class)->name('games.start');
+    Route::post('games/{game}/planning-bundle', [PlanningBundleController::class, 'store'])
+        ->name('games.planning-bundle.store');
 
     Route::get('dashboard', function (BoardStateFactory $boardStateFactory): Response {
         return Inertia::render('Dashboard', [

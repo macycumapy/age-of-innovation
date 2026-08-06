@@ -1,8 +1,10 @@
 <script setup lang="ts">
-import { Form, Head, Link, usePage } from '@inertiajs/vue3';
+import { Form, Head, Link, usePage, usePoll } from '@inertiajs/vue3';
 import { computed } from 'vue';
 import GamePlayerController from '@/actions/App/Http/Controllers/GamePlayerController';
 import GamePlayerReadinessController from '@/actions/App/Http/Controllers/GamePlayerReadinessController';
+import GameStartController from '@/actions/App/Http/Controllers/GameStartController';
+import PlanningBundleController from '@/actions/App/Http/Controllers/PlanningBundleController';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
 import {
@@ -13,7 +15,14 @@ import {
     CardTitle,
 } from '@/components/ui/card';
 import { index } from '@/routes/games';
-import type { GameResource, MapVariant } from '@/types';
+import type {
+    Faction,
+    GamePlayerSummary,
+    GameResource,
+    MapVariant,
+    RoundBonus,
+    TerrainType,
+} from '@/types';
 
 const props = defineProps<{
     game: GameResource;
@@ -21,10 +30,62 @@ const props = defineProps<{
 
 const page = usePage();
 
+usePoll(3000, { only: ['game'] });
+
 const currentPlayer = computed(() =>
     props.game.data.players.find(
         (player) => player.user.id === page.props.auth.user.id,
     ),
+);
+
+const activePlayer = computed(() =>
+    props.game.data.players.find(
+        (player) => player.user.id === props.game.data.activePlayerId,
+    ),
+);
+
+const orderedPlayers = computed(() =>
+    props.game.data.turnOrder
+        .map((playerId) =>
+            props.game.data.players.find((player) => player.id === playerId),
+        )
+        .filter(
+            (player): player is GamePlayerSummary => player !== undefined,
+        ),
+);
+
+const nextPlayer = computed(() => {
+    const activeIndex = orderedPlayers.value.findIndex(
+        (player) => player.user.id === props.game.data.activePlayerId,
+    );
+
+    if (activeIndex < 0) {
+        return undefined;
+    }
+
+    for (let offset = 1; offset < orderedPlayers.value.length; offset++) {
+        const player =
+            orderedPlayers.value[
+                (activeIndex + offset) % orderedPlayers.value.length
+            ];
+
+        if (player.faction === null) {
+            return player;
+        }
+    }
+
+    return undefined;
+});
+
+const canChoosePlanningBundle = computed(
+    () =>
+        props.game.data.status === 'active' &&
+        props.game.data.activePlayerId === page.props.auth.user.id &&
+        currentPlayer.value?.faction === null,
+);
+
+const allPlanningBundlesChosen = computed(() =>
+    props.game.data.players.every((player) => player.faction !== null),
 );
 
 defineOptions({
@@ -42,6 +103,80 @@ const mapVariantNames: Record<MapVariant, string> = {
     one_to_three_players: '1–3 игрока',
     three_to_five_players: '3–5 игроков',
 };
+
+const terrainNames: Record<TerrainType, string> = {
+    desert: 'Пустыня',
+    plains: 'Равнина',
+    swamp: 'Болото',
+    lake: 'Озеро',
+    forest: 'Лес',
+    mountain: 'Горы',
+    wasteland: 'Пустошь',
+};
+
+const factionNames: Record<Faction, string> = {
+    blessed: 'Благословенные',
+    felines: 'Кошачьи',
+    goblins: 'Гоблины',
+    illusionists: 'Иллюзионисты',
+    inventors: 'Изобретатели',
+    lizards: 'Ящеры',
+    moles: 'Кроты',
+    monks: 'Монахи',
+    navigators: 'Навигаторы',
+    omar: 'Омар',
+    philosophers: 'Философы',
+    psychics: 'Провидцы',
+};
+
+const roundBonusNames: Record<RoundBonus, string> = {
+    river_workshop: 'Речная мастерская',
+    send_scholar: 'Отправка учёного',
+    build_guild: 'Строительство гильдии',
+    pass_palace_university: 'Дворцы и университеты',
+    spade: 'Бесплатная лопата',
+    bridge: 'Бесплатный мост',
+    knowledge: 'Шаг знания',
+    pass_school: 'Школы при пасе',
+    power_coins: 'Сила и монеты',
+    coins: 'Монеты',
+};
+
+function planningBundleButtonLabel(processing: boolean): string {
+    if (processing) {
+        return 'Выбор…';
+    }
+
+    if (allPlanningBundlesChosen.value) {
+        return 'Выбор завершён';
+    }
+
+    return canChoosePlanningBundle.value
+        ? 'Выбрать комплект'
+        : 'Сейчас выбирает другой игрок';
+}
+
+function planningSelectionFor(playerId: number) {
+    return props.game.data.planningSelections.find(
+        (selection) => selection.playerId === playerId,
+    );
+}
+
+function planningSelectionFactionName(playerId: number): string {
+    const selection = planningSelectionFor(playerId);
+
+    return selection ? factionNames[selection.bundle.faction] : '';
+}
+
+function planningSelectionDetails(playerId: number): string {
+    const selection = planningSelectionFor(playerId);
+
+    if (!selection) {
+        return '';
+    }
+
+    return `${terrainNames[selection.bundle.homeland]} · ${roundBonusNames[selection.bundle.roundBonus]}`;
+}
 </script>
 
 <template>
@@ -65,7 +200,7 @@ const mapVariantNames: Record<MapVariant, string> = {
             </Button>
         </div>
 
-        <Card>
+        <Card v-if="game.data.status === 'lobby'">
             <CardHeader>
                 <CardTitle>Участники</CardTitle>
                 <CardDescription>
@@ -165,6 +300,183 @@ const mapVariantNames: Record<MapVariant, string> = {
                         {{ processing ? 'Присоединение…' : 'Присоединиться' }}
                     </Button>
                 </Form>
+            </CardContent>
+        </Card>
+
+        <Card v-if="game.data.status === 'lobby' && game.data.isOwner">
+            <CardHeader>
+                <CardTitle>Начало партии</CardTitle>
+                <CardDescription v-if="game.data.canStart">
+                    Все участники готовы. После запуска первый игрок выберет
+                    стартовый комплект.
+                </CardDescription>
+                <CardDescription v-else>
+                    Для запуска нужны минимум два готовых игрока.
+                </CardDescription>
+            </CardHeader>
+            <CardContent>
+                <Form
+                    v-bind="GameStartController.form(game.data.id)"
+                    #default="{ errors, processing }"
+                    class="grid gap-3"
+                >
+                    <InputError :message="errors.game" />
+                    <Button
+                        type="submit"
+                        :disabled="processing || !game.data.canStart"
+                    >
+                        {{ processing ? 'Запуск…' : 'Начать игру' }}
+                    </Button>
+                </Form>
+            </CardContent>
+        </Card>
+
+        <Card v-if="game.data.status === 'active'">
+            <CardHeader>
+                <CardTitle>Выбор стартового комплекта</CardTitle>
+                <CardDescription v-if="canChoosePlanningBundle">
+                    Выберите родную местность, сообщество и бонус раунда.
+                </CardDescription>
+                <CardDescription v-else-if="allPlanningBundlesChosen">
+                    Все игроки выбрали стартовые комплекты.
+                </CardDescription>
+                <CardDescription v-else-if="currentPlayer?.faction">
+                    Ваш комплект выбран. Ожидаем остальных игроков.
+                </CardDescription>
+                <CardDescription v-else>
+                    Сейчас выбирает
+                    {{ activePlayer?.user.name ?? 'другой игрок' }}.
+                </CardDescription>
+            </CardHeader>
+
+            <CardContent>
+                <div class="mb-6 grid gap-3">
+                    <div class="flex items-center justify-between gap-4">
+                        <h3 class="text-base font-semibold">Порядок выбора</h3>
+                        <p
+                            v-if="nextPlayer"
+                            class="text-sm text-muted-foreground"
+                        >
+                            Следующий: {{ nextPlayer.user.name }}
+                        </p>
+                    </div>
+
+                    <ol
+                        class="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4"
+                    >
+                        <li
+                            v-for="(player, index) in orderedPlayers"
+                            :key="player.id"
+                            :class="[
+                                'flex items-start gap-3 rounded-lg border p-3',
+                                player.user.id === game.data.activePlayerId &&
+                                player.faction === null
+                                    ? 'border-primary bg-primary/5'
+                                    : 'bg-muted/30',
+                            ]"
+                        >
+                            <span
+                                class="flex size-7 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold"
+                            >
+                                {{ index + 1 }}
+                            </span>
+                            <div class="min-w-0 flex-1">
+                                <p class="truncate text-sm font-medium">
+                                    {{ player.user.name }}
+                                </p>
+                                <p
+                                    v-if="
+                                        player.user.id ===
+                                            game.data.activePlayerId &&
+                                        player.faction === null
+                                    "
+                                    class="text-xs font-medium text-primary"
+                                >
+                                    Выбирает сейчас
+                                </p>
+                                <p
+                                    v-else-if="player.id === nextPlayer?.id"
+                                    class="text-xs text-muted-foreground"
+                                >
+                                    Следующий
+                                </p>
+                                <p
+                                    v-else-if="player.faction"
+                                    class="text-xs text-muted-foreground"
+                                >
+                                    Комплект выбран
+                                </p>
+                                <p
+                                    v-else
+                                    class="text-xs text-muted-foreground"
+                                >
+                                    Ожидает
+                                </p>
+
+                                <div
+                                    v-if="planningSelectionFor(player.id)"
+                                    class="mt-3 grid gap-1 border-t pt-3 text-xs"
+                                >
+                                    <p class="font-medium text-foreground">
+                                        {{
+                                            planningSelectionFactionName(
+                                                player.id,
+                                            )
+                                        }}
+                                    </p>
+                                    <p class="text-muted-foreground">
+                                        {{ planningSelectionDetails(player.id) }}
+                                    </p>
+                                </div>
+                            </div>
+                        </li>
+                    </ol>
+                </div>
+
+                <div
+                    class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3"
+                >
+                    <Form
+                        v-for="bundle in game.data.planningBundles"
+                        :key="bundle.homeland"
+                        v-bind="PlanningBundleController.store.form(game.data.id)"
+                        #default="{ errors, processing }"
+                        class="flex min-h-52 flex-col gap-4 rounded-xl border bg-card p-5 shadow-sm"
+                    >
+                        <input
+                            type="hidden"
+                            name="homeland"
+                            :value="bundle.homeland"
+                        />
+
+                        <div class="grid gap-1">
+                            <p class="text-sm text-muted-foreground">
+                                {{ terrainNames[bundle.homeland] }}
+                            </p>
+                            <h2 class="text-lg font-semibold">
+                                {{ factionNames[bundle.faction] }}
+                            </h2>
+                        </div>
+
+                        <div class="rounded-lg bg-muted p-3 text-sm">
+                            <span class="text-muted-foreground">
+                                Бонус раунда:
+                            </span>
+                            {{ roundBonusNames[bundle.roundBonus] }}
+                        </div>
+
+                        <InputError
+                            :message="errors.homeland ?? errors.game"
+                        />
+                        <Button
+                            type="submit"
+                            class="mt-auto w-full"
+                            :disabled="processing || !canChoosePlanningBundle"
+                        >
+                            {{ planningBundleButtonLabel(processing) }}
+                        </Button>
+                    </Form>
+                </div>
             </CardContent>
         </Card>
     </div>

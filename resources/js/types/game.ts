@@ -19,6 +19,12 @@ export type GameCollection = {
 export type GameResource = {
     data: GameSummary & {
         players: GamePlayerSummary[];
+        isOwner: boolean;
+        activePlayerId: number | null;
+        turnOrder: number[];
+        canStart: boolean;
+        planningBundles: PlanningBundle[];
+        planningSelections: PlanningSelection[];
     };
 };
 
@@ -26,10 +32,49 @@ export type GamePlayerSummary = {
     id: number;
     seat: number;
     isReady: boolean;
+    faction: Faction | null;
+    homeland: TerrainType | null;
     user: {
         id: number;
         name: string;
     };
+};
+
+export type Faction =
+    | 'blessed'
+    | 'felines'
+    | 'goblins'
+    | 'illusionists'
+    | 'inventors'
+    | 'lizards'
+    | 'moles'
+    | 'monks'
+    | 'navigators'
+    | 'omar'
+    | 'philosophers'
+    | 'psychics';
+
+export type RoundBonus =
+    | 'river_workshop'
+    | 'send_scholar'
+    | 'build_guild'
+    | 'pass_palace_university'
+    | 'spade'
+    | 'bridge'
+    | 'knowledge'
+    | 'pass_school'
+    | 'power_coins'
+    | 'coins';
+
+export type PlanningBundle = {
+    homeland: TerrainType;
+    faction: Faction;
+    roundBonus: RoundBonus;
+};
+
+export type PlanningSelection = {
+    playerId: number;
+    bundle: PlanningBundle;
 };
 
 export type TerrainType =
