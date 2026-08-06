@@ -9,6 +9,7 @@ use App\Domain\Game\Enums\Faction;
 use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\MapVariant;
 use App\Domain\Game\Enums\PlayerColor;
+use App\Domain\Game\Enums\RoundBonus;
 use App\Domain\Game\Enums\TerrainType;
 use Tests\TestCase;
 
@@ -36,6 +37,7 @@ class GameStateDataTest extends TestCase
                 'color' => PlayerColor::Yellow->value,
                 'faction' => Faction::Inventors->value,
                 'homeland' => TerrainType::Desert->value,
+                'roundBonus' => RoundBonus::Coins->value,
             ]],
             'round' => [
                 'number' => 2,
@@ -50,6 +52,7 @@ class GameStateDataTest extends TestCase
         $this->assertSame(PlayerColor::Yellow, $state->players[0]->color);
         $this->assertSame(Faction::Inventors, $state->players[0]->faction);
         $this->assertSame(TerrainType::Desert, $state->players[0]->homeland);
+        $this->assertSame(RoundBonus::Coins, $state->players[0]->roundBonus);
         $this->assertSame(GamePhase::Actions, $state->round->phase);
     }
 }

@@ -349,6 +349,13 @@ class GameManagementTest extends TestCase
         $this->assertCount(6, $game->state->setupPool->planningBundles);
         $this->assertCount(1, $game->state->planningSelections);
         $this->assertSame($player->id, $game->state->planningSelections[0]->playerId);
+        $this->assertCount(1, $game->state->players);
+        $this->assertSame($player->id, $game->state->players[0]->playerId);
+        $this->assertSame($bundle->roundBonus, $game->state->players[0]->roundBonus);
+        $this->assertSame(15, $game->state->players[0]->resources->coins);
+        $this->assertSame(12, $game->state->players[0]->resources->power->bowlOne
+            + $game->state->players[0]->resources->power->bowlTwo
+            + $game->state->players[0]->resources->power->bowlThree);
         $this->assertNotSame($activeUser->id, $game->active_player_id);
 
         $this->get(route('games.show', $game))

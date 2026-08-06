@@ -13,6 +13,7 @@ use Spatie\LaravelData\Data;
  * @property int $engineering Положение на шкале инженерного дела.
  * @property int $medicine Положение на шкале медицины.
  * @property list<KnowledgeDiscipline> $unlockedDisciplines Дисциплины, для которых потрачен городской ключ.
+ * @property int $unassignedSteps Стартовые шаги знаний, дисциплину которых ещё нужно выбрать.
  */
 class KnowledgeStateData extends Data
 {
@@ -23,6 +24,7 @@ class KnowledgeStateData extends Data
         public int $engineering = 0,
         public int $medicine = 0,
         public array $unlockedDisciplines = [],
+        public int $unassignedSteps = 0,
     ) {
     }
 }

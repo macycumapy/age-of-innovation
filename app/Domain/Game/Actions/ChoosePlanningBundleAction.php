@@ -8,8 +8,8 @@ use App\Domain\Game\Data\PlanningBundleData;
 use App\Domain\Game\Data\PlayerPlanningSelectionData;
 use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\GameStatus;
-use App\Domain\Game\Enums\PlayerColor;
 use App\Domain\Game\Enums\TerrainType;
+use App\Domain\Game\Factories\GamePlayerStateFactory;
 use App\Models\Game;
 use App\Models\GamePlayer;
 use App\Models\User;
@@ -18,6 +18,10 @@ use Illuminate\Validation\ValidationException;
 
 final class ChoosePlanningBundleAction
 {
+    public function __construct(private GamePlayerStateFactory $playerStateFactory)
+    {
+    }
+
     public function execute(Game $game, User $user, TerrainType $homeland): Game
     {
         return DB::transaction(function () use ($game, $user, $homeland): Game {
@@ -57,8 +61,10 @@ final class ChoosePlanningBundleAction
                 ]);
             }
 
+            $playerState = $this->playerStateFactory->create($player, $bundle);
+
             $player->update([
-                'color' => $this->colorFor($bundle->homeland),
+                'color' => $playerState->color,
                 'faction' => $bundle->faction,
                 'homeland' => $bundle->homeland,
             ]);
@@ -74,6 +80,7 @@ final class ChoosePlanningBundleAction
                 ...$state->planningSelections,
                 new PlayerPlanningSelectionData($player->id, $bundle),
             ];
+            $state->players = [...$state->players, $playerState];
             $nextPlayer = $this->nextPlayer($lockedGame, $player);
 
             $lockedGame->update([
@@ -116,18 +123,5 @@ final class ChoosePlanningBundleAction
         }
 
         return $firstPlayer;
-    }
-
-    private function colorFor(TerrainType $terrain): PlayerColor
-    {
-        return match ($terrain) {
-            TerrainType::Desert => PlayerColor::Yellow,
-            TerrainType::Plains => PlayerColor::Brown,
-            TerrainType::Swamp => PlayerColor::Black,
-            TerrainType::Lake => PlayerColor::Blue,
-            TerrainType::Forest => PlayerColor::Green,
-            TerrainType::Mountain => PlayerColor::Gray,
-            TerrainType::Wasteland => PlayerColor::Red,
-        };
     }
 }

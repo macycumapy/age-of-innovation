@@ -11,6 +11,7 @@ use Spatie\LaravelData\Data;
  * @property int $law Количество книг права.
  * @property int $engineering Количество книг инженерного дела.
  * @property int $medicine Количество книг медицины.
+ * @property int $unassigned Количество полученных книг, дисциплину которых ещё нужно выбрать.
  */
 class BookSupplyData extends Data
 {
@@ -19,6 +20,7 @@ class BookSupplyData extends Data
         public int $law = 0,
         public int $engineering = 0,
         public int $medicine = 0,
+        public int $unassigned = 0,
     ) {
     }
 }

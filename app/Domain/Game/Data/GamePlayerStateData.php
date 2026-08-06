@@ -6,6 +6,7 @@ namespace App\Domain\Game\Data;
 
 use App\Domain\Game\Enums\Faction;
 use App\Domain\Game\Enums\PlayerColor;
+use App\Domain\Game\Enums\RoundBonus;
 use App\Domain\Game\Enums\TerrainType;
 use Spatie\LaravelData\Data;
 
@@ -15,6 +16,7 @@ use Spatie\LaravelData\Data;
  * @property PlayerColor $color Цвет компонентов игрока.
  * @property Faction $faction Сообщество игрока.
  * @property TerrainType $homeland Родная местность игрока.
+ * @property RoundBonus $roundBonus Выбранный стартовый бонус раунда.
  * @property int $victoryPoints Текущее количество победных очков.
  * @property PlayerResourcesData $resources Текущие ресурсы игрока.
  * @property KnowledgeStateData $knowledge Положение игрока на шкалах знаний.
@@ -40,6 +42,7 @@ class GamePlayerStateData extends Data
         public PlayerColor $color,
         public Faction $faction,
         public TerrainType $homeland,
+        public RoundBonus $roundBonus,
         public int $victoryPoints = 20,
         public PlayerResourcesData $resources = new PlayerResourcesData(),
         public KnowledgeStateData $knowledge = new KnowledgeStateData(),
