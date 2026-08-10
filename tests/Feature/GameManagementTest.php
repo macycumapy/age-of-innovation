@@ -387,6 +387,10 @@ class GameManagementTest extends TestCase
                         'game.data.planningSelections.0.bundle.roundBonus',
                         $bundle->roundBonus->value,
                     )
+                    ->where(
+                        'game.data.players.'.($player->seat - 1).'.color',
+                        $player->color->value,
+                    )
                     ->has('game.data.roundScoringTiles', 6)
                     ->where(
                         'game.data.finalRoundScoringTile',

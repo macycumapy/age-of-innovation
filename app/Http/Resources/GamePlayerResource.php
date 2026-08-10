@@ -18,6 +18,7 @@ class GamePlayerResource extends JsonResource
             'id' => $this->id,
             'seat' => $this->seat,
             'isReady' => $this->is_ready,
+            'color' => $this->color?->value,
             'faction' => $this->faction?->value,
             'homeland' => $this->homeland?->value,
             'user' => $this->whenLoaded('user', fn (): array => [

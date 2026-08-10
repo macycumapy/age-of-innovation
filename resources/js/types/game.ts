@@ -37,6 +37,7 @@ export type GamePlayerSummary = {
     id: number;
     seat: number;
     isReady: boolean;
+    color: PlayerColor | null;
     faction: Faction | null;
     homeland: TerrainType | null;
     user: {
@@ -44,6 +45,15 @@ export type GamePlayerSummary = {
         name: string;
     };
 };
+
+export type PlayerColor =
+    | 'yellow'
+    | 'red'
+    | 'black'
+    | 'blue'
+    | 'green'
+    | 'brown'
+    | 'gray';
 
 export type Faction =
     | 'blessed'

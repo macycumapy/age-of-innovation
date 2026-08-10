@@ -7,6 +7,7 @@ import GameStartController from '@/actions/App/Http/Controllers/GameStartControl
 import PlanningBundleController from '@/actions/App/Http/Controllers/PlanningBundleController';
 import StartingResourcesController from '@/actions/App/Http/Controllers/StartingResourcesController';
 import BoardMap from '@/components/game/BoardMap.vue';
+import PlayerBoards from '@/components/game/PlayerBoards.vue';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
 import {
@@ -628,6 +629,11 @@ function planningSelectionDetails(playerId: number): string {
                 :round-scoring-tiles="game.data.roundScoringTiles"
                 :final-round-scoring-tile="game.data.finalRoundScoringTile"
                 :book-actions="game.data.bookActions"
+            />
+
+            <PlayerBoards
+                :players="orderedPlayers"
+                :current-user-id="page.props.auth.user.id"
             />
         </section>
     </div>
