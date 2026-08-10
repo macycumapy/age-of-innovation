@@ -24,6 +24,4 @@ enum RoundScoringGoal: string
     case ShippingOrTerraforming = 'shipping_or_terraforming';
     /** Создать изобретение. */
     case Innovation = 'innovation';
-    /** Построить мастерскую на краевом поле карты. */
-    case EdgeWorkshop = 'edge_workshop';
 }

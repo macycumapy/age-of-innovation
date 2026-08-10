@@ -6,6 +6,7 @@ namespace Tests\Unit;
 
 use App\Domain\Game\Data\PlanningBundleData;
 use App\Domain\Game\Data\RoundBonusOfferData;
+use App\Domain\Game\Enums\FinalRoundScoringTile;
 use App\Domain\Game\Enums\MapVariant;
 use App\Domain\Game\Enums\PalaceAbility;
 use App\Domain\Game\Enums\RoundScoringGoal;
@@ -32,6 +33,7 @@ final class GameSetupPoolFactoryTest extends TestCase
         $this->assertGreaterThanOrEqual(0, $pool->firstPlayerIndex);
         $this->assertLessThan($playerCount, $pool->firstPlayerIndex);
         $this->assertCount(6, $pool->roundScoringTiles);
+        $this->assertInstanceOf(FinalRoundScoringTile::class, $pool->additionalFinalRoundGoal);
         $this->assertCount(3, $pool->bookActions);
         $this->assertCount(12, $pool->competencies);
         $this->assertCount($expectedInnovationCount, $pool->innovations);
@@ -81,25 +83,33 @@ final class GameSetupPoolFactoryTest extends TestCase
         }
     }
 
-    public function test_additional_goal_does_not_repeat_sixth_round_building_type(): void
+    public function test_final_round_tile_does_not_repeat_sixth_round_building_type(): void
     {
         for ($seed = 1; $seed <= 50; $seed++) {
             $pool = $this->factory($seed)->create(4);
             $sixthRoundGoal = $pool->roundScoringTiles[5]->goal();
 
-            if ($sixthRoundGoal === RoundScoringGoal::Workshop) {
-                $this->assertNotContains(
-                    $pool->additionalFinalRoundGoal,
-                    [RoundScoringGoal::Workshop, RoundScoringGoal::EdgeWorkshop],
-                );
-            } elseif (in_array($sixthRoundGoal, [
+            if (in_array($sixthRoundGoal, [
+                RoundScoringGoal::Workshop,
                 RoundScoringGoal::Guild,
                 RoundScoringGoal::School,
-                RoundScoringGoal::PalaceOrUniversity,
             ], true)) {
-                $this->assertNotSame($sixthRoundGoal, $pool->additionalFinalRoundGoal);
+                $this->assertNotSame($sixthRoundGoal, $pool->additionalFinalRoundGoal->goal());
             }
         }
+    }
+
+    public function test_final_round_tiles_define_their_scoring_values(): void
+    {
+        $this->assertSame(
+            [2, 3, 4, 3],
+            array_map(
+                static fn (FinalRoundScoringTile $tile): int => $tile->victoryPoints(),
+                FinalRoundScoringTile::cases(),
+            ),
+        );
+
+        $this->assertSame(RoundScoringGoal::Workshop, FinalRoundScoringTile::EdgeWorkshop->goal());
     }
 
     public function test_map_variant_can_be_selected_explicitly_for_three_players(): void

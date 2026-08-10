@@ -8,6 +8,7 @@ use App\Domain\Game\Enums\BookAction;
 use App\Domain\Game\Enums\Competency;
 use App\Domain\Game\Enums\EffectType;
 use App\Domain\Game\Enums\Faction;
+use App\Domain\Game\Enums\FinalRoundScoringTile;
 use App\Domain\Game\Enums\Innovation;
 use App\Domain\Game\Enums\KnowledgeDiscipline;
 use App\Domain\Game\Enums\PalaceAbility;
@@ -59,7 +60,10 @@ final class GameEnumTest extends TestCase
         ]];
         yield 'цели раунда' => [RoundScoringGoal::class, [
             'workshop', 'guild', 'school', 'palace_or_university', 'spade',
-            'knowledge', 'town', 'shipping_or_terraforming', 'innovation', 'edge_workshop',
+            'knowledge', 'town', 'shipping_or_terraforming', 'innovation',
+        ]];
+        yield 'дополнительные жетоны шестого раунда' => [FinalRoundScoringTile::class, [
+            'workshop', 'guild', 'school', 'edge_workshop',
         ]];
         yield 'изобретения' => [Innovation::class, [
             'deus_ex_machina', 'trade_routes', 'professor', 'sewage_system',

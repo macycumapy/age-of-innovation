@@ -10,11 +10,11 @@ use App\Domain\Game\Data\RoundBonusOfferData;
 use App\Domain\Game\Enums\BookAction;
 use App\Domain\Game\Enums\Competency;
 use App\Domain\Game\Enums\Faction;
+use App\Domain\Game\Enums\FinalRoundScoringTile;
 use App\Domain\Game\Enums\Innovation;
 use App\Domain\Game\Enums\MapVariant;
 use App\Domain\Game\Enums\PalaceAbility;
 use App\Domain\Game\Enums\RoundBonus;
-use App\Domain\Game\Enums\RoundScoringGoal;
 use App\Domain\Game\Enums\RoundScoringTile;
 use App\Domain\Game\Enums\TerrainType;
 use App\Domain\Game\Enums\TownTile;
@@ -46,7 +46,7 @@ final class GameSetupPoolFactory
             mapVariant: $mapVariant ?? $this->defaultMapVariant($playerCount),
             firstPlayerIndex: $this->randomizer->getInt(0, $playerCount - 1),
             roundScoringTiles: $roundScoringTiles,
-            additionalFinalRoundGoal: $this->additionalFinalRoundGoal($roundScoringTiles[5]),
+            additionalFinalRoundGoal: $this->finalRoundScoringTile($roundScoringTiles[5]),
             bookActions: array_slice($this->shuffledCases(BookAction::class), 0, 3),
             competencies: $this->shuffledCases(Competency::class),
             innovations: array_slice(
@@ -108,38 +108,14 @@ final class GameSetupPoolFactory
         throw new RuntimeException('Не удалось сформировать корректные цели раундов.');
     }
 
-    private function additionalFinalRoundGoal(RoundScoringTile $sixthRoundTile): RoundScoringGoal
+    private function finalRoundScoringTile(RoundScoringTile $sixthRoundTile): FinalRoundScoringTile
     {
-        $goals = array_values(array_filter(
-            RoundScoringGoal::cases(),
-            fn (RoundScoringGoal $goal): bool => ! $this->sameBuildingGoal($goal, $sixthRoundTile->goal()),
+        $tiles = array_values(array_filter(
+            FinalRoundScoringTile::cases(),
+            static fn (FinalRoundScoringTile $tile): bool => $tile->goal() !== $sixthRoundTile->goal(),
         ));
 
-        return $goals[$this->randomizer->getInt(0, count($goals) - 1)];
-    }
-
-    private function sameBuildingGoal(RoundScoringGoal $first, RoundScoringGoal $second): bool
-    {
-        $buildingGoals = [
-            RoundScoringGoal::Workshop,
-            RoundScoringGoal::EdgeWorkshop,
-            RoundScoringGoal::Guild,
-            RoundScoringGoal::School,
-            RoundScoringGoal::PalaceOrUniversity,
-        ];
-
-        if (! in_array($first, $buildingGoals, true) || ! in_array($second, $buildingGoals, true)) {
-            return false;
-        }
-
-        return match ($first) {
-            RoundScoringGoal::Workshop, RoundScoringGoal::EdgeWorkshop => in_array(
-                $second,
-                [RoundScoringGoal::Workshop, RoundScoringGoal::EdgeWorkshop],
-                true,
-            ),
-            default => $first === $second,
-        };
+        return $tiles[$this->randomizer->getInt(0, count($tiles) - 1)];
     }
 
     /** @return array{list<PlanningBundleData>, list<RoundBonusOfferData>} */

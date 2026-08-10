@@ -6,10 +6,10 @@ namespace App\Domain\Game\Data;
 
 use App\Domain\Game\Enums\BookAction;
 use App\Domain\Game\Enums\Competency;
+use App\Domain\Game\Enums\FinalRoundScoringTile;
 use App\Domain\Game\Enums\Innovation;
 use App\Domain\Game\Enums\MapVariant;
 use App\Domain\Game\Enums\PalaceAbility;
-use App\Domain\Game\Enums\RoundScoringGoal;
 use App\Domain\Game\Enums\RoundScoringTile;
 use App\Domain\Game\Enums\TownTile;
 use Spatie\LaravelData\Data;
@@ -19,7 +19,7 @@ use Spatie\LaravelData\Data;
  * @property MapVariant $mapVariant Сторона карты для партии.
  * @property int $firstPlayerIndex Индекс случайно выбранного первого игрока.
  * @property list<RoundScoringTile> $roundScoringTiles Жетоны раундов 1–6 по порядку.
- * @property RoundScoringGoal $additionalFinalRoundGoal Дополнительная цель шестого раунда.
+ * @property FinalRoundScoringTile $additionalFinalRoundGoal Дополнительный жетон подсчёта шестого раунда.
  * @property list<BookAction> $bookActions Три общих книжных действия партии.
  * @property list<Competency> $competencies Случайный порядок двенадцати стопок компетенций.
  * @property list<Innovation> $innovations Открытые изобретения на планшете инноваций.
@@ -46,7 +46,7 @@ final class GameSetupPoolData extends Data
         public MapVariant $mapVariant,
         public int $firstPlayerIndex,
         public array $roundScoringTiles,
-        public RoundScoringGoal $additionalFinalRoundGoal,
+        public FinalRoundScoringTile $additionalFinalRoundGoal,
         public array $bookActions,
         public array $competencies,
         public array $innovations,
