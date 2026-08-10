@@ -8,6 +8,7 @@ import PlanningBundleController from '@/actions/App/Http/Controllers/PlanningBun
 import StartingResourcesController from '@/actions/App/Http/Controllers/StartingResourcesController';
 import BoardMap from '@/components/game/BoardMap.vue';
 import CultBoard from '@/components/game/CultBoard.vue';
+import InnovationBoard from '@/components/game/InnovationBoard.vue';
 import PlayerBoards from '@/components/game/PlayerBoards.vue';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
@@ -629,20 +630,27 @@ function planningSelectionDetails(playerId: number): string {
             <div
                 class="grid items-start gap-4 lg:grid-cols-[minmax(0,7fr)_minmax(16rem,3fr)]"
             >
-                <BoardMap
-                    :board="game.data.board"
-                    :round-scoring-tiles="game.data.roundScoringTiles"
-                    :final-round-scoring-tile="game.data.finalRoundScoringTile"
-                    :book-actions="game.data.bookActions"
-                />
+                <div class="grid gap-4">
+                    <BoardMap
+                        :board="game.data.board"
+                        :round-scoring-tiles="game.data.roundScoringTiles"
+                        :final-round-scoring-tile="game.data.finalRoundScoringTile"
+                        :book-actions="game.data.bookActions"
+                    />
 
-                <CultBoard />
+                    <PlayerBoards
+                        :players="orderedPlayers"
+                        :current-user-id="page.props.auth.user.id"
+                    />
+                </div>
+
+                <aside class="grid gap-4">
+                    <CultBoard />
+                    <InnovationBoard
+                        :player-count="game.data.playersCount"
+                    />
+                </aside>
             </div>
-
-            <PlayerBoards
-                :players="orderedPlayers"
-                :current-user-id="page.props.auth.user.id"
-            />
         </section>
     </div>
 </template>
