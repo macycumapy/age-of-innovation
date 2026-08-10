@@ -30,6 +30,7 @@ export type GameResource = {
         finalRoundScoringTile: FinalRoundScoringTile | null;
         bookActions: BookAction[];
         innovations: Innovation[];
+        competencies: Competency[];
         pendingInteraction: PendingInteraction | null;
     };
 };
@@ -129,6 +130,20 @@ export type Innovation =
     | 'university'
     | 'palace'
     | 'monument';
+
+export type Competency =
+    | 'competency_01'
+    | 'competency_02'
+    | 'competency_03'
+    | 'competency_04'
+    | 'competency_05'
+    | 'competency_06'
+    | 'competency_07'
+    | 'competency_08'
+    | 'competency_09'
+    | 'competency_10'
+    | 'competency_11'
+    | 'competency_12';
 
 export type PlanningBundle = {
     homeland: TerrainType;

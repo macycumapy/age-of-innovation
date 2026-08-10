@@ -397,7 +397,8 @@ class GameManagementTest extends TestCase
                         $game->state->setupPool->additionalFinalRoundGoal->value,
                     )
                     ->has('game.data.bookActions', 3)
-                    ->has('game.data.innovations', 6),
+                    ->has('game.data.innovations', 6)
+                    ->has('game.data.competencies', 12),
             );
     }
 

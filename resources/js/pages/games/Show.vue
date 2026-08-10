@@ -649,6 +649,7 @@ function planningSelectionDetails(playerId: number): string {
                     <InnovationBoard
                         :player-count="game.data.playersCount"
                         :innovations="game.data.innovations"
+                        :competencies="game.data.competencies"
                     />
                 </aside>
             </div>
