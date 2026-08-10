@@ -232,6 +232,8 @@ class GameManagementTest extends TestCase
         $this->assertNotNull($game->state->setupPool);
         $this->assertSame(2, $game->state->setupPool->playerCount);
         $this->assertSame($game->state->board->variant, $game->state->setupPool->mapVariant);
+        $this->assertIsString($game->state->setupPool->roundScoringTiles[0]);
+        $this->assertIsString($game->state->setupPool->bookActions[0]);
         $this->assertSame(
             $game->state->setupPool->roundScoringTiles[0],
             $game->state->round->scoringTileId,
@@ -384,7 +386,13 @@ class GameManagementTest extends TestCase
                     ->where(
                         'game.data.planningSelections.0.bundle.roundBonus',
                         $bundle->roundBonus->value,
-                    ),
+                    )
+                    ->has('game.data.roundScoringTiles', 6)
+                    ->where(
+                        'game.data.finalRoundScoringTile',
+                        $game->state->setupPool->additionalFinalRoundGoal->value,
+                    )
+                    ->has('game.data.bookActions', 3),
             );
     }
 

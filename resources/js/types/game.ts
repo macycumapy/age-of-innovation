@@ -26,6 +26,9 @@ export type GameResource = {
         canStart: boolean;
         planningBundles: PlanningBundle[];
         planningSelections: PlanningSelection[];
+        roundScoringTiles: RoundScoringTile[];
+        finalRoundScoringTile: FinalRoundScoringTile | null;
+        bookActions: BookAction[];
         pendingInteraction: PendingInteraction | null;
     };
 };
@@ -67,6 +70,34 @@ export type RoundBonus =
     | 'pass_school'
     | 'power_coins'
     | 'coins';
+
+export type RoundScoringTile =
+    | 'workshop_law'
+    | 'workshop_banking'
+    | 'guild_law'
+    | 'guild_medicine'
+    | 'school_banking'
+    | 'palace_university_medicine'
+    | 'palace_university_banking'
+    | 'spade_engineering'
+    | 'knowledge_medicine'
+    | 'town_engineering'
+    | 'track_engineering'
+    | 'innovation_law';
+
+export type FinalRoundScoringTile =
+    | 'workshop'
+    | 'guild'
+    | 'school'
+    | 'edge_workshop';
+
+export type BookAction =
+    | 'gain_power'
+    | 'advance_knowledge'
+    | 'gain_coins'
+    | 'upgrade_to_guild'
+    | 'score_guilds'
+    | 'terraform_three_spades';
 
 export type PlanningBundle = {
     homeland: TerrainType;

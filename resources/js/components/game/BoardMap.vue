@@ -1,13 +1,26 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import type { BoardState, TerrainType } from '@/types';
+import type {
+    BoardState,
+    BookAction,
+    FinalRoundScoringTile,
+    RoundScoringTile,
+    TerrainType,
+} from '@/types';
 import gameBoardUrl from '../../../images/game_board.webp';
 
 type Props = {
     board: BoardState;
+    roundScoringTiles?: RoundScoringTile[];
+    finalRoundScoringTile?: FinalRoundScoringTile | null;
+    bookActions?: BookAction[];
 };
 
-const props = defineProps<Props>();
+const props = withDefaults(defineProps<Props>(), {
+    roundScoringTiles: () => [],
+    finalRoundScoringTile: null,
+    bookActions: () => [],
+});
 
 const boardWidth = 2004;
 const boardHeight = 1285;
@@ -19,6 +32,29 @@ const rowSpacing = 111;
 const hexRadiusX = 62;
 const hexRadiusY = 72;
 const cornerRatio = 0.1;
+const roundScoringTileX = 31;
+const firstRoundScoringTileY = 1005;
+const roundScoringTileSpacing = 124;
+const roundScoringTileWidth = 203;
+const roundScoringTileHeight = 126;
+const bookActionY = 1178;
+const bookActionStartX = 20;
+const bookActionSpacing = 213;
+const bookActionWidth = 185;
+const bookActionHeight = 90;
+
+const roundScoringTileImages = import.meta.glob<string>(
+    '../../../images/round_scoring_tiles/*.png',
+    { eager: true, import: 'default', query: '?url' },
+);
+const finalRoundScoringTileImages = import.meta.glob<string>(
+    '../../../images/final_round_scoring_tiles/*.png',
+    { eager: true, import: 'default', query: '?url' },
+);
+const bookActionImages = import.meta.glob<string>(
+    '../../../images/book_actions/*.png',
+    { eager: true, import: 'default', query: '?url' },
+);
 
 const terrainColors: Record<TerrainType, string> = {
     desert: '#e9c65c',
@@ -38,6 +74,37 @@ const terrainNames: Record<TerrainType, string> = {
     forest: 'Лес',
     mountain: 'Горы',
     wasteland: 'Пустошь',
+};
+
+const roundScoringTileNames: Record<RoundScoringTile, string> = {
+    workshop_law: 'Мастерская и право',
+    workshop_banking: 'Мастерская и банковское дело',
+    guild_law: 'Гильдия и право',
+    guild_medicine: 'Гильдия и медицина',
+    school_banking: 'Школа и банковское дело',
+    palace_university_medicine: 'Дворец, университет и медицина',
+    palace_university_banking: 'Дворец, университет и банковское дело',
+    spade_engineering: 'Лопаты и инженерное дело',
+    knowledge_medicine: 'Знания и медицина',
+    town_engineering: 'Города и инженерное дело',
+    track_engineering: 'Шкалы и инженерное дело',
+    innovation_law: 'Изобретения и право',
+};
+
+const finalRoundScoringTileNames: Record<FinalRoundScoringTile, string> = {
+    workshop: 'Мастерские',
+    guild: 'Гильдии',
+    school: 'Школы',
+    edge_workshop: 'Мастерские на краю карты',
+};
+
+const bookActionNames: Record<BookAction, string> = {
+    gain_power: 'Получить силу',
+    advance_knowledge: 'Продвинуть знания',
+    gain_coins: 'Получить монеты',
+    upgrade_to_guild: 'Улучшить до гильдии',
+    score_guilds: 'Получить очки за гильдии',
+    terraform_three_spades: 'Преобразовать тремя лопатами',
 };
 
 const hexVertices = [
@@ -76,6 +143,32 @@ const rawHexes = computed(() =>
         y: boardOriginY + rowSpacing * hex.r,
     })),
 );
+
+function roundScoringTileImage(tile: RoundScoringTile): string {
+    return (
+        roundScoringTileImages[
+            `../../../images/round_scoring_tiles/${tile}.png`
+        ] ?? ''
+    );
+}
+
+function finalRoundScoringTileImage(tile: FinalRoundScoringTile): string {
+    return (
+        finalRoundScoringTileImages[
+            `../../../images/final_round_scoring_tiles/${tile}.png`
+        ] ?? ''
+    );
+}
+
+function bookActionImage(action: BookAction): string {
+    return (
+        bookActionImages[`../../../images/book_actions/${action}.png`] ?? ''
+    );
+}
+
+function roundScoringTileY(index: number): number {
+    return firstRoundScoringTileY - index * roundScoringTileSpacing;
+}
 </script>
 
 <template>
@@ -96,6 +189,52 @@ const rawHexes = computed(() =>
                 :height="boardHeight"
                 preserveAspectRatio="xMidYMid meet"
             />
+
+            <g
+                v-for="(tile, index) in roundScoringTiles"
+                :key="`round-${index}-${tile}`"
+            >
+                <title>
+                    Раунд {{ index + 1 }}: {{ roundScoringTileNames[tile] }}
+                </title>
+                <image
+                    :href="roundScoringTileImage(tile)"
+                    :x="roundScoringTileX"
+                    :y="roundScoringTileY(index)"
+                    :width="roundScoringTileWidth"
+                    :height="roundScoringTileHeight"
+                    preserveAspectRatio="xMidYMid meet"
+                />
+                <image
+                    v-if="index === 5 && finalRoundScoringTile"
+                    :href="finalRoundScoringTileImage(finalRoundScoringTile)"
+                    :x="roundScoringTileX"
+                    :y="roundScoringTileY(index)"
+                    :width="roundScoringTileWidth"
+                    :height="roundScoringTileHeight"
+                    preserveAspectRatio="xMidYMid meet"
+                >
+                    <title>
+                        Дополнительная цель:
+                        {{ finalRoundScoringTileNames[finalRoundScoringTile] }}
+                    </title>
+                </image>
+            </g>
+
+            <g
+                v-for="(action, index) in bookActions"
+                :key="`book-${action}`"
+            >
+                <title>Действие за книги: {{ bookActionNames[action] }}</title>
+                <image
+                    :href="bookActionImage(action)"
+                    :x="bookActionStartX + index * bookActionSpacing"
+                    :y="bookActionY"
+                    :width="bookActionWidth"
+                    :height="bookActionHeight"
+                    preserveAspectRatio="xMidYMid meet"
+                />
+            </g>
 
             <g
                 v-for="hex in rawHexes"

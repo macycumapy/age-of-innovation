@@ -623,7 +623,12 @@ function planningSelectionDetails(playerId: number): string {
                 </p>
             </div>
 
-            <BoardMap :board="game.data.board" />
+            <BoardMap
+                :board="game.data.board"
+                :round-scoring-tiles="game.data.roundScoringTiles"
+                :final-round-scoring-tile="game.data.finalRoundScoringTile"
+                :book-actions="game.data.bookActions"
+            />
         </section>
     </div>
 </template>

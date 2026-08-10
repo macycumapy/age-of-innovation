@@ -10,6 +10,7 @@ use App\Domain\Game\Data\PlayerPlanningSelectionData;
 use App\Domain\Game\Enums\GameStatus;
 use App\Models\Game;
 use App\Models\GamePlayer;
+use BackedEnum;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -71,6 +72,15 @@ class GameResource extends JsonResource
                 ],
                 $this->state->planningSelections,
             ),
+            'roundScoringTiles' => $this->enumValues(
+                $this->state->setupPool?->roundScoringTiles ?? [],
+            ),
+            'finalRoundScoringTile' => $this->enumValue(
+                $this->state->setupPool?->additionalFinalRoundGoal,
+            ),
+            'bookActions' => $this->enumValues(
+                $this->state->setupPool?->bookActions ?? [],
+            ),
             'pendingInteraction' => $this->state->pendingInteraction === null ? null : [
                 'type' => $this->state->pendingInteraction->type->value,
                 'playerId' => $this->state->pendingInteraction->playerId,
@@ -79,5 +89,24 @@ class GameResource extends JsonResource
             ],
             'createdAt' => $this->created_at?->toISOString(),
         ];
+    }
+
+    /**
+     * @param list<BackedEnum|string> $values
+     * @return list<string>
+     */
+    private function enumValues(array $values): array
+    {
+        return array_map(
+            static fn (BackedEnum|string $value): string => $value instanceof BackedEnum
+                ? (string) $value->value
+                : $value,
+            $values,
+        );
+    }
+
+    private function enumValue(BackedEnum|string|null $value): ?string
+    {
+        return $value instanceof BackedEnum ? (string) $value->value : $value;
     }
 }
