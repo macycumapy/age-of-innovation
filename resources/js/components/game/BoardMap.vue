@@ -224,14 +224,24 @@ function roundScoringTileY(index: number): number {
             <g
                 v-for="(action, index) in bookActions"
                 :key="`book-${action}`"
+                class="book-action-group cursor-pointer"
             >
                 <title>Действие за книги: {{ bookActionNames[action] }}</title>
+                <rect
+                    :x="bookActionStartX + index * bookActionSpacing"
+                    :y="bookActionY"
+                    :width="bookActionWidth"
+                    :height="bookActionHeight"
+                    class="book-action-hitbox"
+                    rx="12"
+                />
                 <image
                     :href="bookActionImage(action)"
                     :x="bookActionStartX + index * bookActionSpacing"
                     :y="bookActionY"
                     :width="bookActionWidth"
                     :height="bookActionHeight"
+                    class="book-action-image"
                     preserveAspectRatio="xMidYMid meet"
                 />
             </g>
@@ -278,5 +288,20 @@ function roundScoringTileY(index: number): number {
 
 .board-hex-group:hover .board-hex {
     fill-opacity: 0.42;
+}
+
+.book-action-hitbox {
+    fill: transparent;
+    pointer-events: all;
+}
+
+.book-action-image {
+    pointer-events: none;
+    transition: filter 150ms ease-in-out;
+}
+
+.book-action-group:hover .book-action-image {
+    filter: brightness(1.18) saturate(1.12)
+        drop-shadow(0 0 8px rgba(250, 204, 21, 0.95));
 }
 </style>
