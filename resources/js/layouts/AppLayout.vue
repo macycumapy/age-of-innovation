@@ -2,13 +2,14 @@
 import AppLayout from '@/layouts/app/AppHeaderLayout.vue';
 import type { BreadcrumbItem } from '@/types';
 
-const { breadcrumbs = [] } = defineProps<{
+const { breadcrumbs = [], fullWidth = false } = defineProps<{
     breadcrumbs?: BreadcrumbItem[];
+    fullWidth?: boolean;
 }>();
 </script>
 
 <template>
-    <AppLayout :breadcrumbs="breadcrumbs">
+    <AppLayout :breadcrumbs="breadcrumbs" :full-width="fullWidth">
         <slot />
     </AppLayout>
 </template>

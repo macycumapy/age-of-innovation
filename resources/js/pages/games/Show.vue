@@ -7,6 +7,7 @@ import GameStartController from '@/actions/App/Http/Controllers/GameStartControl
 import PlanningBundleController from '@/actions/App/Http/Controllers/PlanningBundleController';
 import StartingResourcesController from '@/actions/App/Http/Controllers/StartingResourcesController';
 import BoardMap from '@/components/game/BoardMap.vue';
+import CultBoard from '@/components/game/CultBoard.vue';
 import PlayerBoards from '@/components/game/PlayerBoards.vue';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
@@ -108,6 +109,7 @@ const setupChoicesCompleted = computed(
 
 defineOptions({
     layout: {
+        fullWidth: true,
         breadcrumbs: [
             {
                 title: 'Игры',
@@ -624,12 +626,18 @@ function planningSelectionDetails(playerId: number): string {
                 </p>
             </div>
 
-            <BoardMap
-                :board="game.data.board"
-                :round-scoring-tiles="game.data.roundScoringTiles"
-                :final-round-scoring-tile="game.data.finalRoundScoringTile"
-                :book-actions="game.data.bookActions"
-            />
+            <div
+                class="grid items-start gap-4 lg:grid-cols-[minmax(0,7fr)_minmax(16rem,3fr)]"
+            >
+                <BoardMap
+                    :board="game.data.board"
+                    :round-scoring-tiles="game.data.roundScoringTiles"
+                    :final-round-scoring-tile="game.data.finalRoundScoringTile"
+                    :book-actions="game.data.bookActions"
+                />
+
+                <CultBoard />
+            </div>
 
             <PlayerBoards
                 :players="orderedPlayers"
