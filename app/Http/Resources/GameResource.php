@@ -81,6 +81,9 @@ class GameResource extends JsonResource
             'bookActions' => $this->enumValues(
                 $this->state->setupPool?->bookActions ?? [],
             ),
+            'innovations' => $this->enumValues(
+                $this->state->setupPool?->innovations ?? [],
+            ),
             'pendingInteraction' => $this->state->pendingInteraction === null ? null : [
                 'type' => $this->state->pendingInteraction->type->value,
                 'playerId' => $this->state->pendingInteraction->playerId,

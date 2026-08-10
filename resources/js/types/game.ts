@@ -29,6 +29,7 @@ export type GameResource = {
         roundScoringTiles: RoundScoringTile[];
         finalRoundScoringTile: FinalRoundScoringTile | null;
         bookActions: BookAction[];
+        innovations: Innovation[];
         pendingInteraction: PendingInteraction | null;
     };
 };
@@ -108,6 +109,26 @@ export type BookAction =
     | 'upgrade_to_guild'
     | 'score_guilds'
     | 'terraform_three_spades';
+
+export type Innovation =
+    | 'deus_ex_machina'
+    | 'trade_routes'
+    | 'professor'
+    | 'sewage_system'
+    | 'architecture'
+    | 'library'
+    | 'steam_engine'
+    | 'league_of_cities'
+    | 'telecommunication'
+    | 'steel'
+    | 'census'
+    | 'science'
+    | 'workshop'
+    | 'guild'
+    | 'school'
+    | 'university'
+    | 'palace'
+    | 'monument';
 
 export type PlanningBundle = {
     homeland: TerrainType;
