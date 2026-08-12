@@ -398,6 +398,18 @@ class GameManagementTest extends TestCase
                         $game->state->players[0]->shippingLevel,
                     )
                     ->where('game.data.playerBoardStates.0.terraformingLevel', 0)
+                    ->where(
+                        'game.data.playerBoardStates.0.power.bowlOne',
+                        $game->state->players[0]->resources->power->bowlOne,
+                    )
+                    ->where(
+                        'game.data.playerBoardStates.0.power.bowlTwo',
+                        $game->state->players[0]->resources->power->bowlTwo,
+                    )
+                    ->where(
+                        'game.data.playerBoardStates.0.power.bowlThree',
+                        $game->state->players[0]->resources->power->bowlThree,
+                    )
                     ->has('game.data.roundScoringTiles', 6)
                     ->where(
                         'game.data.finalRoundScoringTile',

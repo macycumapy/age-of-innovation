@@ -59,6 +59,11 @@ class GameResource extends JsonResource
                     'playerId' => $player->playerId,
                     'shippingLevel' => $player->shippingLevel,
                     'terraformingLevel' => $player->terraformingLevel,
+                    'power' => [
+                        'bowlOne' => $player->resources->power->bowlOne,
+                        'bowlTwo' => $player->resources->power->bowlTwo,
+                        'bowlThree' => $player->resources->power->bowlThree,
+                    ],
                 ],
                 $this->state->players,
             ),

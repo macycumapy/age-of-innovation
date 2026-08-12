@@ -7,12 +7,20 @@ import type {
     GamePlayerSummary,
     PlayerColor,
 } from '@/types';
+import manaUrl from '../../../images/token_parts/mana.png';
 
 type PlayerBuildingType =
     'workshop' | 'guild' | 'school' | 'university' | 'palace';
 
 type BuildingSlot = {
     type: PlayerBuildingType;
+    x: number;
+    y: number;
+};
+
+type PowerBowl = {
+    key: 'bowlOne' | 'bowlTwo' | 'bowlThree';
+    label: string;
     x: number;
     y: number;
 };
@@ -53,6 +61,27 @@ const factionCardY = 60;
 const factionCardWidth = 380;
 const shippingLevelY = [160, 110, 60, 10];
 const terraformingLevelY = [150, 100, 50];
+
+const powerBowls: PowerBowl[] = [
+    { key: 'bowlOne', label: 'Чаша силы I', x: 664, y: 462 },
+    { key: 'bowlTwo', label: 'Чаша силы II', x: 664, y: 302 },
+    { key: 'bowlThree', label: 'Чаша силы III', x: 813, y: 380 },
+];
+
+const manaPositions = [
+    [50, 50],
+    [34, 35],
+    [57, 29],
+    [70, 47],
+    [61, 67],
+    [37, 69],
+    [23, 52],
+    [46, 18],
+    [76, 31],
+    [79, 66],
+    [49, 81],
+    [19, 75],
+] as const;
 
 const factionNames: Record<Faction, string> = {
     blessed: 'Благословенные',
@@ -164,6 +193,31 @@ function levelPosition(positions: number[], level: number | undefined): number {
 
     return positions[normalizedLevel];
 }
+
+function powerBowlStyle(bowl: PowerBowl): CSSProperties {
+    return {
+        left: `${(bowl.x / boardWidth) * 100}%`,
+        top: `${(bowl.y / boardHeight) * 100}%`,
+        width: `${(160 / boardWidth) * 100}%`,
+    };
+}
+
+function manaStyle(index: number): CSSProperties {
+    const [left, top] = manaPositions[index % manaPositions.length];
+    const layer = Math.floor(index / manaPositions.length);
+
+    return {
+        left: `${left + layer * 3}%`,
+        top: `${top + layer * 3}%`,
+    };
+}
+
+function powerInBowl(
+    state: GamePlayerBoardState | undefined,
+    bowl: PowerBowl,
+): number {
+    return state?.power[bowl.key] ?? 0;
+}
 </script>
 
 <template>
@@ -188,6 +242,27 @@ function levelPosition(positions: number[], level: number | undefined): number {
                         :style="factionCardStyle()"
                         class="absolute z-0 rounded-sm shadow-md"
                     />
+
+                    <div
+                        v-for="bowl in powerBowls"
+                        :key="bowl.key"
+                        :style="powerBowlStyle(bowl)"
+                        class="pointer-events-none absolute z-10 aspect-square rounded-full"
+                        role="img"
+                        :aria-label="`${bowl.label}: ${powerInBowl(playerState(player.id), bowl)}`"
+                    >
+                        <img
+                            v-for="manaIndex in powerInBowl(
+                                playerState(player.id),
+                                bowl,
+                            )"
+                            :key="manaIndex"
+                            :src="manaUrl"
+                            alt=""
+                            :style="manaStyle(manaIndex - 1)"
+                            class="absolute w-[18%] -translate-x-1/2 -translate-y-1/2 drop-shadow-md"
+                        />
+                    </div>
 
                     <span
                         v-for="(slot, slotIndex) in buildingSlots"

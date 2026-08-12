@@ -40,6 +40,11 @@ export type GamePlayerBoardState = {
     playerId: number;
     shippingLevel: number;
     terraformingLevel: number;
+    power: {
+        bowlOne: number;
+        bowlTwo: number;
+        bowlThree: number;
+    };
 };
 
 export type GamePlayerSummary = {
