@@ -2,6 +2,7 @@
 import { computed } from 'vue';
 import type { CSSProperties } from 'vue';
 import type {
+    Faction,
     GamePlayerBoardState,
     GamePlayerSummary,
     PlayerColor,
@@ -37,12 +38,36 @@ const buildingImages = import.meta.glob(
     },
 ) as Record<string, string>;
 
+const factionImages = import.meta.glob('../../../images/factions/*.jpg', {
+    eager: true,
+    import: 'default',
+    query: '?url',
+}) as Record<string, string>;
+
 const boardWidth = 1219;
 const boardHeight = 636;
 const buildingWidth = 80;
 const tokenWidth = 85;
+const factionCardX = 593;
+const factionCardY = 60;
+const factionCardWidth = 380;
 const shippingLevelY = [160, 110, 60, 10];
 const terraformingLevelY = [150, 100, 50];
+
+const factionNames: Record<Faction, string> = {
+    blessed: 'Благословенные',
+    felines: 'Кошачьи',
+    goblins: 'Гоблины',
+    illusionists: 'Иллюзионисты',
+    inventors: 'Изобретатели',
+    lizards: 'Ящеры',
+    moles: 'Кроты',
+    monks: 'Монахи',
+    navigators: 'Навигаторы',
+    omar: 'Омар',
+    philosophers: 'Философы',
+    psychics: 'Провидцы',
+};
 
 const buildingSlots: BuildingSlot[] = [
     { type: 'palace', x: 168, y: 335 },
@@ -103,6 +128,18 @@ function buildingStyle(slot: BuildingSlot): CSSProperties {
     };
 }
 
+function factionImage(faction: Faction): string {
+    return factionImages[`../../../images/factions/${faction}.jpg`];
+}
+
+function factionCardStyle(): CSSProperties {
+    return {
+        left: `${(factionCardX / boardWidth) * 100}%`,
+        top: `${(factionCardY / boardHeight) * 100}%`,
+        width: `${(factionCardWidth / boardWidth) * 100}%`,
+    };
+}
+
 function tokenImage(color: PlayerColor): string {
     return buildingImages[`../../../images/buildings/${color}/token.png`];
 }
@@ -142,6 +179,14 @@ function levelPosition(positions: number[], level: number | undefined): number {
                         :src="boardImage(player.color)"
                         :alt="`Планшет игрока ${player.user.name}`"
                         class="block h-auto w-full"
+                    />
+
+                    <img
+                        v-if="player.faction"
+                        :src="factionImage(player.faction)"
+                        :alt="`Раса игрока ${player.user.name}: ${factionNames[player.faction]}`"
+                        :style="factionCardStyle()"
+                        class="absolute z-0 rounded-sm shadow-md"
                     />
 
                     <span
