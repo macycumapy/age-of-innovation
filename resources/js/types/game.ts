@@ -19,6 +19,7 @@ export type GameCollection = {
 export type GameResource = {
     data: GameSummary & {
         players: GamePlayerSummary[];
+        playerBoardStates: GamePlayerBoardState[];
         isOwner: boolean;
         activePlayerId: number | null;
         turnOrder: number[];
@@ -33,6 +34,12 @@ export type GameResource = {
         competencies: Competency[];
         pendingInteraction: PendingInteraction | null;
     };
+};
+
+export type GamePlayerBoardState = {
+    playerId: number;
+    shippingLevel: number;
+    terraformingLevel: number;
 };
 
 export type GamePlayerSummary = {
@@ -55,7 +62,7 @@ export type PlayerColor =
     | 'blue'
     | 'green'
     | 'brown'
-    | 'gray';
+    | 'grey';
 
 export type Faction =
     | 'blessed'

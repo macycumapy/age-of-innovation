@@ -640,6 +640,7 @@ function planningSelectionDetails(playerId: number): string {
 
                     <PlayerBoards
                         :players="orderedPlayers"
+                        :player-states="game.data.playerBoardStates"
                         :current-user-id="page.props.auth.user.id"
                     />
                 </div>

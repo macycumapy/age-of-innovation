@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Resources;
 
 use App\Domain\Game\Data\BoardHexStateData;
+use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Data\PlanningBundleData;
 use App\Domain\Game\Data\PlayerPlanningSelectionData;
 use App\Domain\Game\Enums\GameStatus;
@@ -53,6 +54,14 @@ class GameResource extends JsonResource
                     static fn (GamePlayer $player): bool => $player->is_ready,
                 ),
             'players' => GamePlayerResource::collection($this->whenLoaded('players')),
+            'playerBoardStates' => array_map(
+                static fn (GamePlayerStateData $player): array => [
+                    'playerId' => $player->playerId,
+                    'shippingLevel' => $player->shippingLevel,
+                    'terraformingLevel' => $player->terraformingLevel,
+                ],
+                $this->state->players,
+            ),
             'planningBundles' => array_map(
                 static fn (PlanningBundleData $bundle): array => [
                     'homeland' => $bundle->homeland->value,

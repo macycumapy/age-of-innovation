@@ -1,14 +1,14 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import type { CSSProperties } from 'vue';
-import type { GamePlayerSummary, PlayerColor } from '@/types';
+import type {
+    GamePlayerBoardState,
+    GamePlayerSummary,
+    PlayerColor,
+} from '@/types';
 
 type PlayerBuildingType =
-    | 'workshop'
-    | 'guild'
-    | 'school'
-    | 'university'
-    | 'palace';
+    'workshop' | 'guild' | 'school' | 'university' | 'palace';
 
 type BuildingSlot = {
     type: PlayerBuildingType;
@@ -18,20 +18,18 @@ type BuildingSlot = {
 
 const props = defineProps<{
     players: GamePlayerSummary[];
+    playerStates: GamePlayerBoardState[];
     currentUserId: number;
 }>();
 
-const boardImages = import.meta.glob(
-    '../../../images/terrain_boards/*.webp',
-    {
-        eager: true,
-        import: 'default',
-        query: '?url',
-    },
-) as Record<string, string>;
+const boardImages = import.meta.glob('../../../images/terrain_boards/*.webp', {
+    eager: true,
+    import: 'default',
+    query: '?url',
+}) as Record<string, string>;
 
 const buildingImages = import.meta.glob(
-    '../../../images/buildings/*/{workshop,guild,school,university,palace}.png',
+    '../../../images/buildings/*/{workshop,guild,school,university,palace,token}.png',
     {
         eager: true,
         import: 'default',
@@ -42,6 +40,9 @@ const buildingImages = import.meta.glob(
 const boardWidth = 1219;
 const boardHeight = 636;
 const buildingWidth = 80;
+const tokenWidth = 85;
+const shippingLevelY = [160, 110, 60, 10];
+const terraformingLevelY = [150, 100, 50];
 
 const buildingSlots: BuildingSlot[] = [
     { type: 'palace', x: 168, y: 335 },
@@ -85,16 +86,13 @@ const playersWithBoards = computed(() => {
 });
 
 function boardImage(color: PlayerColor): string {
-    return boardImages[`../../../images/terrain_boards/${color}.webp`];
+    const fileName = color === 'grey' ? 'gray' : color;
+
+    return boardImages[`../../../images/terrain_boards/${fileName}.webp`];
 }
 
-function buildingImage(
-    color: PlayerColor,
-    type: PlayerBuildingType,
-): string {
-    return buildingImages[
-        `../../../images/buildings/${color}/${type}.png`
-    ];
+function buildingImage(color: PlayerColor, type: PlayerBuildingType): string {
+    return buildingImages[`../../../images/buildings/${color}/${type}.png`];
 }
 
 function buildingStyle(slot: BuildingSlot): CSSProperties {
@@ -103,6 +101,31 @@ function buildingStyle(slot: BuildingSlot): CSSProperties {
         top: `${(slot.y / boardHeight) * 100}%`,
         width: `${(buildingWidth / boardWidth) * 100}%`,
     };
+}
+
+function tokenImage(color: PlayerColor): string {
+    return buildingImages[`../../../images/buildings/${color}/token.png`];
+}
+
+function playerState(playerId: number): GamePlayerBoardState | undefined {
+    return props.playerStates.find((state) => state.playerId === playerId);
+}
+
+function tokenStyle(x: number, y: number): CSSProperties {
+    return {
+        left: `${(x / boardWidth) * 100}%`,
+        top: `${(y / boardHeight) * 100}%`,
+        width: `${(tokenWidth / boardWidth) * 100}%`,
+    };
+}
+
+function levelPosition(positions: number[], level: number | undefined): number {
+    const normalizedLevel = Math.max(
+        0,
+        Math.min(level ?? 0, positions.length - 1),
+    );
+
+    return positions[normalizedLevel];
 }
 </script>
 
@@ -131,6 +154,44 @@ function buildingStyle(slot: BuildingSlot): CSSProperties {
                             :src="buildingImage(player.color, slot.type)"
                             alt=""
                             class="h-full w-full object-contain drop-shadow-md transition-transform duration-500 ease-in-out group-hover:translate-x-[25px] group-hover:-translate-y-[25px]"
+                        />
+                    </span>
+
+                    <span
+                        :style="
+                            tokenStyle(
+                                15,
+                                levelPosition(
+                                    shippingLevelY,
+                                    playerState(player.id)?.shippingLevel,
+                                ),
+                            )
+                        "
+                        class="group absolute z-20 aspect-[141/158] cursor-pointer hover:z-30"
+                    >
+                        <img
+                            :src="tokenImage(player.color)"
+                            alt="Уровень навигации"
+                            class="h-full w-full object-contain transition-transform duration-500 ease-in-out group-hover:translate-x-[25px] group-hover:-translate-y-[25px]"
+                        />
+                    </span>
+
+                    <span
+                        :style="
+                            tokenStyle(
+                                420,
+                                levelPosition(
+                                    terraformingLevelY,
+                                    playerState(player.id)?.terraformingLevel,
+                                ),
+                            )
+                        "
+                        class="group absolute z-20 aspect-[141/158] cursor-pointer hover:z-30"
+                    >
+                        <img
+                            :src="tokenImage(player.color)"
+                            alt="Уровень преобразования"
+                            class="h-full w-full object-contain transition-transform duration-500 ease-in-out group-hover:translate-x-[25px] group-hover:-translate-y-[25px]"
                         />
                     </span>
                 </div>

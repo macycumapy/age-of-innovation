@@ -391,6 +391,13 @@ class GameManagementTest extends TestCase
                         'game.data.players.'.($player->seat - 1).'.color',
                         $player->color->value,
                     )
+                    ->has('game.data.playerBoardStates', 1)
+                    ->where('game.data.playerBoardStates.0.playerId', $player->id)
+                    ->where(
+                        'game.data.playerBoardStates.0.shippingLevel',
+                        $game->state->players[0]->shippingLevel,
+                    )
+                    ->where('game.data.playerBoardStates.0.terraformingLevel', 0)
                     ->has('game.data.roundScoringTiles', 6)
                     ->where(
                         'game.data.finalRoundScoringTile',
