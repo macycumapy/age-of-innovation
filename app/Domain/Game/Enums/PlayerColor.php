@@ -12,5 +12,5 @@ enum PlayerColor: string
     case Blue = 'blue';
     case Green = 'green';
     case Brown = 'brown';
-    case Gray = 'gray';
+    case Grey = 'grey';
 }

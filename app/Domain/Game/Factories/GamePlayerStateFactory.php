@@ -106,7 +106,7 @@ final class GamePlayerStateFactory
             TerrainType::Swamp => PlayerColor::Black,
             TerrainType::Lake => PlayerColor::Blue,
             TerrainType::Forest => PlayerColor::Green,
-            TerrainType::Mountain => PlayerColor::Gray,
+            TerrainType::Mountain => PlayerColor::Grey,
             TerrainType::Wasteland => PlayerColor::Red,
         };
     }
