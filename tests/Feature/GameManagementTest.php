@@ -412,6 +412,10 @@ class GameManagementTest extends TestCase
                     ->has('game.data.playerBoardStates', 1)
                     ->where('game.data.playerBoardStates.0.playerId', $player->id)
                     ->where(
+                        'game.data.playerBoardStates.0.roundBonus',
+                        $game->state->players[0]->roundBonus->value,
+                    )
+                    ->where(
                         'game.data.playerBoardStates.0.shippingLevel',
                         $game->state->players[0]->shippingLevel,
                     )

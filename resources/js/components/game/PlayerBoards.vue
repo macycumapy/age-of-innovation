@@ -6,6 +6,7 @@ import type {
     GamePlayerBoardState,
     GamePlayerSummary,
     PlayerColor,
+    RoundBonus,
 } from '@/types';
 import manaUrl from '../../../images/token_parts/mana.png';
 
@@ -51,6 +52,15 @@ const factionImages = import.meta.glob('../../../images/factions/*.jpg', {
     import: 'default',
     query: '?url',
 }) as Record<string, string>;
+
+const roundBonusImages = import.meta.glob(
+    '../../../images/round_bonus_cards/*_top.png',
+    {
+        eager: true,
+        import: 'default',
+        query: '?url',
+    },
+) as Record<string, string>;
 
 const boardWidth = 1219;
 const boardHeight = 636;
@@ -159,6 +169,16 @@ function factionImage(faction: Faction): string {
     return factionImages[`../../../images/factions/${faction}.jpg`];
 }
 
+function roundBonusImage(roundBonus: RoundBonus | undefined): string {
+    if (roundBonus === undefined) {
+        return '';
+    }
+
+    return roundBonusImages[
+        `../../../images/round_bonus_cards/${roundBonus}_top.png`
+    ];
+}
+
 function factionCardStyle(): CSSProperties {
     return {
         left: `${(factionCardX / boardWidth) * 100}%`,
@@ -234,7 +254,7 @@ function powerInBowl(
             <figure
                 v-for="player in playersWithBoards"
                 :key="player.id"
-                class="overflow-hidden rounded-xl border bg-card shadow-sm"
+                class="overflow-hidden rounded-xl bg-card shadow-sm"
             >
                 <div class="relative">
                     <img
@@ -323,6 +343,17 @@ function powerInBowl(
                         />
                     </span>
                 </div>
+
+                <figcaption
+                    v-if="playerState(player.id)?.roundBonus"
+                    class="flex p-3"
+                >
+                    <img
+                        :src="roundBonusImage(playerState(player.id)?.roundBonus)"
+                        :alt="`Выбранный бонус раунда игрока ${player.user.name}`"
+                        class="h-auto w-24 rounded-md shadow-sm"
+                    />
+                </figcaption>
             </figure>
         </div>
     </section>

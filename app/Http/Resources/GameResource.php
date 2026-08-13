@@ -58,6 +58,7 @@ class GameResource extends JsonResource
             'playerBoardStates' => array_map(
                 static fn (GamePlayerStateData $player): array => [
                     'playerId' => $player->playerId,
+                    'roundBonus' => $player->roundBonus->value,
                     'shippingLevel' => $player->shippingLevel,
                     'terraformingLevel' => $player->terraformingLevel,
                     'knowledge' => [

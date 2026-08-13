@@ -40,6 +40,7 @@ export type GameResource = {
 
 export type GamePlayerBoardState = {
     playerId: number;
+    roundBonus: RoundBonus;
     shippingLevel: number;
     terraformingLevel: number;
     knowledge: {
