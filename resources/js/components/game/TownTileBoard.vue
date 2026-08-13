@@ -20,10 +20,10 @@ function townTileImage(townTile: TownTile): string {
 }
 
 function townTileLayerStyle(layer: number): CSSProperties {
-    const offset = (townTileStackSize - layer) * townTileLayerOffset;
+    const offset = (layer - 1) * townTileLayerOffset;
 
     return {
-        transform: `translate(${-offset}px, ${-offset}px)`,
+        transform: `translate(${offset}px, ${-offset}px)`,
     };
 }
 </script>
@@ -45,7 +45,7 @@ function townTileLayerStyle(layer: number): CSSProperties {
                 :src="townTileImage(townTile)"
                 :style="townTileLayerStyle(layer)"
                 alt=""
-                class="absolute inset-0 size-full object-contain drop-shadow-[-2px_-2px_2px_rgba(0,0,0,0.45)]"
+                class="absolute inset-0 size-full object-contain drop-shadow-[-2px_2px_2px_rgba(0,0,0,0.45)]"
             />
         </span>
     </section>

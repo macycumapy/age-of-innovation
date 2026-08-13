@@ -73,18 +73,18 @@ const secondRowSlots: InnovationSlot[] = [
 ];
 
 const competencySlots: CompetencySlot[] = [
-    { x: 92, y: 106 },
-    { x: 304, y: 106 },
-    { x: 516, y: 106 },
-    { x: 728, y: 106 },
-    { x: 92, y: 230 },
-    { x: 304, y: 230 },
-    { x: 516, y: 230 },
-    { x: 728, y: 230 },
-    { x: 92, y: 354 },
-    { x: 304, y: 354 },
-    { x: 516, y: 354 },
-    { x: 728, y: 354 },
+    { x: 85, y: 94 },
+    { x: 298, y: 94 },
+    { x: 509, y: 94 },
+    { x: 721, y: 94 },
+    { x: 85, y: 218 },
+    { x: 298, y: 218 },
+    { x: 509, y: 218 },
+    { x: 721, y: 218 },
+    { x: 85, y: 342 },
+    { x: 298, y: 342 },
+    { x: 509, y: 342 },
+    { x: 721, y: 342 },
 ];
 
 const innovationSlots = computed(() => [
@@ -130,10 +130,10 @@ function competencyStyle(slot: CompetencySlot | undefined): CSSProperties {
 }
 
 function competencyLayerStyle(layer: number): CSSProperties {
-    const offset = (competencyStackSize - layer) * competencyLayerOffset;
+    const offset = (layer - 1) * competencyLayerOffset;
 
     return {
-        transform: `translate(${-offset}px, ${-offset}px)`,
+        transform: `translate(${offset}px, ${-offset}px)`,
     };
 }
 </script>
@@ -153,7 +153,7 @@ function competencyLayerStyle(layer: number): CSSProperties {
                 :src="innovationImage(innovation)"
                 :alt="`Плашка инновации ${innovation}`"
                 :style="innovationStyle(innovationSlots[index])"
-                class="absolute rounded-xs shadow-[-2px_-2px_2px_rgba(0,0,0,0.45)]"
+                class="absolute rounded-xs drop-shadow-[-2px_2px_2px_rgba(0,0,0,0.45)]"
             />
         </div>
 
@@ -177,7 +177,7 @@ function competencyLayerStyle(layer: number): CSSProperties {
                     :src="competencyImage(competency)"
                     alt=""
                     :style="competencyLayerStyle(layer)"
-                    class="absolute inset-0 size-full drop-shadow-[-2px_-2px_2px_rgba(0,0,0,0.45)]"
+                    class="absolute inset-0 size-full object-contain drop-shadow-[-2px_2px_2px_rgba(0,0,0,0.45)]"
                 />
             </span>
         </div>
