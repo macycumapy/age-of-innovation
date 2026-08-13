@@ -63,6 +63,13 @@ class GameResource extends JsonResource
                     'scholars' => $player->resources->scholars,
                     'coins' => $player->resources->coins,
                     'tools' => $player->resources->tools,
+                    'books' => [
+                        'banking' => $player->resources->books->banking,
+                        'law' => $player->resources->books->law,
+                        'engineering' => $player->resources->books->engineering,
+                        'medicine' => $player->resources->books->medicine,
+                        'unassigned' => $player->resources->books->unassigned,
+                    ],
                     'availableBridges' => max(
                         0,
                         3 - count(array_filter(

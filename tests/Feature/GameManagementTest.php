@@ -427,6 +427,18 @@ class GameManagementTest extends TestCase
                         'game.data.playerBoardStates.0.tools',
                         $game->state->players[0]->resources->tools,
                     )
+                    ->where('game.data.playerBoardStates.0.books', [
+                        'banking' => $game->state->players[0]
+                            ->resources->books->banking,
+                        'law' => $game->state->players[0]
+                            ->resources->books->law,
+                        'engineering' => $game->state->players[0]
+                            ->resources->books->engineering,
+                        'medicine' => $game->state->players[0]
+                            ->resources->books->medicine,
+                        'unassigned' => $game->state->players[0]
+                            ->resources->books->unassigned,
+                    ])
                     ->where(
                         'game.data.playerBoardStates.0.availableBridges',
                         3,

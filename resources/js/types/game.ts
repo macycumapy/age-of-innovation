@@ -44,6 +44,13 @@ export type GamePlayerBoardState = {
     scholars: number;
     coins: number;
     tools: number;
+    books: {
+        banking: number;
+        law: number;
+        engineering: number;
+        medicine: number;
+        unassigned: number;
+    };
     availableBridges: number;
     shippingLevel: number;
     terraformingLevel: number;

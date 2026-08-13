@@ -8,9 +8,14 @@ import type {
     PlayerColor,
     RoundBonus,
 } from '@/types';
+import bankingBookUrl from '../../../images/token_parts/coin_book.png';
 import coinUrl from '../../../images/token_parts/gold_medallion.png';
+import engineeringBookUrl from '../../../images/token_parts/engineering_book.png';
+import unassignedBookUrl from '../../../images/token_parts/gray_book.png';
 import handUrl from '../../../images/token_parts/cube.png';
+import lawBookUrl from '../../../images/token_parts/law_book.png';
 import manaUrl from '../../../images/token_parts/mana.png';
+import medicineBookUrl from '../../../images/token_parts/medicine_book.png';
 
 type PlayerBuildingType =
     'workshop' | 'guild' | 'school' | 'university' | 'palace';
@@ -27,6 +32,8 @@ type PowerBowl = {
     x: number;
     y: number;
 };
+
+type BookType = keyof GamePlayerBoardState['books'];
 
 const props = defineProps<{
     players: GamePlayerSummary[];
@@ -95,6 +102,14 @@ const manaPositions = [
     [49, 81],
     [19, 75],
 ] as const;
+
+const bookImages: Record<BookType, string> = {
+    banking: bankingBookUrl,
+    law: lawBookUrl,
+    engineering: engineeringBookUrl,
+    medicine: medicineBookUrl,
+    unassigned: unassignedBookUrl,
+};
 
 const factionNames: Record<Faction, string> = {
     blessed: 'Благословенные',
@@ -223,6 +238,18 @@ function coinsForPlayer(playerId: number): number {
 
 function toolsForPlayer(playerId: number): number {
     return playerState(playerId)?.tools ?? 0;
+}
+
+function booksForPlayer(playerId: number): string[] {
+    const books = playerState(playerId)?.books;
+
+    if (books === undefined) {
+        return [];
+    }
+
+    return (Object.keys(bookImages) as BookType[]).flatMap((bookType) =>
+        Array.from({ length: books[bookType] }, () => bookImages[bookType]),
+    );
 }
 
 function tokenStyle(x: number, y: number): CSSProperties {
@@ -449,6 +476,20 @@ function powerInBowl(
                                     {{ toolsForPlayer(player.id) }}
                                 </span>
                             </span>
+                        </span>
+
+                        <span
+                            v-if="booksForPlayer(player.id).length"
+                            class="flex flex-wrap gap-1"
+                            :aria-label="`Книги: ${booksForPlayer(player.id).length}`"
+                        >
+                            <img
+                                v-for="(bookImageUrl, bookIndex) in booksForPlayer(player.id)"
+                                :key="bookIndex"
+                                :src="bookImageUrl"
+                                alt=""
+                                class="h-auto w-10 object-contain drop-shadow-md"
+                            />
                         </span>
                     </span>
                 </figcaption>
