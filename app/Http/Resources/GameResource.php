@@ -128,6 +128,7 @@ class GameResource extends JsonResource
                 $this->state->setupPool?->competencies ?? [],
             ),
             'availablePalaceIds' => $this->state->availablePalaceIds,
+            'availableTownTileIds' => $this->state->availableTownTileIds,
             'roundBonusOffers' => array_map(
                 static fn (RoundBonusOfferData $offer): array => [
                     'roundBonus' => $offer->roundBonus->value,

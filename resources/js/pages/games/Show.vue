@@ -12,6 +12,7 @@ import InnovationBoard from '@/components/game/InnovationBoard.vue';
 import PalaceBoard from '@/components/game/PalaceBoard.vue';
 import PlayerBoards from '@/components/game/PlayerBoards.vue';
 import RoundBonusBoard from '@/components/game/RoundBonusBoard.vue';
+import TownTileBoard from '@/components/game/TownTileBoard.vue';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
 import {
@@ -662,6 +663,9 @@ function planningSelectionDetails(playerId: number): string {
                     />
                     <PalaceBoard
                         :palaces="game.data.availablePalaceIds"
+                    />
+                    <TownTileBoard
+                        :town-tiles="game.data.availableTownTileIds"
                     />
                 </aside>
             </div>

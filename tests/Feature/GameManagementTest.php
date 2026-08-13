@@ -259,6 +259,10 @@ class GameManagementTest extends TestCase
                         'game.data.availablePalaceIds',
                         $game->state->availablePalaceIds,
                     )
+                    ->where(
+                        'game.data.availableTownTileIds',
+                        $game->state->availableTownTileIds,
+                    )
                     ->has('game.data.roundBonusOffers', 3)
                     ->where(
                         'game.data.roundBonusOffers.0.roundBonus',

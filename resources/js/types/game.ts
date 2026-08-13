@@ -33,6 +33,7 @@ export type GameResource = {
         innovations: Innovation[];
         competencies: Competency[];
         availablePalaceIds: PalaceAbility[];
+        availableTownTileIds: TownTile[];
         roundBonusOffers: RoundBonusOffer[];
         pendingInteraction: PendingInteraction | null;
     };
@@ -200,6 +201,15 @@ export type PalaceAbility =
     | 'palace_15'
     | 'palace_16'
     | 'palace_17';
+
+export type TownTile =
+    | 'tools'
+    | 'terraform'
+    | 'books'
+    | 'coins'
+    | 'knowledge'
+    | 'power'
+    | 'scholar';
 
 export type PlanningBundle = {
     homeland: TerrainType;
