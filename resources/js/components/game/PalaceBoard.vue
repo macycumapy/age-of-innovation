@@ -21,7 +21,7 @@ function palaceImage(palace: PalaceAbility): string {
         v-if="palaces.length"
         class="grid gap-3 rounded-xl bg-card shadow-sm"
     >
-        <div class="grid grid-cols-3 gap-2">
+        <div class="grid grid-cols-4 gap-2">
             <img
                 v-for="palace in palaces"
                 :key="palace"
