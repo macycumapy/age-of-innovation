@@ -33,6 +33,7 @@ export type GameResource = {
         innovations: Innovation[];
         competencies: Competency[];
         availablePalaceIds: PalaceAbility[];
+        roundBonusOffers: RoundBonusOffer[];
         pendingInteraction: PendingInteraction | null;
     };
 };
@@ -101,6 +102,11 @@ export type RoundBonus =
     | 'pass_school'
     | 'power_coins'
     | 'coins';
+
+export type RoundBonusOffer = {
+    roundBonus: RoundBonus;
+    coins: number;
+};
 
 export type RoundScoringTile =
     | 'workshop_law'

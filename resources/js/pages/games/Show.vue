@@ -11,6 +11,7 @@ import CultBoard from '@/components/game/CultBoard.vue';
 import InnovationBoard from '@/components/game/InnovationBoard.vue';
 import PalaceBoard from '@/components/game/PalaceBoard.vue';
 import PlayerBoards from '@/components/game/PlayerBoards.vue';
+import RoundBonusBoard from '@/components/game/RoundBonusBoard.vue';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
 import {
@@ -650,6 +651,9 @@ function planningSelectionDetails(playerId: number): string {
                     <CultBoard
                         :players="orderedPlayers"
                         :player-states="game.data.playerBoardStates"
+                    />
+                    <RoundBonusBoard
+                        :offers="game.data.roundBonusOffers"
                     />
                     <InnovationBoard
                         :player-count="game.data.playersCount"

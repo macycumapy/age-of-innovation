@@ -8,6 +8,7 @@ use App\Domain\Game\Data\BoardHexStateData;
 use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Data\PlanningBundleData;
 use App\Domain\Game\Data\PlayerPlanningSelectionData;
+use App\Domain\Game\Data\RoundBonusOfferData;
 use App\Domain\Game\Enums\GameStatus;
 use App\Models\Game;
 use App\Models\GamePlayer;
@@ -108,6 +109,13 @@ class GameResource extends JsonResource
                 $this->state->setupPool?->competencies ?? [],
             ),
             'availablePalaceIds' => $this->state->availablePalaceIds,
+            'roundBonusOffers' => array_map(
+                static fn (RoundBonusOfferData $offer): array => [
+                    'roundBonus' => $offer->roundBonus->value,
+                    'coins' => $offer->coins,
+                ],
+                $this->state->setupPool?->availableRoundBonuses ?? [],
+            ),
             'pendingInteraction' => $this->state->pendingInteraction === null ? null : [
                 'type' => $this->state->pendingInteraction->type->value,
                 'playerId' => $this->state->pendingInteraction->playerId,
