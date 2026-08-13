@@ -23,6 +23,8 @@ const boardWidth = 850;
 const tileWidth = 168;
 const competencyBoardHeight = 480;
 const competencyTileWidth = 100;
+const competencyStackSize = 4;
+const competencyLayerOffset = 2;
 
 const inventionBoardUrl = computed(() =>
     props.playerCount >= 4
@@ -71,18 +73,18 @@ const secondRowSlots: InnovationSlot[] = [
 ];
 
 const competencySlots: CompetencySlot[] = [
-    { x: 82, y: 96 },
-    { x: 294, y: 96 },
-    { x: 506, y: 96 },
-    { x: 718, y: 96 },
-    { x: 82, y: 220 },
-    { x: 294, y: 220 },
-    { x: 506, y: 220 },
-    { x: 718, y: 220 },
-    { x: 82, y: 344 },
-    { x: 294, y: 344 },
-    { x: 506, y: 344 },
-    { x: 718, y: 344 },
+    { x: 92, y: 106 },
+    { x: 304, y: 106 },
+    { x: 516, y: 106 },
+    { x: 728, y: 106 },
+    { x: 92, y: 230 },
+    { x: 304, y: 230 },
+    { x: 516, y: 230 },
+    { x: 728, y: 230 },
+    { x: 92, y: 354 },
+    { x: 304, y: 354 },
+    { x: 516, y: 354 },
+    { x: 728, y: 354 },
 ];
 
 const innovationSlots = computed(() => [
@@ -126,6 +128,14 @@ function competencyStyle(slot: CompetencySlot | undefined): CSSProperties {
         width: `${(competencyTileWidth / boardWidth) * 100}%`,
     };
 }
+
+function competencyLayerStyle(layer: number): CSSProperties {
+    const offset = (competencyStackSize - layer) * competencyLayerOffset;
+
+    return {
+        transform: `translate(${-offset}px, ${-offset}px)`,
+    };
+}
 </script>
 
 <template>
@@ -143,7 +153,7 @@ function competencyStyle(slot: CompetencySlot | undefined): CSSProperties {
                 :src="innovationImage(innovation)"
                 :alt="`Плашка инновации ${innovation}`"
                 :style="innovationStyle(innovationSlots[index])"
-                class="absolute rounded-xs shadow-md"
+                class="absolute rounded-xs shadow-[-2px_-2px_2px_rgba(0,0,0,0.45)]"
             />
         </div>
 
@@ -154,14 +164,22 @@ function competencyStyle(slot: CompetencySlot | undefined): CSSProperties {
                 class="block h-auto w-full"
             />
 
-            <img
+            <span
                 v-for="(competency, index) in competencies"
                 :key="competency"
-                :src="competencyImage(competency)"
-                :alt="`Плашка компетенции ${competency}`"
                 :style="competencyStyle(competencySlots[index])"
-                class="absolute drop-shadow-md"
-            />
+                class="absolute aspect-[120/117]"
+                :aria-label="`Стопка из ${competencyStackSize} плашек компетенции ${competency}`"
+            >
+                <img
+                    v-for="layer in competencyStackSize"
+                    :key="layer"
+                    :src="competencyImage(competency)"
+                    alt=""
+                    :style="competencyLayerStyle(layer)"
+                    class="absolute inset-0 size-full drop-shadow-[-2px_-2px_2px_rgba(0,0,0,0.45)]"
+                />
+            </span>
         </div>
     </div>
 </template>
