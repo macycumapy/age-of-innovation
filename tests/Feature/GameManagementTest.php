@@ -420,6 +420,10 @@ class GameManagementTest extends TestCase
                         $game->state->players[0]->resources->scholars,
                     )
                     ->where(
+                        'game.data.playerBoardStates.0.availableBridges',
+                        3,
+                    )
+                    ->where(
                         'game.data.playerBoardStates.0.shippingLevel',
                         $game->state->players[0]->shippingLevel,
                     )

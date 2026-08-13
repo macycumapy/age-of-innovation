@@ -42,6 +42,7 @@ export type GamePlayerBoardState = {
     playerId: number;
     roundBonus: RoundBonus;
     scholars: number;
+    availableBridges: number;
     shippingLevel: number;
     terraformingLevel: number;
     knowledge: {

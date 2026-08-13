@@ -39,7 +39,7 @@ const boardImages = import.meta.glob('../../../images/terrain_boards/*.webp', {
 }) as Record<string, string>;
 
 const buildingImages = import.meta.glob(
-    '../../../images/buildings/*/{workshop,guild,school,university,palace,token,scientist}.png',
+    '../../../images/buildings/*/{workshop,guild,school,university,palace,token,scientist,bridge}.png',
     {
         eager: true,
         import: 'default',
@@ -196,6 +196,10 @@ function scientistImage(color: PlayerColor): string {
     return buildingImages[`../../../images/buildings/${color}/scientist.png`];
 }
 
+function bridgeImage(color: PlayerColor): string {
+    return buildingImages[`../../../images/buildings/${color}/bridge.png`];
+}
+
 function playerState(playerId: number): GamePlayerBoardState | undefined {
     return props.playerStates.find((state) => state.playerId === playerId);
 }
@@ -205,6 +209,10 @@ function scholarsForPlayer(playerId: number): number {
         0,
         Math.min(playerState(playerId)?.scholars ?? 0, scholarPoolSize),
     );
+}
+
+function availableBridgesForPlayer(playerId: number): number {
+    return playerState(playerId)?.availableBridges ?? 0;
 }
 
 function tokenStyle(x: number, y: number): CSSProperties {
@@ -366,22 +374,38 @@ function powerInBowl(
                         class="h-auto w-24 rounded-md shadow-sm"
                     />
 
-                    <span
-                        class="flex flex-wrap gap-1"
-                        :aria-label="`Доступные учёные: ${scholarsForPlayer(player.id)}`"
-                    >
-                        <img
-                            v-for="scholarIndex in scholarPoolSize"
-                            :key="scholarIndex"
-                            :src="scientistImage(player.color)"
-                            alt=""
-                            class="h-auto w-16 object-contain drop-shadow-md transition-opacity"
-                            :class="{
-                                'opacity-35':
-                                    scholarIndex >
-                                    scholarsForPlayer(player.id),
-                            }"
-                        />
+                    <span class="grid gap-2">
+                        <span
+                            class="flex flex-wrap gap-1"
+                            :aria-label="`Доступные учёные: ${scholarsForPlayer(player.id)}`"
+                        >
+                            <img
+                                v-for="scholarIndex in scholarPoolSize"
+                                :key="scholarIndex"
+                                :src="scientistImage(player.color)"
+                                alt=""
+                                class="h-auto w-16 object-contain drop-shadow-md transition-opacity"
+                                :class="{
+                                    'opacity-35':
+                                        scholarIndex >
+                                        scholarsForPlayer(player.id),
+                                }"
+                            />
+                        </span>
+
+                        <span
+                            v-if="availableBridgesForPlayer(player.id)"
+                            class="flex flex-wrap gap-1"
+                            :aria-label="`Доступные мосты: ${availableBridgesForPlayer(player.id)}`"
+                        >
+                            <img
+                                v-for="bridgeIndex in availableBridgesForPlayer(player.id)"
+                                :key="bridgeIndex"
+                                :src="bridgeImage(player.color)"
+                                alt=""
+                                class="h-auto w-16 object-contain drop-shadow-md"
+                            />
+                        </span>
                     </span>
                 </figcaption>
             </figure>

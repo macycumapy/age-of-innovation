@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Resources;
 
 use App\Domain\Game\Data\BoardHexStateData;
+use App\Domain\Game\Data\BridgeStateData;
 use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Data\PlanningBundleData;
 use App\Domain\Game\Data\PlayerPlanningSelectionData;
@@ -56,10 +57,17 @@ class GameResource extends JsonResource
                 ),
             'players' => GamePlayerResource::collection($this->whenLoaded('players')),
             'playerBoardStates' => array_map(
-                static fn (GamePlayerStateData $player): array => [
+                fn (GamePlayerStateData $player): array => [
                     'playerId' => $player->playerId,
                     'roundBonus' => $player->roundBonus->value,
                     'scholars' => $player->resources->scholars,
+                    'availableBridges' => max(
+                        0,
+                        3 - count(array_filter(
+                            $this->state->board->bridges,
+                            static fn (BridgeStateData $bridge): bool => $bridge->ownerPlayerId === $player->playerId,
+                        )),
+                    ),
                     'shippingLevel' => $player->shippingLevel,
                     'terraformingLevel' => $player->terraformingLevel,
                     'knowledge' => [
