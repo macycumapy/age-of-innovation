@@ -399,6 +399,22 @@ class GameManagementTest extends TestCase
                     )
                     ->where('game.data.playerBoardStates.0.terraformingLevel', 0)
                     ->where(
+                        'game.data.playerBoardStates.0.knowledge.banking',
+                        $game->state->players[0]->knowledge->banking,
+                    )
+                    ->where(
+                        'game.data.playerBoardStates.0.knowledge.law',
+                        $game->state->players[0]->knowledge->law,
+                    )
+                    ->where(
+                        'game.data.playerBoardStates.0.knowledge.engineering',
+                        $game->state->players[0]->knowledge->engineering,
+                    )
+                    ->where(
+                        'game.data.playerBoardStates.0.knowledge.medicine',
+                        $game->state->players[0]->knowledge->medicine,
+                    )
+                    ->where(
                         'game.data.playerBoardStates.0.power.bowlOne',
                         $game->state->players[0]->resources->power->bowlOne,
                     )

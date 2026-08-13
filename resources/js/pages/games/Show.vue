@@ -646,7 +646,10 @@ function planningSelectionDetails(playerId: number): string {
                 </div>
 
                 <aside class="grid gap-4">
-                    <CultBoard />
+                    <CultBoard
+                        :players="orderedPlayers"
+                        :player-states="game.data.playerBoardStates"
+                    />
                     <InnovationBoard
                         :player-count="game.data.playersCount"
                         :innovations="game.data.innovations"
