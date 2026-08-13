@@ -192,6 +192,16 @@ function levelPosition(positions: number[], level: number | undefined): number {
     return positions[normalizedLevel];
 }
 
+function shippingPosition(
+    color: PlayerColor,
+    level: number | undefined,
+): number {
+    return levelPosition(
+        shippingLevelY,
+        color === 'blue' ? (level ?? 0) - 1 : level,
+    );
+}
+
 function powerBowlStyle(bowl: PowerBowl): CSSProperties {
     return {
         left: `${(bowl.x / boardWidth) * 100}%`,
@@ -279,8 +289,8 @@ function powerInBowl(
                         :style="
                             tokenStyle(
                                 15,
-                                levelPosition(
-                                    shippingLevelY,
+                                shippingPosition(
+                                    player.color,
                                     playerState(player.id)?.shippingLevel,
                                 ),
                             )
