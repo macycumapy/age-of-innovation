@@ -39,7 +39,7 @@ const boardImages = import.meta.glob('../../../images/terrain_boards/*.webp', {
 }) as Record<string, string>;
 
 const buildingImages = import.meta.glob(
-    '../../../images/buildings/*/{workshop,guild,school,university,palace,token}.png',
+    '../../../images/buildings/*/{workshop,guild,school,university,palace,token,scientist}.png',
     {
         eager: true,
         import: 'default',
@@ -66,6 +66,7 @@ const boardWidth = 1219;
 const boardHeight = 636;
 const buildingWidth = 80;
 const tokenWidth = 85;
+const scholarPoolSize = 7;
 const factionCardX = 593;
 const factionCardY = 60;
 const factionCardWidth = 380;
@@ -191,8 +192,19 @@ function tokenImage(color: PlayerColor): string {
     return buildingImages[`../../../images/buildings/${color}/token.png`];
 }
 
+function scientistImage(color: PlayerColor): string {
+    return buildingImages[`../../../images/buildings/${color}/scientist.png`];
+}
+
 function playerState(playerId: number): GamePlayerBoardState | undefined {
     return props.playerStates.find((state) => state.playerId === playerId);
+}
+
+function scholarsForPlayer(playerId: number): number {
+    return Math.max(
+        0,
+        Math.min(playerState(playerId)?.scholars ?? 0, scholarPoolSize),
+    );
 }
 
 function tokenStyle(x: number, y: number): CSSProperties {
@@ -346,13 +358,31 @@ function powerInBowl(
 
                 <figcaption
                     v-if="playerState(player.id)?.roundBonus"
-                    class="flex p-3"
+                    class="flex items-start gap-3 p-3"
                 >
                     <img
                         :src="roundBonusImage(playerState(player.id)?.roundBonus)"
                         :alt="`Выбранный бонус раунда игрока ${player.user.name}`"
                         class="h-auto w-24 rounded-md shadow-sm"
                     />
+
+                    <span
+                        class="flex flex-wrap gap-1"
+                        :aria-label="`Доступные учёные: ${scholarsForPlayer(player.id)}`"
+                    >
+                        <img
+                            v-for="scholarIndex in scholarPoolSize"
+                            :key="scholarIndex"
+                            :src="scientistImage(player.color)"
+                            alt=""
+                            class="h-auto w-16 object-contain drop-shadow-md transition-opacity"
+                            :class="{
+                                'opacity-35':
+                                    scholarIndex >
+                                    scholarsForPlayer(player.id),
+                            }"
+                        />
+                    </span>
                 </figcaption>
             </figure>
         </div>

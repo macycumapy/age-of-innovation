@@ -59,6 +59,7 @@ class GameResource extends JsonResource
                 static fn (GamePlayerStateData $player): array => [
                     'playerId' => $player->playerId,
                     'roundBonus' => $player->roundBonus->value,
+                    'scholars' => $player->resources->scholars,
                     'shippingLevel' => $player->shippingLevel,
                     'terraformingLevel' => $player->terraformingLevel,
                     'knowledge' => [
