@@ -11,6 +11,7 @@ import CultBoard from '@/components/game/CultBoard.vue';
 import InnovationBoard from '@/components/game/InnovationBoard.vue';
 import PalaceBoard from '@/components/game/PalaceBoard.vue';
 import PlayerBoards from '@/components/game/PlayerBoards.vue';
+import PlayerStatsPanel from '@/components/game/PlayerStatsPanel.vue';
 import RoundBonusBoard from '@/components/game/RoundBonusBoard.vue';
 import TownTileBoard from '@/components/game/TownTileBoard.vue';
 import InputError from '@/components/InputError.vue';
@@ -670,5 +671,11 @@ function planningSelectionDetails(playerId: number): string {
                 </aside>
             </div>
         </section>
+
+        <PlayerStatsPanel
+            v-if="game.data.status === 'active' && setupChoicesCompleted"
+            :players="orderedPlayers"
+            :player-states="game.data.playerBoardStates"
+        />
     </div>
 </template>

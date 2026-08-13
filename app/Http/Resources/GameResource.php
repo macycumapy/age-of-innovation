@@ -59,6 +59,7 @@ class GameResource extends JsonResource
             'playerBoardStates' => array_map(
                 fn (GamePlayerStateData $player): array => [
                     'playerId' => $player->playerId,
+                    'victoryPoints' => $player->victoryPoints,
                     'roundBonus' => $player->roundBonus->value,
                     'scholars' => $player->resources->scholars,
                     'coins' => $player->resources->coins,
@@ -77,6 +78,22 @@ class GameResource extends JsonResource
                             static fn (BridgeStateData $bridge): bool => $bridge->ownerPlayerId === $player->playerId,
                         )),
                     ),
+                    'activeTownKeys' => max(
+                        0,
+                        count($player->townTileIds)
+                            - count($player->knowledge->unlockedDisciplines),
+                    ),
+                    'activeAnnexes' => count(array_filter(
+                        $this->state->board->hexes,
+                        static fn (BoardHexStateData $hex): bool => $hex->building?->ownerPlayerId === $player->playerId
+                            && $hex->building->hasAnnex,
+                    )),
+                    'income' => [
+                        'tools' => 0,
+                        'coins' => 0,
+                        'scholars' => 0,
+                        'power' => 0,
+                    ],
                     'shippingLevel' => $player->shippingLevel,
                     'terraformingLevel' => $player->terraformingLevel,
                     'knowledge' => [

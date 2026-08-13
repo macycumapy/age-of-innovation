@@ -41,6 +41,7 @@ export type GameResource = {
 
 export type GamePlayerBoardState = {
     playerId: number;
+    victoryPoints: number;
     roundBonus: RoundBonus;
     scholars: number;
     coins: number;
@@ -53,6 +54,14 @@ export type GamePlayerBoardState = {
         unassigned: number;
     };
     availableBridges: number;
+    activeTownKeys: number;
+    activeAnnexes: number;
+    income: {
+        tools: number;
+        coins: number;
+        scholars: number;
+        power: number;
+    };
     shippingLevel: number;
     terraformingLevel: number;
     knowledge: {

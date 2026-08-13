@@ -416,6 +416,10 @@ class GameManagementTest extends TestCase
                     ->has('game.data.playerBoardStates', 1)
                     ->where('game.data.playerBoardStates.0.playerId', $player->id)
                     ->where(
+                        'game.data.playerBoardStates.0.victoryPoints',
+                        $game->state->players[0]->victoryPoints,
+                    )
+                    ->where(
                         'game.data.playerBoardStates.0.roundBonus',
                         $game->state->players[0]->roundBonus->value,
                     )
@@ -447,6 +451,14 @@ class GameManagementTest extends TestCase
                         'game.data.playerBoardStates.0.availableBridges',
                         3,
                     )
+                    ->where('game.data.playerBoardStates.0.activeTownKeys', 0)
+                    ->where('game.data.playerBoardStates.0.activeAnnexes', 0)
+                    ->where('game.data.playerBoardStates.0.income', [
+                        'tools' => 0,
+                        'coins' => 0,
+                        'scholars' => 0,
+                        'power' => 0,
+                    ])
                     ->where(
                         'game.data.playerBoardStates.0.shippingLevel',
                         $game->state->players[0]->shippingLevel,
