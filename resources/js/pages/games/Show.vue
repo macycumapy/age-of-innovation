@@ -9,6 +9,7 @@ import StartingResourcesController from '@/actions/App/Http/Controllers/Starting
 import BoardMap from '@/components/game/BoardMap.vue';
 import CultBoard from '@/components/game/CultBoard.vue';
 import InnovationBoard from '@/components/game/InnovationBoard.vue';
+import PalaceBoard from '@/components/game/PalaceBoard.vue';
 import PlayerBoards from '@/components/game/PlayerBoards.vue';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
@@ -654,6 +655,9 @@ function planningSelectionDetails(playerId: number): string {
                         :player-count="game.data.playersCount"
                         :innovations="game.data.innovations"
                         :competencies="game.data.competencies"
+                    />
+                    <PalaceBoard
+                        :palaces="game.data.availablePalaceIds"
                     />
                 </aside>
             </div>

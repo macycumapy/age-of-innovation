@@ -254,7 +254,11 @@ class GameManagementTest extends TestCase
             ->assertInertia(
                 fn (Assert $page) => $page
                     ->where('game.data.turnOrder', $game->state->turnOrder)
-                    ->where('game.data.activePlayerId', $game->active_player_id),
+                    ->where('game.data.activePlayerId', $game->active_player_id)
+                    ->where(
+                        'game.data.availablePalaceIds',
+                        $game->state->availablePalaceIds,
+                    ),
             );
     }
 

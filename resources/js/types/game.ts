@@ -32,6 +32,7 @@ export type GameResource = {
         bookActions: BookAction[];
         innovations: Innovation[];
         competencies: Competency[];
+        availablePalaceIds: PalaceAbility[];
         pendingInteraction: PendingInteraction | null;
     };
 };
@@ -162,6 +163,25 @@ export type Competency =
     | 'competency_10'
     | 'competency_11'
     | 'competency_12';
+
+export type PalaceAbility =
+    | 'palace_01'
+    | 'palace_02'
+    | 'palace_03'
+    | 'palace_04'
+    | 'palace_05'
+    | 'palace_06'
+    | 'palace_07'
+    | 'palace_08'
+    | 'palace_09'
+    | 'palace_10'
+    | 'palace_11'
+    | 'palace_12'
+    | 'palace_13'
+    | 'palace_14'
+    | 'palace_15'
+    | 'palace_16'
+    | 'palace_17';
 
 export type PlanningBundle = {
     homeland: TerrainType;
