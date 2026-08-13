@@ -140,9 +140,7 @@ const playersWithBoards = computed(() => {
 });
 
 function boardImage(color: PlayerColor): string {
-    const fileName = color === 'grey' ? 'gray' : color;
-
-    return boardImages[`../../../images/terrain_boards/${fileName}.webp`];
+    return boardImages[`../../../images/terrain_boards/${color}.webp`];
 }
 
 function buildingImage(color: PlayerColor, type: PlayerBuildingType): string {
