@@ -61,6 +61,8 @@ class GameResource extends JsonResource
                     'playerId' => $player->playerId,
                     'roundBonus' => $player->roundBonus->value,
                     'scholars' => $player->resources->scholars,
+                    'coins' => $player->resources->coins,
+                    'tools' => $player->resources->tools,
                     'availableBridges' => max(
                         0,
                         3 - count(array_filter(

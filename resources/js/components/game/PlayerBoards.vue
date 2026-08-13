@@ -8,6 +8,8 @@ import type {
     PlayerColor,
     RoundBonus,
 } from '@/types';
+import coinUrl from '../../../images/token_parts/gold_medallion.png';
+import handUrl from '../../../images/token_parts/cube.png';
 import manaUrl from '../../../images/token_parts/mana.png';
 
 type PlayerBuildingType =
@@ -215,6 +217,14 @@ function availableBridgesForPlayer(playerId: number): number {
     return playerState(playerId)?.availableBridges ?? 0;
 }
 
+function coinsForPlayer(playerId: number): number {
+    return playerState(playerId)?.coins ?? 0;
+}
+
+function toolsForPlayer(playerId: number): number {
+    return playerState(playerId)?.tools ?? 0;
+}
+
 function tokenStyle(x: number, y: number): CSSProperties {
     return {
         left: `${(x / boardWidth) * 100}%`,
@@ -393,18 +403,52 @@ function powerInBowl(
                             />
                         </span>
 
-                        <span
-                            v-if="availableBridgesForPlayer(player.id)"
-                            class="flex flex-wrap gap-1"
-                            :aria-label="`Доступные мосты: ${availableBridgesForPlayer(player.id)}`"
-                        >
-                            <img
-                                v-for="bridgeIndex in availableBridgesForPlayer(player.id)"
-                                :key="bridgeIndex"
-                                :src="bridgeImage(player.color)"
-                                alt=""
-                                class="h-auto w-16 object-contain drop-shadow-md"
-                            />
+                        <span class="flex items-center gap-3">
+                            <span
+                                v-if="availableBridgesForPlayer(player.id)"
+                                class="flex flex-wrap gap-1"
+                                :aria-label="`Доступные мосты: ${availableBridgesForPlayer(player.id)}`"
+                            >
+                                <img
+                                    v-for="bridgeIndex in availableBridgesForPlayer(player.id)"
+                                    :key="bridgeIndex"
+                                    :src="bridgeImage(player.color)"
+                                    alt=""
+                                    class="h-auto w-16 object-contain drop-shadow-md"
+                                />
+                            </span>
+
+                            <span
+                                class="relative grid size-10 place-items-center"
+                                :aria-label="`Монеты: ${coinsForPlayer(player.id)}`"
+                            >
+                                <img
+                                    :src="coinUrl"
+                                    alt=""
+                                    class="absolute inset-0 size-full drop-shadow-md"
+                                />
+                                <span
+                                    class="relative z-10 font-bold text-amber-950"
+                                >
+                                    {{ coinsForPlayer(player.id) }}
+                                </span>
+                            </span>
+
+                            <span
+                                class="relative grid size-10 place-items-center"
+                                :aria-label="`Инструменты: ${toolsForPlayer(player.id)}`"
+                            >
+                                <img
+                                    :src="handUrl"
+                                    alt=""
+                                    class="absolute inset-0 size-full object-contain drop-shadow-md"
+                                />
+                                <span
+                                    class="relative z-10 font-bold text-amber-950 drop-shadow-md"
+                                >
+                                    {{ toolsForPlayer(player.id) }}
+                                </span>
+                            </span>
                         </span>
                     </span>
                 </figcaption>
