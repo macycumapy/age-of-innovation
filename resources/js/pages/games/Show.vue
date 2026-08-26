@@ -17,6 +17,16 @@ import TownTileBoard from '@/components/game/TownTileBoard.vue';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+    Dialog,
+    DialogClose,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger,
+} from '@/components/ui/dialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { index } from '@/routes/games';
 import bankingBookUrl from '../../../images/token_parts/coin_book.png';
@@ -604,6 +614,7 @@ function updateStartingKnowledgeCount(discipline: KnowledgeDiscipline, event: Ev
                         v-for="bundle in game.data.planningBundles"
                         :key="bundle.homeland"
                         v-bind="PlanningBundleController.store.form(game.data.id)"
+                        :id="`planning-bundle-${bundle.homeland}`"
                         #default="{ errors, processing }"
                         :class="[
                             'flex flex-col gap-4 rounded-xl border p-4 shadow-sm',
@@ -678,14 +689,47 @@ function updateStartingKnowledgeCount(discipline: KnowledgeDiscipline, event: Ev
                         >
                             {{ selectedPlayerForHomeland(bundle.homeland)?.user.name }}
                         </div>
-                        <Button
-                            v-else
-                            type="submit"
-                            class="mt-auto w-full"
-                            :disabled="processing || !canChoosePlanningBundle"
-                        >
-                            {{ planningBundleButtonLabel(processing) }}
-                        </Button>
+                        <Dialog v-else>
+                            <DialogTrigger as-child>
+                                <Button
+                                    type="button"
+                                    class="mt-auto w-full"
+                                    :disabled="processing || !canChoosePlanningBundle"
+                                >
+                                    {{ planningBundleButtonLabel(processing) }}
+                                </Button>
+                            </DialogTrigger>
+                            <DialogContent>
+                                <DialogHeader>
+                                    <DialogTitle>Подтвердите выбор комплекта</DialogTitle>
+                                    <DialogDescription>
+                                        После подтверждения этот комплект будет закреплён за вами.
+                                    </DialogDescription>
+                                </DialogHeader>
+
+                                <div class="grid gap-2 rounded-lg bg-muted p-4 text-sm">
+                                    <p><span class="text-muted-foreground">Земля:</span> {{ terrainNames[bundle.homeland] }}</p>
+                                    <p><span class="text-muted-foreground">Раса:</span> {{ factionNames[bundle.faction] }}</p>
+                                    <p>
+                                        <span class="text-muted-foreground">Бонус раунда:</span>
+                                        {{ roundBonusNames[bundle.roundBonus] }}
+                                    </p>
+                                </div>
+
+                                <DialogFooter class="gap-2">
+                                    <DialogClose as-child>
+                                        <Button type="button" variant="outline">Отмена</Button>
+                                    </DialogClose>
+                                    <Button
+                                        type="submit"
+                                        :form="`planning-bundle-${bundle.homeland}`"
+                                        :disabled="processing"
+                                    >
+                                        {{ processing ? 'Выбор…' : 'Подтвердить' }}
+                                    </Button>
+                                </DialogFooter>
+                            </DialogContent>
+                        </Dialog>
                     </Form>
                 </div>
             </CardContent>
