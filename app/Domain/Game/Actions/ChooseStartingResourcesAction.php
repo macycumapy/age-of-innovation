@@ -22,14 +22,17 @@ final class ChooseStartingResourcesAction
     ) {
     }
 
-    /** @param list<KnowledgeDiscipline> $knowledgeDisciplines */
+    /**
+     * @param list<KnowledgeDiscipline> $bookDisciplines
+     * @param list<KnowledgeDiscipline> $knowledgeDisciplines
+     */
     public function execute(
         Game $game,
         User $user,
-        ?KnowledgeDiscipline $bookDiscipline,
+        array $bookDisciplines,
         array $knowledgeDisciplines,
     ): Game {
-        return DB::transaction(function () use ($game, $user, $bookDiscipline, $knowledgeDisciplines): Game {
+        return DB::transaction(function () use ($game, $user, $bookDisciplines, $knowledgeDisciplines): Game {
             $lockedGame = Game::query()->lockForUpdate()->findOrFail($game->id);
             $interaction = $lockedGame->state->pendingInteraction;
 
@@ -70,7 +73,7 @@ final class ChooseStartingResourcesAction
             }
 
             $playerState = $state->players[$playerStateIndex];
-            $this->assignBook($playerState, $bookDiscipline);
+            $this->assignBooks($playerState, $bookDisciplines);
             $this->assignKnowledge($playerState, $knowledgeDisciplines);
 
             $state->players[$playerStateIndex] = $playerState;
@@ -87,20 +90,22 @@ final class ChooseStartingResourcesAction
         });
     }
 
-    private function assignBook(GamePlayerStateData $playerState, ?KnowledgeDiscipline $discipline): void
+    /** @param list<KnowledgeDiscipline> $disciplines */
+    private function assignBooks(GamePlayerStateData $playerState, array $disciplines): void
     {
         $bookCount = $playerState->resources->books->unassigned;
 
-        if (($bookCount > 0) !== ($discipline instanceof KnowledgeDiscipline)) {
+        if (count($disciplines) !== $bookCount) {
             throw ValidationException::withMessages([
-                'book_discipline' => 'Выберите дисциплину стартовой книги.',
+                'book_counts' => 'Распределите все стартовые книги.',
             ]);
         }
 
-        if ($discipline instanceof KnowledgeDiscipline) {
-            $playerState->resources->books->{$discipline->value} += $bookCount;
-            $playerState->resources->books->unassigned = 0;
+        foreach ($disciplines as $discipline) {
+            $playerState->resources->books->{$discipline->value}++;
         }
+
+        $playerState->resources->books->unassigned = 0;
     }
 
     /** @param list<KnowledgeDiscipline> $disciplines */

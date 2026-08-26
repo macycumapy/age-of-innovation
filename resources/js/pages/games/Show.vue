@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Form, Head, Link, usePage, usePoll } from '@inertiajs/vue3';
-import { computed } from 'vue';
+import { computed, reactive, watch } from 'vue';
 import GamePlayerController from '@/actions/App/Http/Controllers/GamePlayerController';
 import GamePlayerReadinessController from '@/actions/App/Http/Controllers/GamePlayerReadinessController';
 import GameStartController from '@/actions/App/Http/Controllers/GameStartController';
@@ -19,6 +19,10 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { index } from '@/routes/games';
+import bankingBookUrl from '../../../images/token_parts/coin_book.png';
+import engineeringBookUrl from '../../../images/token_parts/engineering_book.png';
+import lawBookUrl from '../../../images/token_parts/law_book.png';
+import medicineBookUrl from '../../../images/token_parts/medicine_book.png';
 import type {
     Faction,
     GamePlayerSummary,
@@ -84,6 +88,34 @@ const visiblePlanningBundles = computed(() => {
 
     return props.game.data.planningBundles.filter((bundle) => selectedHomelands.has(bundle.homeland));
 });
+
+const startingBookCounts = reactive<Record<KnowledgeDiscipline, number>>({
+    banking: 0,
+    law: 0,
+    engineering: 0,
+    medicine: 0,
+});
+
+const availableStartingBookCount = computed(
+    () => props.game.data.pendingInteraction?.context.bookCount ?? 0,
+);
+
+const assignedStartingBookCount = computed(() =>
+    Object.values(startingBookCounts).reduce((total, count) => total + count, 0),
+);
+
+const remainingStartingBookCount = computed(() =>
+    Math.max(0, availableStartingBookCount.value - assignedStartingBookCount.value),
+);
+
+watch(
+    () => props.game.data.pendingInteraction?.playerId,
+    () => {
+        for (const discipline of Object.keys(startingBookCounts) as KnowledgeDiscipline[]) {
+            startingBookCounts[discipline] = 0;
+        }
+    },
+);
 
 defineOptions({
     layout: {
@@ -175,6 +207,13 @@ const knowledgeDisciplineNames: Record<KnowledgeDiscipline, string> = {
     medicine: 'Медицина',
 };
 
+const bookImages: Record<KnowledgeDiscipline, string> = {
+    banking: bankingBookUrl,
+    law: lawBookUrl,
+    engineering: engineeringBookUrl,
+    medicine: medicineBookUrl,
+};
+
 function planningBundleButtonLabel(processing: boolean): string {
     if (processing) {
         return 'Выбор…';
@@ -205,6 +244,20 @@ function selectedPlayerForHomeland(homeland: TerrainType): GamePlayerSummary | u
     const selection = props.game.data.planningSelections.find((selection) => selection.bundle.homeland === homeland);
 
     return props.game.data.players.find((player) => player.id === selection?.playerId);
+}
+
+function updateStartingBookCount(discipline: KnowledgeDiscipline, event: Event): void {
+    if (! (event.target instanceof HTMLInputElement)) {
+        return;
+    }
+
+    const requestedCount = Number.parseInt(event.target.value, 10);
+    const otherBookCount = assignedStartingBookCount.value - startingBookCounts[discipline];
+    const maximumCount = Math.max(0, availableStartingBookCount.value - otherBookCount);
+    const normalizedCount = Math.max(0, Math.min(Number.isNaN(requestedCount) ? 0 : requestedCount, maximumCount));
+
+    startingBookCounts[discipline] = normalizedCount;
+    event.target.value = String(normalizedCount);
 }
 </script>
 
@@ -450,27 +503,43 @@ function selectedPlayerForHomeland(homeland: TerrainType): GamePlayerSummary | u
                         </p>
                     </div>
 
-                    <label
+                    <div
                         v-if="(game.data.pendingInteraction?.context.bookCount ?? 0) > 0"
-                        class="grid gap-2 text-sm font-medium"
+                        class="grid gap-3"
                     >
-                        Дисциплина дополнительной книги
-                        <select
-                            name="book_discipline"
-                            required
-                            class="h-9 rounded-md border border-input bg-background px-3 text-sm shadow-xs"
-                        >
-                            <option value="" disabled selected>Выберите дисциплину</option>
-                            <option
+                        <div class="flex flex-wrap items-center justify-between gap-2 text-sm">
+                            <p class="font-medium">Распределение стартовых книг</p>
+                            <p class="rounded-md bg-background/75 px-3 py-1.5 font-medium">
+                                Доступно: {{ availableStartingBookCount }}
+                            </p>
+                        </div>
+                        <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                            <label
                                 v-for="discipline in game.data.pendingInteraction?.optionIds"
                                 :key="discipline"
-                                :value="discipline"
+                                class="grid h-full grid-rows-[auto_minmax(2.5rem,1fr)_auto_auto] justify-items-center gap-2 rounded-lg border bg-background/70 p-3 text-center text-sm font-medium"
                             >
-                                {{ knowledgeDisciplineNames[discipline] }}
-                            </option>
-                        </select>
-                        <InputError :message="errors.book_discipline" />
-                    </label>
+                                <img
+                                    :src="bookImages[discipline]"
+                                    :alt="`Книга: ${knowledgeDisciplineNames[discipline]}`"
+                                    class="h-16 w-auto object-contain drop-shadow-md"
+                                />
+                                <span>{{ knowledgeDisciplineNames[discipline] }}</span>
+                                <input
+                                    type="number"
+                                    :name="`book_counts[${discipline}]`"
+                                    :value="startingBookCounts[discipline]"
+                                    min="0"
+                                    :max="startingBookCounts[discipline] + remainingStartingBookCount"
+                                    required
+                                    class="h-9 w-20 self-end rounded-md border border-input bg-background px-3 text-center text-sm shadow-xs"
+                                    @input="updateStartingBookCount(discipline, $event)"
+                                />
+                                <InputError :message="errors[`book_counts.${discipline}`]" />
+                            </label>
+                        </div>
+                        <InputError :message="errors.book_counts" />
+                    </div>
 
                     <div v-if="(game.data.pendingInteraction?.context.knowledgeStepCount ?? 0) > 0" class="grid gap-3">
                         <p class="text-sm font-medium">Распределение шагов знаний</p>
@@ -505,7 +574,7 @@ function selectedPlayerForHomeland(homeland: TerrainType): GamePlayerSummary | u
                     </div>
 
                     <InputError :message="errors.game" />
-                    <Button type="submit" :disabled="processing">
+                    <Button type="submit" :disabled="processing || remainingStartingBookCount !== 0">
                         {{ processing ? 'Сохранение…' : 'Подтвердить выбор' }}
                     </Button>
                 </Form>

@@ -9,6 +9,7 @@ use App\Domain\Game\Enums\PendingInteractionType;
 use App\Models\Game;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Validator;
 
 final class ChooseStartingResourcesRequest extends FormRequest
 {
@@ -34,11 +35,11 @@ final class ChooseStartingResourcesRequest extends FormRequest
         $bookCount = (int) ($interaction?->context['bookCount'] ?? 0);
         $knowledgeStepCount = (int) ($interaction?->context['knowledgeStepCount'] ?? 0);
 
-        return [
-            'book_discipline' => [
+        $rules = [
+            'book_counts' => [
                 Rule::requiredIf($bookCount > 0),
                 Rule::prohibitedIf($bookCount === 0),
-                Rule::enum(KnowledgeDiscipline::class),
+                'array:'.implode(',', array_column(KnowledgeDiscipline::cases(), 'value')),
             ],
             'knowledge_disciplines' => [
                 Rule::requiredIf($knowledgeStepCount > 0),
@@ -48,13 +49,62 @@ final class ChooseStartingResourcesRequest extends FormRequest
             ],
             'knowledge_disciplines.*' => [Rule::enum(KnowledgeDiscipline::class)],
         ];
+
+        foreach (KnowledgeDiscipline::cases() as $discipline) {
+            $rules['book_counts.'.$discipline->value] = [
+                Rule::requiredIf($bookCount > 0),
+                'integer',
+                'min:0',
+                'max:'.$bookCount,
+            ];
+        }
+
+        return $rules;
     }
 
-    public function bookDiscipline(): ?KnowledgeDiscipline
+    /** @return list<KnowledgeDiscipline> */
+    public function bookDisciplines(): array
     {
-        $discipline = $this->validated('book_discipline');
+        $bookCounts = $this->validated('book_counts', []);
 
-        return is_string($discipline) ? KnowledgeDiscipline::from($discipline) : null;
+        if (! is_array($bookCounts)) {
+            return [];
+        }
+
+        $disciplines = [];
+
+        foreach (KnowledgeDiscipline::cases() as $discipline) {
+            $count = (int) ($bookCounts[$discipline->value] ?? 0);
+
+            for ($index = 0; $index < $count; $index++) {
+                $disciplines[] = $discipline;
+            }
+        }
+
+        return $disciplines;
+    }
+
+    /** @return array<int, callable(Validator): void> */
+    public function after(): array
+    {
+        return [
+            function (Validator $validator): void {
+                $game = $this->route('game');
+                $interaction = $game instanceof Game ? $game->state->pendingInteraction : null;
+                $bookCount = (int) ($interaction?->context['bookCount'] ?? 0);
+                $submittedCounts = $this->input('book_counts', []);
+                $assignedBookCount = is_array($submittedCounts)
+                    ? array_sum(array_map('intval', $submittedCounts))
+                    : 0;
+
+                if ($assignedBookCount !== $bookCount) {
+                    $validator->errors()->add(
+                        'book_counts',
+                        'Распределите все стартовые книги.',
+                    );
+                }
+            },
+        ];
     }
 
     /** @return list<KnowledgeDiscipline> */

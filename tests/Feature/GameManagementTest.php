@@ -611,12 +611,35 @@ class GameManagementTest extends TestCase
         $this->assertSame(2, $game->state->players[0]->knowledge->unassignedSteps);
 
         $this->post(route('games.starting-resources.store', $game))
-            ->assertSessionHasErrors(['book_discipline', 'knowledge_disciplines']);
+            ->assertSessionHasErrors(['book_counts', 'knowledge_disciplines']);
 
         $this->assertNotNull($game->refresh()->state->pendingInteraction);
 
         $this->post(route('games.starting-resources.store', $game), [
-            'book_discipline' => 'banking',
+            'book_counts' => [
+                'banking' => 1,
+                'law' => 1,
+                'engineering' => 0,
+                'medicine' => 0,
+            ],
+            'knowledge_disciplines' => ['law', 'law'],
+        ])->assertSessionHasErrors('book_counts');
+
+        $game->refresh();
+
+        $this->assertNotNull($game->state->pendingInteraction);
+        $this->assertSame(1, $game->state->players[0]->resources->books->unassigned);
+        $this->assertSame(0, $game->state->players[0]->resources->books->banking);
+        $this->assertSame(0, $game->state->players[0]->resources->books->law);
+        $this->assertSame(2, $game->state->players[0]->knowledge->unassignedSteps);
+
+        $this->post(route('games.starting-resources.store', $game), [
+            'book_counts' => [
+                'banking' => 1,
+                'law' => 0,
+                'engineering' => 0,
+                'medicine' => 0,
+            ],
             'knowledge_disciplines' => ['law', 'law'],
         ])->assertRedirect(route('games.show', $game));
 

@@ -24,7 +24,7 @@ final class StartingResourcesController extends Controller
         $chooseStartingResources->execute(
             $game,
             $user,
-            $request->bookDiscipline(),
+            $request->bookDisciplines(),
             $request->knowledgeDisciplines(),
         );
 
