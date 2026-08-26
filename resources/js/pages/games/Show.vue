@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { Form, Head, Link, usePage, usePoll } from '@inertiajs/vue3';
+import { ChevronDown } from '@lucide/vue';
 import { computed, reactive, ref, watch } from 'vue';
 import GamePlayerController from '@/actions/App/Http/Controllers/GamePlayerController';
 import GamePlayerReadinessController from '@/actions/App/Http/Controllers/GamePlayerReadinessController';
@@ -17,6 +18,7 @@ import TownTileBoard from '@/components/game/TownTileBoard.vue';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import {
     Dialog,
     DialogClose,
@@ -74,6 +76,10 @@ const orderedPlayers = computed(() =>
         .filter((player): player is GamePlayerSummary => player !== undefined),
 );
 
+const playersWithSelectedFactions = computed(() =>
+    orderedPlayers.value.filter((player) => player.faction !== null),
+);
+
 const canChoosePlanningBundle = computed(
     () =>
         props.game.data.status === 'active' &&
@@ -107,6 +113,7 @@ const startingKnowledgeCounts = reactive<Record<KnowledgeDiscipline, number>>({
     medicine: 0,
 });
 const selectedStartingCompetency = ref<Competency | null>(null);
+const isPlanningBundleGroupOpen = ref(true);
 
 const availableStartingBookCount = computed(
     () => props.game.data.pendingInteraction?.context.bookCount ?? 0,
@@ -418,9 +425,28 @@ function updateStartingKnowledgeCount(discipline: KnowledgeDiscipline, event: Ev
             </CardContent>
         </Card>
 
-        <Card v-if="game.data.status === 'active' && !setupChoicesCompleted">
+        <Collapsible
+            v-if="game.data.status === 'active' && !setupChoicesCompleted"
+            v-model:open="isPlanningBundleGroupOpen"
+        >
+            <Card>
             <CardHeader>
-                <CardTitle>Выбор стартового комплекта</CardTitle>
+                <div class="flex items-center justify-between gap-4">
+                    <CardTitle>Выбор стартового комплекта</CardTitle>
+                    <CollapsibleTrigger as-child>
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            :aria-label="isPlanningBundleGroupOpen ? 'Свернуть выбор комплекта' : 'Развернуть выбор комплекта'"
+                        >
+                            <ChevronDown
+                                class="size-5 transition-transform"
+                                :class="isPlanningBundleGroupOpen ? 'rotate-180' : ''"
+                            />
+                        </Button>
+                    </CollapsibleTrigger>
+                </div>
                 <ol class="flex flex-wrap items-center gap-2 text-sm font-medium">
                     <template v-for="(player, index) in orderedPlayers" :key="player.id">
                         <li :class="player.user.id === game.data.activePlayerId ? 'text-primary' : ''">
@@ -450,6 +476,7 @@ function updateStartingKnowledgeCount(discipline: KnowledgeDiscipline, event: Ev
                 </CardDescription>
             </CardHeader>
 
+            <CollapsibleContent>
             <CardContent>
                 <Form
                     v-if="canChooseStartingResources"
@@ -781,9 +808,11 @@ function updateStartingKnowledgeCount(discipline: KnowledgeDiscipline, event: Ev
                     </Form>
                 </div>
             </CardContent>
-        </Card>
+            </CollapsibleContent>
+            </Card>
+        </Collapsible>
 
-        <section v-if="game.data.status === 'active' && setupChoicesCompleted" class="grid gap-4">
+        <section v-if="game.data.status === 'active'" class="grid gap-4">
             <div class="grid items-start gap-4 lg:grid-cols-[minmax(0,7fr)_minmax(16rem,3fr)]">
                 <div class="grid gap-4">
                     <BoardMap
@@ -794,7 +823,8 @@ function updateStartingKnowledgeCount(discipline: KnowledgeDiscipline, event: Ev
                     />
 
                     <PlayerBoards
-                        :players="orderedPlayers"
+                        v-if="playersWithSelectedFactions.length > 0"
+                        :players="playersWithSelectedFactions"
                         :player-states="game.data.playerBoardStates"
                         :current-user-id="page.props.auth.user.id"
                     />
