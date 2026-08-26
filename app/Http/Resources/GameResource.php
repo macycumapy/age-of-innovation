@@ -10,7 +10,10 @@ use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Data\PlanningBundleData;
 use App\Domain\Game\Data\PlayerPlanningSelectionData;
 use App\Domain\Game\Data\RoundBonusOfferData;
+use App\Domain\Game\Enums\Faction;
 use App\Domain\Game\Enums\GameStatus;
+use App\Domain\Game\Enums\RoundBonus;
+use App\Domain\Game\Enums\TerrainType;
 use App\Models\Game;
 use App\Models\GamePlayer;
 use BackedEnum;
@@ -130,6 +133,20 @@ class GameResource extends JsonResource
                 ],
                 $this->state->planningSelections,
             ),
+            'planningBundleDescriptions' => [
+                'homelands' => $this->enumDescriptions(
+                    TerrainType::cases(),
+                    static fn (TerrainType $terrain): string => $terrain->description(),
+                ),
+                'factions' => $this->enumDescriptions(
+                    Faction::cases(),
+                    static fn (Faction $faction): string => $faction->description(),
+                ),
+                'roundBonuses' => $this->enumDescriptions(
+                    RoundBonus::cases(),
+                    static fn (RoundBonus $roundBonus): string => $roundBonus->description(),
+                ),
+            ],
             'roundScoringTiles' => $this->enumValues(
                 $this->state->setupPool?->roundScoringTiles ?? [],
             ),
@@ -181,5 +198,22 @@ class GameResource extends JsonResource
     private function enumValue(BackedEnum|string|null $value): ?string
     {
         return $value instanceof BackedEnum ? (string) $value->value : $value;
+    }
+
+    /**
+     * @template T of BackedEnum
+     * @param list<T> $values
+     * @param callable(T): string $description
+     * @return array<string, string>
+     */
+    private function enumDescriptions(array $values, callable $description): array
+    {
+        $descriptions = [];
+
+        foreach ($values as $value) {
+            $descriptions[(string) $value->value] = $description($value);
+        }
+
+        return $descriptions;
     }
 }

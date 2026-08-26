@@ -16,13 +16,8 @@ import RoundBonusBoard from '@/components/game/RoundBonusBoard.vue';
 import TownTileBoard from '@/components/game/TownTileBoard.vue';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
-import {
-    Card,
-    CardContent,
-    CardDescription,
-    CardHeader,
-    CardTitle,
-} from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { index } from '@/routes/games';
 import type {
     Faction,
@@ -43,49 +38,22 @@ const page = usePage();
 usePoll(3000, { only: ['game'] });
 
 const currentPlayer = computed(() =>
-    props.game.data.players.find(
-        (player) => player.user.id === page.props.auth.user.id,
-    ),
+    props.game.data.players.find((player) => player.user.id === page.props.auth.user.id),
 );
 
 const activePlayer = computed(() =>
-    props.game.data.players.find(
-        (player) => player.user.id === props.game.data.activePlayerId,
-    ),
+    props.game.data.players.find((player) => player.user.id === props.game.data.activePlayerId),
+);
+
+const pendingInteractionPlayer = computed(() =>
+    props.game.data.players.find((player) => player.id === props.game.data.pendingInteraction?.playerId),
 );
 
 const orderedPlayers = computed(() =>
     props.game.data.turnOrder
-        .map((playerId) =>
-            props.game.data.players.find((player) => player.id === playerId),
-        )
-        .filter(
-            (player): player is GamePlayerSummary => player !== undefined,
-        ),
+        .map((playerId) => props.game.data.players.find((player) => player.id === playerId))
+        .filter((player): player is GamePlayerSummary => player !== undefined),
 );
-
-const nextPlayer = computed(() => {
-    const activeIndex = orderedPlayers.value.findIndex(
-        (player) => player.user.id === props.game.data.activePlayerId,
-    );
-
-    if (activeIndex < 0) {
-        return undefined;
-    }
-
-    for (let offset = 1; offset < orderedPlayers.value.length; offset++) {
-        const player =
-            orderedPlayers.value[
-                (activeIndex + offset) % orderedPlayers.value.length
-            ];
-
-        if (player.faction === null) {
-            return player;
-        }
-    }
-
-    return undefined;
-});
 
 const canChoosePlanningBundle = computed(
     () =>
@@ -96,21 +64,26 @@ const canChoosePlanningBundle = computed(
 
 const canChooseStartingResources = computed(
     () =>
-        props.game.data.pendingInteraction?.type ===
-            'choose_starting_resources' &&
+        props.game.data.pendingInteraction?.type === 'choose_starting_resources' &&
         props.game.data.pendingInteraction.playerId === currentPlayer.value?.id &&
         props.game.data.activePlayerId === page.props.auth.user.id,
 );
 
-const allPlanningBundlesChosen = computed(() =>
-    props.game.data.players.every((player) => player.faction !== null),
-);
+const allPlanningBundlesChosen = computed(() => props.game.data.players.every((player) => player.faction !== null));
 
 const setupChoicesCompleted = computed(
-    () =>
-        allPlanningBundlesChosen.value &&
-        props.game.data.pendingInteraction === null,
+    () => allPlanningBundlesChosen.value && props.game.data.pendingInteraction === null,
 );
+
+const visiblePlanningBundles = computed(() => {
+    if (props.game.data.pendingInteraction?.type !== 'choose_starting_resources') {
+        return props.game.data.planningBundles;
+    }
+
+    const selectedHomelands = new Set(props.game.data.planningSelections.map((selection) => selection.bundle.homeland));
+
+    return props.game.data.planningBundles.filter((bundle) => selectedHomelands.has(bundle.homeland));
+});
 
 defineOptions({
     layout: {
@@ -137,6 +110,16 @@ const terrainNames: Record<TerrainType, string> = {
     forest: 'Лес',
     mountain: 'Горы',
     wasteland: 'Пустошь',
+};
+
+const terrainBundleClasses: Record<TerrainType, string> = {
+    desert: 'border-yellow-500/60 bg-yellow-400/25 dark:bg-yellow-400/20',
+    plains: 'border-amber-800/60 bg-amber-800/20 dark:bg-amber-600/20',
+    swamp: 'border-zinc-700/60 bg-zinc-900/20 dark:bg-zinc-400/15',
+    lake: 'border-blue-500/60 bg-blue-500/20 dark:bg-blue-500/20',
+    forest: 'border-green-600/60 bg-green-600/20 dark:bg-green-500/20',
+    mountain: 'border-gray-500/60 bg-gray-500/20 dark:bg-gray-400/15',
+    wasteland: 'border-red-500/60 bg-red-500/20 dark:bg-red-500/20',
 };
 
 const factionNames: Record<Faction, string> = {
@@ -167,6 +150,24 @@ const roundBonusNames: Record<RoundBonus, string> = {
     coins: 'Монеты',
 };
 
+const terrainTileImages = import.meta.glob('../../../images/terrain_tiles/*.webp', {
+    eager: true,
+    import: 'default',
+    query: '?url',
+}) as Record<string, string>;
+
+const factionImages = import.meta.glob('../../../images/factions/*.jpg', {
+    eager: true,
+    import: 'default',
+    query: '?url',
+}) as Record<string, string>;
+
+const roundBonusImages = import.meta.glob('../../../images/round_bonus_cards/*_top.png', {
+    eager: true,
+    import: 'default',
+    query: '?url',
+}) as Record<string, string>;
+
 const knowledgeDisciplineNames: Record<KnowledgeDiscipline, string> = {
     banking: 'Банковское дело',
     law: 'Право',
@@ -183,31 +184,27 @@ function planningBundleButtonLabel(processing: boolean): string {
         return 'Выбор завершён';
     }
 
-    return canChoosePlanningBundle.value
-        ? 'Выбрать комплект'
-        : 'Сейчас выбирает другой игрок';
+    return canChoosePlanningBundle.value ? 'Выбрать комплект' : 'Сейчас выбирает другой игрок';
 }
 
-function planningSelectionFor(playerId: number) {
-    return props.game.data.planningSelections.find(
-        (selection) => selection.playerId === playerId,
-    );
+function terrainTileImage(terrain: TerrainType): string {
+    const fileName = terrain === 'wasteland' ? 'westland' : terrain;
+
+    return terrainTileImages[`../../../images/terrain_tiles/${fileName}.webp`];
 }
 
-function planningSelectionFactionName(playerId: number): string {
-    const selection = planningSelectionFor(playerId);
-
-    return selection ? factionNames[selection.bundle.faction] : '';
+function factionImage(faction: Faction): string {
+    return factionImages[`../../../images/factions/${faction}.jpg`];
 }
 
-function planningSelectionDetails(playerId: number): string {
-    const selection = planningSelectionFor(playerId);
+function roundBonusImage(roundBonus: RoundBonus): string {
+    return roundBonusImages[`../../../images/round_bonus_cards/${roundBonus}_top.png`];
+}
 
-    if (!selection) {
-        return '';
-    }
+function selectedPlayerForHomeland(homeland: TerrainType): GamePlayerSummary | undefined {
+    const selection = props.game.data.planningSelections.find((selection) => selection.bundle.homeland === homeland);
 
-    return `${terrainNames[selection.bundle.homeland]} · ${roundBonusNames[selection.bundle.roundBonus]}`;
+    return props.game.data.players.find((player) => player.id === selection?.playerId);
 }
 </script>
 
@@ -217,12 +214,9 @@ function planningSelectionDetails(playerId: number): string {
     <div class="flex h-full flex-1 flex-col gap-6 p-4">
         <div class="flex flex-wrap items-start justify-between gap-4">
             <div>
-                <h1 class="text-2xl font-semibold">
-                    Подготовка игры №{{ game.data.id }}
-                </h1>
+                <h1 class="text-2xl font-semibold">Подготовка игры №{{ game.data.id }}</h1>
                 <p class="text-sm text-muted-foreground">
-                    Поле {{ mapVariantNames[game.data.mapVariant] }} ·
-                    {{ game.data.playersCount }} из
+                    Поле {{ mapVariantNames[game.data.mapVariant] }} · {{ game.data.playersCount }} из
                     {{ game.data.maxPlayers }} игроков
                 </p>
             </div>
@@ -235,9 +229,7 @@ function planningSelectionDetails(playerId: number): string {
         <Card v-if="game.data.status === 'lobby'">
             <CardHeader>
                 <CardTitle>Участники</CardTitle>
-                <CardDescription>
-                    Игроки занимают места в порядке присоединения.
-                </CardDescription>
+                <CardDescription> Игроки занимают места в порядке присоединения. </CardDescription>
             </CardHeader>
             <CardContent class="grid gap-3">
                 <div
@@ -247,14 +239,10 @@ function planningSelectionDetails(playerId: number): string {
                 >
                     <div>
                         <p class="font-medium">{{ player.user.name }}</p>
-                        <p class="text-sm text-muted-foreground">
-                            Место {{ player.seat }}
-                        </p>
+                        <p class="text-sm text-muted-foreground">Место {{ player.seat }}</p>
                     </div>
 
-                    <span
-                        class="rounded-full bg-muted px-2.5 py-1 text-xs font-medium"
-                    >
+                    <span class="rounded-full bg-muted px-2.5 py-1 text-xs font-medium">
                         {{ player.isReady ? 'Готов' : 'Не готов' }}
                     </span>
                 </div>
@@ -272,17 +260,11 @@ function planningSelectionDetails(playerId: number): string {
         <Card v-if="game.data.status === 'lobby'">
             <CardHeader>
                 <CardTitle>Присоединение</CardTitle>
-                <CardDescription v-if="currentPlayer">
-                    Подтвердите готовность к началу партии.
-                </CardDescription>
-                <CardDescription
-                    v-else-if="game.data.playersCount >= game.data.maxPlayers"
-                >
+                <CardDescription v-if="currentPlayer"> Подтвердите готовность к началу партии. </CardDescription>
+                <CardDescription v-else-if="game.data.playersCount >= game.data.maxPlayers">
                     Все места уже заняты.
                 </CardDescription>
-                <CardDescription v-else>
-                    Займите свободное место в этой партии.
-                </CardDescription>
+                <CardDescription v-else> Займите свободное место в этой партии. </CardDescription>
             </CardHeader>
             <CardContent v-if="currentPlayer">
                 <Form
@@ -295,33 +277,18 @@ function planningSelectionDetails(playerId: number): string {
                     #default="{ errors, processing }"
                     class="grid gap-3"
                 >
-                    <input
-                        type="hidden"
-                        name="is_ready"
-                        :value="currentPlayer.isReady ? '0' : '1'"
-                    />
+                    <input type="hidden" name="is_ready" :value="currentPlayer.isReady ? '0' : '1'" />
                     <InputError :message="errors.is_ready" />
                     <Button
                         type="submit"
                         :variant="currentPlayer.isReady ? 'outline' : 'default'"
                         :disabled="processing"
                     >
-                        {{
-                            processing
-                                ? 'Сохранение…'
-                                : currentPlayer.isReady
-                                  ? 'Отменить готовность'
-                                  : 'Я готов'
-                        }}
+                        {{ processing ? 'Сохранение…' : currentPlayer.isReady ? 'Отменить готовность' : 'Я готов' }}
                     </Button>
                 </Form>
             </CardContent>
-            <CardContent
-                v-if="
-                    !currentPlayer &&
-                    game.data.playersCount < game.data.maxPlayers
-                "
-            >
+            <CardContent v-if="!currentPlayer && game.data.playersCount < game.data.maxPlayers">
                 <Form
                     v-bind="GamePlayerController.store.form(game.data.id)"
                     #default="{ errors, processing }"
@@ -339,12 +306,9 @@ function planningSelectionDetails(playerId: number): string {
             <CardHeader>
                 <CardTitle>Начало партии</CardTitle>
                 <CardDescription v-if="game.data.canStart">
-                    Все участники готовы. После запуска первый игрок выберет
-                    стартовый комплект.
+                    Все участники готовы. После запуска первый игрок выберет стартовый комплект.
                 </CardDescription>
-                <CardDescription v-else>
-                    Для запуска нужны минимум два готовых игрока.
-                </CardDescription>
+                <CardDescription v-else> Для запуска нужны минимум два готовых игрока. </CardDescription>
             </CardHeader>
             <CardContent>
                 <Form
@@ -353,23 +317,29 @@ function planningSelectionDetails(playerId: number): string {
                     class="grid gap-3"
                 >
                     <InputError :message="errors.game" />
-                    <Button
-                        type="submit"
-                        :disabled="processing || !game.data.canStart"
-                    >
+                    <Button type="submit" :disabled="processing || !game.data.canStart">
                         {{ processing ? 'Запуск…' : 'Начать игру' }}
                     </Button>
                 </Form>
             </CardContent>
         </Card>
 
-        <Card
-            v-if="game.data.status === 'active' && !setupChoicesCompleted"
-        >
+        <Card v-if="game.data.status === 'active' && !setupChoicesCompleted">
             <CardHeader>
                 <CardTitle>Выбор стартового комплекта</CardTitle>
-                <CardDescription v-if="canChooseStartingResources">
-                    Завершите распределение стартовых ресурсов.
+                <ol class="flex flex-wrap items-center gap-2 text-sm font-medium">
+                    <template v-for="(player, index) in orderedPlayers" :key="player.id">
+                        <li :class="player.user.id === game.data.activePlayerId ? 'text-primary' : ''">
+                            {{ player.user.name }}
+                        </li>
+                        <li v-if="index < orderedPlayers.length - 1" aria-hidden="true" class="text-muted-foreground">
+                            →
+                        </li>
+                    </template>
+                </ol>
+                <CardDescription v-if="game.data.pendingInteraction?.type === 'choose_starting_resources'">
+                    Сейчас стартовые ресурсы распределяет
+                    {{ pendingInteractionPlayer?.user.name ?? 'игрок' }}.
                 </CardDescription>
                 <CardDescription v-else-if="canChoosePlanningBundle">
                     Выберите родную местность, сообщество и бонус раунда.
@@ -387,133 +357,112 @@ function planningSelectionDetails(playerId: number): string {
             </CardHeader>
 
             <CardContent>
-                <div class="mb-6 grid gap-3">
-                    <div class="flex items-center justify-between gap-4">
-                        <h3 class="text-base font-semibold">Порядок выбора</h3>
-                        <p
-                            v-if="nextPlayer"
-                            class="text-sm text-muted-foreground"
-                        >
-                            Следующий: {{ nextPlayer.user.name }}
-                        </p>
-                    </div>
-
-                    <ol
-                        class="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4"
+                <div class="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+                    <Form
+                        v-for="bundle in visiblePlanningBundles"
+                        :key="bundle.homeland"
+                        v-bind="PlanningBundleController.store.form(game.data.id)"
+                        #default="{ errors, processing }"
+                        :class="[
+                            'flex flex-col gap-4 rounded-xl border p-4 shadow-sm',
+                            terrainBundleClasses[bundle.homeland],
+                        ]"
                     >
-                        <li
-                            v-for="(player, index) in orderedPlayers"
-                            :key="player.id"
-                            :class="[
-                                'flex items-start gap-3 rounded-lg border p-3',
-                                player.user.id === game.data.activePlayerId &&
-                                (player.faction === null ||
-                                    game.data.pendingInteraction?.playerId ===
-                                        player.id)
-                                    ? 'border-primary bg-primary/5'
-                                    : 'bg-muted/30',
-                            ]"
-                        >
-                            <span
-                                class="flex size-7 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold"
-                            >
-                                {{ index + 1 }}
-                            </span>
-                            <div class="min-w-0 flex-1">
-                                <p class="truncate text-sm font-medium">
-                                    {{ player.user.name }}
-                                </p>
-                                <p
-                                    v-if="
-                                        player.user.id ===
-                                            game.data.activePlayerId &&
-                                        (player.faction === null ||
-                                            game.data.pendingInteraction
-                                                ?.playerId === player.id)
-                                    "
-                                    class="text-xs font-medium text-primary"
-                                >
-                                    {{
-                                        game.data.pendingInteraction?.playerId ===
-                                        player.id
-                                            ? 'Распределяет ресурсы'
-                                            : 'Выбирает сейчас'
-                                    }}
-                                </p>
-                                <p
-                                    v-else-if="player.id === nextPlayer?.id"
-                                    class="text-xs text-muted-foreground"
-                                >
-                                    Следующий
-                                </p>
-                                <p
-                                    v-else-if="player.faction"
-                                    class="text-xs text-muted-foreground"
-                                >
-                                    Комплект выбран
-                                </p>
-                                <p
-                                    v-else
-                                    class="text-xs text-muted-foreground"
-                                >
-                                    Ожидает
-                                </p>
+                        <input type="hidden" name="homeland" :value="bundle.homeland" />
 
-                                <div
-                                    v-if="planningSelectionFor(player.id)"
-                                    class="mt-3 grid gap-1 border-t pt-3 text-xs"
-                                >
-                                    <p class="font-medium text-foreground">
-                                        {{
-                                            planningSelectionFactionName(
-                                                player.id,
-                                            )
-                                        }}
-                                    </p>
-                                    <p class="text-muted-foreground">
-                                        {{ planningSelectionDetails(player.id) }}
-                                    </p>
-                                </div>
+                        <TooltipProvider :delay-duration="150">
+                            <div class="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3">
+                                <Tooltip>
+                                    <TooltipTrigger as-child>
+                                        <img
+                                            :src="terrainTileImage(bundle.homeland)"
+                                            :alt="`Родная местность: ${terrainNames[bundle.homeland]}`"
+                                            tabindex="0"
+                                            class="h-48 w-auto cursor-help rounded-md object-contain shadow-sm"
+                                        />
+                                    </TooltipTrigger>
+                                    <TooltipContent class="max-w-xs">
+                                        <p class="font-semibold">{{ terrainNames[bundle.homeland] }}</p>
+                                        <p>{{ game.data.planningBundleDescriptions.homelands[bundle.homeland] }}</p>
+                                    </TooltipContent>
+                                </Tooltip>
+
+                                <Tooltip>
+                                    <TooltipTrigger as-child>
+                                        <img
+                                            :src="factionImage(bundle.faction)"
+                                            :alt="`Сообщество: ${factionNames[bundle.faction]}`"
+                                            tabindex="0"
+                                            class="h-48 w-full min-w-0 cursor-help rounded-md object-contain shadow-sm"
+                                        />
+                                    </TooltipTrigger>
+                                    <TooltipContent class="max-w-xs">
+                                        <p class="font-semibold">{{ factionNames[bundle.faction] }}</p>
+                                        <p>{{ game.data.planningBundleDescriptions.factions[bundle.faction] }}</p>
+                                    </TooltipContent>
+                                </Tooltip>
+
+                                <Tooltip>
+                                    <TooltipTrigger as-child>
+                                        <img
+                                            :src="roundBonusImage(bundle.roundBonus)"
+                                            :alt="`Бонус раунда: ${roundBonusNames[bundle.roundBonus]}`"
+                                            tabindex="0"
+                                            class="h-48 w-auto cursor-help object-contain drop-shadow-sm"
+                                        />
+                                    </TooltipTrigger>
+                                    <TooltipContent class="max-w-xs">
+                                        <p class="font-semibold">{{ roundBonusNames[bundle.roundBonus] }}</p>
+                                        <p>{{ game.data.planningBundleDescriptions.roundBonuses[bundle.roundBonus] }}</p>
+                                    </TooltipContent>
+                                </Tooltip>
                             </div>
-                        </li>
-                    </ol>
+                        </TooltipProvider>
+
+                        <InputError :message="errors.homeland ?? errors.game" />
+                        <div
+                            v-if="selectedPlayerForHomeland(bundle.homeland)"
+                            class="mt-auto rounded-md bg-background/75 px-4 py-2 text-center text-sm font-medium shadow-xs"
+                        >
+                            {{ selectedPlayerForHomeland(bundle.homeland)?.user.name }}
+                        </div>
+                        <Button
+                            v-else
+                            type="submit"
+                            class="mt-auto w-full"
+                            :disabled="processing || !canChoosePlanningBundle"
+                        >
+                            {{ planningBundleButtonLabel(processing) }}
+                        </Button>
+                    </Form>
                 </div>
 
                 <Form
                     v-if="canChooseStartingResources"
                     v-bind="StartingResourcesController.store.form(game.data.id)"
                     #default="{ errors, processing }"
-                    class="mb-6 grid gap-5 rounded-xl border border-primary/40 bg-primary/5 p-5"
+                    class="grid gap-5 rounded-xl border border-primary/40 bg-primary/5 p-5 w-xl"
                 >
                     <div class="grid gap-1">
-                        <h3 class="font-semibold">
-                            Распределите стартовые ресурсы
-                        </h3>
+                        <h3 class="font-semibold">Распределите стартовые ресурсы</h3>
                         <p class="text-sm text-muted-foreground">
-                            Этот выбор завершает получение вашего стартового
-                            комплекта.
+                            Этот выбор завершает получение вашего стартового комплекта.
                         </p>
                     </div>
 
                     <label
-                        v-if="
-                            (game.data.pendingInteraction?.context.bookCount ??
-                                0) > 0
-                        "
+                        v-if="(game.data.pendingInteraction?.context.bookCount ?? 0) > 0"
                         class="grid gap-2 text-sm font-medium"
                     >
                         Дисциплина дополнительной книги
                         <select
                             name="book_discipline"
                             required
-                            class="border-input bg-background h-9 rounded-md border px-3 text-sm shadow-xs"
+                            class="h-9 rounded-md border border-input bg-background px-3 text-sm shadow-xs"
                         >
-                            <option value="" disabled selected>
-                                Выберите дисциплину
-                            </option>
+                            <option value="" disabled selected>Выберите дисциплину</option>
                             <option
-                                v-for="discipline in game.data
-                                    .pendingInteraction?.optionIds"
+                                v-for="discipline in game.data.pendingInteraction?.optionIds"
                                 :key="discipline"
                                 :value="discipline"
                             >
@@ -523,19 +472,10 @@ function planningSelectionDetails(playerId: number): string {
                         <InputError :message="errors.book_discipline" />
                     </label>
 
-                    <div
-                        v-if="
-                            (game.data.pendingInteraction?.context
-                                .knowledgeStepCount ?? 0) > 0
-                        "
-                        class="grid gap-3"
-                    >
-                        <p class="text-sm font-medium">
-                            Распределение шагов знаний
-                        </p>
+                    <div v-if="(game.data.pendingInteraction?.context.knowledgeStepCount ?? 0) > 0" class="grid gap-3">
+                        <p class="text-sm font-medium">Распределение шагов знаний</p>
                         <label
-                            v-for="step in game.data.pendingInteraction?.context
-                                .knowledgeStepCount"
+                            v-for="step in game.data.pendingInteraction?.context.knowledgeStepCount"
                             :key="step"
                             class="grid gap-2 text-sm"
                         >
@@ -543,14 +483,11 @@ function planningSelectionDetails(playerId: number): string {
                             <select
                                 name="knowledge_disciplines[]"
                                 required
-                                class="border-input bg-background h-9 rounded-md border px-3 text-sm shadow-xs"
+                                class="h-9 rounded-md border border-input bg-background px-3 text-sm shadow-xs"
                             >
-                                <option value="" disabled selected>
-                                    Выберите дисциплину
-                                </option>
+                                <option value="" disabled selected>Выберите дисциплину</option>
                                 <option
-                                    v-for="discipline in game.data
-                                        .pendingInteraction?.optionIds"
+                                    v-for="discipline in game.data.pendingInteraction?.optionIds"
                                     :key="discipline"
                                     :value="discipline"
                                 >
@@ -572,68 +509,16 @@ function planningSelectionDetails(playerId: number): string {
                         {{ processing ? 'Сохранение…' : 'Подтвердить выбор' }}
                     </Button>
                 </Form>
-
-                <div
-                    class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3"
-                >
-                    <Form
-                        v-for="bundle in game.data.planningBundles"
-                        :key="bundle.homeland"
-                        v-bind="PlanningBundleController.store.form(game.data.id)"
-                        #default="{ errors, processing }"
-                        class="flex min-h-52 flex-col gap-4 rounded-xl border bg-card p-5 shadow-sm"
-                    >
-                        <input
-                            type="hidden"
-                            name="homeland"
-                            :value="bundle.homeland"
-                        />
-
-                        <div class="grid gap-1">
-                            <p class="text-sm text-muted-foreground">
-                                {{ terrainNames[bundle.homeland] }}
-                            </p>
-                            <h2 class="text-lg font-semibold">
-                                {{ factionNames[bundle.faction] }}
-                            </h2>
-                        </div>
-
-                        <div class="rounded-lg bg-muted p-3 text-sm">
-                            <span class="text-muted-foreground">
-                                Бонус раунда:
-                            </span>
-                            {{ roundBonusNames[bundle.roundBonus] }}
-                        </div>
-
-                        <InputError
-                            :message="errors.homeland ?? errors.game"
-                        />
-                        <Button
-                            type="submit"
-                            class="mt-auto w-full"
-                            :disabled="processing || !canChoosePlanningBundle"
-                        >
-                            {{ planningBundleButtonLabel(processing) }}
-                        </Button>
-                    </Form>
-                </div>
             </CardContent>
         </Card>
 
-        <section
-            v-if="game.data.status === 'active' && setupChoicesCompleted"
-            class="grid gap-4"
-        >
+        <section v-if="game.data.status === 'active' && setupChoicesCompleted" class="grid gap-4">
             <div>
                 <h2 class="text-xl font-semibold">Игровая карта</h2>
-                <p class="text-sm text-muted-foreground">
-                    Все игроки выбрали стартовые комплекты.
-                </p>
+                <p class="text-sm text-muted-foreground">Все игроки выбрали стартовые комплекты.</p>
             </div>
 
-            <div
-                class="grid items-start gap-4 lg:grid-cols-[minmax(0,7fr)_minmax(16rem,3fr)]"
-            >
+            <div class="grid items-start gap-4 lg:grid-cols-[minmax(0,7fr)_minmax(16rem,3fr)]">
                 <div class="grid gap-4">
                     <BoardMap
                         :board="game.data.board"
@@ -650,24 +535,15 @@ function planningSelectionDetails(playerId: number): string {
                 </div>
 
                 <aside class="grid gap-4">
-                    <CultBoard
-                        :players="orderedPlayers"
-                        :player-states="game.data.playerBoardStates"
-                    />
-                    <RoundBonusBoard
-                        :offers="game.data.roundBonusOffers"
-                    />
+                    <CultBoard :players="orderedPlayers" :player-states="game.data.playerBoardStates" />
+                    <RoundBonusBoard :offers="game.data.roundBonusOffers" />
                     <InnovationBoard
                         :player-count="game.data.playersCount"
                         :innovations="game.data.innovations"
                         :competencies="game.data.competencies"
                     />
-                    <PalaceBoard
-                        :palaces="game.data.availablePalaceIds"
-                    />
-                    <TownTileBoard
-                        :town-tiles="game.data.availableTownTileIds"
-                    />
+                    <PalaceBoard :palaces="game.data.availablePalaceIds" />
+                    <TownTileBoard :town-tiles="game.data.availableTownTileIds" />
                 </aside>
             </div>
         </section>

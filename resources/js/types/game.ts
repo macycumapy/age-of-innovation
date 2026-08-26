@@ -27,6 +27,7 @@ export type GameResource = {
         canStart: boolean;
         planningBundles: PlanningBundle[];
         planningSelections: PlanningSelection[];
+        planningBundleDescriptions: PlanningBundleDescriptions;
         roundScoringTiles: RoundScoringTile[];
         finalRoundScoringTile: FinalRoundScoringTile | null;
         bookActions: BookAction[];
@@ -230,6 +231,12 @@ export type PlanningBundle = {
 export type PlanningSelection = {
     playerId: number;
     bundle: PlanningBundle;
+};
+
+export type PlanningBundleDescriptions = {
+    homelands: Record<TerrainType, string>;
+    factions: Record<Faction, string>;
+    roundBonuses: Record<RoundBonus, string>;
 };
 
 export type KnowledgeDiscipline =

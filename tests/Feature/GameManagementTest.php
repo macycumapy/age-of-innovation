@@ -380,7 +380,7 @@ class GameManagementTest extends TestCase
         $this->assertSame($bundle->homeland, $player->homeland);
         $this->assertSame($bundle->faction, $player->faction);
         $this->assertNotNull($player->color);
-        $this->assertCount(6, $game->state->setupPool->planningBundles);
+        $this->assertCount(7, $game->state->setupPool->planningBundles);
         $this->assertCount(1, $game->state->planningSelections);
         $this->assertSame($player->id, $game->state->planningSelections[0]->playerId);
         $this->assertCount(1, $game->state->players);
@@ -391,6 +391,19 @@ class GameManagementTest extends TestCase
             + $game->state->players[0]->resources->power->bowlTwo
             + $game->state->players[0]->resources->power->bowlThree);
         $this->assertNotSame($activeUser->id, $game->active_player_id);
+
+        $nextActiveUser = $users->firstWhere('id', $game->active_player_id);
+        $this->assertInstanceOf(User::class, $nextActiveUser);
+
+        $this->actingAs($nextActiveUser)
+            ->post(route('games.planning-bundle.store', $game), [
+                'homeland' => $bundle->homeland->value,
+            ])
+            ->assertSessionHasErrors('homeland');
+
+        $game->refresh();
+        $this->assertCount(7, $game->state->setupPool->planningBundles);
+        $this->assertCount(1, $game->state->planningSelections);
 
         $this->get(route('games.show', $game))
             ->assertOk()
@@ -412,6 +425,22 @@ class GameManagementTest extends TestCase
                     ->where(
                         'game.data.players.'.($player->seat - 1).'.color',
                         $player->color->value,
+                    )
+                    ->has('game.data.planningBundles', 7)
+                    ->has('game.data.planningBundleDescriptions.homelands', 7)
+                    ->has('game.data.planningBundleDescriptions.factions', 12)
+                    ->has('game.data.planningBundleDescriptions.roundBonuses', 10)
+                    ->where(
+                        'game.data.planningBundleDescriptions.homelands.desert',
+                        TerrainType::Desert->description(),
+                    )
+                    ->where(
+                        'game.data.planningBundleDescriptions.factions.'.$bundle->faction->value,
+                        $bundle->faction->description(),
+                    )
+                    ->where(
+                        'game.data.planningBundleDescriptions.roundBonuses.'.$bundle->roundBonus->value,
+                        $bundle->roundBonus->description(),
                     )
                     ->has('game.data.playerBoardStates', 1)
                     ->where('game.data.playerBoardStates.0.playerId', $player->id)

@@ -26,4 +26,20 @@ enum RoundBonus: string
     case PowerCoins = 'power_coins';
     /** Доход: 6 монет. */
     case Coins = 'coins';
+
+    public function description(): string
+    {
+        return match ($this) {
+            self::RiverWorkshop => 'Судоходство +1 и 2 ПО за мастерскую рядом с рекой.',
+            self::SendScholar => 'Доход — учёный; по 2 ПО за отправленного учёного.',
+            self::BuildGuild => 'Доход — 3 силы; по 3 ПО за построенную гильдию.',
+            self::PassPalaceUniversity => 'Доход — инструмент; при пасе по 4 ПО за дворец и университет.',
+            self::Spade => 'Доход — выбранная книга; особое преобразование с 1 лопатой.',
+            self::Bridge => 'Доход — выбранная книга; особое действие строительства моста.',
+            self::Knowledge => 'Доход — 2 инструмента; особое действие шага знания.',
+            self::PassSchool => 'Доход — 4 монеты; при пасе по шагу знания за школу.',
+            self::PowerCoins => 'Доход: 4 силы и 2 монеты.',
+            self::Coins => 'Доход: 6 монет.',
+        };
+    }
 }

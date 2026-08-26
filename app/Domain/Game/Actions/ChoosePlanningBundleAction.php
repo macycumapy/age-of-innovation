@@ -61,6 +61,17 @@ final class ChoosePlanningBundleAction
 
             if ($bundle === null) {
                 throw ValidationException::withMessages([
+                    'homeland' => 'Стартовый комплект не найден.',
+                ]);
+            }
+
+            $state = $lockedGame->state;
+            $isBundleSelected = collect($state->planningSelections)->contains(
+                static fn (PlayerPlanningSelectionData $selection): bool => $selection->bundle->homeland === $bundle->homeland,
+            );
+
+            if ($isBundleSelected) {
+                throw ValidationException::withMessages([
                     'homeland' => 'Этот стартовый комплект уже недоступен.',
                 ]);
             }
@@ -73,13 +84,6 @@ final class ChoosePlanningBundleAction
                 'homeland' => $bundle->homeland,
             ]);
 
-            $setupPool->planningBundles = array_values(array_filter(
-                $setupPool->planningBundles,
-                static fn (PlanningBundleData $candidate): bool => $candidate->homeland !== $bundle->homeland,
-            ));
-
-            $state = $lockedGame->state;
-            $state->setupPool = $setupPool;
             $state->planningSelections = [
                 ...$state->planningSelections,
                 new PlayerPlanningSelectionData($player->id, $bundle),

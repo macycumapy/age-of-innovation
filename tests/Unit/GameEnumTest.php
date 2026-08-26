@@ -39,6 +39,15 @@ final class GameEnumTest extends TestCase
         $this->assertSame($expectedValues, $actualValues);
     }
 
+    public function test_planning_bundle_enums_have_descriptions(): void
+    {
+        foreach ([TerrainType::cases(), Faction::cases(), RoundBonus::cases()] as $cases) {
+            foreach ($cases as $case) {
+                $this->assertNotSame('', $case->description());
+            }
+        }
+    }
+
     /** @return iterable<string, array{class-string<\BackedEnum>, list<string>}> */
     public static function gameEnumProvider(): iterable
     {
