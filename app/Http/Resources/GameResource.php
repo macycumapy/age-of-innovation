@@ -101,6 +101,7 @@ class GameResource extends JsonResource
                     ],
                     'shippingLevel' => $player->shippingLevel,
                     'terraformingLevel' => $player->terraformingLevel,
+                    'unassignedSpades' => $player->unassignedSpades,
                     'knowledge' => [
                         'banking' => $player->knowledge->banking,
                         'law' => $player->knowledge->law,

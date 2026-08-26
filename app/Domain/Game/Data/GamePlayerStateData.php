@@ -22,6 +22,7 @@ use Spatie\LaravelData\Data;
  * @property KnowledgeStateData $knowledge Положение игрока на шкалах знаний.
  * @property int $shippingLevel Текущий уровень судоходства.
  * @property int $terraformingLevel Текущий уровень эффективности преобразования.
+ * @property int $unassignedSpades Количество полученных лопат, которые ещё нужно потратить.
  * @property list<string> $townTileIds Полученные жетоны городов.
  * @property string|null $palaceId Выбранный дворец или null, если дворец ещё не построен.
  * @property list<string> $competencyIds Полученные компетенции.
@@ -48,6 +49,7 @@ class GamePlayerStateData extends Data
         public KnowledgeStateData $knowledge = new KnowledgeStateData(),
         public int $shippingLevel = 0,
         public int $terraformingLevel = 0,
+        public int $unassignedSpades = 0,
         public array $townTileIds = [],
         public ?string $palaceId = null,
         public array $competencyIds = [],

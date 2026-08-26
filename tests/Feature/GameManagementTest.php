@@ -21,6 +21,7 @@ use App\Models\GamePlayer;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Inertia\Testing\AssertableInertia as Assert;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 class GameManagementTest extends TestCase
@@ -695,11 +696,23 @@ class GameManagementTest extends TestCase
 
         $state = $game->state;
         $inventorBundle = collect($state->setupPool->planningBundles)->first(
-            static fn (PlanningBundleData $bundle): bool => $bundle->homeland !== TerrainType::Wasteland,
+            static fn (PlanningBundleData $bundle): bool => $bundle->homeland === TerrainType::Forest,
         );
         $this->assertInstanceOf(PlanningBundleData::class, $inventorBundle);
 
         $inventorBundle->faction = Faction::Inventors;
+        $otherCompetencies = collect($state->setupPool->competencies)
+            ->reject(
+                static fn (Competency|string $competency): bool => ($competency instanceof Competency
+                    ? $competency->value
+                    : $competency) === Competency::Competency01->value,
+            )
+            ->values();
+        $state->setupPool->competencies = [
+            ...$otherCompetencies->take(4)->all(),
+            Competency::Competency01,
+            ...$otherCompetencies->skip(4)->all(),
+        ];
         $game->update(['state' => $state]);
 
         $this->actingAs($inventorUser)
@@ -734,5 +747,87 @@ class GameManagementTest extends TestCase
 
         $this->assertInstanceOf(GamePlayerStateData::class, $inventorState);
         $this->assertSame([Competency::Competency01->value], $inventorState->competencyIds);
+        $this->assertSame(3, $inventorState->knowledge->banking);
+        $this->assertSame(1, $inventorState->resources->books->banking);
+        $this->assertSame(3, $inventorState->resources->power->bowlOne);
+        $this->assertSame(9, $inventorState->resources->power->bowlTwo);
+        $this->assertSame(0, $inventorState->resources->power->bowlThree);
+    }
+
+    #[DataProvider('immediateStartingCompetencyEffects')]
+    public function test_inventors_receive_immediate_starting_competency_effects(
+        Competency $competency,
+        int $coins,
+        int $tools,
+        int $victoryPoints,
+        int $unassignedSpades,
+    ): void {
+        $users = User::factory()->count(2)->create();
+        $game = Game::factory()->create(['random_seed' => 'immediate-competency-effects-seed']);
+
+        foreach ($users as $index => $user) {
+            GamePlayer::factory()->ready()->create([
+                'game_id' => $game->id,
+                'user_id' => $user->id,
+                'seat' => $index + 1,
+            ]);
+        }
+
+        $this->actingAs($users[0])->post(route('games.start', $game));
+        $game->refresh();
+
+        $activeUser = $users->firstWhere('id', $game->active_player_id);
+        $this->assertInstanceOf(User::class, $activeUser);
+
+        $state = $game->state;
+        $bundle = collect($state->setupPool->planningBundles)->first(
+            static fn (PlanningBundleData $bundle): bool => $bundle->homeland === TerrainType::Plains,
+        );
+        $this->assertInstanceOf(PlanningBundleData::class, $bundle);
+
+        $bundle->faction = Faction::Inventors;
+        $game->update(['state' => $state]);
+
+        $this->actingAs($activeUser)
+            ->post(route('games.planning-bundle.store', $game), [
+                'homeland' => $bundle->homeland->value,
+            ])
+            ->assertRedirect(route('games.show', $game));
+
+        $game->refresh();
+        $player = $game->players()->whereBelongsTo($activeUser)->sole();
+        $playerStateBeforeCompetency = collect($game->state->players)->firstWhere('playerId', $player->id);
+        $this->assertInstanceOf(GamePlayerStateData::class, $playerStateBeforeCompetency);
+
+        $this->post(route('games.starting-resources.store', $game), [
+            'competency_id' => $competency->value,
+        ])->assertRedirect(route('games.show', $game));
+
+        $game->refresh();
+        $playerState = collect($game->state->players)->firstWhere('playerId', $player->id);
+        $this->assertInstanceOf(GamePlayerStateData::class, $playerState);
+        $this->assertSame($playerStateBeforeCompetency->resources->coins + $coins, $playerState->resources->coins);
+        $this->assertSame($playerStateBeforeCompetency->resources->tools + $tools, $playerState->resources->tools);
+        $this->assertSame($playerStateBeforeCompetency->victoryPoints + $victoryPoints, $playerState->victoryPoints);
+        $this->assertSame($unassignedSpades, $playerState->unassignedSpades);
+    }
+
+    /** @return iterable<string, array{Competency, int, int, int, int}> */
+    public static function immediateStartingCompetencyEffects(): iterable
+    {
+        yield 'competency_04 gives coins, a tool, and victory points' => [
+            Competency::Competency04,
+            2,
+            1,
+            5,
+            0,
+        ];
+        yield 'competency_05 gives two unassigned spades' => [
+            Competency::Competency05,
+            0,
+            0,
+            0,
+            2,
+        ];
     }
 }

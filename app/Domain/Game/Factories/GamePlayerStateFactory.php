@@ -52,6 +52,7 @@ final class GamePlayerStateFactory
             resources: $resources,
             knowledge: $knowledge,
             shippingLevel: $bundle->homeland === TerrainType::Lake ? 1 : 0,
+            unassignedSpades: $bundle->homeland === TerrainType::Desert ? 1 : 0,
         );
     }
 

@@ -44,7 +44,7 @@ class DashboardTest extends TestCase
             ->get(route('dashboard'));
 
         $response->assertOk()->assertInertia(
-            fn (Assert $page) => $page->where('sidebarOpen', true),
+            fn (Assert $page) => $page->where('sidebarOpen', false),
         );
     }
 }

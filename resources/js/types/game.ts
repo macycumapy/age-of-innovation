@@ -67,6 +67,7 @@ export type GamePlayerBoardState = {
     };
     shippingLevel: number;
     terraformingLevel: number;
+    unassignedSpades: number;
     knowledge: {
         banking: number;
         law: number;

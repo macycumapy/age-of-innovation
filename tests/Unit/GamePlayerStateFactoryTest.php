@@ -26,6 +26,7 @@ class GamePlayerStateFactoryTest extends TestCase
         $this->assertSame(5, $state->resources->power->bowlOne);
         $this->assertSame(7, $state->resources->power->bowlTwo);
         $this->assertSame(0, $state->resources->power->bowlThree);
+        $this->assertSame(1, $state->unassignedSpades);
         $this->assertSame(PlayerColor::Yellow, $state->color);
         $this->assertSame(RoundBonus::Coins, $state->roundBonus);
     }
@@ -38,6 +39,7 @@ class GamePlayerStateFactoryTest extends TestCase
 
         $this->assertSame(5, $wastelandPsychics->resources->tools);
         $this->assertSame(1, $wastelandPsychics->resources->books->unassigned);
+        $this->assertSame(0, $wastelandPsychics->unassignedSpades);
         $this->assertSame(1, $wastelandPsychics->knowledge->banking);
         $this->assertSame(1, $wastelandPsychics->knowledge->medicine);
 
