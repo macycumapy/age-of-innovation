@@ -78,6 +78,7 @@ class GameResource extends JsonResource
                             static fn (BridgeStateData $bridge): bool => $bridge->ownerPlayerId === $player->playerId,
                         )),
                     ),
+                    'competencyIds' => $player->competencyIds,
                     'activeTownKeys' => max(
                         0,
                         count($player->townTileIds)

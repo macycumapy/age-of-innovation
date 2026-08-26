@@ -451,6 +451,10 @@ class GameManagementTest extends TestCase
                         'game.data.playerBoardStates.0.availableBridges',
                         3,
                     )
+                    ->where(
+                        'game.data.playerBoardStates.0.competencyIds',
+                        $game->state->players[0]->competencyIds,
+                    )
                     ->where('game.data.playerBoardStates.0.activeTownKeys', 0)
                     ->where('game.data.playerBoardStates.0.activeAnnexes', 0)
                     ->where('game.data.playerBoardStates.0.income', [

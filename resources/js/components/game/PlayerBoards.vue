@@ -2,6 +2,7 @@
 import { computed } from 'vue';
 import type { CSSProperties } from 'vue';
 import type {
+    Competency,
     Faction,
     GamePlayerBoardState,
     GamePlayerSummary,
@@ -64,6 +65,15 @@ const factionImages = import.meta.glob('../../../images/factions/*.jpg', {
 
 const roundBonusImages = import.meta.glob(
     '../../../images/round_bonus_cards/*_top.png',
+    {
+        eager: true,
+        import: 'default',
+        query: '?url',
+    },
+) as Record<string, string>;
+
+const competencyImages = import.meta.glob(
+    '../../../images/competencies/*.png',
     {
         eager: true,
         import: 'default',
@@ -217,6 +227,12 @@ function bridgeImage(color: PlayerColor): string {
     return buildingImages[`../../../images/buildings/${color}/bridge.png`];
 }
 
+function competencyImage(competency: Competency): string {
+    return competencyImages[
+        `../../../images/competencies/${competency}.png`
+    ];
+}
+
 function playerState(playerId: number): GamePlayerBoardState | undefined {
     return props.playerStates.find((state) => state.playerId === playerId);
 }
@@ -238,6 +254,10 @@ function coinsForPlayer(playerId: number): number {
 
 function toolsForPlayer(playerId: number): number {
     return playerState(playerId)?.tools ?? 0;
+}
+
+function competenciesForPlayer(playerId: number): Competency[] {
+    return playerState(playerId)?.competencyIds ?? [];
 }
 
 function booksForPlayer(playerId: number): string[] {
@@ -476,6 +496,20 @@ function powerInBowl(
                                     class="h-auto w-16 object-contain drop-shadow-md"
                                 />
                             </span>
+                        </span>
+
+                        <span
+                            v-if="competenciesForPlayer(player.id).length"
+                            class="flex flex-wrap gap-2"
+                            :aria-label="`Компетенции: ${competenciesForPlayer(player.id).length}`"
+                        >
+                            <img
+                                v-for="competency in competenciesForPlayer(player.id)"
+                                :key="competency"
+                                :src="competencyImage(competency)"
+                                :alt="`Компетенция ${competency}`"
+                                class="size-16 object-contain drop-shadow-md"
+                            />
                         </span>
 
                         <span

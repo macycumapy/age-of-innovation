@@ -54,6 +54,7 @@ export type GamePlayerBoardState = {
         unassigned: number;
     };
     availableBridges: number;
+    competencyIds: Competency[];
     activeTownKeys: number;
     activeAnnexes: number;
     income: {
