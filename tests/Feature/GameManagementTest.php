@@ -618,7 +618,7 @@ class GameManagementTest extends TestCase
         $this->assertSame(2, $game->state->players[0]->knowledge->unassignedSteps);
 
         $this->post(route('games.starting-resources.store', $game))
-            ->assertSessionHasErrors(['book_counts', 'knowledge_disciplines']);
+            ->assertSessionHasErrors(['book_counts', 'knowledge_counts']);
 
         $this->assertNotNull($game->refresh()->state->pendingInteraction);
 
@@ -629,7 +629,12 @@ class GameManagementTest extends TestCase
                 'engineering' => 0,
                 'medicine' => 0,
             ],
-            'knowledge_disciplines' => ['law', 'law'],
+            'knowledge_counts' => [
+                'banking' => 0,
+                'law' => 2,
+                'engineering' => 0,
+                'medicine' => 0,
+            ],
         ])->assertSessionHasErrors('book_counts');
 
         $game->refresh();
@@ -647,7 +652,33 @@ class GameManagementTest extends TestCase
                 'engineering' => 0,
                 'medicine' => 0,
             ],
-            'knowledge_disciplines' => ['law', 'law'],
+            'knowledge_counts' => [
+                'banking' => 1,
+                'law' => 2,
+                'engineering' => 0,
+                'medicine' => 0,
+            ],
+        ])->assertSessionHasErrors('knowledge_counts');
+
+        $game->refresh();
+
+        $this->assertSame(2, $game->state->players[0]->knowledge->unassignedSteps);
+        $this->assertSame(0, $game->state->players[0]->knowledge->banking);
+        $this->assertSame(0, $game->state->players[0]->knowledge->law);
+
+        $this->post(route('games.starting-resources.store', $game), [
+            'book_counts' => [
+                'banking' => 1,
+                'law' => 0,
+                'engineering' => 0,
+                'medicine' => 0,
+            ],
+            'knowledge_counts' => [
+                'banking' => 0,
+                'law' => 2,
+                'engineering' => 0,
+                'medicine' => 0,
+            ],
         ])->assertRedirect(route('games.show', $game));
 
         $game->refresh();

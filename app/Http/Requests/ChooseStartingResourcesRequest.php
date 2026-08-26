@@ -43,13 +43,11 @@ final class ChooseStartingResourcesRequest extends FormRequest
                 Rule::prohibitedIf($bookCount === 0),
                 'array:'.implode(',', array_column(KnowledgeDiscipline::cases(), 'value')),
             ],
-            'knowledge_disciplines' => [
+            'knowledge_counts' => [
                 Rule::requiredIf($knowledgeStepCount > 0),
                 Rule::prohibitedIf($knowledgeStepCount === 0),
-                'array',
-                'size:'.$knowledgeStepCount,
+                'array:'.implode(',', array_column(KnowledgeDiscipline::cases(), 'value')),
             ],
-            'knowledge_disciplines.*' => [Rule::enum(KnowledgeDiscipline::class)],
             'competency_id' => [
                 Rule::requiredIf($competencyIds !== []),
                 Rule::prohibitedIf($competencyIds === []),
@@ -64,6 +62,12 @@ final class ChooseStartingResourcesRequest extends FormRequest
                 'integer',
                 'min:0',
                 'max:'.$bookCount,
+            ];
+            $rules['knowledge_counts.'.$discipline->value] = [
+                Rule::requiredIf($knowledgeStepCount > 0),
+                'integer',
+                'min:0',
+                'max:'.$knowledgeStepCount,
             ];
         }
 
@@ -100,7 +104,9 @@ final class ChooseStartingResourcesRequest extends FormRequest
                 $game = $this->route('game');
                 $interaction = $game instanceof Game ? $game->state->pendingInteraction : null;
                 $bookCount = (int) ($interaction?->context['bookCount'] ?? 0);
+                $knowledgeStepCount = (int) ($interaction?->context['knowledgeStepCount'] ?? 0);
                 $submittedCounts = $this->input('book_counts', []);
+                $submittedKnowledgeCounts = $this->input('knowledge_counts', []);
                 $assignedBookCount = is_array($submittedCounts)
                     ? array_sum(array_map('intval', $submittedCounts))
                     : 0;
@@ -111,6 +117,17 @@ final class ChooseStartingResourcesRequest extends FormRequest
                         'Распределите все стартовые книги.',
                     );
                 }
+
+                $assignedKnowledgeStepCount = is_array($submittedKnowledgeCounts)
+                    ? array_sum(array_map('intval', $submittedKnowledgeCounts))
+                    : 0;
+
+                if ($assignedKnowledgeStepCount !== $knowledgeStepCount) {
+                    $validator->errors()->add(
+                        'knowledge_counts',
+                        'Распределите все стартовые шаги знаний.',
+                    );
+                }
             },
         ];
     }
@@ -118,16 +135,23 @@ final class ChooseStartingResourcesRequest extends FormRequest
     /** @return list<KnowledgeDiscipline> */
     public function knowledgeDisciplines(): array
     {
-        $disciplines = $this->validated('knowledge_disciplines', []);
+        $knowledgeCounts = $this->validated('knowledge_counts', []);
 
-        if (! is_array($disciplines)) {
+        if (! is_array($knowledgeCounts)) {
             return [];
         }
 
-        return array_map(
-            static fn (mixed $discipline): KnowledgeDiscipline => KnowledgeDiscipline::from((string) $discipline),
-            $disciplines,
-        );
+        $disciplines = [];
+
+        foreach (KnowledgeDiscipline::cases() as $discipline) {
+            $count = (int) ($knowledgeCounts[$discipline->value] ?? 0);
+
+            for ($index = 0; $index < $count; $index++) {
+                $disciplines[] = $discipline;
+            }
+        }
+
+        return $disciplines;
     }
 
     public function competency(): ?Competency

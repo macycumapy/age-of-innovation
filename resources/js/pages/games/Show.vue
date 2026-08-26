@@ -20,9 +20,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { index } from '@/routes/games';
 import bankingBookUrl from '../../../images/token_parts/coin_book.png';
+import bankingRoundUrl from '../../../images/token_parts/coin_round.png';
 import engineeringBookUrl from '../../../images/token_parts/engineering_book.png';
+import engineeringRoundUrl from '../../../images/token_parts/engineering_round.png';
 import lawBookUrl from '../../../images/token_parts/law_book.png';
+import lawRoundUrl from '../../../images/token_parts/law_round.png';
 import medicineBookUrl from '../../../images/token_parts/medicine_book.png';
+import medicineRoundUrl from '../../../images/token_parts/medicine_round.png';
 import type {
     Competency,
     Faction,
@@ -86,6 +90,12 @@ const startingBookCounts = reactive<Record<KnowledgeDiscipline, number>>({
     engineering: 0,
     medicine: 0,
 });
+const startingKnowledgeCounts = reactive<Record<KnowledgeDiscipline, number>>({
+    banking: 0,
+    law: 0,
+    engineering: 0,
+    medicine: 0,
+});
 const selectedStartingCompetency = ref<Competency | null>(null);
 
 const availableStartingBookCount = computed(
@@ -100,6 +110,18 @@ const remainingStartingBookCount = computed(() =>
     Math.max(0, availableStartingBookCount.value - assignedStartingBookCount.value),
 );
 
+const availableStartingKnowledgeStepCount = computed(
+    () => props.game.data.pendingInteraction?.context.knowledgeStepCount ?? 0,
+);
+
+const assignedStartingKnowledgeStepCount = computed(() =>
+    Object.values(startingKnowledgeCounts).reduce((total, count) => total + count, 0),
+);
+
+const remainingStartingKnowledgeStepCount = computed(() =>
+    Math.max(0, availableStartingKnowledgeStepCount.value - assignedStartingKnowledgeStepCount.value),
+);
+
 const requiresStartingCompetency = computed(
     () => (props.game.data.pendingInteraction?.context.competencyIds?.length ?? 0) > 0,
 );
@@ -109,6 +131,7 @@ watch(
     () => {
         for (const discipline of Object.keys(startingBookCounts) as KnowledgeDiscipline[]) {
             startingBookCounts[discipline] = 0;
+            startingKnowledgeCounts[discipline] = 0;
         }
 
         selectedStartingCompetency.value = null;
@@ -218,6 +241,13 @@ const bookImages: Record<KnowledgeDiscipline, string> = {
     medicine: medicineBookUrl,
 };
 
+const knowledgeRoundImages: Record<KnowledgeDiscipline, string> = {
+    banking: bankingRoundUrl,
+    law: lawRoundUrl,
+    engineering: engineeringRoundUrl,
+    medicine: medicineRoundUrl,
+};
+
 function planningBundleButtonLabel(processing: boolean): string {
     if (processing) {
         return 'Выбор…';
@@ -272,6 +302,20 @@ function updateStartingBookCount(discipline: KnowledgeDiscipline, event: Event):
     const normalizedCount = Math.max(0, Math.min(Number.isNaN(requestedCount) ? 0 : requestedCount, maximumCount));
 
     startingBookCounts[discipline] = normalizedCount;
+    event.target.value = String(normalizedCount);
+}
+
+function updateStartingKnowledgeCount(discipline: KnowledgeDiscipline, event: Event): void {
+    if (! (event.target instanceof HTMLInputElement)) {
+        return;
+    }
+
+    const requestedCount = Number.parseInt(event.target.value, 10);
+    const otherStepCount = assignedStartingKnowledgeStepCount.value - startingKnowledgeCounts[discipline];
+    const maximumCount = Math.max(0, availableStartingKnowledgeStepCount.value - otherStepCount);
+    const normalizedCount = Math.max(0, Math.min(Number.isNaN(requestedCount) ? 0 : requestedCount, maximumCount));
+
+    startingKnowledgeCounts[discipline] = normalizedCount;
     event.target.value = String(normalizedCount);
 }
 </script>
@@ -521,35 +565,38 @@ function updateStartingBookCount(discipline: KnowledgeDiscipline, event: Event):
                     </div>
 
                     <div v-if="(game.data.pendingInteraction?.context.knowledgeStepCount ?? 0) > 0" class="grid gap-3">
-                        <p class="text-sm font-medium">Распределение шагов знаний</p>
-                        <label
-                            v-for="step in game.data.pendingInteraction?.context.knowledgeStepCount"
-                            :key="step"
-                            class="grid gap-2 text-sm"
-                        >
-                            Шаг {{ step }}
-                            <select
-                                name="knowledge_disciplines[]"
-                                required
-                                class="h-9 rounded-md border border-input bg-background px-3 text-sm shadow-xs"
+                        <div class="flex flex-wrap items-center justify-between gap-2 text-sm">
+                            <p class="font-medium">Распределение шагов знаний</p>
+                            <p class="rounded-md bg-background/75 px-3 py-1.5 font-medium">
+                                Доступно: {{ availableStartingKnowledgeStepCount }}
+                            </p>
+                        </div>
+                        <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                            <label
+                                v-for="discipline in game.data.pendingInteraction?.optionIds"
+                                :key="discipline"
+                                class="grid h-full grid-rows-[auto_minmax(2.5rem,1fr)_auto_auto] justify-items-center gap-2 rounded-lg border bg-background/70 p-3 text-center text-sm font-medium"
                             >
-                                <option value="" disabled selected>Выберите дисциплину</option>
-                                <option
-                                    v-for="discipline in game.data.pendingInteraction?.optionIds"
-                                    :key="discipline"
-                                    :value="discipline"
-                                >
-                                    {{ knowledgeDisciplineNames[discipline] }}
-                                </option>
-                            </select>
-                        </label>
-                        <InputError
-                            :message="
-                                errors.knowledge_disciplines ??
-                                errors['knowledge_disciplines.0'] ??
-                                errors['knowledge_disciplines.1']
-                            "
-                        />
+                                <img
+                                    :src="knowledgeRoundImages[discipline]"
+                                    :alt="`Дисциплина: ${knowledgeDisciplineNames[discipline]}`"
+                                    class="h-16 w-auto object-contain drop-shadow-md"
+                                />
+                                <span>{{ knowledgeDisciplineNames[discipline] }}</span>
+                                <input
+                                    type="number"
+                                    :name="`knowledge_counts[${discipline}]`"
+                                    :value="startingKnowledgeCounts[discipline]"
+                                    min="0"
+                                    :max="startingKnowledgeCounts[discipline] + remainingStartingKnowledgeStepCount"
+                                    required
+                                    class="h-9 w-20 self-end rounded-md border border-input bg-background px-3 text-center text-sm shadow-xs"
+                                    @input="updateStartingKnowledgeCount(discipline, $event)"
+                                />
+                                <InputError :message="errors[`knowledge_counts.${discipline}`]" />
+                            </label>
+                        </div>
+                        <InputError :message="errors.knowledge_counts" />
                     </div>
 
                     <InputError :message="errors.game" />
@@ -558,6 +605,7 @@ function updateStartingBookCount(discipline: KnowledgeDiscipline, event: Event):
                         :disabled="
                             processing ||
                             remainingStartingBookCount !== 0 ||
+                            remainingStartingKnowledgeStepCount !== 0 ||
                             (requiresStartingCompetency && selectedStartingCompetency === null)
                         "
                     >

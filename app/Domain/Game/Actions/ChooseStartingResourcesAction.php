@@ -117,7 +117,7 @@ final class ChooseStartingResourcesAction
     {
         if (count($disciplines) !== $playerState->knowledge->unassignedSteps) {
             throw ValidationException::withMessages([
-                'knowledge_disciplines' => 'Распределите все стартовые шаги знаний.',
+                'knowledge_counts' => 'Распределите все стартовые шаги знаний.',
             ]);
         }
 
