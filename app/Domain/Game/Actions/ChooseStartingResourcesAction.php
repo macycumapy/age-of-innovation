@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Domain\Game\Actions;
 
 use App\Domain\Game\Data\GamePlayerStateData;
+use App\Domain\Game\Enums\Competency;
+use App\Domain\Game\Enums\Faction;
 use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\GameStatus;
 use App\Domain\Game\Enums\KnowledgeDiscipline;
@@ -31,8 +33,9 @@ final class ChooseStartingResourcesAction
         User $user,
         array $bookDisciplines,
         array $knowledgeDisciplines,
+        ?Competency $competency,
     ): Game {
-        return DB::transaction(function () use ($game, $user, $bookDisciplines, $knowledgeDisciplines): Game {
+        return DB::transaction(function () use ($game, $user, $bookDisciplines, $knowledgeDisciplines, $competency): Game {
             $lockedGame = Game::query()->lockForUpdate()->findOrFail($game->id);
             $interaction = $lockedGame->state->pendingInteraction;
 
@@ -75,6 +78,7 @@ final class ChooseStartingResourcesAction
             $playerState = $state->players[$playerStateIndex];
             $this->assignBooks($playerState, $bookDisciplines);
             $this->assignKnowledge($playerState, $knowledgeDisciplines);
+            $this->assignCompetency($playerState, $competency);
 
             $state->players[$playerStateIndex] = $playerState;
             $state->pendingInteraction = null;
@@ -122,5 +126,20 @@ final class ChooseStartingResourcesAction
         }
 
         $playerState->knowledge->unassignedSteps = 0;
+    }
+
+    private function assignCompetency(GamePlayerStateData $playerState, ?Competency $competency): void
+    {
+        $requiresCompetency = $playerState->faction === Faction::Inventors;
+
+        if ($requiresCompetency !== ($competency instanceof Competency)) {
+            throw ValidationException::withMessages([
+                'competency_id' => 'Выберите стартовую компетенцию.',
+            ]);
+        }
+
+        if ($competency instanceof Competency) {
+            $playerState->competencyIds[] = $competency->value;
+        }
     }
 }

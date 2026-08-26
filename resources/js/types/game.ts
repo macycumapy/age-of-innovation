@@ -28,6 +28,7 @@ export type GameResource = {
         planningBundles: PlanningBundle[];
         planningSelections: PlanningSelection[];
         planningBundleDescriptions: PlanningBundleDescriptions;
+        competencyDescriptions: Record<Competency, string>;
         roundScoringTiles: RoundScoringTile[];
         finalRoundScoringTile: FinalRoundScoringTile | null;
         bookActions: BookAction[];
@@ -252,6 +253,7 @@ export type PendingInteraction = {
     context: {
         bookCount: number;
         knowledgeStepCount: number;
+        competencyIds?: Competency[];
     };
 };
 

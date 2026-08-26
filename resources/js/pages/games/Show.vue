@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Form, Head, Link, usePage, usePoll } from '@inertiajs/vue3';
-import { computed, reactive, watch } from 'vue';
+import { computed, reactive, ref, watch } from 'vue';
 import GamePlayerController from '@/actions/App/Http/Controllers/GamePlayerController';
 import GamePlayerReadinessController from '@/actions/App/Http/Controllers/GamePlayerReadinessController';
 import GameStartController from '@/actions/App/Http/Controllers/GameStartController';
@@ -24,6 +24,7 @@ import engineeringBookUrl from '../../../images/token_parts/engineering_book.png
 import lawBookUrl from '../../../images/token_parts/law_book.png';
 import medicineBookUrl from '../../../images/token_parts/medicine_book.png';
 import type {
+    Competency,
     Faction,
     GamePlayerSummary,
     GameResource,
@@ -79,22 +80,13 @@ const setupChoicesCompleted = computed(
     () => allPlanningBundlesChosen.value && props.game.data.pendingInteraction === null,
 );
 
-const visiblePlanningBundles = computed(() => {
-    if (props.game.data.pendingInteraction?.type !== 'choose_starting_resources') {
-        return props.game.data.planningBundles;
-    }
-
-    const selectedHomelands = new Set(props.game.data.planningSelections.map((selection) => selection.bundle.homeland));
-
-    return props.game.data.planningBundles.filter((bundle) => selectedHomelands.has(bundle.homeland));
-});
-
 const startingBookCounts = reactive<Record<KnowledgeDiscipline, number>>({
     banking: 0,
     law: 0,
     engineering: 0,
     medicine: 0,
 });
+const selectedStartingCompetency = ref<Competency | null>(null);
 
 const availableStartingBookCount = computed(
     () => props.game.data.pendingInteraction?.context.bookCount ?? 0,
@@ -108,12 +100,18 @@ const remainingStartingBookCount = computed(() =>
     Math.max(0, availableStartingBookCount.value - assignedStartingBookCount.value),
 );
 
+const requiresStartingCompetency = computed(
+    () => (props.game.data.pendingInteraction?.context.competencyIds?.length ?? 0) > 0,
+);
+
 watch(
     () => props.game.data.pendingInteraction?.playerId,
     () => {
         for (const discipline of Object.keys(startingBookCounts) as KnowledgeDiscipline[]) {
             startingBookCounts[discipline] = 0;
         }
+
+        selectedStartingCompetency.value = null;
     },
 );
 
@@ -200,6 +198,12 @@ const roundBonusImages = import.meta.glob('../../../images/round_bonus_cards/*_t
     query: '?url',
 }) as Record<string, string>;
 
+const competencyImages = import.meta.glob('../../../images/competencies/*.png', {
+    eager: true,
+    import: 'default',
+    query: '?url',
+}) as Record<string, string>;
+
 const knowledgeDisciplineNames: Record<KnowledgeDiscipline, string> = {
     banking: 'Банковское дело',
     law: 'Право',
@@ -240,10 +244,21 @@ function roundBonusImage(roundBonus: RoundBonus): string {
     return roundBonusImages[`../../../images/round_bonus_cards/${roundBonus}_top.png`];
 }
 
+function competencyImage(competency: Competency): string {
+    return competencyImages[`../../../images/competencies/${competency}.png`];
+}
+
 function selectedPlayerForHomeland(homeland: TerrainType): GamePlayerSummary | undefined {
     const selection = props.game.data.planningSelections.find((selection) => selection.bundle.homeland === homeland);
 
     return props.game.data.players.find((player) => player.id === selection?.playerId);
+}
+
+function selectedCompetencyForHomeland(homeland: TerrainType): Competency | undefined {
+    const player = selectedPlayerForHomeland(homeland);
+    const playerState = props.game.data.playerBoardStates.find((state) => state.playerId === player?.id);
+
+    return playerState?.competencyIds[0];
 }
 
 function updateStartingBookCount(discipline: KnowledgeDiscipline, event: Event): void {
@@ -410,91 +425,11 @@ function updateStartingBookCount(discipline: KnowledgeDiscipline, event: Event):
             </CardHeader>
 
             <CardContent>
-                <div class="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-                    <Form
-                        v-for="bundle in visiblePlanningBundles"
-                        :key="bundle.homeland"
-                        v-bind="PlanningBundleController.store.form(game.data.id)"
-                        #default="{ errors, processing }"
-                        :class="[
-                            'flex flex-col gap-4 rounded-xl border p-4 shadow-sm',
-                            terrainBundleClasses[bundle.homeland],
-                        ]"
-                    >
-                        <input type="hidden" name="homeland" :value="bundle.homeland" />
-
-                        <TooltipProvider :delay-duration="150">
-                            <div class="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3">
-                                <Tooltip>
-                                    <TooltipTrigger as-child>
-                                        <img
-                                            :src="terrainTileImage(bundle.homeland)"
-                                            :alt="`Родная местность: ${terrainNames[bundle.homeland]}`"
-                                            tabindex="0"
-                                            class="h-48 w-auto cursor-help rounded-md object-contain shadow-sm"
-                                        />
-                                    </TooltipTrigger>
-                                    <TooltipContent class="max-w-xs">
-                                        <p class="font-semibold">{{ terrainNames[bundle.homeland] }}</p>
-                                        <p>{{ game.data.planningBundleDescriptions.homelands[bundle.homeland] }}</p>
-                                    </TooltipContent>
-                                </Tooltip>
-
-                                <Tooltip>
-                                    <TooltipTrigger as-child>
-                                        <img
-                                            :src="factionImage(bundle.faction)"
-                                            :alt="`Сообщество: ${factionNames[bundle.faction]}`"
-                                            tabindex="0"
-                                            class="h-48 w-full min-w-0 cursor-help rounded-md object-contain shadow-sm"
-                                        />
-                                    </TooltipTrigger>
-                                    <TooltipContent class="max-w-xs">
-                                        <p class="font-semibold">{{ factionNames[bundle.faction] }}</p>
-                                        <p>{{ game.data.planningBundleDescriptions.factions[bundle.faction] }}</p>
-                                    </TooltipContent>
-                                </Tooltip>
-
-                                <Tooltip>
-                                    <TooltipTrigger as-child>
-                                        <img
-                                            :src="roundBonusImage(bundle.roundBonus)"
-                                            :alt="`Бонус раунда: ${roundBonusNames[bundle.roundBonus]}`"
-                                            tabindex="0"
-                                            class="h-48 w-auto cursor-help object-contain drop-shadow-sm"
-                                        />
-                                    </TooltipTrigger>
-                                    <TooltipContent class="max-w-xs">
-                                        <p class="font-semibold">{{ roundBonusNames[bundle.roundBonus] }}</p>
-                                        <p>{{ game.data.planningBundleDescriptions.roundBonuses[bundle.roundBonus] }}</p>
-                                    </TooltipContent>
-                                </Tooltip>
-                            </div>
-                        </TooltipProvider>
-
-                        <InputError :message="errors.homeland ?? errors.game" />
-                        <div
-                            v-if="selectedPlayerForHomeland(bundle.homeland)"
-                            class="mt-auto rounded-md bg-background/75 px-4 py-2 text-center text-sm font-medium shadow-xs"
-                        >
-                            {{ selectedPlayerForHomeland(bundle.homeland)?.user.name }}
-                        </div>
-                        <Button
-                            v-else
-                            type="submit"
-                            class="mt-auto w-full"
-                            :disabled="processing || !canChoosePlanningBundle"
-                        >
-                            {{ planningBundleButtonLabel(processing) }}
-                        </Button>
-                    </Form>
-                </div>
-
                 <Form
                     v-if="canChooseStartingResources"
                     v-bind="StartingResourcesController.store.form(game.data.id)"
                     #default="{ errors, processing }"
-                    class="grid gap-5 rounded-xl border border-primary/40 bg-primary/5 p-5 w-xl"
+                    class="grid gap-5 rounded-xl border border-primary/40 bg-primary/5 p-5 w-xl mb-6"
                 >
                     <div class="grid gap-1">
                         <h3 class="font-semibold">Распределите стартовые ресурсы</h3>
@@ -541,6 +476,50 @@ function updateStartingBookCount(discipline: KnowledgeDiscipline, event: Event):
                         <InputError :message="errors.book_counts" />
                     </div>
 
+                    <div
+                        v-if="(game.data.pendingInteraction?.context.competencyIds?.length ?? 0) > 0"
+                        class="grid gap-3"
+                    >
+                        <p class="text-sm font-medium">Выберите стартовую компетенцию</p>
+                        <TooltipProvider :delay-duration="150">
+                            <div class="grid grid-cols-3 gap-3 sm:grid-cols-4 lg:grid-cols-6">
+                                <label
+                                    v-for="competency in game.data.pendingInteraction?.context.competencyIds ?? []"
+                                    :key="competency"
+                                    class="cursor-pointer"
+                                >
+                                    <input
+                                        v-model="selectedStartingCompetency"
+                                        type="radio"
+                                        name="competency_id"
+                                        :value="competency"
+                                        required
+                                        class="peer sr-only"
+                                    />
+                                    <Tooltip>
+                                        <TooltipTrigger as-child>
+                                            <span
+                                                tabindex="0"
+                                                class="grid cursor-help rounded-lg border bg-background/70 p-2 transition peer-checked:border-primary peer-checked:ring-2 peer-checked:ring-primary/40"
+                                            >
+                                                <img
+                                                    :src="competencyImage(competency)"
+                                                    :alt="`Компетенция ${competency}`"
+                                                    class="aspect-square w-full object-contain drop-shadow-md"
+                                                />
+                                            </span>
+                                        </TooltipTrigger>
+                                        <TooltipContent class="max-w-xs">
+                                            <p class="font-semibold">Компетенция {{ competency.slice(-2) }}</p>
+                                            <p>{{ game.data.competencyDescriptions[competency] }}</p>
+                                        </TooltipContent>
+                                    </Tooltip>
+                                </label>
+                            </div>
+                        </TooltipProvider>
+                        <InputError :message="errors.competency_id" />
+                    </div>
+
                     <div v-if="(game.data.pendingInteraction?.context.knowledgeStepCount ?? 0) > 0" class="grid gap-3">
                         <p class="text-sm font-medium">Распределение шагов знаний</p>
                         <label
@@ -574,10 +553,107 @@ function updateStartingBookCount(discipline: KnowledgeDiscipline, event: Event):
                     </div>
 
                     <InputError :message="errors.game" />
-                    <Button type="submit" :disabled="processing || remainingStartingBookCount !== 0">
+                    <Button
+                        type="submit"
+                        :disabled="
+                            processing ||
+                            remainingStartingBookCount !== 0 ||
+                            (requiresStartingCompetency && selectedStartingCompetency === null)
+                        "
+                    >
                         {{ processing ? 'Сохранение…' : 'Подтвердить выбор' }}
                     </Button>
                 </Form>
+
+                <div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+                    <Form
+                        v-for="bundle in game.data.planningBundles"
+                        :key="bundle.homeland"
+                        v-bind="PlanningBundleController.store.form(game.data.id)"
+                        #default="{ errors, processing }"
+                        :class="[
+                            'flex flex-col gap-4 rounded-xl border p-4 shadow-sm',
+                            terrainBundleClasses[bundle.homeland],
+                        ]"
+                    >
+                        <input type="hidden" name="homeland" :value="bundle.homeland" />
+
+                        <TooltipProvider :delay-duration="150">
+                            <div class="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3">
+                                <Tooltip>
+                                    <TooltipTrigger as-child>
+                                        <img
+                                            :src="terrainTileImage(bundle.homeland)"
+                                            :alt="`Родная местность: ${terrainNames[bundle.homeland]}`"
+                                            tabindex="0"
+                                            class="h-48 w-auto cursor-help rounded-md object-contain shadow-sm"
+                                        />
+                                    </TooltipTrigger>
+                                    <TooltipContent class="max-w-xs">
+                                        <p class="font-semibold">{{ terrainNames[bundle.homeland] }}</p>
+                                        <p>{{ game.data.planningBundleDescriptions.homelands[bundle.homeland] }}</p>
+                                    </TooltipContent>
+                                </Tooltip>
+
+                                <Tooltip>
+                                    <TooltipTrigger as-child>
+                                        <div
+                                            tabindex="0"
+                                            class="relative aspect-[592/338] w-full max-w-[21rem] min-w-0 justify-self-center cursor-help"
+                                        >
+                                            <img
+                                                :src="factionImage(bundle.faction)"
+                                                :alt="`Сообщество: ${factionNames[bundle.faction]}`"
+                                                class="size-full rounded-md object-cover shadow-sm"
+                                            />
+                                            <img
+                                                v-if="selectedCompetencyForHomeland(bundle.homeland)"
+                                                :src="competencyImage(selectedCompetencyForHomeland(bundle.homeland)!)"
+                                                :alt="`Выбранная компетенция ${selectedCompetencyForHomeland(bundle.homeland)}`"
+                                                class="absolute top-0 right-0 size-16 rounded-md object-contain p-1 shadow-md"
+                                            />
+                                        </div>
+                                    </TooltipTrigger>
+                                    <TooltipContent class="max-w-xs">
+                                        <p class="font-semibold">{{ factionNames[bundle.faction] }}</p>
+                                        <p>{{ game.data.planningBundleDescriptions.factions[bundle.faction] }}</p>
+                                    </TooltipContent>
+                                </Tooltip>
+
+                                <Tooltip>
+                                    <TooltipTrigger as-child>
+                                        <img
+                                            :src="roundBonusImage(bundle.roundBonus)"
+                                            :alt="`Бонус раунда: ${roundBonusNames[bundle.roundBonus]}`"
+                                            tabindex="0"
+                                            class="h-48 w-auto cursor-help object-contain drop-shadow-sm"
+                                        />
+                                    </TooltipTrigger>
+                                    <TooltipContent class="max-w-xs">
+                                        <p class="font-semibold">{{ roundBonusNames[bundle.roundBonus] }}</p>
+                                        <p>{{ game.data.planningBundleDescriptions.roundBonuses[bundle.roundBonus] }}</p>
+                                    </TooltipContent>
+                                </Tooltip>
+                            </div>
+                        </TooltipProvider>
+
+                        <InputError :message="errors.homeland ?? errors.game" />
+                        <div
+                            v-if="selectedPlayerForHomeland(bundle.homeland)"
+                            class="mt-auto flex min-h-10 items-center justify-center gap-3 rounded-md bg-background/75 px-4 py-2 text-center text-sm font-medium shadow-xs"
+                        >
+                            {{ selectedPlayerForHomeland(bundle.homeland)?.user.name }}
+                        </div>
+                        <Button
+                            v-else
+                            type="submit"
+                            class="mt-auto w-full"
+                            :disabled="processing || !canChoosePlanningBundle"
+                        >
+                            {{ planningBundleButtonLabel(processing) }}
+                        </Button>
+                    </Form>
+                </div>
             </CardContent>
         </Card>
 

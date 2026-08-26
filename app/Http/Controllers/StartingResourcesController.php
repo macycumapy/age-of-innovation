@@ -26,6 +26,7 @@ final class StartingResourcesController extends Controller
             $user,
             $request->bookDisciplines(),
             $request->knowledgeDisciplines(),
+            $request->competency(),
         );
 
         Inertia::flash('toast', [

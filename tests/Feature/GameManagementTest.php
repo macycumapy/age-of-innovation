@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Data\GameStateData;
 use App\Domain\Game\Data\PlanningBundleData;
+use App\Domain\Game\Enums\Competency;
 use App\Domain\Game\Enums\Faction;
 use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\GameStatus;
@@ -430,6 +432,11 @@ class GameManagementTest extends TestCase
                     ->has('game.data.planningBundleDescriptions.homelands', 7)
                     ->has('game.data.planningBundleDescriptions.factions', 12)
                     ->has('game.data.planningBundleDescriptions.roundBonuses', 10)
+                    ->has('game.data.competencyDescriptions', 12)
+                    ->where(
+                        'game.data.competencyDescriptions.'.Competency::Competency01->value,
+                        Competency::Competency01->description(),
+                    )
                     ->where(
                         'game.data.planningBundleDescriptions.homelands.desert',
                         TerrainType::Desert->description(),
@@ -651,5 +658,50 @@ class GameManagementTest extends TestCase
         $this->assertSame(0, $game->state->players[0]->knowledge->unassignedSteps);
         $this->assertSame(2, $game->state->players[0]->knowledge->law);
         $this->assertNotSame($activeUser->id, $game->active_player_id);
+
+        $inventorUser = $users->firstWhere('id', $game->active_player_id);
+        $this->assertInstanceOf(User::class, $inventorUser);
+
+        $state = $game->state;
+        $inventorBundle = collect($state->setupPool->planningBundles)->first(
+            static fn (PlanningBundleData $bundle): bool => $bundle->homeland !== TerrainType::Wasteland,
+        );
+        $this->assertInstanceOf(PlanningBundleData::class, $inventorBundle);
+
+        $inventorBundle->faction = Faction::Inventors;
+        $game->update(['state' => $state]);
+
+        $this->actingAs($inventorUser)
+            ->post(route('games.planning-bundle.store', $game), [
+                'homeland' => $inventorBundle->homeland->value,
+            ])
+            ->assertRedirect(route('games.show', $game));
+
+        $game->refresh();
+        $inventorPlayer = $game->players()->whereBelongsTo($inventorUser)->sole();
+
+        $this->assertSame($inventorPlayer->id, $game->state->pendingInteraction?->playerId);
+        $this->assertSame(
+            array_map(
+                static fn (Competency|string $competency): string => $competency instanceof Competency
+                    ? $competency->value
+                    : $competency,
+                $game->state->setupPool->competencies,
+            ),
+            $game->state->pendingInteraction?->context['competencyIds'],
+        );
+
+        $this->post(route('games.starting-resources.store', $game))
+            ->assertSessionHasErrors('competency_id');
+
+        $this->post(route('games.starting-resources.store', $game), [
+            'competency_id' => Competency::Competency01->value,
+        ])->assertRedirect(route('games.show', $game));
+
+        $game->refresh();
+        $inventorState = collect($game->state->players)->firstWhere('playerId', $inventorPlayer->id);
+
+        $this->assertInstanceOf(GamePlayerStateData::class, $inventorState);
+        $this->assertSame([Competency::Competency01->value], $inventorState->competencyIds);
     }
 }

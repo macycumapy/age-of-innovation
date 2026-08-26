@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Requests;
 
+use App\Domain\Game\Enums\Competency;
 use App\Domain\Game\Enums\KnowledgeDiscipline;
 use App\Domain\Game\Enums\PendingInteractionType;
 use App\Models\Game;
@@ -34,6 +35,7 @@ final class ChooseStartingResourcesRequest extends FormRequest
         $interaction = $game instanceof Game ? $game->state->pendingInteraction : null;
         $bookCount = (int) ($interaction?->context['bookCount'] ?? 0);
         $knowledgeStepCount = (int) ($interaction?->context['knowledgeStepCount'] ?? 0);
+        $competencyIds = (array) ($interaction?->context['competencyIds'] ?? []);
 
         $rules = [
             'book_counts' => [
@@ -48,6 +50,12 @@ final class ChooseStartingResourcesRequest extends FormRequest
                 'size:'.$knowledgeStepCount,
             ],
             'knowledge_disciplines.*' => [Rule::enum(KnowledgeDiscipline::class)],
+            'competency_id' => [
+                Rule::requiredIf($competencyIds !== []),
+                Rule::prohibitedIf($competencyIds === []),
+                Rule::enum(Competency::class),
+                Rule::in($competencyIds),
+            ],
         ];
 
         foreach (KnowledgeDiscipline::cases() as $discipline) {
@@ -120,5 +128,12 @@ final class ChooseStartingResourcesRequest extends FormRequest
             static fn (mixed $discipline): KnowledgeDiscipline => KnowledgeDiscipline::from((string) $discipline),
             $disciplines,
         );
+    }
+
+    public function competency(): ?Competency
+    {
+        $competencyId = $this->validated('competency_id');
+
+        return is_string($competencyId) ? Competency::from($competencyId) : null;
     }
 }

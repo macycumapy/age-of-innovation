@@ -10,6 +10,7 @@ use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Data\PlanningBundleData;
 use App\Domain\Game\Data\PlayerPlanningSelectionData;
 use App\Domain\Game\Data\RoundBonusOfferData;
+use App\Domain\Game\Enums\Competency;
 use App\Domain\Game\Enums\Faction;
 use App\Domain\Game\Enums\GameStatus;
 use App\Domain\Game\Enums\RoundBonus;
@@ -147,6 +148,10 @@ class GameResource extends JsonResource
                     static fn (RoundBonus $roundBonus): string => $roundBonus->description(),
                 ),
             ],
+            'competencyDescriptions' => $this->enumDescriptions(
+                Competency::cases(),
+                static fn (Competency $competency): string => $competency->description(),
+            ),
             'roundScoringTiles' => $this->enumValues(
                 $this->state->setupPool?->roundScoringTiles ?? [],
             ),
