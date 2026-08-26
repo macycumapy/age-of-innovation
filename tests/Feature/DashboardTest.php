@@ -28,8 +28,23 @@ class DashboardTest extends TestCase
         $response->assertOk()->assertInertia(
             fn (Assert $page) => $page
             ->component('Dashboard')
+            ->where('sidebarOpen', false)
             ->where('board.variant', 'three_to_five_players')
             ->has('board.hexes', 81)
+        );
+    }
+
+    public function test_sidebar_can_be_opened_by_default_from_the_saved_cookie(): void
+    {
+        $user = User::factory()->create();
+
+        $response = $this
+            ->actingAs($user)
+            ->withCookie('sidebar_state', 'true')
+            ->get(route('dashboard'));
+
+        $response->assertOk()->assertInertia(
+            fn (Assert $page) => $page->where('sidebarOpen', true),
         );
     }
 }
