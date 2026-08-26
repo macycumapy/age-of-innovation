@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Link } from '@inertiajs/vue3';
-import { Gamepad2, LayoutGrid } from '@lucide/vue';
+import { Gamepad2 } from '@lucide/vue';
 import AppLogo from '@/components/AppLogo.vue';
 import NavFooter from '@/components/NavFooter.vue';
 import NavMain from '@/components/NavMain.vue';
@@ -16,18 +16,12 @@ import {
     SidebarTrigger,
     useSidebar,
 } from '@/components/ui/sidebar';
-import { dashboard } from '@/routes';
 import { index as gamesIndex } from '@/routes/games';
 import type { NavItem } from '@/types';
 
 const { isMobile, openMobile } = useSidebar();
 
 const mainNavItems: NavItem[] = [
-    {
-        title: 'Dashboard',
-        href: dashboard(),
-        icon: LayoutGrid,
-    },
     {
         title: 'Игры',
         href: gamesIndex(),
@@ -48,7 +42,7 @@ const footerNavItems: NavItem[] = [];
                         class="flex-1 group-data-[collapsible=icon]:hidden"
                         as-child
                     >
-                        <Link :href="dashboard()">
+                        <Link :href="gamesIndex()">
                             <AppLogo />
                         </Link>
                     </SidebarMenuButton>

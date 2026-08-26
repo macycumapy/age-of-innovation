@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Head } from '@inertiajs/vue3';
 import BoardMap from '@/components/game/BoardMap.vue';
-import { dashboard } from '@/routes';
+import { index as gamesIndex } from '@/routes/games';
 import type { BoardState } from '@/types';
 
 defineProps<{
@@ -13,7 +13,7 @@ defineOptions({
         breadcrumbs: [
             {
                 title: 'Игровая карта',
-                href: dashboard(),
+                href: gamesIndex(),
             },
         ],
     },
