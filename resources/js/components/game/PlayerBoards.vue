@@ -9,6 +9,7 @@ import type {
     PlayerColor,
     RoundBonus,
 } from '@/types';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import bankingBookUrl from '../../../images/token_parts/coin_book.png';
 import coinUrl from '../../../images/token_parts/gold_medallion.png';
 import engineeringBookUrl from '../../../images/token_parts/engineering_book.png';
@@ -40,6 +41,8 @@ const props = defineProps<{
     players: GamePlayerSummary[];
     playerStates: GamePlayerBoardState[];
     currentUserId: number;
+    roundBonusDescriptions: Record<RoundBonus, string>;
+    competencyDescriptions: Record<Competency, string>;
 }>();
 
 const boardImages = import.meta.glob('../../../images/terrain_boards/*.webp', {
@@ -260,6 +263,10 @@ function competenciesForPlayer(playerId: number): Competency[] {
     return playerState(playerId)?.competencyIds ?? [];
 }
 
+function roundBonusForPlayer(playerId: number): RoundBonus | undefined {
+    return playerState(playerId)?.roundBonus;
+}
+
 function booksForPlayer(playerId: number): string[] {
     const books = playerState(playerId)?.books;
 
@@ -425,11 +432,22 @@ function powerInBowl(
                     v-if="playerState(player.id)?.roundBonus"
                     class="flex items-start gap-3 p-3"
                 >
-                    <img
-                        :src="roundBonusImage(playerState(player.id)?.roundBonus)"
-                        :alt="`Выбранный бонус раунда игрока ${player.user.name}`"
-                        class="h-auto w-24 rounded-md shadow-sm"
-                    />
+                    <TooltipProvider :delay-duration="150">
+                        <Tooltip>
+                            <TooltipTrigger as-child>
+                                <img
+                                    :src="roundBonusImage(roundBonusForPlayer(player.id))"
+                                    :alt="`Выбранный бонус раунда игрока ${player.user.name}`"
+                                    tabindex="0"
+                                    class="h-auto w-24 cursor-help rounded-md shadow-sm"
+                                />
+                            </TooltipTrigger>
+                            <TooltipContent class="max-w-xs">
+                                <p class="font-semibold">Бонус раунда</p>
+                                <p>{{ roundBonusDescriptions[roundBonusForPlayer(player.id)!] }}</p>
+                            </TooltipContent>
+                        </Tooltip>
+                    </TooltipProvider>
 
                     <span class="grid gap-2">
                         <span
@@ -503,13 +521,25 @@ function powerInBowl(
                             class="flex flex-wrap gap-2"
                             :aria-label="`Компетенции: ${competenciesForPlayer(player.id).length}`"
                         >
-                            <img
-                                v-for="competency in competenciesForPlayer(player.id)"
-                                :key="competency"
-                                :src="competencyImage(competency)"
-                                :alt="`Компетенция ${competency}`"
-                                class="size-16 object-contain drop-shadow-md"
-                            />
+                            <TooltipProvider :delay-duration="150">
+                                <Tooltip
+                                    v-for="competency in competenciesForPlayer(player.id)"
+                                    :key="competency"
+                                >
+                                    <TooltipTrigger as-child>
+                                        <img
+                                            :src="competencyImage(competency)"
+                                            :alt="`Компетенция ${competency}`"
+                                            tabindex="0"
+                                            class="size-16 cursor-help object-contain drop-shadow-md"
+                                        />
+                                    </TooltipTrigger>
+                                    <TooltipContent class="max-w-xs">
+                                        <p class="font-semibold">Компетенция {{ competency.slice(-2) }}</p>
+                                        <p>{{ competencyDescriptions[competency] }}</p>
+                                    </TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
                         </span>
 
                         <span

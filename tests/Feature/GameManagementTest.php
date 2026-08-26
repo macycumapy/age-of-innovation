@@ -11,8 +11,10 @@ use App\Domain\Game\Enums\Competency;
 use App\Domain\Game\Enums\Faction;
 use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\GameStatus;
+use App\Domain\Game\Enums\Innovation;
 use App\Domain\Game\Enums\MapVariant;
 use App\Domain\Game\Enums\PendingInteractionType;
+use App\Domain\Game\Enums\RoundBonus;
 use App\Domain\Game\Enums\TerrainType;
 use App\Domain\Game\Factories\BoardStateFactory;
 use App\Models\Builders\GameBuilder;
@@ -434,9 +436,19 @@ class GameManagementTest extends TestCase
                     ->has('game.data.planningBundleDescriptions.factions', 12)
                     ->has('game.data.planningBundleDescriptions.roundBonuses', 10)
                     ->has('game.data.competencyDescriptions', 12)
+                    ->has('game.data.innovationDescriptions', 18)
+                    ->has('game.data.roundBonusDescriptions', 10)
                     ->where(
                         'game.data.competencyDescriptions.'.Competency::Competency01->value,
                         Competency::Competency01->description(),
+                    )
+                    ->where(
+                        'game.data.innovationDescriptions.'.Innovation::DeusExMachina->value,
+                        Innovation::DeusExMachina->description(),
+                    )
+                    ->where(
+                        'game.data.roundBonusDescriptions.'.RoundBonus::Coins->value,
+                        RoundBonus::Coins->description(),
                     )
                     ->where(
                         'game.data.planningBundleDescriptions.homelands.desert',

@@ -827,16 +827,23 @@ function updateStartingKnowledgeCount(discipline: KnowledgeDiscipline, event: Ev
                         :players="playersWithSelectedFactions"
                         :player-states="game.data.playerBoardStates"
                         :current-user-id="page.props.auth.user.id"
+                        :round-bonus-descriptions="game.data.roundBonusDescriptions"
+                        :competency-descriptions="game.data.competencyDescriptions"
                     />
                 </div>
 
                 <aside class="grid gap-4">
                     <CultBoard :players="orderedPlayers" :player-states="game.data.playerBoardStates" />
-                    <RoundBonusBoard :offers="game.data.roundBonusOffers" />
+                    <RoundBonusBoard
+                        :offers="game.data.roundBonusOffers"
+                        :descriptions="game.data.roundBonusDescriptions"
+                    />
                     <InnovationBoard
                         :player-count="game.data.playersCount"
                         :innovations="game.data.innovations"
                         :competencies="game.data.competencies"
+                        :innovation-descriptions="game.data.innovationDescriptions"
+                        :competency-descriptions="game.data.competencyDescriptions"
                     />
                     <PalaceBoard :palaces="game.data.availablePalaceIds" />
                     <TownTileBoard :town-tiles="game.data.availableTownTileIds" />

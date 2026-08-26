@@ -2,6 +2,7 @@
 import { computed } from 'vue';
 import type { CSSProperties } from 'vue';
 import type { Competency, Innovation } from '@/types';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import competencyBoardUrl from '../../../images/competency_board.png';
 import twoPlayerInventionBoardUrl from '../../../images/invention_board_2.jpg';
 import fourPlayerInventionBoardUrl from '../../../images/invention_board_4.jpg';
@@ -17,6 +18,8 @@ const props = defineProps<{
     playerCount: number;
     innovations: Innovation[];
     competencies: Competency[];
+    innovationDescriptions: Record<Innovation, string>;
+    competencyDescriptions: Record<Competency, string>;
 }>();
 
 const boardWidth = 850;
@@ -147,14 +150,23 @@ function competencyLayerStyle(layer: number): CSSProperties {
                 class="block h-auto w-full"
             />
 
-            <img
-                v-for="(innovation, index) in innovations"
-                :key="innovation"
-                :src="innovationImage(innovation)"
-                :alt="`Плашка инновации ${innovation}`"
-                :style="innovationStyle(innovationSlots[index])"
-                class="absolute rounded-xs drop-shadow-[-2px_2px_2px_rgba(0,0,0,0.45)]"
-            />
+            <TooltipProvider :delay-duration="150">
+                <Tooltip v-for="(innovation, index) in innovations" :key="innovation">
+                    <TooltipTrigger as-child>
+                        <img
+                            :src="innovationImage(innovation)"
+                            :alt="`Плашка инновации ${innovation}`"
+                            :style="innovationStyle(innovationSlots[index])"
+                            tabindex="0"
+                            class="absolute cursor-help rounded-xs drop-shadow-[-2px_2px_2px_rgba(0,0,0,0.45)]"
+                        />
+                    </TooltipTrigger>
+                    <TooltipContent class="max-w-xs">
+                        <p class="font-semibold">Инновация</p>
+                        <p>{{ innovationDescriptions[innovation] }}</p>
+                    </TooltipContent>
+                </Tooltip>
+            </TooltipProvider>
         </div>
 
         <div class="relative overflow-hidden">
@@ -164,22 +176,31 @@ function competencyLayerStyle(layer: number): CSSProperties {
                 class="block h-auto w-full"
             />
 
-            <span
-                v-for="(competency, index) in competencies"
-                :key="competency"
-                :style="competencyStyle(competencySlots[index])"
-                class="absolute aspect-[120/117]"
-                :aria-label="`Стопка из ${competencyStackSize} плашек компетенции ${competency}`"
-            >
-                <img
-                    v-for="layer in competencyStackSize"
-                    :key="layer"
-                    :src="competencyImage(competency)"
-                    alt=""
-                    :style="competencyLayerStyle(layer)"
-                    class="absolute inset-0 size-full object-contain drop-shadow-[-2px_2px_2px_rgba(0,0,0,0.45)]"
-                />
-            </span>
+            <TooltipProvider :delay-duration="150">
+                <Tooltip v-for="(competency, index) in competencies" :key="competency">
+                    <TooltipTrigger as-child>
+                        <span
+                            :style="competencyStyle(competencySlots[index])"
+                            tabindex="0"
+                            class="absolute aspect-[120/117] cursor-help"
+                            :aria-label="`Стопка из ${competencyStackSize} плашек компетенции ${competency}`"
+                        >
+                            <img
+                                v-for="layer in competencyStackSize"
+                                :key="layer"
+                                :src="competencyImage(competency)"
+                                alt=""
+                                :style="competencyLayerStyle(layer)"
+                                class="absolute inset-0 size-full object-contain drop-shadow-[-2px_2px_2px_rgba(0,0,0,0.45)]"
+                            />
+                        </span>
+                    </TooltipTrigger>
+                    <TooltipContent class="max-w-xs">
+                        <p class="font-semibold">Компетенция {{ competency.slice(-2) }}</p>
+                        <p>{{ competencyDescriptions[competency] }}</p>
+                    </TooltipContent>
+                </Tooltip>
+            </TooltipProvider>
         </div>
     </div>
 </template>

@@ -29,6 +29,8 @@ export type GameResource = {
         planningSelections: PlanningSelection[];
         planningBundleDescriptions: PlanningBundleDescriptions;
         competencyDescriptions: Record<Competency, string>;
+        innovationDescriptions: Record<Innovation, string>;
+        roundBonusDescriptions: Record<RoundBonus, string>;
         roundScoringTiles: RoundScoringTile[];
         finalRoundScoringTile: FinalRoundScoringTile | null;
         bookActions: BookAction[];

@@ -13,6 +13,7 @@ use App\Domain\Game\Data\RoundBonusOfferData;
 use App\Domain\Game\Enums\Competency;
 use App\Domain\Game\Enums\Faction;
 use App\Domain\Game\Enums\GameStatus;
+use App\Domain\Game\Enums\Innovation;
 use App\Domain\Game\Enums\RoundBonus;
 use App\Domain\Game\Enums\TerrainType;
 use App\Models\Game;
@@ -152,6 +153,14 @@ class GameResource extends JsonResource
             'competencyDescriptions' => $this->enumDescriptions(
                 Competency::cases(),
                 static fn (Competency $competency): string => $competency->description(),
+            ),
+            'innovationDescriptions' => $this->enumDescriptions(
+                Innovation::cases(),
+                static fn (Innovation $innovation): string => $innovation->description(),
+            ),
+            'roundBonusDescriptions' => $this->enumDescriptions(
+                RoundBonus::cases(),
+                static fn (RoundBonus $roundBonus): string => $roundBonus->description(),
             ),
             'roundScoringTiles' => $this->enumValues(
                 $this->state->setupPool?->roundScoringTiles ?? [],
