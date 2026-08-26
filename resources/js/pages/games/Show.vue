@@ -366,73 +366,59 @@ function updateStartingKnowledgeCount(discipline: KnowledgeDiscipline, event: Ev
                 >
                     Свободное место
                 </div>
-            </CardContent>
-        </Card>
 
-        <Card v-if="game.data.status === 'lobby'">
-            <CardHeader>
-                <CardTitle>Присоединение</CardTitle>
-                <CardDescription v-if="currentPlayer"> Подтвердите готовность к началу партии. </CardDescription>
-                <CardDescription v-else-if="game.data.playersCount >= game.data.maxPlayers">
-                    Все места уже заняты.
-                </CardDescription>
-                <CardDescription v-else> Займите свободное место в этой партии. </CardDescription>
-            </CardHeader>
-            <CardContent v-if="currentPlayer">
-                <Form
-                    v-bind="
-                        GamePlayerReadinessController.update.form({
-                            game: game.data.id,
-                            gamePlayer: currentPlayer.id,
-                        })
-                    "
-                    #default="{ errors, processing }"
-                    class="grid gap-3"
+                <div
+                    v-if="currentPlayer || game.data.playersCount < game.data.maxPlayers || game.data.isOwner"
+                    class="flex flex-wrap items-start justify-end gap-3 border-t pt-3"
                 >
-                    <input type="hidden" name="is_ready" :value="currentPlayer.isReady ? '0' : '1'" />
-                    <InputError :message="errors.is_ready" />
-                    <Button
-                        type="submit"
-                        :variant="currentPlayer.isReady ? 'outline' : 'default'"
-                        :disabled="processing"
+                    <Form
+                        v-if="currentPlayer"
+                        v-bind="
+                            GamePlayerReadinessController.update.form({
+                                game: game.data.id,
+                                gamePlayer: currentPlayer.id,
+                            })
+                        "
+                        #default="{ errors, processing }"
+                        class="grid gap-2"
                     >
-                        {{ processing ? 'Сохранение…' : currentPlayer.isReady ? 'Отменить готовность' : 'Я готов' }}
-                    </Button>
-                </Form>
-            </CardContent>
-            <CardContent v-if="!currentPlayer && game.data.playersCount < game.data.maxPlayers">
-                <Form
-                    v-bind="GamePlayerController.store.form(game.data.id)"
-                    #default="{ errors, processing }"
-                    class="grid gap-3"
-                >
-                    <InputError :message="errors.game" />
-                    <Button type="submit" :disabled="processing">
-                        {{ processing ? 'Присоединение…' : 'Присоединиться' }}
-                    </Button>
-                </Form>
-            </CardContent>
-        </Card>
+                        <input type="hidden" name="is_ready" :value="currentPlayer.isReady ? '0' : '1'" />
+                        <InputError :message="errors.is_ready" />
+                        <Button
+                            type="submit"
+                            :variant="currentPlayer.isReady ? 'outline' : 'default'"
+                            :disabled="processing"
+                        >
+                            {{
+                                processing ? 'Сохранение…' : currentPlayer.isReady ? 'Отменить готовность' : 'Я готов'
+                            }}
+                        </Button>
+                    </Form>
 
-        <Card v-if="game.data.status === 'lobby' && game.data.isOwner">
-            <CardHeader>
-                <CardTitle>Начало партии</CardTitle>
-                <CardDescription v-if="game.data.canStart">
-                    Все участники готовы. После запуска первый игрок выберет стартовый комплект.
-                </CardDescription>
-                <CardDescription v-else> Для запуска нужны минимум два готовых игрока. </CardDescription>
-            </CardHeader>
-            <CardContent>
-                <Form
-                    v-bind="GameStartController.form(game.data.id)"
-                    #default="{ errors, processing }"
-                    class="grid gap-3"
-                >
-                    <InputError :message="errors.game" />
-                    <Button type="submit" :disabled="processing || !game.data.canStart">
-                        {{ processing ? 'Запуск…' : 'Начать игру' }}
-                    </Button>
-                </Form>
+                    <Form
+                        v-if="!currentPlayer && game.data.playersCount < game.data.maxPlayers"
+                        v-bind="GamePlayerController.store.form(game.data.id)"
+                        #default="{ errors, processing }"
+                        class="grid gap-2"
+                    >
+                        <InputError :message="errors.game" />
+                        <Button type="submit" :disabled="processing">
+                            {{ processing ? 'Присоединение…' : 'Присоединиться' }}
+                        </Button>
+                    </Form>
+
+                    <Form
+                        v-if="game.data.isOwner"
+                        v-bind="GameStartController.form(game.data.id)"
+                        #default="{ errors, processing }"
+                        class="grid gap-2"
+                    >
+                        <InputError :message="errors.game" />
+                        <Button type="submit" :disabled="processing || !game.data.canStart">
+                            {{ processing ? 'Запуск…' : 'Начать игру' }}
+                        </Button>
+                    </Form>
+                </div>
             </CardContent>
         </Card>
 
