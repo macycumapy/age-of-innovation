@@ -334,20 +334,6 @@ function updateStartingKnowledgeCount(discipline: KnowledgeDiscipline, event: Ev
     <Head :title="`Подготовка игры №${game.data.id}`" />
 
     <div class="flex h-full flex-1 flex-col gap-6 p-4">
-        <div class="flex flex-wrap items-start justify-between gap-4">
-            <div>
-                <h1 class="text-2xl font-semibold">Подготовка игры №{{ game.data.id }}</h1>
-                <p class="text-sm text-muted-foreground">
-                    Поле {{ mapVariantNames[game.data.mapVariant] }} · {{ game.data.playersCount }} из
-                    {{ game.data.maxPlayers }} игроков
-                </p>
-            </div>
-
-            <Button variant="outline" as-child>
-                <Link :href="index()">Вернуться к играм</Link>
-            </Button>
-        </div>
-
         <Card v-if="game.data.status === 'lobby'">
             <CardHeader>
                 <CardTitle>Участники</CardTitle>
@@ -798,11 +784,6 @@ function updateStartingKnowledgeCount(discipline: KnowledgeDiscipline, event: Ev
         </Card>
 
         <section v-if="game.data.status === 'active' && setupChoicesCompleted" class="grid gap-4">
-            <div>
-                <h2 class="text-xl font-semibold">Игровая карта</h2>
-                <p class="text-sm text-muted-foreground">Все игроки выбрали стартовые комплекты.</p>
-            </div>
-
             <div class="grid items-start gap-4 lg:grid-cols-[minmax(0,7fr)_minmax(16rem,3fr)]">
                 <div class="grid gap-4">
                     <BoardMap
