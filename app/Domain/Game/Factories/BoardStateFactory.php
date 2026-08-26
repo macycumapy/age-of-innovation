@@ -94,7 +94,6 @@ final class BoardStateFactory
     }
 
     /**
-     * TODO сверить с оригиналом, вероятно какая-то строка лишняя
      * @return array<int, array<int, TerrainType>>
      */
     private function oneToThreePlayerRows(): array
@@ -104,11 +103,11 @@ final class BoardStateFactory
             1 => [1 => TerrainType::Swamp, 2 => TerrainType::Lake, 3 => TerrainType::Swamp, 4 => TerrainType::Wasteland, 6 => TerrainType::Swamp, 7 => TerrainType::Plains, 8 => TerrainType::Lake, 10 => TerrainType::Forest],
             2 => [1 => TerrainType::Plains, 2 => TerrainType::Mountain, 3 => TerrainType::Forest, 6 => TerrainType::Desert, 9 => TerrainType::Desert],
             3 => [1 => TerrainType::Wasteland, 2 => TerrainType::Desert, 4 => TerrainType::Forest, 7 => TerrainType::Mountain, 8 => TerrainType::Plains, 9 => TerrainType::Swamp],
-            5 => [4 => TerrainType::Swamp, 5 => TerrainType::Plains, 6 => TerrainType::Lake, 7 => TerrainType::Desert, 8 => TerrainType::Mountain],
-            6 => [0 => TerrainType::Lake, 1 => TerrainType::Plains, 3 => TerrainType::Swamp, 4 => TerrainType::Mountain, 6 => TerrainType::Forest, 7 => TerrainType::Lake, 8 => TerrainType::Desert],
-            7 => [0 => TerrainType::Swamp, 1 => TerrainType::Mountain],
-            8 => [-1 => TerrainType::Desert, 0 => TerrainType::Forest, 1 => TerrainType::Wasteland, 2 => TerrainType::Desert, 3 => TerrainType::Forest, 4 => TerrainType::Lake, 5 => TerrainType::Swamp, 6 => TerrainType::Forest],
-            9 => [-2 => TerrainType::Wasteland, -1 => TerrainType::Plains, 0 => TerrainType::Mountain, 1 => TerrainType::Lake, 2 => TerrainType::Swamp, 3 => TerrainType::Plains, 4 => TerrainType::Desert, 5 => TerrainType::Wasteland, 6 => TerrainType::Mountain],
+            4 => [3 => TerrainType::Swamp, 4 => TerrainType::Plains, 5 => TerrainType::Lake, 6 => TerrainType::Desert, 7 => TerrainType::Wasteland, 8 => TerrainType::Mountain],
+            5 => [0 => TerrainType::Lake, 1 => TerrainType::Plains, 3 => TerrainType::Swamp, 4 => TerrainType::Mountain, 6 => TerrainType::Forest, 7 => TerrainType::Lake, 8 => TerrainType::Desert],
+            6 => [0 => TerrainType::Swamp, 1 => TerrainType::Mountain],
+            7 => [-1 => TerrainType::Desert, 0 => TerrainType::Forest, 1 => TerrainType::Wasteland, 2 => TerrainType::Desert, 3 => TerrainType::Forest, 4 => TerrainType::Lake, 5 => TerrainType::Swamp, 6 => TerrainType::Forest],
+            8 => [-2 => TerrainType::Wasteland, -1 => TerrainType::Plains, 0 => TerrainType::Mountain, 1 => TerrainType::Lake, 2 => TerrainType::Swamp, 3 => TerrainType::Plains, 4 => TerrainType::Desert, 5 => TerrainType::Wasteland, 6 => TerrainType::Mountain],
         ];
     }
 }

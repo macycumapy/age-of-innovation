@@ -45,7 +45,7 @@ class BoardStateFactoryTest extends TestCase
     /** @return iterable<string, array{MapVariant, int}> */
     public static function mapVariants(): iterable
     {
-        yield '1–3 игрока' => [MapVariant::OneToThreePlayers, 58];
+        yield '1–3 игрока' => [MapVariant::OneToThreePlayers, 59];
         yield '3–5 игроков' => [MapVariant::ThreeToFivePlayers, 81];
     }
 }

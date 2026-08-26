@@ -1,19 +1,31 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import type {
-    BoardState,
-    BookAction,
-    FinalRoundScoringTile,
-    RoundScoringTile,
-    TerrainType,
-} from '@/types';
+import type { BoardState, BookAction, FinalRoundScoringTile, MapVariant, RoundScoringTile, TerrainType } from '@/types';
 import gameBoardUrl from '../../../images/game_board.webp';
+import gameBoardTwoPlayerUrl from '../../../images/game_board_2p.webp';
 
 type Props = {
     board: BoardState;
     roundScoringTiles?: RoundScoringTile[];
     finalRoundScoringTile?: FinalRoundScoringTile | null;
     bookActions?: BookAction[];
+};
+
+type BoardLayout = {
+    hexOriginX: number;
+    columnSpacing: number;
+    boardOriginY: number;
+    rowSpacing: number;
+    roundScoringTileX: number;
+    firstRoundScoringTileY: number;
+    roundScoringTileSpacing: number;
+    roundScoringTileWidth: number;
+    roundScoringTileHeight: number;
+    bookActionY: number;
+    bookActionStartX: number;
+    bookActionSpacing: number;
+    bookActionWidth: number;
+    bookActionHeight: number;
 };
 
 const props = withDefaults(defineProps<Props>(), {
@@ -24,37 +36,65 @@ const props = withDefaults(defineProps<Props>(), {
 
 const boardWidth = 2004;
 const boardHeight = 1285;
-const boardOriginX = 327;
-const boardOriginY = 135;
-const columnSpacing = 128;
 const rowOffset = 64;
-const rowSpacing = 111;
 const hexRadiusX = 62;
 const hexRadiusY = 72;
 const cornerRatio = 0.1;
-const roundScoringTileX = 31;
-const firstRoundScoringTileY = 1005;
-const roundScoringTileSpacing = 124;
-const roundScoringTileWidth = 203;
-const roundScoringTileHeight = 126;
-const bookActionY = 1178;
-const bookActionStartX = 20;
-const bookActionSpacing = 213;
-const bookActionWidth = 185;
-const bookActionHeight = 90;
+const boardLayouts: Record<MapVariant, BoardLayout> = {
+    one_to_three_players: {
+        hexOriginX: 361,
+        columnSpacing: 129.5,
+        boardOriginY: 142,
+        rowSpacing: 112.3,
+        roundScoringTileX: 38,
+        firstRoundScoringTileY: 1018,
+        roundScoringTileSpacing: 127,
+        roundScoringTileWidth: 200,
+        roundScoringTileHeight: 126,
+        bookActionY: 1175,
+        bookActionStartX: 20,
+        bookActionSpacing: 213,
+        bookActionWidth: 185,
+        bookActionHeight: 90,
+    },
+    three_to_five_players: {
+        hexOriginX: 327,
+        rowSpacing: 111,
+        boardOriginY: 135,
+        columnSpacing: 128,
+        roundScoringTileX: 31,
+        firstRoundScoringTileY: 1006,
+        roundScoringTileSpacing: 125,
+        roundScoringTileWidth: 203,
+        roundScoringTileHeight: 126,
+        bookActionY: 1178,
+        bookActionStartX: 20,
+        bookActionSpacing: 213,
+        bookActionWidth: 185,
+        bookActionHeight: 90,
+    },
+};
 
-const roundScoringTileImages = import.meta.glob<string>(
-    '../../../images/round_scoring_tiles/*.png',
-    { eager: true, import: 'default', query: '?url' },
+const roundScoringTileImages = import.meta.glob<string>('../../../images/round_scoring_tiles/*.png', {
+    eager: true,
+    import: 'default',
+    query: '?url',
+});
+const finalRoundScoringTileImages = import.meta.glob<string>('../../../images/final_round_scoring_tiles/*.png', {
+    eager: true,
+    import: 'default',
+    query: '?url',
+});
+const bookActionImages = import.meta.glob<string>('../../../images/book_actions/*.png', {
+    eager: true,
+    import: 'default',
+    query: '?url',
+});
+
+const boardImageUrl = computed(() =>
+    props.board.variant === 'one_to_three_players' ? gameBoardTwoPlayerUrl : gameBoardUrl,
 );
-const finalRoundScoringTileImages = import.meta.glob<string>(
-    '../../../images/final_round_scoring_tiles/*.png',
-    { eager: true, import: 'default', query: '?url' },
-);
-const bookActionImages = import.meta.glob<string>(
-    '../../../images/book_actions/*.png',
-    { eager: true, import: 'default', query: '?url' },
-);
+const boardLayout = computed(() => boardLayouts[props.board.variant]);
 
 const terrainColors: Record<TerrainType, string> = {
     desert: '#e9c65c',
@@ -116,10 +156,7 @@ const hexVertices = [
     { x: -hexRadiusX, y: -hexRadiusY / 2 },
 ];
 
-const pointTowards = (
-    from: { x: number; y: number },
-    to: { x: number; y: number },
-) => ({
+const pointTowards = (from: { x: number; y: number }, to: { x: number; y: number }) => ({
     x: from.x + (to.x - from.x) * cornerRatio,
     y: from.y + (to.y - from.y) * cornerRatio,
 });
@@ -139,42 +176,30 @@ const roundedHexPath = hexVertices
 const rawHexes = computed(() =>
     props.board.hexes.map((hex) => ({
         ...hex,
-        x: boardOriginX + columnSpacing * hex.q + rowOffset * hex.r,
-        y: boardOriginY + rowSpacing * hex.r,
+        x: boardLayout.value.hexOriginX + boardLayout.value.columnSpacing * hex.q + rowOffset * hex.r,
+        y: boardLayout.value.boardOriginY + boardLayout.value.rowSpacing * hex.r,
     })),
 );
 
 function roundScoringTileImage(tile: RoundScoringTile): string {
-    return (
-        roundScoringTileImages[
-            `../../../images/round_scoring_tiles/${tile}.png`
-        ] ?? ''
-    );
+    return roundScoringTileImages[`../../../images/round_scoring_tiles/${tile}.png`] ?? '';
 }
 
 function finalRoundScoringTileImage(tile: FinalRoundScoringTile): string {
-    return (
-        finalRoundScoringTileImages[
-            `../../../images/final_round_scoring_tiles/${tile}.png`
-        ] ?? ''
-    );
+    return finalRoundScoringTileImages[`../../../images/final_round_scoring_tiles/${tile}.png`] ?? '';
 }
 
 function bookActionImage(action: BookAction): string {
-    return (
-        bookActionImages[`../../../images/book_actions/${action}.png`] ?? ''
-    );
+    return bookActionImages[`../../../images/book_actions/${action}.png`] ?? '';
 }
 
 function roundScoringTileY(index: number): number {
-    return firstRoundScoringTileY - index * roundScoringTileSpacing;
+    return boardLayout.value.firstRoundScoringTileY - index * boardLayout.value.roundScoringTileSpacing;
 }
 </script>
 
 <template>
-    <div
-        class="overflow-x-auto rounded-xl border border-border bg-black shadow-inner"
-    >
+    <div class="overflow-x-auto rounded-xl border border-border bg-black shadow-inner">
         <svg
             :viewBox="`0 0 ${boardWidth} ${boardHeight}`"
             class="block h-auto w-full min-w-[48rem]"
@@ -182,7 +207,7 @@ function roundScoringTileY(index: number): number {
             aria-label="Игровая карта"
         >
             <image
-                :href="gameBoardUrl"
+                :href="boardImageUrl"
                 x="0"
                 y="0"
                 :width="boardWidth"
@@ -190,28 +215,23 @@ function roundScoringTileY(index: number): number {
                 preserveAspectRatio="xMidYMid meet"
             />
 
-            <g
-                v-for="(tile, index) in roundScoringTiles"
-                :key="`round-${index}-${tile}`"
-            >
-                <title>
-                    Раунд {{ index + 1 }}: {{ roundScoringTileNames[tile] }}
-                </title>
+            <g v-for="(tile, index) in roundScoringTiles" :key="`round-${index}-${tile}`">
+                <title>Раунд {{ index + 1 }}: {{ roundScoringTileNames[tile] }}</title>
                 <image
                     :href="roundScoringTileImage(tile)"
-                    :x="roundScoringTileX"
+                    :x="boardLayout.roundScoringTileX"
                     :y="roundScoringTileY(index)"
-                    :width="roundScoringTileWidth"
-                    :height="roundScoringTileHeight"
+                    :width="boardLayout.roundScoringTileWidth"
+                    :height="boardLayout.roundScoringTileHeight"
                     preserveAspectRatio="xMidYMid meet"
                 />
                 <image
                     v-if="index === 5 && finalRoundScoringTile"
                     :href="finalRoundScoringTileImage(finalRoundScoringTile)"
-                    :x="roundScoringTileX"
+                    :x="boardLayout.roundScoringTileX"
                     :y="roundScoringTileY(index)"
-                    :width="roundScoringTileWidth"
-                    :height="roundScoringTileHeight"
+                    :width="boardLayout.roundScoringTileWidth"
+                    :height="boardLayout.roundScoringTileHeight"
                     preserveAspectRatio="xMidYMid meet"
                 >
                     <title>
@@ -221,26 +241,22 @@ function roundScoringTileY(index: number): number {
                 </image>
             </g>
 
-            <g
-                v-for="(action, index) in bookActions"
-                :key="`book-${action}`"
-                class="book-action-group cursor-pointer"
-            >
+            <g v-for="(action, index) in bookActions" :key="`book-${action}`" class="book-action-group cursor-pointer">
                 <title>Действие за книги: {{ bookActionNames[action] }}</title>
                 <rect
-                    :x="bookActionStartX + index * bookActionSpacing"
-                    :y="bookActionY"
-                    :width="bookActionWidth"
-                    :height="bookActionHeight"
+                    :x="boardLayout.bookActionStartX + index * boardLayout.bookActionSpacing"
+                    :y="boardLayout.bookActionY"
+                    :width="boardLayout.bookActionWidth"
+                    :height="boardLayout.bookActionHeight"
                     class="book-action-hitbox"
                     rx="12"
                 />
                 <image
                     :href="bookActionImage(action)"
-                    :x="bookActionStartX + index * bookActionSpacing"
-                    :y="bookActionY"
-                    :width="bookActionWidth"
-                    :height="bookActionHeight"
+                    :x="boardLayout.bookActionStartX + index * boardLayout.bookActionSpacing"
+                    :y="boardLayout.bookActionY"
+                    :width="boardLayout.bookActionWidth"
+                    :height="boardLayout.bookActionHeight"
                     class="book-action-image"
                     preserveAspectRatio="xMidYMid meet"
                 />
@@ -252,9 +268,7 @@ function roundScoringTileY(index: number): number {
                 :transform="`translate(${hex.x} ${hex.y})`"
                 class="board-hex-group cursor-pointer"
             >
-                <title>
-                    {{ terrainNames[hex.terrain] }} ({{ hex.q }}, {{ hex.r }})
-                </title>
+                <title>{{ terrainNames[hex.terrain] }} ({{ hex.q }}, {{ hex.r }})</title>
                 <path
                     :d="roundedHexPath"
                     :fill="terrainColors[hex.terrain]"
@@ -301,7 +315,6 @@ function roundScoringTileY(index: number): number {
 }
 
 .book-action-group:hover .book-action-image {
-    filter: brightness(1.18) saturate(1.12)
-        drop-shadow(0 0 8px rgba(250, 204, 21, 0.95));
+    filter: brightness(1.18) saturate(1.12) drop-shadow(0 0 8px rgba(250, 204, 21, 0.95));
 }
 </style>
