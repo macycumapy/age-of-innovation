@@ -432,20 +432,6 @@ function powerInBowl(
 
                         <span class="flex items-center gap-3">
                             <span
-                                v-if="availableBridgesForPlayer(player.id)"
-                                class="flex flex-wrap gap-1"
-                                :aria-label="`Доступные мосты: ${availableBridgesForPlayer(player.id)}`"
-                            >
-                                <img
-                                    v-for="bridgeIndex in availableBridgesForPlayer(player.id)"
-                                    :key="bridgeIndex"
-                                    :src="bridgeImage(player.color)"
-                                    alt=""
-                                    class="h-auto w-16 object-contain drop-shadow-md"
-                                />
-                            </span>
-
-                            <span
                                 class="relative grid size-10 place-items-center"
                                 :aria-label="`Монеты: ${coinsForPlayer(player.id)}`"
                             >
@@ -475,6 +461,20 @@ function powerInBowl(
                                 >
                                     {{ toolsForPlayer(player.id) }}
                                 </span>
+                            </span>
+
+                            <span
+                                v-if="availableBridgesForPlayer(player.id)"
+                                class="flex flex-wrap gap-1"
+                                :aria-label="`Доступные мосты: ${availableBridgesForPlayer(player.id)}`"
+                            >
+                                <img
+                                    v-for="bridgeIndex in availableBridgesForPlayer(player.id)"
+                                    :key="bridgeIndex"
+                                    :src="bridgeImage(player.color)"
+                                    alt=""
+                                    class="h-auto w-16 object-contain drop-shadow-md"
+                                />
                             </span>
                         </span>
 
