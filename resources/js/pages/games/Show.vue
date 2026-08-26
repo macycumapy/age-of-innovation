@@ -468,6 +468,7 @@ function updateStartingKnowledgeCount(discipline: KnowledgeDiscipline, event: Ev
                 <Form
                     v-if="canChooseStartingResources"
                     v-bind="StartingResourcesController.store.form(game.data.id)"
+                    id="starting-resources-form"
                     #default="{ errors, processing }"
                     class="grid gap-5 rounded-xl border border-primary/40 bg-primary/5 p-5 w-xl mb-6"
                 >
@@ -596,17 +597,78 @@ function updateStartingKnowledgeCount(discipline: KnowledgeDiscipline, event: Ev
                     </div>
 
                     <InputError :message="errors.game" />
-                    <Button
-                        type="submit"
-                        :disabled="
-                            processing ||
-                            remainingStartingBookCount !== 0 ||
-                            remainingStartingKnowledgeStepCount !== 0 ||
-                            (requiresStartingCompetency && selectedStartingCompetency === null)
-                        "
-                    >
-                        {{ processing ? 'Сохранение…' : 'Подтвердить выбор' }}
-                    </Button>
+                    <Dialog>
+                        <DialogTrigger as-child>
+                            <Button
+                                type="button"
+                                :disabled="
+                                    processing ||
+                                    remainingStartingBookCount !== 0 ||
+                                    remainingStartingKnowledgeStepCount !== 0 ||
+                                    (requiresStartingCompetency && selectedStartingCompetency === null)
+                                "
+                            >
+                                Подтвердить выбор
+                            </Button>
+                        </DialogTrigger>
+                        <DialogContent>
+                            <DialogHeader>
+                                <DialogTitle>Подтвердите распределение ресурсов</DialogTitle>
+                                <DialogDescription>
+                                    Проверьте выбранные стартовые ресурсы перед сохранением.
+                                </DialogDescription>
+                            </DialogHeader>
+
+                            <div class="grid gap-4 rounded-lg bg-muted p-4 text-sm">
+                                <div v-if="availableStartingBookCount > 0" class="grid gap-1">
+                                    <p class="font-medium">Книги</p>
+                                    <p
+                                        v-for="discipline in game.data.pendingInteraction?.optionIds ?? []"
+                                        v-show="startingBookCounts[discipline] > 0"
+                                        :key="`book-${discipline}`"
+                                        class="text-muted-foreground"
+                                    >
+                                        {{ knowledgeDisciplineNames[discipline] }}:
+                                        {{ startingBookCounts[discipline] }}
+                                    </p>
+                                </div>
+
+                                <div v-if="availableStartingKnowledgeStepCount > 0" class="grid gap-1">
+                                    <p class="font-medium">Шаги знаний</p>
+                                    <p
+                                        v-for="discipline in game.data.pendingInteraction?.optionIds ?? []"
+                                        v-show="startingKnowledgeCounts[discipline] > 0"
+                                        :key="`knowledge-${discipline}`"
+                                        class="text-muted-foreground"
+                                    >
+                                        {{ knowledgeDisciplineNames[discipline] }}:
+                                        {{ startingKnowledgeCounts[discipline] }}
+                                    </p>
+                                </div>
+
+                                <div v-if="selectedStartingCompetency" class="grid gap-2">
+                                    <p class="font-medium">Компетенция</p>
+                                    <div class="flex items-center gap-3 text-muted-foreground">
+                                        <img
+                                            :src="competencyImage(selectedStartingCompetency)"
+                                            :alt="`Компетенция ${selectedStartingCompetency}`"
+                                            class="h-14 w-14 object-contain drop-shadow-md"
+                                        />
+                                        <span>Компетенция {{ selectedStartingCompetency.slice(-2) }}</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <DialogFooter class="gap-2">
+                                <DialogClose as-child>
+                                    <Button type="button" variant="outline">Отмена</Button>
+                                </DialogClose>
+                                <Button type="submit" form="starting-resources-form" :disabled="processing">
+                                    {{ processing ? 'Сохранение…' : 'Подтвердить' }}
+                                </Button>
+                            </DialogFooter>
+                        </DialogContent>
+                    </Dialog>
                 </Form>
 
                 <div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
