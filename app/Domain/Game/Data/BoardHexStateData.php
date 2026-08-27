@@ -13,7 +13,7 @@ use Spatie\LaravelData\Data;
  * @property int $r Диагональная осевая координата гекса.
  * @property TerrainType $initialTerrain Исходный цвет местности на выбранной стороне карты.
  * @property TerrainType $terrain Текущий цвет местности после преобразований.
- * @property list<string> $adjacentHexIds Идентификаторы непосредственно соседних сухопутных гексов.
+ * @property list<string> $adjacentHexIds Идентификаторы непосредственно соседних гексов.
  * @property list<string> $riverConnectedHexIds Идентификаторы гексов, доступных через соседний участок реки.
  * @property BuildingStateData|null $building Здание на гексе или null, если гекс свободен.
  */

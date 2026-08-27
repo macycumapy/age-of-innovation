@@ -125,7 +125,12 @@ final class GameSetupPoolFactory
         $roundBonuses = $this->shuffledCases(RoundBonus::class);
         $planningBundles = [];
 
-        foreach (TerrainType::cases() as $index => $homeland) {
+        $homelands = array_values(array_filter(
+            TerrainType::cases(),
+            static fn (TerrainType $terrain): bool => $terrain->isHomeland(),
+        ));
+
+        foreach ($homelands as $index => $homeland) {
             $planningBundles[] = new PlanningBundleData(
                 homeland: $homeland,
                 faction: $factions[$index],

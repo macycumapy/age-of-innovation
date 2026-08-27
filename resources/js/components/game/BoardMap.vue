@@ -104,6 +104,7 @@ const terrainColors: Record<TerrainType, string> = {
     forest: '#477c48',
     mountain: '#87909a',
     wasteland: '#b8513e',
+    water: '#2499b5',
 };
 
 const terrainNames: Record<TerrainType, string> = {
@@ -114,6 +115,7 @@ const terrainNames: Record<TerrainType, string> = {
     forest: 'Лес',
     mountain: 'Горы',
     wasteland: 'Пустошь',
+    water: 'Вода',
 };
 
 const roundScoringTileNames: Record<RoundScoringTile, string> = {
@@ -173,12 +175,14 @@ const roundedHexPath = hexVertices
     .join(' ')
     .concat(' Z');
 
-const rawHexes = computed(() =>
-    props.board.hexes.map((hex) => ({
-        ...hex,
-        x: boardLayout.value.hexOriginX + boardLayout.value.columnSpacing * hex.q + rowOffset * hex.r,
-        y: boardLayout.value.boardOriginY + boardLayout.value.rowSpacing * hex.r,
-    })),
+const visibleHexes = computed(() =>
+    props.board.hexes
+        .filter((hex) => hex.terrain !== 'water')
+        .map((hex) => ({
+            ...hex,
+            x: boardLayout.value.hexOriginX + boardLayout.value.columnSpacing * hex.q + rowOffset * hex.r,
+            y: boardLayout.value.boardOriginY + boardLayout.value.rowSpacing * hex.r,
+        })),
 );
 
 function roundScoringTileImage(tile: RoundScoringTile): string {
@@ -263,7 +267,7 @@ function roundScoringTileY(index: number): number {
             </g>
 
             <g
-                v-for="hex in rawHexes"
+                v-for="hex in visibleHexes"
                 :key="hex.id"
                 :transform="`translate(${hex.x} ${hex.y})`"
                 class="board-hex-group cursor-pointer"

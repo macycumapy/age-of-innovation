@@ -267,7 +267,8 @@ export type TerrainType =
     | 'lake'
     | 'forest'
     | 'mountain'
-    | 'wasteland';
+    | 'wasteland'
+    | 'water';
 
 export type BoardHexState = {
     id: string;

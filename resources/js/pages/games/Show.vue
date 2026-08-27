@@ -180,6 +180,7 @@ const terrainNames: Record<TerrainType, string> = {
     forest: 'Лес',
     mountain: 'Горы',
     wasteland: 'Пустошь',
+    water: 'Вода',
 };
 
 const terrainBundleClasses: Record<TerrainType, string> = {
@@ -190,6 +191,7 @@ const terrainBundleClasses: Record<TerrainType, string> = {
     forest: 'border-green-600/60 bg-green-600/20 dark:bg-green-500/20',
     mountain: 'border-gray-500/60 bg-gray-500/20 dark:bg-gray-400/15',
     wasteland: 'border-red-500/60 bg-red-500/20 dark:bg-red-500/20',
+    water: 'border-cyan-500/60 bg-cyan-500/20 dark:bg-cyan-500/20',
 };
 
 const factionNames: Record<Faction, string> = {

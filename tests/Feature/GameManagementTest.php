@@ -375,6 +375,12 @@ class GameManagementTest extends TestCase
 
         $this->actingAs($activeUser)
             ->post(route('games.planning-bundle.store', $game), [
+                'homeland' => TerrainType::Water->value,
+            ])
+            ->assertSessionHasErrors('homeland');
+
+        $this->actingAs($activeUser)
+            ->post(route('games.planning-bundle.store', $game), [
                 'homeland' => $bundle->homeland->value,
             ])
             ->assertRedirect(route('games.show', $game));
@@ -432,7 +438,7 @@ class GameManagementTest extends TestCase
                         $player->color->value,
                     )
                     ->has('game.data.planningBundles', 7)
-                    ->has('game.data.planningBundleDescriptions.homelands', 7)
+                    ->has('game.data.planningBundleDescriptions.homelands', 8)
                     ->has('game.data.planningBundleDescriptions.factions', 12)
                     ->has('game.data.planningBundleDescriptions.roundBonuses', 10)
                     ->has('game.data.competencyDescriptions', 12)

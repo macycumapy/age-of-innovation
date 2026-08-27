@@ -23,7 +23,7 @@ final class ChoosePlanningBundleRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'homeland' => ['required', Rule::enum(TerrainType::class)],
+            'homeland' => ['required', Rule::enum(TerrainType::class)->except(TerrainType::Water)],
         ];
     }
 

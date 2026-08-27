@@ -20,6 +20,13 @@ enum TerrainType: string
     case Mountain = 'mountain';
     /** Пустошь: дополнительная книга, инструмент и льгота второго изобретения. */
     case Wasteland = 'wasteland';
+    /** Водная ячейка, недоступная для строительства и преобразования. */
+    case Water = 'water';
+
+    public function isHomeland(): bool
+    {
+        return $this !== self::Water;
+    }
 
     public function description(): string
     {
@@ -31,6 +38,7 @@ enum TerrainType: string
             self::Forest => 'По одному стартовому шагу во всех дисциплинах; стартовая сила: 8 в чаше II и 4 в чаше I.',
             self::Mountain => 'Дополнительный доход монет.',
             self::Wasteland => 'Дополнительная книга, инструмент и льгота второго изобретения.',
+            self::Water => 'Водная ячейка, недоступная для строительства и преобразования.',
         };
     }
 }

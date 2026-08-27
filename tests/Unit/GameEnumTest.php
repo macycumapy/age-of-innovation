@@ -57,6 +57,7 @@ final class GameEnumTest extends TestCase
         ]];
         yield 'местности' => [TerrainType::class, [
             'desert', 'plains', 'swamp', 'lake', 'forest', 'mountain', 'wasteland',
+            'water',
         ]];
         yield 'дисциплины' => [KnowledgeDiscipline::class, [
             'banking', 'law', 'engineering', 'medicine',

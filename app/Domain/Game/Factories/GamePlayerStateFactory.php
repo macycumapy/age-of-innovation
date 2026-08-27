@@ -109,6 +109,7 @@ final class GamePlayerStateFactory
             TerrainType::Forest => PlayerColor::Green,
             TerrainType::Mountain => PlayerColor::Grey,
             TerrainType::Wasteland => PlayerColor::Red,
+            TerrainType::Water => throw new \LogicException('Water cannot be a player homeland.'),
         };
     }
 }

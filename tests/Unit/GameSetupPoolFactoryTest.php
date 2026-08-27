@@ -11,6 +11,7 @@ use App\Domain\Game\Enums\MapVariant;
 use App\Domain\Game\Enums\PalaceAbility;
 use App\Domain\Game\Enums\RoundScoringGoal;
 use App\Domain\Game\Enums\RoundScoringTile;
+use App\Domain\Game\Enums\TerrainType;
 use App\Domain\Game\Factories\GameSetupPoolFactory;
 use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -40,6 +41,13 @@ final class GameSetupPoolFactoryTest extends TestCase
         $this->assertCount($playerCount + 2, $pool->palaces);
         $this->assertContains(PalaceAbility::Palace17, $pool->palaces);
         $this->assertCount(7, $pool->planningBundles);
+        $this->assertNotContains(
+            TerrainType::Water,
+            array_map(
+                static fn (PlanningBundleData $bundle): TerrainType => $bundle->homeland,
+                $pool->planningBundles,
+            ),
+        );
         $this->assertCount(3, $pool->availableRoundBonuses);
         $this->assertCount(7, $pool->townTiles);
         $this->assertSame($playerCount === 2, $pool->twoPlayerAreaTile !== null);
