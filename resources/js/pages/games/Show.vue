@@ -76,9 +76,7 @@ const orderedPlayers = computed(() =>
         .filter((player): player is GamePlayerSummary => player !== undefined),
 );
 
-const playersWithSelectedFactions = computed(() =>
-    orderedPlayers.value.filter((player) => player.faction !== null),
-);
+const playersWithSelectedFactions = computed(() => orderedPlayers.value.filter((player) => player.faction !== null));
 
 const canChoosePlanningBundle = computed(
     () =>
@@ -115,9 +113,7 @@ const startingKnowledgeCounts = reactive<Record<KnowledgeDiscipline, number>>({
 const selectedStartingCompetency = ref<Competency | null>(null);
 const isPlanningBundleGroupOpen = ref(true);
 
-const availableStartingBookCount = computed(
-    () => props.game.data.pendingInteraction?.context.bookCount ?? 0,
-);
+const availableStartingBookCount = computed(() => props.game.data.pendingInteraction?.context.bookCount ?? 0);
 
 const assignedStartingBookCount = computed(() =>
     Object.values(startingBookCounts).reduce((total, count) => total + count, 0),
@@ -311,7 +307,7 @@ function selectedCompetencyForHomeland(homeland: TerrainType): Competency | unde
 }
 
 function updateStartingBookCount(discipline: KnowledgeDiscipline, event: Event): void {
-    if (! (event.target instanceof HTMLInputElement)) {
+    if (!(event.target instanceof HTMLInputElement)) {
         return;
     }
 
@@ -325,7 +321,7 @@ function updateStartingBookCount(discipline: KnowledgeDiscipline, event: Event):
 }
 
 function updateStartingKnowledgeCount(discipline: KnowledgeDiscipline, event: Event): void {
-    if (! (event.target instanceof HTMLInputElement)) {
+    if (!(event.target instanceof HTMLInputElement)) {
         return;
     }
 
@@ -342,516 +338,569 @@ function updateStartingKnowledgeCount(discipline: KnowledgeDiscipline, event: Ev
 <template>
     <Head :title="`Подготовка игры №${game.data.id}`" />
 
-    <div class="flex h-full flex-1 flex-col gap-6 p-4">
-        <Card v-if="game.data.status === 'lobby'">
-            <CardHeader>
-                <CardTitle>Участники</CardTitle>
-                <CardDescription> Игроки занимают места в порядке присоединения. </CardDescription>
-            </CardHeader>
-            <CardContent class="grid gap-3">
-                <div
-                    v-for="player in game.data.players"
-                    :key="player.id"
-                    class="flex items-center justify-between gap-4 rounded-lg border p-3"
-                >
-                    <div>
-                        <p class="font-medium">{{ player.user.name }}</p>
-                        <p class="text-sm text-muted-foreground">Место {{ player.seat }}</p>
-                    </div>
-
-                    <span class="rounded-full bg-muted px-2.5 py-1 text-xs font-medium">
-                        {{ player.isReady ? 'Готов' : 'Не готов' }}
-                    </span>
-                </div>
-
-                <div
-                    v-for="seat in game.data.maxPlayers - game.data.playersCount"
-                    :key="`empty-${seat}`"
-                    class="rounded-lg border border-dashed p-3 text-sm text-muted-foreground"
-                >
-                    Свободное место
-                </div>
-
-                <div
-                    v-if="currentPlayer || game.data.playersCount < game.data.maxPlayers || game.data.isOwner"
-                    class="flex flex-wrap items-start justify-end gap-3 border-t pt-3"
-                >
-                    <Form
-                        v-if="currentPlayer"
-                        v-bind="
-                            GamePlayerReadinessController.update.form({
-                                game: game.data.id,
-                                gamePlayer: currentPlayer.id,
-                            })
-                        "
-                        #default="{ errors, processing }"
-                        class="grid gap-2"
+    <div class="flex h-full min-w-0 flex-1">
+        <div class="flex min-w-0 flex-1 flex-col gap-6 p-4">
+            <Card v-if="game.data.status === 'lobby'">
+                <CardHeader>
+                    <CardTitle>Участники</CardTitle>
+                    <CardDescription> Игроки занимают места в порядке присоединения. </CardDescription>
+                </CardHeader>
+                <CardContent class="grid gap-3">
+                    <div
+                        v-for="player in game.data.players"
+                        :key="player.id"
+                        class="flex items-center justify-between gap-4 rounded-lg border p-3"
                     >
-                        <input type="hidden" name="is_ready" :value="currentPlayer.isReady ? '0' : '1'" />
-                        <InputError :message="errors.is_ready" />
-                        <Button
-                            type="submit"
-                            :variant="currentPlayer.isReady ? 'outline' : 'default'"
-                            :disabled="processing"
-                        >
-                            {{
-                                processing ? 'Сохранение…' : currentPlayer.isReady ? 'Отменить готовность' : 'Я готов'
-                            }}
-                        </Button>
-                    </Form>
+                        <div>
+                            <p class="font-medium">{{ player.user.name }}</p>
+                            <p class="text-sm text-muted-foreground">Место {{ player.seat }}</p>
+                        </div>
 
-                    <Form
-                        v-if="!currentPlayer && game.data.playersCount < game.data.maxPlayers"
-                        v-bind="GamePlayerController.store.form(game.data.id)"
-                        #default="{ errors, processing }"
-                        class="grid gap-2"
-                    >
-                        <InputError :message="errors.game" />
-                        <Button type="submit" :disabled="processing">
-                            {{ processing ? 'Присоединение…' : 'Присоединиться' }}
-                        </Button>
-                    </Form>
-
-                    <Form
-                        v-if="game.data.isOwner"
-                        v-bind="GameStartController.form(game.data.id)"
-                        #default="{ errors, processing }"
-                        class="grid gap-2"
-                    >
-                        <InputError :message="errors.game" />
-                        <Button type="submit" :disabled="processing || !game.data.canStart">
-                            {{ processing ? 'Запуск…' : 'Начать игру' }}
-                        </Button>
-                    </Form>
-                </div>
-            </CardContent>
-        </Card>
-
-        <Collapsible
-            v-if="game.data.status === 'active' && !setupChoicesCompleted"
-            v-model:open="isPlanningBundleGroupOpen"
-        >
-            <Card>
-            <CardHeader>
-                <div class="flex items-center justify-between gap-4">
-                    <CardTitle>Выбор стартового комплекта</CardTitle>
-                    <CollapsibleTrigger as-child>
-                        <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            :aria-label="isPlanningBundleGroupOpen ? 'Свернуть выбор комплекта' : 'Развернуть выбор комплекта'"
-                        >
-                            <ChevronDown
-                                class="size-5 transition-transform"
-                                :class="isPlanningBundleGroupOpen ? 'rotate-180' : ''"
-                            />
-                        </Button>
-                    </CollapsibleTrigger>
-                </div>
-                <ol class="flex flex-wrap items-center gap-2 text-sm font-medium">
-                    <template v-for="(player, index) in orderedPlayers" :key="player.id">
-                        <li :class="player.user.id === game.data.activePlayerId ? 'text-primary' : ''">
-                            {{ player.user.name }}
-                        </li>
-                        <li v-if="index < orderedPlayers.length - 1" aria-hidden="true" class="text-muted-foreground">
-                            →
-                        </li>
-                    </template>
-                </ol>
-                <CardDescription v-if="game.data.pendingInteraction?.type === 'choose_starting_resources'">
-                    Сейчас стартовые ресурсы распределяет
-                    {{ pendingInteractionPlayer?.user.name ?? 'игрок' }}.
-                </CardDescription>
-                <CardDescription v-else-if="canChoosePlanningBundle">
-                    Выберите родную местность, сообщество и бонус раунда.
-                </CardDescription>
-                <CardDescription v-else-if="allPlanningBundlesChosen">
-                    Все игроки выбрали стартовые комплекты.
-                </CardDescription>
-                <CardDescription v-else-if="currentPlayer?.faction">
-                    Ваш комплект выбран. Ожидаем остальных игроков.
-                </CardDescription>
-                <CardDescription v-else>
-                    Сейчас выбирает
-                    {{ activePlayer?.user.name ?? 'другой игрок' }}.
-                </CardDescription>
-            </CardHeader>
-
-            <CollapsibleContent>
-            <CardContent>
-                <Form
-                    v-if="canChooseStartingResources"
-                    v-bind="StartingResourcesController.store.form(game.data.id)"
-                    id="starting-resources-form"
-                    #default="{ errors, processing }"
-                    class="grid gap-5 rounded-xl border border-primary/40 bg-primary/5 p-5 w-xl mb-6"
-                >
-                    <div class="grid gap-1">
-                        <h3 class="font-semibold">Распределите стартовые ресурсы</h3>
-                        <p class="text-sm text-muted-foreground">
-                            Этот выбор завершает получение вашего стартового комплекта.
-                        </p>
+                        <span class="rounded-full bg-muted px-2.5 py-1 text-xs font-medium">
+                            {{ player.isReady ? 'Готов' : 'Не готов' }}
+                        </span>
                     </div>
 
                     <div
-                        v-if="(game.data.pendingInteraction?.context.bookCount ?? 0) > 0"
-                        class="grid gap-3"
+                        v-for="seat in game.data.maxPlayers - game.data.playersCount"
+                        :key="`empty-${seat}`"
+                        class="rounded-lg border border-dashed p-3 text-sm text-muted-foreground"
                     >
-                        <div class="flex flex-wrap items-center justify-between gap-2 text-sm">
-                            <p class="font-medium">Распределение стартовых книг</p>
-                            <p class="rounded-md bg-background/75 px-3 py-1.5 font-medium">
-                                Доступно: {{ availableStartingBookCount }}
-                            </p>
-                        </div>
-                        <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                            <label
-                                v-for="discipline in game.data.pendingInteraction?.optionIds"
-                                :key="discipline"
-                                class="grid h-full grid-rows-[auto_minmax(2.5rem,1fr)_auto_auto] justify-items-center gap-2 rounded-lg border bg-background/70 p-3 text-center text-sm font-medium"
-                            >
-                                <img
-                                    :src="bookImages[discipline]"
-                                    :alt="`Книга: ${knowledgeDisciplineNames[discipline]}`"
-                                    class="h-16 w-auto object-contain drop-shadow-md"
-                                />
-                                <span>{{ knowledgeDisciplineNames[discipline] }}</span>
-                                <input
-                                    type="number"
-                                    :name="`book_counts[${discipline}]`"
-                                    :value="startingBookCounts[discipline]"
-                                    min="0"
-                                    :max="startingBookCounts[discipline] + remainingStartingBookCount"
-                                    required
-                                    class="h-9 w-20 self-end rounded-md border border-input bg-background px-3 text-center text-sm shadow-xs"
-                                    @input="updateStartingBookCount(discipline, $event)"
-                                />
-                                <InputError :message="errors[`book_counts.${discipline}`]" />
-                            </label>
-                        </div>
-                        <InputError :message="errors.book_counts" />
+                        Свободное место
                     </div>
 
                     <div
-                        v-if="(game.data.pendingInteraction?.context.competencyIds?.length ?? 0) > 0"
-                        class="grid gap-3"
+                        v-if="currentPlayer || game.data.playersCount < game.data.maxPlayers || game.data.isOwner"
+                        class="flex flex-wrap items-start justify-end gap-3 border-t pt-3"
                     >
-                        <p class="text-sm font-medium">Выберите стартовую компетенцию</p>
-                        <TooltipProvider :delay-duration="150">
-                            <div class="grid grid-cols-3 gap-3 sm:grid-cols-4 lg:grid-cols-6">
-                                <label
-                                    v-for="competency in game.data.pendingInteraction?.context.competencyIds ?? []"
-                                    :key="competency"
-                                    class="cursor-pointer"
-                                >
-                                    <input
-                                        v-model="selectedStartingCompetency"
-                                        type="radio"
-                                        name="competency_id"
-                                        :value="competency"
-                                        required
-                                        class="peer sr-only"
-                                    />
-                                    <Tooltip>
-                                        <TooltipTrigger as-child>
-                                            <span
-                                                tabindex="0"
-                                                class="grid cursor-help rounded-lg border bg-background/70 p-2 transition peer-checked:border-primary peer-checked:ring-2 peer-checked:ring-primary/40"
-                                            >
-                                                <img
-                                                    :src="competencyImage(competency)"
-                                                    :alt="`Компетенция ${competency}`"
-                                                    class="aspect-square w-full object-contain drop-shadow-md"
-                                                />
-                                            </span>
-                                        </TooltipTrigger>
-                                        <TooltipContent class="max-w-xs">
-                                            <p class="font-semibold">Компетенция {{ competency.slice(-2) }}</p>
-                                            <p>{{ game.data.competencyDescriptions[competency] }}</p>
-                                        </TooltipContent>
-                                    </Tooltip>
-                                </label>
-                            </div>
-                        </TooltipProvider>
-                        <InputError :message="errors.competency_id" />
-                    </div>
-
-                    <div v-if="(game.data.pendingInteraction?.context.knowledgeStepCount ?? 0) > 0" class="grid gap-3">
-                        <div class="flex flex-wrap items-center justify-between gap-2 text-sm">
-                            <p class="font-medium">Распределение шагов знаний</p>
-                            <p class="rounded-md bg-background/75 px-3 py-1.5 font-medium">
-                                Доступно: {{ availableStartingKnowledgeStepCount }}
-                            </p>
-                        </div>
-                        <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                            <label
-                                v-for="discipline in game.data.pendingInteraction?.optionIds"
-                                :key="discipline"
-                                class="grid h-full grid-rows-[auto_minmax(2.5rem,1fr)_auto_auto] justify-items-center gap-2 rounded-lg border bg-background/70 p-3 text-center text-sm font-medium"
-                            >
-                                <img
-                                    :src="knowledgeRoundImages[discipline]"
-                                    :alt="`Дисциплина: ${knowledgeDisciplineNames[discipline]}`"
-                                    class="h-16 w-auto object-contain drop-shadow-md"
-                                />
-                                <span>{{ knowledgeDisciplineNames[discipline] }}</span>
-                                <input
-                                    type="number"
-                                    :name="`knowledge_counts[${discipline}]`"
-                                    :value="startingKnowledgeCounts[discipline]"
-                                    min="0"
-                                    :max="startingKnowledgeCounts[discipline] + remainingStartingKnowledgeStepCount"
-                                    required
-                                    class="h-9 w-20 self-end rounded-md border border-input bg-background px-3 text-center text-sm shadow-xs"
-                                    @input="updateStartingKnowledgeCount(discipline, $event)"
-                                />
-                                <InputError :message="errors[`knowledge_counts.${discipline}`]" />
-                            </label>
-                        </div>
-                        <InputError :message="errors.knowledge_counts" />
-                    </div>
-
-                    <InputError :message="errors.game" />
-                    <Dialog>
-                        <DialogTrigger as-child>
+                        <Form
+                            v-if="currentPlayer"
+                            v-bind="
+                                GamePlayerReadinessController.update.form({
+                                    game: game.data.id,
+                                    gamePlayer: currentPlayer.id,
+                                })
+                            "
+                            #default="{ errors, processing }"
+                            class="grid gap-2"
+                        >
+                            <input type="hidden" name="is_ready" :value="currentPlayer.isReady ? '0' : '1'" />
+                            <InputError :message="errors.is_ready" />
                             <Button
-                                type="button"
-                                :disabled="
-                                    processing ||
-                                    remainingStartingBookCount !== 0 ||
-                                    remainingStartingKnowledgeStepCount !== 0 ||
-                                    (requiresStartingCompetency && selectedStartingCompetency === null)
-                                "
+                                type="submit"
+                                :variant="currentPlayer.isReady ? 'outline' : 'default'"
+                                :disabled="processing"
                             >
-                                Подтвердить выбор
+                                {{
+                                    processing
+                                        ? 'Сохранение…'
+                                        : currentPlayer.isReady
+                                          ? 'Отменить готовность'
+                                          : 'Я готов'
+                                }}
                             </Button>
-                        </DialogTrigger>
-                        <DialogContent>
-                            <DialogHeader>
-                                <DialogTitle>Подтвердите распределение ресурсов</DialogTitle>
-                                <DialogDescription>
-                                    Проверьте выбранные стартовые ресурсы перед сохранением.
-                                </DialogDescription>
-                            </DialogHeader>
+                        </Form>
 
-                            <div class="grid gap-4 rounded-lg bg-muted p-4 text-sm">
-                                <div v-if="availableStartingBookCount > 0" class="grid gap-1">
-                                    <p class="font-medium">Книги</p>
-                                    <p
-                                        v-for="discipline in game.data.pendingInteraction?.optionIds ?? []"
-                                        v-show="startingBookCounts[discipline] > 0"
-                                        :key="`book-${discipline}`"
-                                        class="text-muted-foreground"
-                                    >
-                                        {{ knowledgeDisciplineNames[discipline] }}:
-                                        {{ startingBookCounts[discipline] }}
-                                    </p>
-                                </div>
-
-                                <div v-if="availableStartingKnowledgeStepCount > 0" class="grid gap-1">
-                                    <p class="font-medium">Шаги знаний</p>
-                                    <p
-                                        v-for="discipline in game.data.pendingInteraction?.optionIds ?? []"
-                                        v-show="startingKnowledgeCounts[discipline] > 0"
-                                        :key="`knowledge-${discipline}`"
-                                        class="text-muted-foreground"
-                                    >
-                                        {{ knowledgeDisciplineNames[discipline] }}:
-                                        {{ startingKnowledgeCounts[discipline] }}
-                                    </p>
-                                </div>
-
-                                <div v-if="selectedStartingCompetency" class="grid gap-2">
-                                    <p class="font-medium">Компетенция</p>
-                                    <div class="flex items-center gap-3 text-muted-foreground">
-                                        <img
-                                            :src="competencyImage(selectedStartingCompetency)"
-                                            :alt="`Компетенция ${selectedStartingCompetency}`"
-                                            class="h-14 w-14 object-contain drop-shadow-md"
-                                        />
-                                        <span>Компетенция {{ selectedStartingCompetency.slice(-2) }}</span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <DialogFooter class="gap-2">
-                                <DialogClose as-child>
-                                    <Button type="button" variant="outline">Отмена</Button>
-                                </DialogClose>
-                                <Button type="submit" form="starting-resources-form" :disabled="processing">
-                                    {{ processing ? 'Сохранение…' : 'Подтвердить' }}
-                                </Button>
-                            </DialogFooter>
-                        </DialogContent>
-                    </Dialog>
-                </Form>
-
-                <div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-                    <Form
-                        v-for="bundle in game.data.planningBundles"
-                        :key="bundle.homeland"
-                        v-bind="PlanningBundleController.store.form(game.data.id)"
-                        :id="`planning-bundle-${bundle.homeland}`"
-                        #default="{ errors, processing }"
-                        :class="[
-                            'flex flex-col gap-4 rounded-xl border p-4 shadow-sm',
-                            terrainBundleClasses[bundle.homeland],
-                        ]"
-                    >
-                        <input type="hidden" name="homeland" :value="bundle.homeland" />
-
-                        <TooltipProvider :delay-duration="150">
-                            <div class="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3">
-                                <Tooltip>
-                                    <TooltipTrigger as-child>
-                                        <img
-                                            :src="terrainTileImage(bundle.homeland)"
-                                            :alt="`Родная местность: ${terrainNames[bundle.homeland]}`"
-                                            tabindex="0"
-                                            class="h-48 w-auto cursor-help rounded-md object-contain shadow-sm"
-                                        />
-                                    </TooltipTrigger>
-                                    <TooltipContent class="max-w-xs">
-                                        <p class="font-semibold">{{ terrainNames[bundle.homeland] }}</p>
-                                        <p>{{ game.data.planningBundleDescriptions.homelands[bundle.homeland] }}</p>
-                                    </TooltipContent>
-                                </Tooltip>
-
-                                <Tooltip>
-                                    <TooltipTrigger as-child>
-                                        <div
-                                            tabindex="0"
-                                            class="relative aspect-[592/338] w-full max-w-[21rem] min-w-0 justify-self-center cursor-help"
-                                        >
-                                            <img
-                                                :src="factionImage(bundle.faction)"
-                                                :alt="`Сообщество: ${factionNames[bundle.faction]}`"
-                                                class="size-full rounded-md object-cover shadow-sm"
-                                            />
-                                            <img
-                                                v-if="selectedCompetencyForHomeland(bundle.homeland)"
-                                                :src="competencyImage(selectedCompetencyForHomeland(bundle.homeland)!)"
-                                                :alt="`Выбранная компетенция ${selectedCompetencyForHomeland(bundle.homeland)}`"
-                                                class="absolute top-0 right-0 size-16 rounded-md object-contain p-1 shadow-md"
-                                            />
-                                        </div>
-                                    </TooltipTrigger>
-                                    <TooltipContent class="max-w-xs">
-                                        <p class="font-semibold">{{ factionNames[bundle.faction] }}</p>
-                                        <p>{{ game.data.planningBundleDescriptions.factions[bundle.faction] }}</p>
-                                    </TooltipContent>
-                                </Tooltip>
-
-                                <Tooltip>
-                                    <TooltipTrigger as-child>
-                                        <img
-                                            :src="roundBonusImage(bundle.roundBonus)"
-                                            :alt="`Бонус раунда: ${roundBonusNames[bundle.roundBonus]}`"
-                                            tabindex="0"
-                                            class="h-48 w-auto cursor-help object-contain drop-shadow-sm"
-                                        />
-                                    </TooltipTrigger>
-                                    <TooltipContent class="max-w-xs">
-                                        <p class="font-semibold">{{ roundBonusNames[bundle.roundBonus] }}</p>
-                                        <p>{{ game.data.planningBundleDescriptions.roundBonuses[bundle.roundBonus] }}</p>
-                                    </TooltipContent>
-                                </Tooltip>
-                            </div>
-                        </TooltipProvider>
-
-                        <InputError :message="errors.homeland ?? errors.game" />
-                        <div
-                            v-if="selectedPlayerForHomeland(bundle.homeland)"
-                            class="mt-auto flex min-h-10 items-center justify-center gap-3 rounded-md bg-background/75 px-4 py-2 text-center text-sm font-medium shadow-xs"
+                        <Form
+                            v-if="!currentPlayer && game.data.playersCount < game.data.maxPlayers"
+                            v-bind="GamePlayerController.store.form(game.data.id)"
+                            #default="{ errors, processing }"
+                            class="grid gap-2"
                         >
-                            {{ selectedPlayerForHomeland(bundle.homeland)?.user.name }}
-                        </div>
-                        <Dialog v-else>
-                            <DialogTrigger as-child>
+                            <InputError :message="errors.game" />
+                            <Button type="submit" :disabled="processing">
+                                {{ processing ? 'Присоединение…' : 'Присоединиться' }}
+                            </Button>
+                        </Form>
+
+                        <Form
+                            v-if="game.data.isOwner"
+                            v-bind="GameStartController.form(game.data.id)"
+                            #default="{ errors, processing }"
+                            class="grid gap-2"
+                        >
+                            <InputError :message="errors.game" />
+                            <Button type="submit" :disabled="processing || !game.data.canStart">
+                                {{ processing ? 'Запуск…' : 'Начать игру' }}
+                            </Button>
+                        </Form>
+                    </div>
+                </CardContent>
+            </Card>
+
+            <Collapsible
+                v-if="game.data.status === 'active' && !setupChoicesCompleted"
+                v-model:open="isPlanningBundleGroupOpen"
+            >
+                <Card>
+                    <CardHeader>
+                        <div class="flex items-center justify-between gap-4">
+                            <CardTitle>Выбор стартового комплекта</CardTitle>
+                            <CollapsibleTrigger as-child>
                                 <Button
                                     type="button"
-                                    class="mt-auto w-full"
-                                    :disabled="processing || !canChoosePlanningBundle"
+                                    variant="ghost"
+                                    size="icon"
+                                    :aria-label="
+                                        isPlanningBundleGroupOpen
+                                            ? 'Свернуть выбор комплекта'
+                                            : 'Развернуть выбор комплекта'
+                                    "
                                 >
-                                    {{ planningBundleButtonLabel(processing) }}
+                                    <ChevronDown
+                                        class="size-5 transition-transform"
+                                        :class="isPlanningBundleGroupOpen ? 'rotate-180' : ''"
+                                    />
                                 </Button>
-                            </DialogTrigger>
-                            <DialogContent>
-                                <DialogHeader>
-                                    <DialogTitle>Подтвердите выбор комплекта</DialogTitle>
-                                    <DialogDescription>
-                                        После подтверждения этот комплект будет закреплён за вами.
-                                    </DialogDescription>
-                                </DialogHeader>
+                            </CollapsibleTrigger>
+                        </div>
+                        <ol class="flex flex-wrap items-center gap-2 text-sm font-medium">
+                            <template v-for="(player, index) in orderedPlayers" :key="player.id">
+                                <li :class="player.user.id === game.data.activePlayerId ? 'text-primary' : ''">
+                                    {{ player.user.name }}
+                                </li>
+                                <li
+                                    v-if="index < orderedPlayers.length - 1"
+                                    aria-hidden="true"
+                                    class="text-muted-foreground"
+                                >
+                                    →
+                                </li>
+                            </template>
+                        </ol>
+                        <CardDescription v-if="game.data.pendingInteraction?.type === 'choose_starting_resources'">
+                            Сейчас стартовые ресурсы распределяет
+                            {{ pendingInteractionPlayer?.user.name ?? 'игрок' }}.
+                        </CardDescription>
+                        <CardDescription v-else-if="canChoosePlanningBundle">
+                            Выберите родную местность, сообщество и бонус раунда.
+                        </CardDescription>
+                        <CardDescription v-else-if="allPlanningBundlesChosen">
+                            Все игроки выбрали стартовые комплекты.
+                        </CardDescription>
+                        <CardDescription v-else-if="currentPlayer?.faction">
+                            Ваш комплект выбран. Ожидаем остальных игроков.
+                        </CardDescription>
+                        <CardDescription v-else>
+                            Сейчас выбирает
+                            {{ activePlayer?.user.name ?? 'другой игрок' }}.
+                        </CardDescription>
+                    </CardHeader>
 
-                                <div class="grid gap-2 rounded-lg bg-muted p-4 text-sm">
-                                    <p><span class="text-muted-foreground">Земля:</span> {{ terrainNames[bundle.homeland] }}</p>
-                                    <p><span class="text-muted-foreground">Раса:</span> {{ factionNames[bundle.faction] }}</p>
-                                    <p>
-                                        <span class="text-muted-foreground">Бонус раунда:</span>
-                                        {{ roundBonusNames[bundle.roundBonus] }}
+                    <CollapsibleContent>
+                        <CardContent>
+                            <Form
+                                v-if="canChooseStartingResources"
+                                v-bind="StartingResourcesController.store.form(game.data.id)"
+                                id="starting-resources-form"
+                                #default="{ errors, processing }"
+                                class="mb-6 grid w-xl gap-5 rounded-xl border border-primary/40 bg-primary/5 p-5"
+                            >
+                                <div class="grid gap-1">
+                                    <h3 class="font-semibold">Распределите стартовые ресурсы</h3>
+                                    <p class="text-sm text-muted-foreground">
+                                        Этот выбор завершает получение вашего стартового комплекта.
                                     </p>
                                 </div>
 
-                                <DialogFooter class="gap-2">
-                                    <DialogClose as-child>
-                                        <Button type="button" variant="outline">Отмена</Button>
-                                    </DialogClose>
-                                    <Button
-                                        type="submit"
-                                        :form="`planning-bundle-${bundle.homeland}`"
-                                        :disabled="processing"
+                                <div
+                                    v-if="(game.data.pendingInteraction?.context.bookCount ?? 0) > 0"
+                                    class="grid gap-3"
+                                >
+                                    <div class="flex flex-wrap items-center justify-between gap-2 text-sm">
+                                        <p class="font-medium">Распределение стартовых книг</p>
+                                        <p class="rounded-md bg-background/75 px-3 py-1.5 font-medium">
+                                            Доступно: {{ availableStartingBookCount }}
+                                        </p>
+                                    </div>
+                                    <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                                        <label
+                                            v-for="discipline in game.data.pendingInteraction?.optionIds"
+                                            :key="discipline"
+                                            class="grid h-full grid-rows-[auto_minmax(2.5rem,1fr)_auto_auto] justify-items-center gap-2 rounded-lg border bg-background/70 p-3 text-center text-sm font-medium"
+                                        >
+                                            <img
+                                                :src="bookImages[discipline]"
+                                                :alt="`Книга: ${knowledgeDisciplineNames[discipline]}`"
+                                                class="h-16 w-auto object-contain drop-shadow-md"
+                                            />
+                                            <span>{{ knowledgeDisciplineNames[discipline] }}</span>
+                                            <input
+                                                type="number"
+                                                :name="`book_counts[${discipline}]`"
+                                                :value="startingBookCounts[discipline]"
+                                                min="0"
+                                                :max="startingBookCounts[discipline] + remainingStartingBookCount"
+                                                required
+                                                class="h-9 w-20 self-end rounded-md border border-input bg-background px-3 text-center text-sm shadow-xs"
+                                                @input="updateStartingBookCount(discipline, $event)"
+                                            />
+                                            <InputError :message="errors[`book_counts.${discipline}`]" />
+                                        </label>
+                                    </div>
+                                    <InputError :message="errors.book_counts" />
+                                </div>
+
+                                <div
+                                    v-if="(game.data.pendingInteraction?.context.competencyIds?.length ?? 0) > 0"
+                                    class="grid gap-3"
+                                >
+                                    <p class="text-sm font-medium">Выберите стартовую компетенцию</p>
+                                    <TooltipProvider :delay-duration="150">
+                                        <div class="grid grid-cols-3 gap-3 sm:grid-cols-4 lg:grid-cols-6">
+                                            <label
+                                                v-for="competency in game.data.pendingInteraction?.context
+                                                    .competencyIds ?? []"
+                                                :key="competency"
+                                                class="cursor-pointer"
+                                            >
+                                                <input
+                                                    v-model="selectedStartingCompetency"
+                                                    type="radio"
+                                                    name="competency_id"
+                                                    :value="competency"
+                                                    required
+                                                    class="peer sr-only"
+                                                />
+                                                <Tooltip>
+                                                    <TooltipTrigger as-child>
+                                                        <span
+                                                            tabindex="0"
+                                                            class="grid cursor-help rounded-lg border bg-background/70 p-2 transition peer-checked:border-primary peer-checked:ring-2 peer-checked:ring-primary/40"
+                                                        >
+                                                            <img
+                                                                :src="competencyImage(competency)"
+                                                                :alt="`Компетенция ${competency}`"
+                                                                class="aspect-square w-full object-contain drop-shadow-md"
+                                                            />
+                                                        </span>
+                                                    </TooltipTrigger>
+                                                    <TooltipContent class="max-w-xs">
+                                                        <p class="font-semibold">
+                                                            Компетенция {{ competency.slice(-2) }}
+                                                        </p>
+                                                        <p>{{ game.data.competencyDescriptions[competency] }}</p>
+                                                    </TooltipContent>
+                                                </Tooltip>
+                                            </label>
+                                        </div>
+                                    </TooltipProvider>
+                                    <InputError :message="errors.competency_id" />
+                                </div>
+
+                                <div
+                                    v-if="(game.data.pendingInteraction?.context.knowledgeStepCount ?? 0) > 0"
+                                    class="grid gap-3"
+                                >
+                                    <div class="flex flex-wrap items-center justify-between gap-2 text-sm">
+                                        <p class="font-medium">Распределение шагов знаний</p>
+                                        <p class="rounded-md bg-background/75 px-3 py-1.5 font-medium">
+                                            Доступно: {{ availableStartingKnowledgeStepCount }}
+                                        </p>
+                                    </div>
+                                    <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                                        <label
+                                            v-for="discipline in game.data.pendingInteraction?.optionIds"
+                                            :key="discipline"
+                                            class="grid h-full grid-rows-[auto_minmax(2.5rem,1fr)_auto_auto] justify-items-center gap-2 rounded-lg border bg-background/70 p-3 text-center text-sm font-medium"
+                                        >
+                                            <img
+                                                :src="knowledgeRoundImages[discipline]"
+                                                :alt="`Дисциплина: ${knowledgeDisciplineNames[discipline]}`"
+                                                class="h-16 w-auto object-contain drop-shadow-md"
+                                            />
+                                            <span>{{ knowledgeDisciplineNames[discipline] }}</span>
+                                            <input
+                                                type="number"
+                                                :name="`knowledge_counts[${discipline}]`"
+                                                :value="startingKnowledgeCounts[discipline]"
+                                                min="0"
+                                                :max="
+                                                    startingKnowledgeCounts[discipline] +
+                                                    remainingStartingKnowledgeStepCount
+                                                "
+                                                required
+                                                class="h-9 w-20 self-end rounded-md border border-input bg-background px-3 text-center text-sm shadow-xs"
+                                                @input="updateStartingKnowledgeCount(discipline, $event)"
+                                            />
+                                            <InputError :message="errors[`knowledge_counts.${discipline}`]" />
+                                        </label>
+                                    </div>
+                                    <InputError :message="errors.knowledge_counts" />
+                                </div>
+
+                                <InputError :message="errors.game" />
+                                <Dialog>
+                                    <DialogTrigger as-child>
+                                        <Button
+                                            type="button"
+                                            :disabled="
+                                                processing ||
+                                                remainingStartingBookCount !== 0 ||
+                                                remainingStartingKnowledgeStepCount !== 0 ||
+                                                (requiresStartingCompetency && selectedStartingCompetency === null)
+                                            "
+                                        >
+                                            Подтвердить выбор
+                                        </Button>
+                                    </DialogTrigger>
+                                    <DialogContent>
+                                        <DialogHeader>
+                                            <DialogTitle>Подтвердите распределение ресурсов</DialogTitle>
+                                            <DialogDescription>
+                                                Проверьте выбранные стартовые ресурсы перед сохранением.
+                                            </DialogDescription>
+                                        </DialogHeader>
+
+                                        <div class="grid gap-4 rounded-lg bg-muted p-4 text-sm">
+                                            <div v-if="availableStartingBookCount > 0" class="grid gap-1">
+                                                <p class="font-medium">Книги</p>
+                                                <p
+                                                    v-for="discipline in game.data.pendingInteraction?.optionIds ?? []"
+                                                    v-show="startingBookCounts[discipline] > 0"
+                                                    :key="`book-${discipline}`"
+                                                    class="text-muted-foreground"
+                                                >
+                                                    {{ knowledgeDisciplineNames[discipline] }}:
+                                                    {{ startingBookCounts[discipline] }}
+                                                </p>
+                                            </div>
+
+                                            <div v-if="availableStartingKnowledgeStepCount > 0" class="grid gap-1">
+                                                <p class="font-medium">Шаги знаний</p>
+                                                <p
+                                                    v-for="discipline in game.data.pendingInteraction?.optionIds ?? []"
+                                                    v-show="startingKnowledgeCounts[discipline] > 0"
+                                                    :key="`knowledge-${discipline}`"
+                                                    class="text-muted-foreground"
+                                                >
+                                                    {{ knowledgeDisciplineNames[discipline] }}:
+                                                    {{ startingKnowledgeCounts[discipline] }}
+                                                </p>
+                                            </div>
+
+                                            <div v-if="selectedStartingCompetency" class="grid gap-2">
+                                                <p class="font-medium">Компетенция</p>
+                                                <div class="flex items-center gap-3 text-muted-foreground">
+                                                    <img
+                                                        :src="competencyImage(selectedStartingCompetency)"
+                                                        :alt="`Компетенция ${selectedStartingCompetency}`"
+                                                        class="h-14 w-14 object-contain drop-shadow-md"
+                                                    />
+                                                    <span>Компетенция {{ selectedStartingCompetency.slice(-2) }}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <DialogFooter class="gap-2">
+                                            <DialogClose as-child>
+                                                <Button type="button" variant="outline">Отмена</Button>
+                                            </DialogClose>
+                                            <Button type="submit" form="starting-resources-form" :disabled="processing">
+                                                {{ processing ? 'Сохранение…' : 'Подтвердить' }}
+                                            </Button>
+                                        </DialogFooter>
+                                    </DialogContent>
+                                </Dialog>
+                            </Form>
+
+                            <div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+                                <Form
+                                    v-for="bundle in game.data.planningBundles"
+                                    :key="bundle.homeland"
+                                    v-bind="PlanningBundleController.store.form(game.data.id)"
+                                    :id="`planning-bundle-${bundle.homeland}`"
+                                    #default="{ errors, processing }"
+                                    :class="[
+                                        'flex flex-col gap-4 rounded-xl border p-4 shadow-sm',
+                                        terrainBundleClasses[bundle.homeland],
+                                    ]"
+                                >
+                                    <input type="hidden" name="homeland" :value="bundle.homeland" />
+
+                                    <TooltipProvider :delay-duration="150">
+                                        <div class="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3">
+                                            <Tooltip>
+                                                <TooltipTrigger as-child>
+                                                    <img
+                                                        :src="terrainTileImage(bundle.homeland)"
+                                                        :alt="`Родная местность: ${terrainNames[bundle.homeland]}`"
+                                                        tabindex="0"
+                                                        class="h-48 w-auto cursor-help rounded-md object-contain shadow-sm"
+                                                    />
+                                                </TooltipTrigger>
+                                                <TooltipContent class="max-w-xs">
+                                                    <p class="font-semibold">{{ terrainNames[bundle.homeland] }}</p>
+                                                    <p>
+                                                        {{
+                                                            game.data.planningBundleDescriptions.homelands[
+                                                                bundle.homeland
+                                                            ]
+                                                        }}
+                                                    </p>
+                                                </TooltipContent>
+                                            </Tooltip>
+
+                                            <Tooltip>
+                                                <TooltipTrigger as-child>
+                                                    <div
+                                                        tabindex="0"
+                                                        class="relative aspect-[592/338] w-full max-w-[21rem] min-w-0 cursor-help justify-self-center"
+                                                    >
+                                                        <img
+                                                            :src="factionImage(bundle.faction)"
+                                                            :alt="`Сообщество: ${factionNames[bundle.faction]}`"
+                                                            class="size-full rounded-md object-cover shadow-sm"
+                                                        />
+                                                        <img
+                                                            v-if="selectedCompetencyForHomeland(bundle.homeland)"
+                                                            :src="
+                                                                competencyImage(
+                                                                    selectedCompetencyForHomeland(bundle.homeland)!,
+                                                                )
+                                                            "
+                                                            :alt="`Выбранная компетенция ${selectedCompetencyForHomeland(bundle.homeland)}`"
+                                                            class="absolute top-0 right-0 size-16 rounded-md object-contain p-1 shadow-md"
+                                                        />
+                                                    </div>
+                                                </TooltipTrigger>
+                                                <TooltipContent class="max-w-xs">
+                                                    <p class="font-semibold">{{ factionNames[bundle.faction] }}</p>
+                                                    <p>
+                                                        {{
+                                                            game.data.planningBundleDescriptions.factions[
+                                                                bundle.faction
+                                                            ]
+                                                        }}
+                                                    </p>
+                                                </TooltipContent>
+                                            </Tooltip>
+
+                                            <Tooltip>
+                                                <TooltipTrigger as-child>
+                                                    <img
+                                                        :src="roundBonusImage(bundle.roundBonus)"
+                                                        :alt="`Бонус раунда: ${roundBonusNames[bundle.roundBonus]}`"
+                                                        tabindex="0"
+                                                        class="h-48 w-auto cursor-help object-contain drop-shadow-sm"
+                                                    />
+                                                </TooltipTrigger>
+                                                <TooltipContent class="max-w-xs">
+                                                    <p class="font-semibold">
+                                                        {{ roundBonusNames[bundle.roundBonus] }}
+                                                    </p>
+                                                    <p>
+                                                        {{
+                                                            game.data.planningBundleDescriptions.roundBonuses[
+                                                                bundle.roundBonus
+                                                            ]
+                                                        }}
+                                                    </p>
+                                                </TooltipContent>
+                                            </Tooltip>
+                                        </div>
+                                    </TooltipProvider>
+
+                                    <InputError :message="errors.homeland ?? errors.game" />
+                                    <div
+                                        v-if="selectedPlayerForHomeland(bundle.homeland)"
+                                        class="mt-auto flex min-h-10 items-center justify-center gap-3 rounded-md bg-background/75 px-4 py-2 text-center text-sm font-medium shadow-xs"
                                     >
-                                        {{ processing ? 'Выбор…' : 'Подтвердить' }}
-                                    </Button>
-                                </DialogFooter>
-                            </DialogContent>
-                        </Dialog>
-                    </Form>
+                                        {{ selectedPlayerForHomeland(bundle.homeland)?.user.name }}
+                                    </div>
+                                    <Dialog v-else>
+                                        <DialogTrigger as-child>
+                                            <Button
+                                                type="button"
+                                                class="mt-auto w-full"
+                                                :disabled="processing || !canChoosePlanningBundle"
+                                            >
+                                                {{ planningBundleButtonLabel(processing) }}
+                                            </Button>
+                                        </DialogTrigger>
+                                        <DialogContent>
+                                            <DialogHeader>
+                                                <DialogTitle>Подтвердите выбор комплекта</DialogTitle>
+                                                <DialogDescription>
+                                                    После подтверждения этот комплект будет закреплён за вами.
+                                                </DialogDescription>
+                                            </DialogHeader>
+
+                                            <div class="grid gap-2 rounded-lg bg-muted p-4 text-sm">
+                                                <p>
+                                                    <span class="text-muted-foreground">Земля:</span>
+                                                    {{ terrainNames[bundle.homeland] }}
+                                                </p>
+                                                <p>
+                                                    <span class="text-muted-foreground">Раса:</span>
+                                                    {{ factionNames[bundle.faction] }}
+                                                </p>
+                                                <p>
+                                                    <span class="text-muted-foreground">Бонус раунда:</span>
+                                                    {{ roundBonusNames[bundle.roundBonus] }}
+                                                </p>
+                                            </div>
+
+                                            <DialogFooter class="gap-2">
+                                                <DialogClose as-child>
+                                                    <Button type="button" variant="outline">Отмена</Button>
+                                                </DialogClose>
+                                                <Button
+                                                    type="submit"
+                                                    :form="`planning-bundle-${bundle.homeland}`"
+                                                    :disabled="processing"
+                                                >
+                                                    {{ processing ? 'Выбор…' : 'Подтвердить' }}
+                                                </Button>
+                                            </DialogFooter>
+                                        </DialogContent>
+                                    </Dialog>
+                                </Form>
+                            </div>
+                        </CardContent>
+                    </CollapsibleContent>
+                </Card>
+            </Collapsible>
+
+            <section v-if="game.data.status === 'active'" class="grid gap-4">
+                <div class="grid items-start gap-4 lg:grid-cols-[minmax(0,7fr)_minmax(16rem,3fr)]">
+                    <div class="grid gap-4">
+                        <BoardMap
+                            :board="game.data.board"
+                            :round-scoring-tiles="game.data.roundScoringTiles"
+                            :final-round-scoring-tile="game.data.finalRoundScoringTile"
+                            :book-actions="game.data.bookActions"
+                        />
+
+                        <PlayerBoards
+                            v-if="playersWithSelectedFactions.length > 0"
+                            :players="playersWithSelectedFactions"
+                            :player-states="game.data.playerBoardStates"
+                            :current-user-id="page.props.auth.user.id"
+                            :round-bonus-descriptions="game.data.roundBonusDescriptions"
+                            :competency-descriptions="game.data.competencyDescriptions"
+                        />
+                    </div>
+
+                    <aside class="grid gap-4">
+                        <CultBoard :players="orderedPlayers" :player-states="game.data.playerBoardStates" />
+                        <RoundBonusBoard
+                            :offers="game.data.roundBonusOffers"
+                            :descriptions="game.data.roundBonusDescriptions"
+                        />
+                        <InnovationBoard
+                            :player-count="game.data.playersCount"
+                            :innovations="game.data.innovations"
+                            :competencies="game.data.competencies"
+                            :innovation-descriptions="game.data.innovationDescriptions"
+                            :competency-descriptions="game.data.competencyDescriptions"
+                        />
+                        <PalaceBoard :palaces="game.data.availablePalaceIds" />
+                        <TownTileBoard :town-tiles="game.data.availableTownTileIds" />
+                    </aside>
                 </div>
-            </CardContent>
-            </CollapsibleContent>
-            </Card>
-        </Collapsible>
-
-        <section v-if="game.data.status === 'active'" class="grid gap-4">
-            <div class="grid items-start gap-4 lg:grid-cols-[minmax(0,7fr)_minmax(16rem,3fr)]">
-                <div class="grid gap-4">
-                    <BoardMap
-                        :board="game.data.board"
-                        :round-scoring-tiles="game.data.roundScoringTiles"
-                        :final-round-scoring-tile="game.data.finalRoundScoringTile"
-                        :book-actions="game.data.bookActions"
-                    />
-
-                    <PlayerBoards
-                        v-if="playersWithSelectedFactions.length > 0"
-                        :players="playersWithSelectedFactions"
-                        :player-states="game.data.playerBoardStates"
-                        :current-user-id="page.props.auth.user.id"
-                        :round-bonus-descriptions="game.data.roundBonusDescriptions"
-                        :competency-descriptions="game.data.competencyDescriptions"
-                    />
-                </div>
-
-                <aside class="grid gap-4">
-                    <CultBoard :players="orderedPlayers" :player-states="game.data.playerBoardStates" />
-                    <RoundBonusBoard
-                        :offers="game.data.roundBonusOffers"
-                        :descriptions="game.data.roundBonusDescriptions"
-                    />
-                    <InnovationBoard
-                        :player-count="game.data.playersCount"
-                        :innovations="game.data.innovations"
-                        :competencies="game.data.competencies"
-                        :innovation-descriptions="game.data.innovationDescriptions"
-                        :competency-descriptions="game.data.competencyDescriptions"
-                    />
-                    <PalaceBoard :palaces="game.data.availablePalaceIds" />
-                    <TownTileBoard :town-tiles="game.data.availableTownTileIds" />
-                </aside>
-            </div>
-        </section>
+            </section>
+        </div>
 
         <PlayerStatsPanel
             v-if="game.data.status === 'active' && setupChoicesCompleted"

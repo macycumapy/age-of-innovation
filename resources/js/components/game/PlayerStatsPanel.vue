@@ -132,27 +132,33 @@ function levelCounters(state: GamePlayerBoardState): StatCounter[] {
 
 <template>
     <aside
-        class="fixed inset-y-0 right-0 z-50 w-[min(20rem,calc(100vw-3rem))] border-l bg-background shadow-2xl transition-transform duration-300"
-        :class="isOpen ? 'translate-x-0' : 'translate-x-full'"
+        class="sticky top-0 z-40 h-svh shrink-0 transition-[width] duration-300"
+        :class="isOpen ? 'w-[min(20rem,calc(100vw-3rem))]' : 'w-0'"
         aria-label="Баланс и статистика игроков"
     >
-        <button
-            type="button"
-            class="absolute top-1/2 left-0 grid size-11 -translate-x-full -translate-y-1/2 place-items-center rounded-l-xl border border-r-0 bg-background shadow-lg"
-            :aria-label="isOpen ? 'Скрыть статистику' : 'Показать статистику'"
-            :aria-expanded="isOpen"
-            @click="isOpen = !isOpen"
+        <div
+            class="absolute inset-y-0 right-0 w-[min(20rem,calc(100vw-3rem))] p-2 text-sidebar-foreground transition-transform duration-300"
+            :class="isOpen ? 'translate-x-0' : 'translate-x-full'"
         >
-            <ChevronRight v-if="isOpen" class="size-5" />
-            <ChevronLeft v-else class="size-5" />
-        </button>
+            <button
+                type="button"
+                class="absolute top-4 left-2 grid size-9 -translate-x-full place-items-center rounded-l-lg border border-r-0 border-sidebar-border bg-sidebar text-sidebar-foreground shadow-sm transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:outline-none"
+                :aria-label="isOpen ? 'Скрыть статистику' : 'Показать статистику'"
+                :aria-expanded="isOpen"
+                @click="isOpen = !isOpen"
+            >
+                <ChevronRight v-if="isOpen" class="size-5" />
+                <ChevronLeft v-else class="size-5" />
+            </button>
 
-        <div class="grid h-full grid-rows-[auto_1fr]">
-            <div class="grid content-start gap-4 overflow-y-auto p-4">
+            <div
+                class="grid h-full grid-rows-[auto_1fr] overflow-hidden rounded-lg border border-sidebar-border bg-sidebar shadow-sm"
+            >
+                <div class="grid content-start gap-4 overflow-y-auto p-4">
                 <article
                     v-for="entry in playersWithStats"
                     :key="entry.player.id"
-                    class="grid gap-3 rounded-xl border bg-muted/50 p-3 shadow-sm"
+                    class="grid gap-3 rounded-lg border border-sidebar-border bg-sidebar-accent/50 p-3"
                 >
                     <h3 class="flex items-center gap-2 font-semibold">
                         <span>{{ entry.player.user.name }}</span>
@@ -259,6 +265,7 @@ function levelCounters(state: GamePlayerBoardState): StatCounter[] {
                         </div>
                     </template>
                 </article>
+                </div>
             </div>
         </div>
     </aside>
