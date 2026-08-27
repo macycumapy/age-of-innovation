@@ -43,6 +43,8 @@ class GameResource extends JsonResource
             'turnOrder' => $this->state->turnOrder,
             'board' => [
                 'variant' => $this->state->board->variant->value,
+                'riverBankHexIds' => $this->state->board->riverBankHexIds,
+                'edgeHexIds' => $this->state->board->edgeHexIds,
                 'hexes' => array_map(
                     static fn (BoardHexStateData $hex): array => [
                         'id' => $hex->id,

@@ -279,5 +279,7 @@ export type BoardHexState = {
 
 export type BoardState = {
     variant: MapVariant;
+    riverBankHexIds: string[];
+    edgeHexIds: string[];
     hexes: BoardHexState[];
 };
