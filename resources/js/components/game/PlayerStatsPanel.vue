@@ -148,10 +148,6 @@ function levelCounters(state: GamePlayerBoardState): StatCounter[] {
         </button>
 
         <div class="grid h-full grid-rows-[auto_1fr]">
-            <header class="border-b p-4">
-                <h2 class="text-lg font-semibold">Баланс и статистика</h2>
-            </header>
-
             <div class="grid content-start gap-4 overflow-y-auto p-4">
                 <article
                     v-for="entry in playersWithStats"
