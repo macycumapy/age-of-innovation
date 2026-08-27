@@ -862,6 +862,30 @@ function updateStartingKnowledgeCount(discipline: KnowledgeDiscipline, event: Ev
                 </Card>
             </Collapsible>
 
+            <div
+                v-if="game.data.status === 'active'"
+                class="sticky top-0 z-30 -mx-4 flex items-center justify-center gap-4 border-y border-border/80 bg-background/95 px-4 py-3 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-background/80"
+                role="status"
+                aria-live="polite"
+            >
+                 <span
+                     v-if="activePlayer?.user.id === page.props.auth.user.id"
+                     class="shrink-0 rounded-full bg-primary px-2.5 py-1 text-xs font-semibold text-primary-foreground"
+                 >
+                    Ваш ход
+                </span>
+
+                <div v-else class="flex min-w-0 items-center gap-3">
+                    <span class="size-2.5 shrink-0 rounded-full bg-primary shadow-sm" aria-hidden="true" />
+                    <p class="truncate text-sm">
+                        <span class="text-muted-foreground mr-2">Сейчас ходит:</span>
+                        <span class="font-semibold">
+                            {{ activePlayer?.user.name ?? 'ход игрока определяется' }}
+                        </span>
+                    </p>
+                </div>
+            </div>
+
             <section v-if="game.data.status === 'active'" class="grid gap-4">
                 <div class="grid items-start gap-4 lg:grid-cols-[minmax(0,7fr)_minmax(16rem,3fr)]">
                     <div class="grid gap-4">
