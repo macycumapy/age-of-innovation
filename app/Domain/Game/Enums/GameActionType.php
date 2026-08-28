@@ -6,6 +6,12 @@ namespace App\Domain\Game\Enums;
 
 enum GameActionType: string
 {
+    case StartGame = 'start_game';
+    case ChoosePlanningBundle = 'choose_planning_bundle';
+    case ChooseStartingResources = 'choose_starting_resources';
+    case PlaceStartingBuilding = 'place_starting_building';
+    case UndoStartingBuilding = 'undo_starting_building';
+    case FinishStartingBuildingTurn = 'finish_starting_building_turn';
     case TerraformAndBuild = 'terraform_and_build';
     case UpgradeBuilding = 'upgrade_building';
     case AdvanceShipping = 'advance_shipping';

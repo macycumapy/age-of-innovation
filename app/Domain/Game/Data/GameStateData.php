@@ -21,6 +21,8 @@ use Spatie\LaravelData\Data;
  * @property GameSetupPoolData|null $setupPool Пул компонентов, сформированный при старте партии.
  * @property list<PlayerPlanningSelectionData> $planningSelections Выбранные игроками стартовые комплекты.
  * @property PendingInteractionData|null $pendingInteraction Незавершённое решение игрока, блокирующее продолжение партии.
+ * @property int $startingBuildingTurnIndex Индекс текущего хода стартового выставления.
+ * @property string|null $pendingStartingBuildingHexId Гекс дома, который ещё можно отменить.
  */
 class GameStateData extends Data
 {
@@ -50,6 +52,8 @@ class GameStateData extends Data
         public ?GameSetupPoolData $setupPool = null,
         public array $planningSelections = [],
         public ?PendingInteractionData $pendingInteraction = null,
+        public int $startingBuildingTurnIndex = 0,
+        public ?string $pendingStartingBuildingHexId = null,
     ) {
     }
 }

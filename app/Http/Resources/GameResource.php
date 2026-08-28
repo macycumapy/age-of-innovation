@@ -10,6 +10,7 @@ use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Data\PlanningBundleData;
 use App\Domain\Game\Data\PlayerPlanningSelectionData;
 use App\Domain\Game\Data\RoundBonusOfferData;
+use App\Domain\Game\Enums\BuildingType;
 use App\Domain\Game\Enums\Competency;
 use App\Domain\Game\Enums\Faction;
 use App\Domain\Game\Enums\GameStatus;
@@ -17,6 +18,7 @@ use App\Domain\Game\Enums\Innovation;
 use App\Domain\Game\Enums\RoundBonus;
 use App\Domain\Game\Enums\TerrainType;
 use App\Models\Game;
+use App\Models\GameAction;
 use App\Models\GamePlayer;
 use BackedEnum;
 use Illuminate\Http\Request;
@@ -52,6 +54,12 @@ class GameResource extends JsonResource
                         'r' => $hex->r,
                         'initialTerrain' => $hex->initialTerrain->value,
                         'terrain' => $hex->terrain->value,
+                        'building' => $hex->building === null ? null : [
+                            'type' => $hex->building->type->value,
+                            'ownerPlayerId' => $hex->building->ownerPlayerId,
+                            'isNeutral' => $hex->building->isNeutral,
+                            'hasAnnex' => $hex->building->hasAnnex,
+                        ],
                     ],
                     $this->state->board->hexes,
                 ),
@@ -96,6 +104,13 @@ class GameResource extends JsonResource
                         static fn (BoardHexStateData $hex): bool => $hex->building?->ownerPlayerId === $player->playerId
                             && $hex->building->hasAnnex,
                     )),
+                    'buildingsOnMap' => [
+                        'workshop' => $this->buildingCount($player->playerId, BuildingType::Workshop),
+                        'guild' => $this->buildingCount($player->playerId, BuildingType::Guild),
+                        'school' => $this->buildingCount($player->playerId, BuildingType::School),
+                        'university' => $this->buildingCount($player->playerId, BuildingType::University),
+                        'palace' => $this->buildingCount($player->playerId, BuildingType::Palace),
+                    ],
                     'income' => [
                         'tools' => 0,
                         'coins' => 0,
@@ -194,6 +209,15 @@ class GameResource extends JsonResource
                 'optionIds' => $this->state->pendingInteraction->optionIds,
                 'context' => $this->state->pendingInteraction->context,
             ],
+            'startingBuildingTurnIndex' => $this->state->startingBuildingTurnIndex,
+            'pendingStartingBuildingHexId' => $this->state->pendingStartingBuildingHexId,
+            'phase' => $this->phase->value,
+            'history' => $this->whenLoaded('actions', fn (): array => [
+                'data' => GameHistoryEntryResource::collection(
+                    $this->actions->take(GameAction::HISTORY_PAGE_SIZE),
+                )->resolve($request),
+                'hasMore' => $this->actions->count() > GameAction::HISTORY_PAGE_SIZE,
+            ]),
             'createdAt' => $this->created_at?->toISOString(),
         ];
     }
@@ -215,6 +239,16 @@ class GameResource extends JsonResource
     private function enumValue(BackedEnum|string|null $value): ?string
     {
         return $value instanceof BackedEnum ? (string) $value->value : $value;
+    }
+
+    private function buildingCount(int $playerId, BuildingType $type): int
+    {
+        return count(array_filter(
+            $this->state->board->hexes,
+            static fn (BoardHexStateData $hex): bool => $hex->building?->ownerPlayerId === $playerId
+                && $hex->building->type === $type
+                && ! $hex->building->isNeutral,
+        ));
     }
 
     /**

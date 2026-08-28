@@ -1,6 +1,14 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import type { BoardState, BookAction, FinalRoundScoringTile, MapVariant, RoundScoringTile, TerrainType } from '@/types';
+import { terrainColors, terrainNames } from '@/lib/gameDisplay';
+import type {
+    BoardState,
+    BookAction,
+    FinalRoundScoringTile,
+    GamePlayerSummary,
+    MapVariant,
+    RoundScoringTile,
+} from '@/types';
 import gameBoardUrl from '../../../images/game_board.webp';
 import gameBoardTwoPlayerUrl from '../../../images/game_board_2p.webp';
 
@@ -9,6 +17,9 @@ type Props = {
     roundScoringTiles?: RoundScoringTile[];
     finalRoundScoringTile?: FinalRoundScoringTile | null;
     bookActions?: BookAction[];
+    players?: GamePlayerSummary[];
+    selectableHexIds?: string[];
+    pendingHexId?: string | null;
 };
 
 type BoardLayout = {
@@ -32,7 +43,12 @@ const props = withDefaults(defineProps<Props>(), {
     roundScoringTiles: () => [],
     finalRoundScoringTile: null,
     bookActions: () => [],
+    players: () => [],
+    selectableHexIds: () => [],
+    pendingHexId: null,
 });
+
+const emit = defineEmits<{ hexClick: [hexId: string] }>();
 
 const boardWidth = 2004;
 const boardHeight = 1285;
@@ -90,33 +106,27 @@ const bookActionImages = import.meta.glob<string>('../../../images/book_actions/
     import: 'default',
     query: '?url',
 });
+const buildingImages = import.meta.glob<string>(
+    '../../../images/buildings/*/{workshop,guild,school,university,palace,tower,monument}.png',
+    {
+        eager: true,
+        import: 'default',
+        query: '?url',
+    },
+);
 
 const boardImageUrl = computed(() =>
     props.board.variant === 'one_to_three_players' ? gameBoardTwoPlayerUrl : gameBoardUrl,
 );
 const boardLayout = computed(() => boardLayouts[props.board.variant]);
 
-const terrainColors: Record<TerrainType, string> = {
-    desert: '#e9c65c',
-    plains: '#9c6339',
-    swamp: '#334c62',
-    lake: '#39a6bd',
-    forest: '#477c48',
-    mountain: '#87909a',
-    wasteland: '#b8513e',
-    water: '#2499b5',
-};
+const playerColors = computed(() => new Map(props.players.map((player) => [player.id, player.color])));
 
-const terrainNames: Record<TerrainType, string> = {
-    desert: 'Пустыня',
-    plains: 'Равнина',
-    swamp: 'Болото',
-    lake: 'Озеро',
-    forest: 'Лес',
-    mountain: 'Горы',
-    wasteland: 'Пустошь',
-    water: 'Вода',
-};
+function buildingImage(ownerPlayerId: number, type: string, isNeutral: boolean): string {
+    const color = isNeutral ? 'white' : (playerColors.value.get(ownerPlayerId) ?? 'white');
+
+    return buildingImages[`../../../images/buildings/${color}/${type}.png`] ?? '';
+}
 
 const roundScoringTileNames: Record<RoundScoringTile, string> = {
     workshop_law: 'Мастерская и право',
@@ -270,13 +280,19 @@ function roundScoringTileY(index: number): number {
                 v-for="hex in visibleHexes"
                 :key="hex.id"
                 :transform="`translate(${hex.x} ${hex.y})`"
-                class="board-hex-group cursor-pointer"
+                class="board-hex-group"
+                :class="selectableHexIds.includes(hex.id) ? 'cursor-pointer' : ''"
+                @click="selectableHexIds.includes(hex.id) && emit('hexClick', hex.id)"
             >
                 <title>{{ terrainNames[hex.terrain] }} ({{ hex.q }}, {{ hex.r }})</title>
                 <path
                     :d="roundedHexPath"
                     :fill="terrainColors[hex.terrain]"
                     class="board-hex"
+                    :class="{
+                        'board-hex-selectable': selectableHexIds.includes(hex.id),
+                        'board-hex-pending': pendingHexId === hex.id,
+                    }"
                     stroke-opacity="0.8"
                     stroke-width="2"
                     stroke-linejoin="round"
@@ -293,6 +309,16 @@ function roundScoringTileY(index: number): number {
                 >
                     {{ hex.q }}:{{ hex.r }}
                 </text>
+                <image
+                    v-if="hex.building"
+                    :href="buildingImage(hex.building.ownerPlayerId, hex.building.type, hex.building.isNeutral)"
+                    x="-38"
+                    y="-46"
+                    width="76"
+                    height="85"
+                    class="building-image pointer-events-none"
+                    preserveAspectRatio="xMidYMid meet"
+                />
             </g>
         </svg>
     </div>
@@ -306,6 +332,22 @@ function roundScoringTileY(index: number): number {
 
 .board-hex-group:hover .board-hex {
     fill-opacity: 0.42;
+}
+
+.board-hex-selectable {
+    fill-opacity: 0.28;
+    stroke: rgb(255 255 255 / 0.95);
+    stroke-width: 5;
+}
+
+.board-hex-pending {
+    fill-opacity: 0.5;
+    stroke: #facc15;
+    stroke-width: 8;
+}
+
+.building-image {
+    filter: drop-shadow(0 4px 3px rgb(0 0 0 / 0.5));
 }
 
 .book-action-hitbox {

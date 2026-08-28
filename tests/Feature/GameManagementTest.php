@@ -7,18 +7,22 @@ namespace Tests\Feature;
 use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Data\GameStateData;
 use App\Domain\Game\Data\PlanningBundleData;
+use App\Domain\Game\Data\PlayerPlanningSelectionData;
 use App\Domain\Game\Enums\Competency;
 use App\Domain\Game\Enums\Faction;
+use App\Domain\Game\Enums\GameActionType;
 use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\GameStatus;
 use App\Domain\Game\Enums\Innovation;
 use App\Domain\Game\Enums\MapVariant;
 use App\Domain\Game\Enums\PendingInteractionType;
+use App\Domain\Game\Enums\PlayerColor;
 use App\Domain\Game\Enums\RoundBonus;
 use App\Domain\Game\Enums\TerrainType;
 use App\Domain\Game\Factories\BoardStateFactory;
 use App\Models\Builders\GameBuilder;
 use App\Models\Game;
+use App\Models\GameAction;
 use App\Models\GamePlayer;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -33,6 +37,39 @@ class GameManagementTest extends TestCase
     public function test_game_uses_custom_builder(): void
     {
         $this->assertInstanceOf(GameBuilder::class, Game::query());
+    }
+
+    public function test_game_history_is_loaded_in_batches_of_twenty_five(): void
+    {
+        $user = User::factory()->create();
+        $game = Game::factory()->create();
+
+        foreach (range(1, 30) as $sequence) {
+            GameAction::factory()->create([
+                'game_id' => $game->id,
+                'player_id' => $user->id,
+                'sequence' => $sequence,
+                'state_version_before' => $sequence - 1,
+                'state_version_after' => $sequence,
+            ]);
+        }
+
+        $this->actingAs($user)
+            ->get(route('games.show', $game))
+            ->assertInertia(
+                fn (Assert $page) => $page
+                    ->has('game.data.history.data', 25)
+                    ->where('game.data.history.hasMore', true)
+                    ->where('game.data.history.data.0.sequence', 30)
+                    ->where('game.data.history.data.24.sequence', 6),
+            );
+
+        $this->getJson(route('games.history', ['game' => $game, 'before_sequence' => 6]))
+            ->assertOk()
+            ->assertJsonCount(5, 'data')
+            ->assertJsonPath('data.0.sequence', 5)
+            ->assertJsonPath('data.4.sequence', 1)
+            ->assertJsonPath('hasMore', false);
     }
 
     public function test_guest_cannot_view_or_create_games(): void
@@ -254,12 +291,26 @@ class GameManagementTest extends TestCase
         );
         $this->assertContains($game->active_player_id, [$owner->id, $secondUser->id]);
 
+        $startAction = $game->actions()->sole();
+        $this->assertSame(GameActionType::StartGame, $startAction->type);
+        $this->assertSame(1, $startAction->sequence);
+        $this->assertSame(0, $startAction->state_version_before);
+        $this->assertSame(1, $startAction->state_version_after);
+        $this->assertSame('game_started', $startAction->events[0]['type']);
+        $this->assertSame($game->random_seed, $startAction->events[0]['random_seed']);
+
         $this->actingAs($owner)
             ->get(route('games.show', $game))
             ->assertInertia(
                 fn (Assert $page) => $page
                     ->where('game.data.turnOrder', $game->state->turnOrder)
                     ->where('game.data.activePlayerId', $game->active_player_id)
+                    ->has('game.data.history.data', 1)
+                    ->where('game.data.history.hasMore', false)
+                    ->where('game.data.history.data.0.sequence', 1)
+                    ->where('game.data.history.data.0.type', GameActionType::StartGame->value)
+                    ->where('game.data.history.data.0.player.id', $owner->id)
+                    ->where('game.data.history.data.0.player.name', $owner->name)
                     ->where(
                         'game.data.availablePalaceIds',
                         $game->state->availablePalaceIds,
@@ -847,5 +898,137 @@ class GameManagementTest extends TestCase
             0,
             2,
         ];
+    }
+
+    public function test_active_player_can_place_cancel_and_confirm_a_starting_building(): void
+    {
+        $users = User::factory()->count(2)->create();
+        $game = Game::factory()->create([
+            'status' => GameStatus::Active,
+            'phase' => GamePhase::Setup,
+            'active_player_id' => $users[0]->id,
+        ]);
+        $firstPlayer = GamePlayer::factory()->create([
+            'game_id' => $game->id,
+            'user_id' => $users[0]->id,
+            'seat' => 1,
+            'color' => PlayerColor::Yellow,
+            'faction' => Faction::Blessed,
+            'homeland' => TerrainType::Forest,
+        ]);
+        $secondPlayer = GamePlayer::factory()->create([
+            'game_id' => $game->id,
+            'user_id' => $users[1]->id,
+            'seat' => 2,
+            'color' => PlayerColor::Red,
+            'faction' => Faction::Felines,
+            'homeland' => TerrainType::Mountain,
+        ]);
+        $firstBundle = new PlanningBundleData(TerrainType::Forest, Faction::Blessed, RoundBonus::Coins);
+        $secondBundle = new PlanningBundleData(TerrainType::Mountain, Faction::Felines, RoundBonus::PowerCoins);
+        $board = (new BoardStateFactory())->create(MapVariant::OneToThreePlayers);
+        $forestHex = collect($board->hexes)->firstWhere('terrain', TerrainType::Forest);
+        $mountainHex = collect($board->hexes)->firstWhere('terrain', TerrainType::Mountain);
+
+        $this->assertNotNull($forestHex);
+        $this->assertNotNull($mountainHex);
+
+        $game->update([
+            'state' => new GameStateData(
+                schemaVersion: 3,
+                turnOrder: [$firstPlayer->id, $secondPlayer->id],
+                board: $board,
+                players: [
+                    new GamePlayerStateData(
+                        $firstPlayer->id,
+                        $users[0]->id,
+                        PlayerColor::Yellow,
+                        Faction::Blessed,
+                        TerrainType::Forest,
+                        RoundBonus::Coins,
+                    ),
+                    new GamePlayerStateData(
+                        $secondPlayer->id,
+                        $users[1]->id,
+                        PlayerColor::Red,
+                        Faction::Felines,
+                        TerrainType::Mountain,
+                        RoundBonus::PowerCoins,
+                    ),
+                ],
+                planningSelections: [
+                    new PlayerPlanningSelectionData($firstPlayer->id, $firstBundle),
+                    new PlayerPlanningSelectionData($secondPlayer->id, $secondBundle),
+                ],
+            ),
+        ]);
+
+        $this->actingAs($users[1])
+            ->post(route('games.starting-building.store', $game), ['hex_id' => $forestHex->id])
+            ->assertForbidden();
+
+        $this->actingAs($users[0])
+            ->post(route('games.starting-building.finish', $game))
+            ->assertSessionHasErrors('game');
+
+        $this->post(route('games.starting-building.store', $game), ['hex_id' => $mountainHex->id])
+            ->assertSessionHasErrors('hex_id');
+
+        $this
+            ->post(route('games.starting-building.store', $game), ['hex_id' => $forestHex->id])
+            ->assertRedirect(route('games.show', $game));
+
+        $game->refresh();
+        $this->assertSame($forestHex->id, $game->state->pendingStartingBuildingHexId);
+        $this->assertSame($firstPlayer->id, collect($game->state->board->hexes)->firstWhere('id', $forestHex->id)?->building?->ownerPlayerId);
+        $this->get(route('games.show', $game))
+            ->assertInertia(
+                fn (Assert $page) => $page
+                    ->where('game.data.playerBoardStates.0.buildingsOnMap.workshop', 1),
+            );
+
+        $this->delete(route('games.starting-building.destroy', $game))
+            ->assertRedirect(route('games.show', $game));
+
+        $game->refresh();
+        $this->assertNull($game->state->pendingStartingBuildingHexId);
+        $this->assertNull(collect($game->state->board->hexes)->firstWhere('id', $forestHex->id)?->building);
+        $this->get(route('games.show', $game))
+            ->assertInertia(
+                fn (Assert $page) => $page
+                    ->where('game.data.playerBoardStates.0.buildingsOnMap.workshop', 0),
+            );
+
+        $this->post(route('games.starting-building.store', $game), ['hex_id' => $forestHex->id]);
+        $this->post(route('games.starting-building.finish', $game))
+            ->assertRedirect(route('games.show', $game));
+
+        $game->refresh();
+        $this->assertSame(1, $game->state->startingBuildingTurnIndex);
+        $this->assertNull($game->state->pendingStartingBuildingHexId);
+        $this->assertSame($users[1]->id, $game->active_player_id);
+
+        $actions = $game->actions()->orderBy('sequence')->get();
+
+        $this->assertCount(4, $actions);
+        $this->assertSame(
+            [
+                GameActionType::PlaceStartingBuilding,
+                GameActionType::UndoStartingBuilding,
+                GameActionType::PlaceStartingBuilding,
+                GameActionType::FinishStartingBuildingTurn,
+            ],
+            $actions->pluck('type')->all(),
+        );
+        $this->assertSame([1, 2, 3, 4], $actions->pluck('sequence')->all());
+        $this->assertSame($forestHex->id, $actions[0]->payload['hex_id']);
+        $this->assertSame('starting_building_placed', $actions[0]->events[0]['type']);
+        $this->assertSame('starting_building_removed', $actions[1]->events[0]['type']);
+        $this->assertSame('starting_building_turn_finished', $actions[3]->events[0]['type']);
+
+        foreach ($actions as $index => $action) {
+            $this->assertSame($index, $action->state_version_before);
+            $this->assertSame($index + 1, $action->state_version_after);
+        }
     }
 }

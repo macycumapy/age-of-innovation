@@ -41,6 +41,7 @@ class GameAction extends Model
 {
     /** @use HasFactory<GameActionFactory> */
     use HasFactory;
+    public const int HISTORY_PAGE_SIZE = 25;
 
     /** @return BelongsTo<Game, $this> */
     public function game(): BelongsTo

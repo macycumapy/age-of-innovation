@@ -10,6 +10,7 @@ import type {
     RoundBonus,
 } from '@/types';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { factionNames } from '@/lib/gameDisplay';
 import bankingBookUrl from '../../../images/token_parts/coin_book.png';
 import coinUrl from '../../../images/token_parts/gold_medallion.png';
 import engineeringBookUrl from '../../../images/token_parts/engineering_book.png';
@@ -124,21 +125,6 @@ const bookImages: Record<BookType, string> = {
     unassigned: unassignedBookUrl,
 };
 
-const factionNames: Record<Faction, string> = {
-    blessed: 'Благословенные',
-    felines: 'Кошачьи',
-    goblins: 'Гоблины',
-    illusionists: 'Иллюзионисты',
-    inventors: 'Изобретатели',
-    lizards: 'Ящеры',
-    moles: 'Кроты',
-    monks: 'Монахи',
-    navigators: 'Навигаторы',
-    omar: 'Омар',
-    philosophers: 'Философы',
-    psychics: 'Провидцы',
-};
-
 const buildingSlots: BuildingSlot[] = [
     { type: 'palace', x: 168, y: 335 },
     { type: 'university', x: 465, y: 320 },
@@ -194,6 +180,16 @@ function buildingStyle(slot: BuildingSlot): CSSProperties {
         top: `${(slot.y / boardHeight) * 100}%`,
         width: `${(buildingWidth / boardWidth) * 100}%`,
     };
+}
+
+function isBuildingInSupply(playerId: number, slot: BuildingSlot, slotIndex: number): boolean {
+    const typeSlotIndex = buildingSlots
+        .slice(0, slotIndex + 1)
+        .filter((candidate) => candidate.type === slot.type)
+        .length - 1;
+    const buildingsOnMap = playerState(playerId)?.buildingsOnMap[slot.type] ?? 0;
+
+    return typeSlotIndex >= buildingsOnMap;
 }
 
 function factionImage(faction: Faction): string {
@@ -378,6 +374,7 @@ function powerInBowl(
 
                     <span
                         v-for="(slot, slotIndex) in buildingSlots"
+                        v-show="isBuildingInSupply(player.id, slot, slotIndex)"
                         :key="`${slot.type}-${slotIndex}`"
                         :style="buildingStyle(slot)"
                         class="group absolute z-0 aspect-[141/158] cursor-pointer hover:z-10"

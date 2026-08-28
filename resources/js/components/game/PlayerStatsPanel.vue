@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { ChevronLeft, ChevronRight } from '@lucide/vue';
 import { computed, ref } from 'vue';
-import type { GamePlayerBoardState, GamePlayerSummary } from '@/types';
+import type { GameHistoryPage, GamePlayerBoardState, GamePlayerSummary } from '@/types';
+import GameHistory from '@/components/game/GameHistory.vue';
 import annexUrl from '../../../images/buildings/white/annex.png';
 import bankingBookUrl from '../../../images/token_parts/coin_book.png';
 import toolUrl from '../../../images/token_parts/cube.png';
@@ -29,6 +30,8 @@ type StatCounter = {
 const props = defineProps<{
     players: GamePlayerSummary[];
     playerStates: GamePlayerBoardState[];
+    gameId: number;
+    history: GameHistoryPage;
 }>();
 
 const isOpen = ref(false);
@@ -155,11 +158,11 @@ function levelCounters(state: GamePlayerBoardState): StatCounter[] {
                 class="grid h-full grid-rows-[auto_1fr] overflow-hidden rounded-lg border border-sidebar-border bg-sidebar shadow-sm"
             >
                 <div class="grid content-start gap-4 overflow-y-auto p-4">
-                <article
-                    v-for="entry in playersWithStats"
-                    :key="entry.player.id"
-                    class="grid gap-3 rounded-lg border border-sidebar-border bg-sidebar-accent/50 p-3"
-                >
+                    <article
+                        v-for="entry in playersWithStats"
+                        :key="entry.player.id"
+                        class="grid gap-3 rounded-lg border border-sidebar-border bg-sidebar-accent/50 p-3"
+                    >
                     <h3 class="flex items-center gap-2 font-semibold">
                         <span>{{ entry.player.user.name }}</span>
                         <span
@@ -264,7 +267,8 @@ function levelCounters(state: GamePlayerBoardState): StatCounter[] {
                             </div>
                         </div>
                     </template>
-                </article>
+                    </article>
+                    <GameHistory :game-id="gameId" :history="history" :players="players" />
                 </div>
             </div>
         </div>

@@ -40,7 +40,54 @@ export type GameResource = {
         availableTownTileIds: TownTile[];
         roundBonusOffers: RoundBonusOffer[];
         pendingInteraction: PendingInteraction | null;
+        startingBuildingTurnIndex: number;
+        pendingStartingBuildingHexId: string | null;
+        phase: 'setup' | 'income' | 'actions' | 'science_bonus' | 'finished';
+        history: GameHistoryPage;
     };
+};
+
+export type GameActionType =
+    | 'start_game'
+    | 'choose_planning_bundle'
+    | 'choose_starting_resources'
+    | 'place_starting_building'
+    | 'undo_starting_building'
+    | 'finish_starting_building_turn'
+    | 'terraform_and_build'
+    | 'upgrade_building'
+    | 'advance_shipping'
+    | 'advance_terraforming'
+    | 'make_innovation'
+    | 'send_scholar'
+    | 'power_action'
+    | 'book_action'
+    | 'special_action'
+    | 'exchange_resources'
+    | 'pass'
+    | 'accept_power'
+    | 'decline_power'
+    | 'choose_town'
+    | 'choose_palace'
+    | 'choose_competency';
+
+export type GameHistoryEntry = {
+    id: number;
+    sequence: number;
+    type: GameActionType;
+    payload: Record<string, unknown>;
+    stateVersionBefore: number;
+    stateVersionAfter: number;
+    player: {
+        id: number;
+        name: string;
+    } | null;
+    createdAt: string | null;
+};
+
+export type GameHistoryPage = {
+    data: GameHistoryEntry[];
+    hasMore: boolean;
 };
 
 export type GamePlayerBoardState = {
@@ -61,6 +108,7 @@ export type GamePlayerBoardState = {
     competencyIds: Competency[];
     activeTownKeys: number;
     activeAnnexes: number;
+    buildingsOnMap: Record<'workshop' | 'guild' | 'school' | 'university' | 'palace', number>;
     income: {
         tools: number;
         coins: number;
@@ -276,6 +324,14 @@ export type BoardHexState = {
     r: number;
     initialTerrain: TerrainType;
     terrain: TerrainType;
+    building: BuildingState | null;
+};
+
+export type BuildingState = {
+    type: 'workshop' | 'guild' | 'school' | 'university' | 'palace' | 'tower' | 'monument';
+    ownerPlayerId: number;
+    isNeutral: boolean;
+    hasAnnex: boolean;
 };
 
 export type BoardState = {

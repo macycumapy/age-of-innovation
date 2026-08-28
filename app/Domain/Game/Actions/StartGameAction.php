@@ -8,6 +8,7 @@ use App\Domain\Game\Data\GameStateData;
 use App\Domain\Game\Data\PlanningBundleData;
 use App\Domain\Game\Data\RoundBonusOfferData;
 use App\Domain\Game\Data\RoundStateData;
+use App\Domain\Game\Enums\GameActionType;
 use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\GameStatus;
 use App\Domain\Game\Factories\GameSetupPoolFactory;
@@ -21,14 +22,17 @@ use Illuminate\Validation\ValidationException;
 
 final class StartGameAction
 {
-    public function __construct(private GameSetupPoolFactory $setupPoolFactory)
-    {
+    public function __construct(
+        private GameSetupPoolFactory $setupPoolFactory,
+        private AppendGameHistoryAction $appendGameHistory,
+    ) {
     }
 
     public function execute(Game $game, User $user): Game
     {
         return DB::transaction(function () use ($game, $user): Game {
             $lockedGame = Game::query()->lockForUpdate()->findOrFail($game->id);
+            $stateVersionBefore = $lockedGame->version;
 
             if ($lockedGame->status !== GameStatus::Lobby) {
                 throw ValidationException::withMessages([
@@ -75,7 +79,7 @@ final class StartGameAction
                 'active_player_id' => $activePlayer->user_id,
                 'version' => $lockedGame->version + 1,
                 'state' => new GameStateData(
-                    schemaVersion: 2,
+                    schemaVersion: 3,
                     turnOrder: $orderedPlayers->pluck('id')->all(),
                     board: $lockedGame->state->board,
                     round: new RoundStateData(
@@ -102,6 +106,22 @@ final class StartGameAction
                 ),
                 'started_at' => now(),
             ]);
+            $this->appendGameHistory->execute(
+                $lockedGame,
+                $user,
+                GameActionType::StartGame,
+                [],
+                [[
+                    'type' => 'game_started',
+                    'turn_order' => $orderedPlayers->pluck('id')->all(),
+                    'active_game_player_id' => $activePlayer->id,
+                    'map_variant' => $lockedGame->state->board->variant->value,
+                    'random_seed' => $lockedGame->random_seed,
+                    'rules_version' => $lockedGame->rules_version,
+                ]],
+                $stateVersionBefore,
+                $lockedGame->version,
+            );
 
             return $lockedGame->refresh();
         });

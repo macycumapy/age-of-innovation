@@ -8,6 +8,7 @@ use App\Domain\Game\Actions\CreateGameAction;
 use App\Http\Requests\StoreGameRequest;
 use App\Http\Resources\GameResource;
 use App\Models\Game;
+use App\Models\GameAction;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
@@ -43,6 +44,14 @@ class GameController extends Controller
         $user = $request->user();
 
         $game->load(['players.user'])->loadCount('players');
+        $game->setRelation(
+            'actions',
+            $game->actions()
+                ->with('player:id,name')
+                ->orderByDesc('sequence')
+                ->limit(GameAction::HISTORY_PAGE_SIZE + 1)
+                ->get(),
+        );
         $game->setAttribute('is_joined', $game->players->contains('user_id', $user->id));
 
         return Inertia::render('games/Show', [

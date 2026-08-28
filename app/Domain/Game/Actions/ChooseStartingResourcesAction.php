@@ -7,6 +7,7 @@ namespace App\Domain\Game\Actions;
 use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Enums\Competency;
 use App\Domain\Game\Enums\Faction;
+use App\Domain\Game\Enums\GameActionType;
 use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\GameStatus;
 use App\Domain\Game\Enums\KnowledgeDiscipline;
@@ -21,6 +22,7 @@ final class ChooseStartingResourcesAction
 {
     public function __construct(
         private DetermineNextPlanningPlayerAction $determineNextPlanningPlayer,
+        private AppendGameHistoryAction $appendGameHistory,
     ) {
     }
 
@@ -37,6 +39,7 @@ final class ChooseStartingResourcesAction
     ): Game {
         return DB::transaction(function () use ($game, $user, $bookDisciplines, $knowledgeDisciplines, $competency): Game {
             $lockedGame = Game::query()->lockForUpdate()->findOrFail($game->id);
+            $stateVersionBefore = $lockedGame->version;
             $interaction = $lockedGame->state->pendingInteraction;
 
             if ($lockedGame->status !== GameStatus::Active
@@ -93,6 +96,28 @@ final class ChooseStartingResourcesAction
                 'version' => $lockedGame->version + 1,
                 'state' => $state,
             ]);
+            $this->appendGameHistory->execute(
+                $lockedGame,
+                $user,
+                GameActionType::ChooseStartingResources,
+                [
+                    'book_disciplines' => array_map(
+                        static fn (KnowledgeDiscipline $discipline): string => $discipline->value,
+                        $bookDisciplines,
+                    ),
+                    'knowledge_disciplines' => array_map(
+                        static fn (KnowledgeDiscipline $discipline): string => $discipline->value,
+                        $knowledgeDisciplines,
+                    ),
+                    'competency' => $competency?->value,
+                ],
+                [[
+                    'type' => 'starting_resources_chosen',
+                    'player_id' => $player->id,
+                ]],
+                $stateVersionBefore,
+                $lockedGame->version,
+            );
 
             return $lockedGame->refresh();
         });

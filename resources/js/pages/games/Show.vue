@@ -1,11 +1,13 @@
 <script setup lang="ts">
-import { Form, Head, Link, usePage, usePoll } from '@inertiajs/vue3';
-import { ChevronDown } from '@lucide/vue';
+import { Form, Head, Link, router, usePage, usePoll } from '@inertiajs/vue3';
+import { Check, ChevronDown, RotateCcw } from '@lucide/vue';
 import { computed, reactive, ref, watch } from 'vue';
 import GamePlayerController from '@/actions/App/Http/Controllers/GamePlayerController';
 import GamePlayerReadinessController from '@/actions/App/Http/Controllers/GamePlayerReadinessController';
 import GameStartController from '@/actions/App/Http/Controllers/GameStartController';
 import PlanningBundleController from '@/actions/App/Http/Controllers/PlanningBundleController';
+import StartingBuildingController from '@/actions/App/Http/Controllers/StartingBuildingController';
+import StartingBuildingTurnController from '@/actions/App/Http/Controllers/StartingBuildingTurnController';
 import StartingResourcesController from '@/actions/App/Http/Controllers/StartingResourcesController';
 import BoardMap from '@/components/game/BoardMap.vue';
 import CultBoard from '@/components/game/CultBoard.vue';
@@ -16,6 +18,7 @@ import PlayerStatsPanel from '@/components/game/PlayerStatsPanel.vue';
 import RoundBonusBoard from '@/components/game/RoundBonusBoard.vue';
 import TownTileBoard from '@/components/game/TownTileBoard.vue';
 import InputError from '@/components/InputError.vue';
+import { factionNames, roundBonusNames, terrainNames } from '@/lib/gameDisplay';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -98,6 +101,36 @@ const setupChoicesCompleted = computed(
     () => allPlanningBundlesChosen.value && props.game.data.pendingInteraction === null,
 );
 
+const isStartingBuildingStage = computed(
+    () => props.game.data.phase === 'setup' && setupChoicesCompleted.value,
+);
+
+const canPlaceStartingBuilding = computed(
+    () => isStartingBuildingStage.value
+        && props.game.data.activePlayerId === page.props.auth.user.id
+        && props.game.data.pendingStartingBuildingHexId === null,
+);
+
+const selectableStartingHexIds = computed(() => {
+    if (!canPlaceStartingBuilding.value || !currentPlayer.value?.homeland) {
+        return [];
+    }
+
+    return props.game.data.board.hexes
+        .filter((hex) => hex.building === null && hex.terrain === currentPlayer.value?.homeland)
+        .map((hex) => hex.id);
+});
+
+function placeStartingBuilding(hexId: string): void {
+    if (!canPlaceStartingBuilding.value) {
+        return;
+    }
+
+    router.post(StartingBuildingController.store.url(props.game.data.id), { hex_id: hexId }, {
+        preserveScroll: true,
+    });
+}
+
 const startingBookCounts = reactive<Record<KnowledgeDiscipline, number>>({
     banking: 0,
     law: 0,
@@ -168,17 +201,6 @@ const mapVariantNames: Record<MapVariant, string> = {
     three_to_five_players: '3–5 игроков',
 };
 
-const terrainNames: Record<TerrainType, string> = {
-    desert: 'Пустыня',
-    plains: 'Равнина',
-    swamp: 'Болото',
-    lake: 'Озеро',
-    forest: 'Лес',
-    mountain: 'Горы',
-    wasteland: 'Пустошь',
-    water: 'Вода',
-};
-
 const terrainBundleClasses: Record<TerrainType, string> = {
     desert: 'border-yellow-500/60 bg-yellow-400/25 dark:bg-yellow-400/20',
     plains: 'border-amber-800/60 bg-amber-800/20 dark:bg-amber-600/20',
@@ -188,34 +210,6 @@ const terrainBundleClasses: Record<TerrainType, string> = {
     mountain: 'border-gray-500/60 bg-gray-500/20 dark:bg-gray-400/15',
     wasteland: 'border-red-500/60 bg-red-500/20 dark:bg-red-500/20',
     water: 'border-cyan-500/60 bg-cyan-500/20 dark:bg-cyan-500/20',
-};
-
-const factionNames: Record<Faction, string> = {
-    blessed: 'Благословенные',
-    felines: 'Кошачьи',
-    goblins: 'Гоблины',
-    illusionists: 'Иллюзионисты',
-    inventors: 'Изобретатели',
-    lizards: 'Ящеры',
-    moles: 'Кроты',
-    monks: 'Монахи',
-    navigators: 'Навигаторы',
-    omar: 'Омар',
-    philosophers: 'Философы',
-    psychics: 'Провидцы',
-};
-
-const roundBonusNames: Record<RoundBonus, string> = {
-    river_workshop: 'Речная мастерская',
-    send_scholar: 'Отправка учёного',
-    build_guild: 'Строительство гильдии',
-    pass_palace_university: 'Дворцы и университеты',
-    spade: 'Бесплатная лопата',
-    bridge: 'Бесплатный мост',
-    knowledge: 'Шаг знания',
-    pass_school: 'Школы при пасе',
-    power_coins: 'Сила и монеты',
-    coins: 'Монеты',
 };
 
 const terrainTileImages = import.meta.glob('../../../images/terrain_tiles/*.webp', {
@@ -865,20 +859,88 @@ function updateStartingKnowledgeCount(discipline: KnowledgeDiscipline, event: Ev
             <div
                 v-if="game.data.status === 'active'"
                 class="sticky top-0 z-30 -mx-4 flex items-center justify-center gap-4 border-y border-border/80 bg-background/95 px-4 py-3 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-background/80"
-                role="status"
-                aria-live="polite"
             >
-                 <span
-                     v-if="activePlayer?.user.id === page.props.auth.user.id"
-                     class="shrink-0 rounded-full bg-primary px-2.5 py-1 text-xs font-semibold text-primary-foreground"
-                 >
+                <span
+                    v-if="activePlayer?.user.id === page.props.auth.user.id"
+                    class="shrink-0 rounded-full bg-primary px-2.5 py-1 text-xs font-semibold text-primary-foreground"
+                >
                     Ваш ход
                 </span>
 
-                <div v-else class="flex min-w-0 items-center gap-3">
+                <p
+                    v-if="isStartingBuildingStage && activePlayer?.user.id === page.props.auth.user.id"
+                    class="truncate text-sm font-medium"
+                    role="status"
+                    aria-live="polite"
+                >
+                    {{
+                        game.data.pendingStartingBuildingHexId
+                            ? 'Дом установлен — отмените действие или завершите ход.'
+                            : 'Установите стартовый дом на свободной ячейке родной местности.'
+                    }}
+                </p>
+
+                <TooltipProvider
+                    v-if="
+                        isStartingBuildingStage &&
+                        activePlayer?.user.id === page.props.auth.user.id &&
+                        game.data.pendingStartingBuildingHexId
+                    "
+                    :delay-duration="150"
+                >
+                    <div class="flex shrink-0 items-center gap-2">
+                        <Form
+                            v-bind="StartingBuildingController.destroy.form(game.data.id)"
+                            #default="{ processing }"
+                        >
+                            <Tooltip>
+                                <TooltipTrigger as-child>
+                                    <Button
+                                        type="submit"
+                                        variant="outline"
+                                        size="icon"
+                                        :disabled="processing"
+                                        aria-label="Отменить установку дома"
+                                    >
+                                        <RotateCcw class="size-4" :class="processing ? 'animate-spin' : ''" />
+                                    </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>Отменить установку дома</TooltipContent>
+                            </Tooltip>
+                        </Form>
+
+                        <Form
+                            v-bind="StartingBuildingTurnController.form(game.data.id)"
+                            #default="{ processing }"
+                        >
+                            <Tooltip>
+                                <TooltipTrigger as-child>
+                                    <Button
+                                        type="submit"
+                                        size="icon"
+                                        :disabled="processing"
+                                        aria-label="Подтвердить и закончить ход"
+                                    >
+                                        <Check class="size-4" />
+                                    </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>Подтвердить и закончить ход</TooltipContent>
+                            </Tooltip>
+                        </Form>
+                    </div>
+                </TooltipProvider>
+
+                <div
+                    v-else-if="activePlayer?.user.id !== page.props.auth.user.id"
+                    class="flex min-w-0 items-center gap-3"
+                    role="status"
+                    aria-live="polite"
+                >
                     <span class="size-2.5 shrink-0 rounded-full bg-primary shadow-sm" aria-hidden="true" />
                     <p class="truncate text-sm">
-                        <span class="text-muted-foreground mr-2">Сейчас ходит:</span>
+                        <span class="mr-2 text-muted-foreground">
+                            {{ isStartingBuildingStage ? 'Стартовый дом устанавливает:' : 'Сейчас ходит:' }}
+                        </span>
                         <span class="font-semibold">
                             {{ activePlayer?.user.name ?? 'ход игрока определяется' }}
                         </span>
@@ -891,9 +953,13 @@ function updateStartingKnowledgeCount(discipline: KnowledgeDiscipline, event: Ev
                     <div class="grid gap-4">
                         <BoardMap
                             :board="game.data.board"
+                            :players="game.data.players"
+                            :selectable-hex-ids="selectableStartingHexIds"
+                            :pending-hex-id="game.data.pendingStartingBuildingHexId"
                             :round-scoring-tiles="game.data.roundScoringTiles"
                             :final-round-scoring-tile="game.data.finalRoundScoringTile"
                             :book-actions="game.data.bookActions"
+                            @hex-click="placeStartingBuilding"
                         />
 
                         <PlayerBoards
@@ -930,6 +996,8 @@ function updateStartingKnowledgeCount(discipline: KnowledgeDiscipline, event: Ev
             v-if="game.data.status === 'active' && setupChoicesCompleted"
             :players="orderedPlayers"
             :player-states="game.data.playerBoardStates"
+            :game-id="game.data.id"
+            :history="game.data.history"
         />
     </div>
 </template>

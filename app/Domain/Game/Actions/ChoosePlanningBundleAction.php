@@ -9,6 +9,7 @@ use App\Domain\Game\Data\PlanningBundleData;
 use App\Domain\Game\Data\PlayerPlanningSelectionData;
 use App\Domain\Game\Enums\Competency;
 use App\Domain\Game\Enums\Faction;
+use App\Domain\Game\Enums\GameActionType;
 use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\GameStatus;
 use App\Domain\Game\Enums\KnowledgeDiscipline;
@@ -25,6 +26,7 @@ final class ChoosePlanningBundleAction
     public function __construct(
         private GamePlayerStateFactory $playerStateFactory,
         private DetermineNextPlanningPlayerAction $determineNextPlanningPlayer,
+        private AppendGameHistoryAction $appendGameHistory,
     ) {
     }
 
@@ -32,6 +34,7 @@ final class ChoosePlanningBundleAction
     {
         return DB::transaction(function () use ($game, $user, $homeland): Game {
             $lockedGame = Game::query()->lockForUpdate()->findOrFail($game->id);
+            $stateVersionBefore = $lockedGame->version;
 
             if ($lockedGame->status !== GameStatus::Active
                 || $lockedGame->phase !== GamePhase::Setup
@@ -124,6 +127,21 @@ final class ChoosePlanningBundleAction
                 'version' => $lockedGame->version + 1,
                 'state' => $state,
             ]);
+            $this->appendGameHistory->execute(
+                $lockedGame,
+                $user,
+                GameActionType::ChoosePlanningBundle,
+                ['homeland' => $homeland->value],
+                [[
+                    'type' => 'planning_bundle_chosen',
+                    'player_id' => $player->id,
+                    'homeland' => $bundle->homeland->value,
+                    'faction' => $bundle->faction->value,
+                    'round_bonus' => $bundle->roundBonus->value,
+                ]],
+                $stateVersionBefore,
+                $lockedGame->version,
+            );
 
             return $lockedGame->refresh();
         });
