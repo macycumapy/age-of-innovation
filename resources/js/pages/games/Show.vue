@@ -1028,6 +1028,7 @@ function updateStartingKnowledgeCount(discipline: KnowledgeDiscipline, event: Ev
             :player-states="game.data.playerBoardStates"
             :game-id="game.data.id"
             :history="game.data.history"
+            :can-undo-last-action="game.data.canUndoLastAction"
         />
     </div>
 </template>

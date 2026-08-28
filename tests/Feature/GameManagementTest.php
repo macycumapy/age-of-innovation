@@ -363,6 +363,68 @@ class GameManagementTest extends TestCase
         $this->assertNull($game->state->setupPool);
     }
 
+    public function test_owner_can_undo_the_latest_action_and_remove_it_from_history(): void
+    {
+        $owner = User::factory()->create();
+        $secondUser = User::factory()->create();
+        $game = Game::factory()->create(['random_seed' => 'undo-game-seed']);
+        GamePlayer::factory()->ready()->create([
+            'game_id' => $game->id,
+            'user_id' => $owner->id,
+            'seat' => 1,
+        ]);
+        GamePlayer::factory()->ready()->create([
+            'game_id' => $game->id,
+            'user_id' => $secondUser->id,
+            'seat' => 2,
+        ]);
+
+        $this->actingAs($owner)->post(route('games.start', $game));
+
+        $game->refresh();
+        $this->assertSame(GameStatus::Active, $game->status);
+        $this->assertSame(GameActionType::StartGame, $game->actions()->sole()->type);
+        $activePlayerId = $game->active_player_id;
+        $activeUser = User::query()->findOrFail($activePlayerId);
+        $selectedBundle = $game->state->setupPool->planningBundles[0];
+
+        $this->actingAs($activeUser)->post(route('games.planning-bundle.store', $game), [
+            'homeland' => $selectedBundle->homeland->value,
+        ]);
+
+        $game->refresh();
+        $this->assertSame(2, $game->actions()->count());
+
+        $this->actingAs($secondUser)
+            ->delete(route('games.history.latest.destroy', $game))
+            ->assertForbidden();
+
+        $this->actingAs($owner)
+            ->delete(route('games.history.latest.destroy', $game))
+            ->assertRedirect(route('games.show', $game));
+
+        $game->refresh();
+        $this->assertSame(GameStatus::Active, $game->status);
+        $this->assertSame(GamePhase::Setup, $game->phase);
+        $this->assertSame(1, $game->version);
+        $this->assertSame($activePlayerId, $game->active_player_id);
+        $this->assertCount(0, $game->state->planningSelections);
+        $this->assertSame(1, $game->actions()->count());
+        $this->assertTrue($game->players()->whereNull('faction')->whereNull('homeland')->exists());
+
+        $this->delete(route('games.history.latest.destroy', $game))
+            ->assertRedirect(route('games.show', $game));
+
+        $game->refresh();
+        $this->assertSame(GameStatus::Lobby, $game->status);
+        $this->assertSame(GamePhase::Setup, $game->phase);
+        $this->assertSame(0, $game->version);
+        $this->assertNull($game->active_player_id);
+        $this->assertNull($game->started_at);
+        $this->assertNull($game->state->setupPool);
+        $this->assertSame(0, $game->actions()->count());
+    }
+
     public function test_game_cannot_start_until_all_players_are_ready(): void
     {
         $owner = User::factory()->create();

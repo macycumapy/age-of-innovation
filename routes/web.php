@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Http\Controllers\GameController;
 use App\Http\Controllers\GameHistoryController;
+use App\Http\Controllers\GameHistoryUndoController;
 use App\Http\Controllers\GamePlayerController;
 use App\Http\Controllers\GamePlayerReadinessController;
 use App\Http\Controllers\GameStartController;
@@ -19,6 +20,8 @@ Route::redirect('/', '/games')->name('home');
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::resource('games', GameController::class)->only(['index', 'store', 'show']);
     Route::get('games/{game}/history', GameHistoryController::class)->name('games.history');
+    Route::delete('games/{game}/history/latest', GameHistoryUndoController::class)
+        ->name('games.history.latest.destroy');
     Route::post('games/{game}/players', [GamePlayerController::class, 'store'])->name('games.players.store');
     Route::patch('games/{game}/players/{gamePlayer}/readiness', [GamePlayerReadinessController::class, 'update'])
         ->name('games.players.readiness.update');

@@ -32,6 +32,7 @@ const props = defineProps<{
     playerStates: GamePlayerBoardState[];
     gameId: number;
     history: GameHistoryPage;
+    canUndoLastAction: boolean;
 }>();
 
 const isOpen = ref(false);
@@ -268,7 +269,12 @@ function levelCounters(state: GamePlayerBoardState): StatCounter[] {
                         </div>
                     </template>
                     </article>
-                    <GameHistory :game-id="gameId" :history="history" :players="players" />
+                    <GameHistory
+                        :game-id="gameId"
+                        :history="history"
+                        :players="players"
+                        :can-undo-last-action="canUndoLastAction"
+                    />
                 </div>
             </div>
         </div>

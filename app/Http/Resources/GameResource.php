@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Resources;
 
+use App\Domain\Game\Actions\ReplayGameHistoryAction;
 use App\Domain\Game\Data\BoardHexStateData;
 use App\Domain\Game\Data\BridgeStateData;
 use App\Domain\Game\Data\GamePlayerStateData;
@@ -32,6 +33,17 @@ class GameResource extends JsonResource
     {
         $playersLoaded = $this->relationLoaded('players');
         $owner = $playersLoaded ? $this->players->firstWhere('seat', 1) : null;
+        $isOwner = $owner?->user_id === $request->user()?->id;
+        $hasActions = $this->relationLoaded('actions') && $this->actions->isNotEmpty();
+        $hasUnsupportedActions = $isOwner && $hasActions && $this->actions()
+            ->whereNotIn(
+                'type',
+                array_map(
+                    static fn (\BackedEnum $type): string => (string) $type->value,
+                    ReplayGameHistoryAction::SUPPORTED_ACTION_TYPES,
+                ),
+            )
+            ->exists();
 
         return [
             'id' => $this->id,
@@ -40,7 +52,8 @@ class GameResource extends JsonResource
             'maxPlayers' => $this->state->board->variant->maxPlayers(),
             'playersCount' => (int) $this->getAttribute('players_count'),
             'isJoined' => (bool) $this->getAttribute('is_joined'),
-            'isOwner' => $owner?->user_id === $request->user()?->id,
+            'isOwner' => $isOwner,
+            'canUndoLastAction' => $isOwner && $hasActions && ! $hasUnsupportedActions,
             'activePlayerId' => $this->active_player_id,
             'turnOrder' => $this->state->turnOrder,
             'board' => [

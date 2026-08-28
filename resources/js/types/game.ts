@@ -21,6 +21,7 @@ export type GameResource = {
         players: GamePlayerSummary[];
         playerBoardStates: GamePlayerBoardState[];
         isOwner: boolean;
+        canUndoLastAction: boolean;
         activePlayerId: number | null;
         turnOrder: number[];
         board: BoardState;

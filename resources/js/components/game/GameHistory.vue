@@ -1,8 +1,10 @@
 <script setup lang="ts">
-import { useHttp } from '@inertiajs/vue3';
-import { History, LoaderCircle } from '@lucide/vue';
+import { Form, useHttp } from '@inertiajs/vue3';
+import { History, LoaderCircle, RotateCcw } from '@lucide/vue';
 import { ref, watch } from 'vue';
 import GameHistoryController from '@/actions/App/Http/Controllers/GameHistoryController';
+import GameHistoryUndoController from '@/actions/App/Http/Controllers/GameHistoryUndoController';
+import { Button } from '@/components/ui/button';
 import { playerColorValues, terrainNames } from '@/lib/gameDisplay';
 import type {
     GameActionType,
@@ -16,6 +18,7 @@ const props = defineProps<{
     gameId: number;
     history: GameHistoryPage;
     players: GamePlayerSummary[];
+    canUndoLastAction: boolean;
 }>();
 
 const actionDescriptions: Record<GameActionType, string> = {
@@ -51,15 +54,29 @@ const historyRequest = useHttp({});
 watch(
     () => props.history.data,
     (latestEntries) => {
-        const entriesById = new Map(entries.value.map((entry) => [entry.id, entry]));
+        if (latestEntries.length === 0) {
+            entries.value = [];
 
-        for (const entry of latestEntries) {
-            entriesById.set(entry.id, entry);
+            return;
         }
+
+        const oldestLatestSequence = latestEntries.at(-1)?.sequence ?? 0;
+        const retainedOlderEntries = entries.value.filter(
+            (entry) => entry.sequence < oldestLatestSequence,
+        );
+        const entriesById = new Map(
+            [...latestEntries, ...retainedOlderEntries].map((entry) => [entry.id, entry]),
+        );
 
         entries.value = [...entriesById.values()].sort((first, second) => second.sequence - first.sequence);
     },
 );
+
+function confirmUndo(event: SubmitEvent): void {
+    if (!window.confirm('Откатить последнее действие и удалить его из истории?')) {
+        event.preventDefault();
+    }
+}
 
 async function loadMore(): Promise<void> {
     if (!hasMore.value || historyRequest.processing || entries.value.length === 0) {
@@ -146,10 +163,30 @@ function actionTime(createdAt: string | null): string {
     <section
         class="grid h-80 grid-rows-[auto_minmax(0,1fr)] gap-3 rounded-lg border border-sidebar-border bg-sidebar-accent/30 p-3"
     >
-        <h3 class="flex items-center gap-2 font-semibold">
-            <History class="size-4" aria-hidden="true" />
-            История
-        </h3>
+        <div class="flex items-center justify-between gap-2">
+            <h3 class="flex items-center gap-2 font-semibold">
+                <History class="size-4" aria-hidden="true" />
+                История
+            </h3>
+
+            <Form
+                v-if="canUndoLastAction"
+                v-bind="GameHistoryUndoController.form(gameId)"
+                #default="{ processing }"
+                @submit="confirmUndo"
+            >
+                <Button
+                    type="submit"
+                    variant="ghost"
+                    size="icon"
+                    :disabled="processing"
+                    title="Откатить последнее действие"
+                    aria-label="Откатить последнее действие"
+                >
+                    <RotateCcw class="size-4" :class="processing ? 'animate-spin' : ''" />
+                </Button>
+            </Form>
+        </div>
 
         <div class="overflow-y-auto overscroll-contain pr-1" @scroll.passive="handleScroll">
             <ol v-if="entries.length" class="grid gap-3" aria-label="История действий партии">
