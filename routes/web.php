@@ -10,6 +10,7 @@ use App\Http\Controllers\GameStartController;
 use App\Http\Controllers\PlanningBundleController;
 use App\Http\Controllers\StartingBuildingController;
 use App\Http\Controllers\StartingBuildingTurnController;
+use App\Http\Controllers\StartingCompetencyController;
 use App\Http\Controllers\StartingResourcesController;
 use Illuminate\Support\Facades\Route;
 
@@ -32,6 +33,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('games.starting-building.destroy');
     Route::post('games/{game}/starting-building/finish', StartingBuildingTurnController::class)
         ->name('games.starting-building.finish');
+    Route::post('games/{game}/starting-competency', [StartingCompetencyController::class, 'store'])
+        ->name('games.starting-competency.store');
 });
 
 require __DIR__.'/settings.php';

@@ -10,6 +10,10 @@ use Illuminate\Validation\ValidationException;
 
 final class DetermineNextPlanningPlayerAction
 {
+    public function __construct(private DetermineStartingBuildingOrderAction $determineStartingBuildingOrder)
+    {
+    }
+
     public function execute(Game $game, GamePlayer $currentPlayer): GamePlayer
     {
         $playersById = $game->players()->get()->keyBy('id');
@@ -31,7 +35,7 @@ final class DetermineNextPlanningPlayerAction
             }
         }
 
-        $firstPlayer = $playersById->get($turnOrder[0]);
+        $firstPlayer = $playersById->get($this->determineStartingBuildingOrder->execute($game)[0] ?? null);
 
         if (! $firstPlayer instanceof GamePlayer) {
             throw ValidationException::withMessages([

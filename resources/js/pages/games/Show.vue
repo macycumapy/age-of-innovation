@@ -8,8 +8,10 @@ import GameStartController from '@/actions/App/Http/Controllers/GameStartControl
 import PlanningBundleController from '@/actions/App/Http/Controllers/PlanningBundleController';
 import StartingBuildingController from '@/actions/App/Http/Controllers/StartingBuildingController';
 import StartingBuildingTurnController from '@/actions/App/Http/Controllers/StartingBuildingTurnController';
+import StartingCompetencyController from '@/actions/App/Http/Controllers/StartingCompetencyController';
 import StartingResourcesController from '@/actions/App/Http/Controllers/StartingResourcesController';
 import BoardMap from '@/components/game/BoardMap.vue';
+import CompetencySelector from '@/components/game/CompetencySelector.vue';
 import CultBoard from '@/components/game/CultBoard.vue';
 import InnovationBoard from '@/components/game/InnovationBoard.vue';
 import PalaceBoard from '@/components/game/PalaceBoard.vue';
@@ -97,18 +99,26 @@ const canChooseStartingResources = computed(
 
 const allPlanningBundlesChosen = computed(() => props.game.data.players.every((player) => player.faction !== null));
 
-const setupChoicesCompleted = computed(
-    () => allPlanningBundlesChosen.value && props.game.data.pendingInteraction === null,
+const planningChoicesCompleted = computed(
+    () => allPlanningBundlesChosen.value
+        && props.game.data.pendingInteraction?.type !== 'choose_starting_resources',
 );
 
 const isStartingBuildingStage = computed(
-    () => props.game.data.phase === 'setup' && setupChoicesCompleted.value,
+    () => props.game.data.phase === 'setup' && planningChoicesCompleted.value,
 );
 
 const canPlaceStartingBuilding = computed(
     () => isStartingBuildingStage.value
         && props.game.data.activePlayerId === page.props.auth.user.id
+        && props.game.data.pendingInteraction === null
         && props.game.data.pendingStartingBuildingHexId === null,
+);
+
+const canChooseStartingCompetency = computed(
+    () => props.game.data.pendingInteraction?.type === 'choose_competency'
+        && props.game.data.pendingInteraction.playerId === currentPlayer.value?.id
+        && props.game.data.activePlayerId === page.props.auth.user.id,
 );
 
 const selectableStartingHexIds = computed(() => {
@@ -144,6 +154,7 @@ const startingKnowledgeCounts = reactive<Record<KnowledgeDiscipline, number>>({
     medicine: 0,
 });
 const selectedStartingCompetency = ref<Competency | null>(null);
+const selectedMonkCompetency = ref<Competency | null>(null);
 const isPlanningBundleGroupOpen = ref(true);
 
 const availableStartingBookCount = computed(() => props.game.data.pendingInteraction?.context.bookCount ?? 0);
@@ -181,6 +192,7 @@ watch(
         }
 
         selectedStartingCompetency.value = null;
+        selectedMonkCompetency.value = null;
     },
 );
 
@@ -423,7 +435,7 @@ function updateStartingKnowledgeCount(discipline: KnowledgeDiscipline, event: Ev
             </Card>
 
             <Collapsible
-                v-if="game.data.status === 'active' && !setupChoicesCompleted"
+                v-if="game.data.status === 'active' && !planningChoicesCompleted"
                 v-model:open="isPlanningBundleGroupOpen"
             >
                 <Card>
@@ -540,45 +552,16 @@ function updateStartingKnowledgeCount(discipline: KnowledgeDiscipline, event: Ev
                                     class="grid gap-3"
                                 >
                                     <p class="text-sm font-medium">Выберите стартовую компетенцию</p>
-                                    <TooltipProvider :delay-duration="150">
-                                        <div class="grid grid-cols-3 gap-3 sm:grid-cols-4 lg:grid-cols-6">
-                                            <label
-                                                v-for="competency in game.data.pendingInteraction?.context
-                                                    .competencyIds ?? []"
-                                                :key="competency"
-                                                class="cursor-pointer"
-                                            >
-                                                <input
-                                                    v-model="selectedStartingCompetency"
-                                                    type="radio"
-                                                    name="competency_id"
-                                                    :value="competency"
-                                                    required
-                                                    class="peer sr-only"
-                                                />
-                                                <Tooltip>
-                                                    <TooltipTrigger as-child>
-                                                        <span
-                                                            tabindex="0"
-                                                            class="grid cursor-help rounded-lg border bg-background/70 p-2 transition peer-checked:border-primary peer-checked:ring-2 peer-checked:ring-primary/40"
-                                                        >
-                                                            <img
-                                                                :src="competencyImage(competency)"
-                                                                :alt="`Компетенция ${competency}`"
-                                                                class="aspect-square w-full object-contain drop-shadow-md"
-                                                            />
-                                                        </span>
-                                                    </TooltipTrigger>
-                                                    <TooltipContent class="max-w-xs">
-                                                        <p class="font-semibold">
-                                                            Компетенция {{ competency.slice(-2) }}
-                                                        </p>
-                                                        <p>{{ game.data.competencyDescriptions[competency] }}</p>
-                                                    </TooltipContent>
-                                                </Tooltip>
-                                            </label>
-                                        </div>
-                                    </TooltipProvider>
+                                    <input
+                                        type="hidden"
+                                        name="competency_id"
+                                        :value="selectedStartingCompetency ?? ''"
+                                    />
+                                    <CompetencySelector
+                                        v-model="selectedStartingCompetency"
+                                        :competencies="game.data.pendingInteraction?.context.competencyIds ?? []"
+                                        :descriptions="game.data.competencyDescriptions"
+                                    />
                                     <InputError :message="errors.competency_id" />
                                 </div>
 
@@ -874,9 +857,13 @@ function updateStartingKnowledgeCount(discipline: KnowledgeDiscipline, event: Ev
                     aria-live="polite"
                 >
                     {{
-                        game.data.pendingStartingBuildingHexId
+                        game.data.pendingInteraction?.type === 'choose_competency'
+                            ? 'Выберите стартовую компетенцию.'
+                            : game.data.pendingStartingBuildingHexId
                             ? 'Дом установлен — отмените действие или завершите ход.'
-                            : 'Установите стартовый дом на свободной ячейке родной местности.'
+                            : currentPlayer?.faction === 'monks'
+                                ? 'Установите стартовый университет на свободной ячейке родной местности.'
+                                : 'Установите стартовый дом на свободной ячейке родной местности.'
                     }}
                 </p>
 
@@ -948,6 +935,49 @@ function updateStartingKnowledgeCount(discipline: KnowledgeDiscipline, event: Ev
                 </div>
             </div>
 
+            <Card
+                v-if="canChooseStartingCompetency && game.data.pendingInteraction?.type === 'choose_competency'"
+                class="mx-auto w-full max-w-3xl border-primary/40"
+            >
+                <CardHeader>
+                    <CardTitle>Стартовая компетенция монахов</CardTitle>
+                    <CardDescription>
+                        Выберите компетенцию. Вы сразу получите её книги, продвижение по дисциплине и ресурсы.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <Form
+                        v-bind="StartingCompetencyController.store.form(game.data.id)"
+                        #default="{ errors, processing }"
+                        class="grid gap-4"
+                    >
+                        <input
+                            type="hidden"
+                            name="competency_id"
+                            :value="selectedMonkCompetency ?? ''"
+                        />
+                        <CompetencySelector
+                            v-model="selectedMonkCompetency"
+                            :competencies="game.data.pendingInteraction.optionIds"
+                            :descriptions="game.data.competencyDescriptions"
+                            :disabled="!canChooseStartingCompetency || processing"
+                        />
+                        <InputError :message="errors.competency_id" />
+                        <Button
+                            type="submit"
+                            class="justify-self-end"
+                            :disabled="
+                                !canChooseStartingCompetency ||
+                                selectedMonkCompetency === null ||
+                                processing
+                            "
+                        >
+                            {{ processing ? 'Подтверждение…' : 'Подтвердить выбор' }}
+                        </Button>
+                    </Form>
+                </CardContent>
+            </Card>
+
             <section v-if="game.data.status === 'active'" class="grid gap-4">
                 <div class="grid items-start gap-4 lg:grid-cols-[minmax(0,7fr)_minmax(16rem,3fr)]">
                     <div class="grid gap-4">
@@ -993,7 +1023,7 @@ function updateStartingKnowledgeCount(discipline: KnowledgeDiscipline, event: Ev
         </div>
 
         <PlayerStatsPanel
-            v-if="game.data.status === 'active' && setupChoicesCompleted"
+            v-if="game.data.status === 'active' && planningChoicesCompleted"
             :players="orderedPlayers"
             :player-states="game.data.playerBoardStates"
             :game-id="game.data.id"

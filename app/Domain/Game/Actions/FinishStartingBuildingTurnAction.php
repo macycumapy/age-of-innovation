@@ -4,8 +4,12 @@ declare(strict_types=1);
 
 namespace App\Domain\Game\Actions;
 
+use App\Domain\Game\Data\PendingInteractionData;
+use App\Domain\Game\Enums\Competency;
+use App\Domain\Game\Enums\Faction;
 use App\Domain\Game\Enums\GameActionType;
 use App\Domain\Game\Enums\GamePhase;
+use App\Domain\Game\Enums\PendingInteractionType;
 use App\Models\Game;
 use App\Models\GamePlayer;
 use App\Models\User;
@@ -14,8 +18,10 @@ use Illuminate\Validation\ValidationException;
 
 final class FinishStartingBuildingTurnAction
 {
-    public function __construct(private AppendGameHistoryAction $appendGameHistory)
-    {
+    public function __construct(
+        private AppendGameHistoryAction $appendGameHistory,
+        private DetermineStartingBuildingOrderAction $determineStartingBuildingOrder,
+    ) {
     }
 
     public function execute(Game $game, User $user): Game
@@ -24,18 +30,47 @@ final class FinishStartingBuildingTurnAction
             $lockedGame = Game::query()->lockForUpdate()->findOrFail($game->id);
             $state = $lockedGame->state;
             $stateVersionBefore = $lockedGame->version;
+            $player = $lockedGame->players()->whereBelongsTo($user)->first();
 
             if ($lockedGame->phase !== GamePhase::Setup || $lockedGame->active_player_id !== $user->id
-                || $state->pendingStartingBuildingHexId === null) {
+                || $state->pendingStartingBuildingHexId === null
+                || ! $player instanceof GamePlayer) {
                 throw ValidationException::withMessages(['game' => 'Сначала установите стартовый дом.']);
             }
 
             $confirmedHexId = $state->pendingStartingBuildingHexId;
             $state->pendingStartingBuildingHexId = null;
             $state->startingBuildingTurnIndex++;
-            $placementOrder = [...$state->turnOrder, ...array_reverse($state->turnOrder)];
+            $placementOrder = $this->determineStartingBuildingOrder->execute($lockedGame);
 
-            if ($state->startingBuildingTurnIndex >= count($placementOrder)) {
+            if ($player->faction === Faction::Monks) {
+                $playerState = collect($state->players)->firstWhere('playerId', $player->id);
+
+                if ($playerState === null) {
+                    throw ValidationException::withMessages(['game' => 'Не найдено состояние игрока.']);
+                }
+
+                $availableCompetencyIds = array_values(array_filter(
+                    array_map(
+                        static fn (Competency|string $competency): string => $competency instanceof Competency
+                            ? $competency->value
+                            : $competency,
+                        $state->setupPool?->competencies ?? [],
+                    ),
+                    static fn (string $competencyId): bool => ! in_array(
+                        $competencyId,
+                        $playerState->competencyIds,
+                        true,
+                    ),
+                ));
+                $state->pendingInteraction = new PendingInteractionData(
+                    PendingInteractionType::ChooseCompetency,
+                    $player->id,
+                    $availableCompetencyIds,
+                );
+                $nextPlayer = $player;
+                $nextPhase = GamePhase::Setup;
+            } elseif ($state->startingBuildingTurnIndex >= count($placementOrder)) {
                 $nextPlayer = $lockedGame->players()->whereKey($state->turnOrder[0])->firstOrFail();
                 $state->round->phase = GamePhase::Income;
                 $nextPhase = GamePhase::Income;

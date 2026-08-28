@@ -6,6 +6,7 @@ namespace App\Domain\Game\Actions;
 
 use App\Domain\Game\Data\BuildingStateData;
 use App\Domain\Game\Enums\BuildingType;
+use App\Domain\Game\Enums\Faction;
 use App\Domain\Game\Enums\GameActionType;
 use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\GameStatus;
@@ -50,7 +51,10 @@ final class PlaceStartingBuildingAction
                     throw ValidationException::withMessages(['hex_id' => 'Выберите свободную ячейку родной местности.']);
                 }
 
-                $hex->building = new BuildingStateData(BuildingType::Workshop, $player->id);
+                $buildingType = $player->faction === Faction::Monks
+                    ? BuildingType::University
+                    : BuildingType::Workshop;
+                $hex->building = new BuildingStateData($buildingType, $player->id);
                 $state->board->hexes[$index] = $hex;
                 $state->pendingStartingBuildingHexId = $hexId;
 
@@ -59,12 +63,15 @@ final class PlaceStartingBuildingAction
                     $lockedGame,
                     $user,
                     GameActionType::PlaceStartingBuilding,
-                    ['hex_id' => $hexId],
+                    [
+                        'hex_id' => $hexId,
+                        'building_type' => $buildingType->value,
+                    ],
                     [[
                         'type' => 'starting_building_placed',
                         'player_id' => $player->id,
                         'hex_id' => $hexId,
-                        'building_type' => BuildingType::Workshop->value,
+                        'building_type' => $buildingType->value,
                     ]],
                     $stateVersionBefore,
                     $lockedGame->version,

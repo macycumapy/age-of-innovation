@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use App\Domain\Game\Actions\DetermineStartingBuildingOrderAction;
 use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Data\GameStateData;
 use App\Domain\Game\Data\PlanningBundleData;
 use App\Domain\Game\Data\PlayerPlanningSelectionData;
+use App\Domain\Game\Enums\BuildingType;
 use App\Domain\Game\Enums\Competency;
 use App\Domain\Game\Enums\Faction;
 use App\Domain\Game\Enums\GameActionType;
@@ -20,6 +22,7 @@ use App\Domain\Game\Enums\PlayerColor;
 use App\Domain\Game\Enums\RoundBonus;
 use App\Domain\Game\Enums\TerrainType;
 use App\Domain\Game\Factories\BoardStateFactory;
+use App\Domain\Game\Factories\GameSetupPoolFactory;
 use App\Models\Builders\GameBuilder;
 use App\Models\Game;
 use App\Models\GameAction;
@@ -1030,5 +1033,139 @@ class GameManagementTest extends TestCase
             $this->assertSame($index, $action->state_version_before);
             $this->assertSame($index + 1, $action->state_version_after);
         }
+    }
+
+    public function test_monks_place_a_university_last_and_choose_a_starting_competency(): void
+    {
+        $users = User::factory()->count(2)->create();
+        $game = Game::factory()->create([
+            'status' => GameStatus::Active,
+            'phase' => GamePhase::Setup,
+            'active_player_id' => $users[1]->id,
+        ]);
+        $monkPlayer = GamePlayer::factory()->create([
+            'game_id' => $game->id,
+            'user_id' => $users[0]->id,
+            'seat' => 1,
+            'color' => PlayerColor::Yellow,
+            'faction' => Faction::Monks,
+            'homeland' => TerrainType::Mountain,
+        ]);
+        $regularPlayer = GamePlayer::factory()->create([
+            'game_id' => $game->id,
+            'user_id' => $users[1]->id,
+            'seat' => 2,
+            'color' => PlayerColor::Red,
+            'faction' => Faction::Blessed,
+            'homeland' => TerrainType::Forest,
+        ]);
+        $monkBundle = new PlanningBundleData(TerrainType::Mountain, Faction::Monks, RoundBonus::Coins);
+        $regularBundle = new PlanningBundleData(TerrainType::Forest, Faction::Blessed, RoundBonus::PowerCoins);
+        $board = (new BoardStateFactory())->create(MapVariant::OneToThreePlayers);
+        $forestHexes = collect($board->hexes)->where('terrain', TerrainType::Forest)->take(2)->values();
+        $mountainHex = collect($board->hexes)->firstWhere('terrain', TerrainType::Mountain);
+        $setupPool = (new GameSetupPoolFactory())->create(2, MapVariant::OneToThreePlayers);
+        $setupPool->competencies = Competency::cases();
+        $monkState = new GamePlayerStateData(
+            $monkPlayer->id,
+            $users[0]->id,
+            PlayerColor::Yellow,
+            Faction::Monks,
+            TerrainType::Mountain,
+            RoundBonus::Coins,
+        );
+        $monkState->competencyIds = [Competency::Competency01->value];
+        $regularState = new GamePlayerStateData(
+            $regularPlayer->id,
+            $users[1]->id,
+            PlayerColor::Red,
+            Faction::Blessed,
+            TerrainType::Forest,
+            RoundBonus::PowerCoins,
+        );
+        $regularState->competencyIds = [Competency::Competency04->value];
+
+        $this->assertCount(2, $forestHexes);
+        $this->assertNotNull($mountainHex);
+
+        $game->update([
+            'state' => new GameStateData(
+                schemaVersion: 3,
+                turnOrder: [$monkPlayer->id, $regularPlayer->id],
+                board: $board,
+                players: [$monkState, $regularState],
+                availableCompetencyIds: array_map(
+                    static fn (Competency $competency): string => $competency->value,
+                    Competency::cases(),
+                ),
+                setupPool: $setupPool,
+                planningSelections: [
+                    new PlayerPlanningSelectionData($monkPlayer->id, $monkBundle),
+                    new PlayerPlanningSelectionData($regularPlayer->id, $regularBundle),
+                ],
+            ),
+        ]);
+
+        $this->assertSame(
+            [$regularPlayer->id, $regularPlayer->id, $monkPlayer->id],
+            app(DetermineStartingBuildingOrderAction::class)->execute($game->refresh()),
+        );
+
+        foreach ($forestHexes as $forestHex) {
+            $this->actingAs($users[1])
+                ->post(route('games.starting-building.store', $game), ['hex_id' => $forestHex->id])
+                ->assertRedirect(route('games.show', $game));
+            $this->post(route('games.starting-building.finish', $game))
+                ->assertRedirect(route('games.show', $game));
+        }
+
+        $game->refresh();
+        $this->assertSame($users[0]->id, $game->active_player_id);
+        $this->assertSame(2, $game->state->startingBuildingTurnIndex);
+
+        $this->actingAs($users[0])
+            ->post(route('games.starting-building.store', $game), ['hex_id' => $mountainHex->id])
+            ->assertRedirect(route('games.show', $game));
+
+        $game->refresh();
+        $this->assertSame(
+            BuildingType::University,
+            collect($game->state->board->hexes)->firstWhere('id', $mountainHex->id)?->building?->type,
+        );
+
+        $this->post(route('games.starting-building.finish', $game))
+            ->assertRedirect(route('games.show', $game));
+
+        $game->refresh();
+        $this->assertSame(GamePhase::Setup, $game->phase);
+        $this->assertSame(PendingInteractionType::ChooseCompetency, $game->state->pendingInteraction?->type);
+        $this->assertCount(11, $game->state->pendingInteraction?->optionIds);
+        $this->assertNotContains(Competency::Competency01->value, $game->state->pendingInteraction?->optionIds);
+        $this->assertContains(Competency::Competency04->value, $game->state->pendingInteraction?->optionIds);
+
+        $monkStateBefore = collect($game->state->players)->firstWhere('playerId', $monkPlayer->id);
+
+        $this->post(route('games.starting-competency.store', $game), [
+            'competency_id' => Competency::Competency01->value,
+        ])->assertSessionHasErrors('competency_id');
+
+        $this->post(route('games.starting-competency.store', $game), [
+            'competency_id' => Competency::Competency04->value,
+        ])->assertRedirect(route('games.show', $game));
+
+        $game->refresh();
+        $monkState = collect($game->state->players)->firstWhere('playerId', $monkPlayer->id);
+        $this->assertNull($game->state->pendingInteraction);
+        $this->assertSame(GamePhase::Income, $game->phase);
+        $this->assertContains(Competency::Competency04->value, $monkState->competencyIds);
+        $this->assertContains(Competency::Competency04->value, $game->state->availableCompetencyIds);
+        $this->assertSame($monkStateBefore->knowledge->medicine + 3, $monkState->knowledge->medicine);
+        $this->assertSame($monkStateBefore->resources->tools + 1, $monkState->resources->tools);
+        $this->assertSame($monkStateBefore->resources->coins + 2, $monkState->resources->coins);
+        $this->assertSame($monkStateBefore->victoryPoints + 5, $monkState->victoryPoints);
+        $this->assertSame(
+            GameActionType::ChooseCompetency,
+            $game->actions()->latest('sequence')->firstOrFail()->type,
+        );
     }
 }

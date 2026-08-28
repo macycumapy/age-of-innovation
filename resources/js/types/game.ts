@@ -297,16 +297,23 @@ export type KnowledgeDiscipline =
     | 'engineering'
     | 'medicine';
 
-export type PendingInteraction = {
-    type: 'choose_starting_resources';
-    playerId: number;
-    optionIds: KnowledgeDiscipline[];
-    context: {
-        bookCount: number;
-        knowledgeStepCount: number;
-        competencyIds?: Competency[];
+export type PendingInteraction =
+    | {
+        type: 'choose_starting_resources';
+        playerId: number;
+        optionIds: KnowledgeDiscipline[];
+        context: {
+            bookCount: number;
+            knowledgeStepCount: number;
+            competencyIds?: Competency[];
+        };
+    }
+    | {
+        type: 'choose_competency';
+        playerId: number;
+        optionIds: Competency[];
+        context: Record<string, never>;
     };
-};
 
 export type TerrainType =
     | 'desert'
