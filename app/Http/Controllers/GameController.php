@@ -7,10 +7,10 @@ namespace App\Http\Controllers;
 use App\Domain\Game\Actions\CreateGameAction;
 use App\Http\Requests\StoreGameRequest;
 use App\Http\Resources\GameResource;
+use App\Http\Resources\GameSummaryResource;
 use App\Models\Game;
 use App\Models\GameAction;
 use App\Models\User;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -23,18 +23,10 @@ class GameController extends Controller
         /** @var User $user */
         $user = $request->user();
 
-        $games = Game::query()
-            ->availableTo($user)
-            ->withExists([
-                'players as is_joined' => fn (Builder $query): Builder => $query->where('user_id', $user->id),
-            ])
-            ->withCount('players')
-            ->latest()
-            ->latest('id')
-            ->get();
+        $games = Game::query()->visibleSummariesFor($user)->get();
 
         return Inertia::render('games/Index', [
-            'games' => GameResource::collection($games),
+            'games' => GameSummaryResource::collection($games),
         ]);
     }
 

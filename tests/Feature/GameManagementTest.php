@@ -84,7 +84,11 @@ class GameManagementTest extends TestCase
     public function test_user_sees_open_lobbies_and_their_own_games(): void
     {
         $user = User::factory()->create();
-        $openGame = Game::factory()->create();
+        $openGame = Game::factory()->create([
+            'state' => new GameStateData(
+                board: (new BoardStateFactory())->create(MapVariant::OneToThreePlayers),
+            ),
+        ]);
         $ownGame = Game::factory()->create();
         Game::factory()->active()->create();
 
@@ -107,7 +111,11 @@ class GameManagementTest extends TestCase
                 ->where('games.data.0.playersCount', 1)
                 ->where('games.data.0.isJoined', true)
                 ->has('games.data.0.createdAt')
+                ->missing('games.data.0.board')
+                ->missing('games.data.0.players')
+                ->missing('games.data.0.playerBoardStates')
                 ->where('games.data.1.id', $openGame->id)
+                ->where('games.data.1.mapVariant', MapVariant::OneToThreePlayers->value)
                 ->where('games.data.1.isJoined', false)
                 ->missing('games.data.2')
             );
