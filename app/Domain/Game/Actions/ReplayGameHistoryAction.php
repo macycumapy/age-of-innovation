@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domain\Game\Actions;
 
+use App\Domain\Game\Data\BoardHexStateData;
 use App\Domain\Game\Data\BuildingStateData;
 use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Data\GameStateData;
@@ -249,8 +250,12 @@ final class ReplayGameHistoryAction
             if ($hex->id === $hexId) {
                 $buildingType = isset($action->payload['building_type'])
                     ? BuildingType::from((string) $action->payload['building_type'])
-                    : ($player->faction === Faction::Monks ? BuildingType::University : BuildingType::Workshop);
-                $hex->building = new BuildingStateData($buildingType, $player->id);
+                    : $this->startingBuildingType($state, $player);
+                $hex->building = new BuildingStateData(
+                    $buildingType,
+                    $player->id,
+                    isNeutral: $buildingType === BuildingType::Tower,
+                );
                 $state->board->hexes[$index] = $hex;
                 $state->pendingStartingBuildingHexId = $hexId;
                 $game->state = $state;
@@ -450,9 +455,26 @@ final class ReplayGameHistoryAction
             $state->turnOrder,
             static fn (int $playerId): bool => $players->firstWhere('id', $playerId)?->faction === Faction::Monks,
         ));
+        $omarPlayerIds = array_values(array_filter(
+            $state->turnOrder,
+            static fn (int $playerId): bool => $players->firstWhere('id', $playerId)?->faction === Faction::Omar,
+        ));
         $regularPlayerIds = array_values(array_diff($state->turnOrder, $monkPlayerIds));
 
-        return [...$regularPlayerIds, ...array_reverse($regularPlayerIds), ...$monkPlayerIds];
+        return [...$regularPlayerIds, ...array_reverse($regularPlayerIds), ...$omarPlayerIds, ...$monkPlayerIds];
+    }
+
+    private function startingBuildingType(GameStateData $state, GamePlayer $player): BuildingType
+    {
+        $ownedBuildingCount = collect($state->board->hexes)->filter(
+            static fn (BoardHexStateData $hex): bool => $hex->building?->ownerPlayerId === $player->id,
+        )->count();
+
+        return match (true) {
+            $player->faction === Faction::Monks => BuildingType::University,
+            $player->faction === Faction::Omar && $ownedBuildingCount >= 2 => BuildingType::Tower,
+            default => BuildingType::Workshop,
+        };
     }
 
     private function playerState(GameStateData $state, int $playerId): GamePlayerStateData

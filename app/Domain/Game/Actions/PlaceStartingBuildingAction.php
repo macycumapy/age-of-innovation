@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domain\Game\Actions;
 
+use App\Domain\Game\Data\BoardHexStateData;
 use App\Domain\Game\Data\BuildingStateData;
 use App\Domain\Game\Enums\BuildingType;
 use App\Domain\Game\Enums\Faction;
@@ -51,10 +52,19 @@ final class PlaceStartingBuildingAction
                     throw ValidationException::withMessages(['hex_id' => 'Выберите свободную ячейку родной местности.']);
                 }
 
-                $buildingType = $player->faction === Faction::Monks
-                    ? BuildingType::University
-                    : BuildingType::Workshop;
-                $hex->building = new BuildingStateData($buildingType, $player->id);
+                $ownedBuildingCount = collect($state->board->hexes)->filter(
+                    static fn (BoardHexStateData $boardHex): bool => $boardHex->building?->ownerPlayerId === $player->id,
+                )->count();
+                $buildingType = match (true) {
+                    $player->faction === Faction::Monks => BuildingType::University,
+                    $player->faction === Faction::Omar && $ownedBuildingCount >= 2 => BuildingType::Tower,
+                    default => BuildingType::Workshop,
+                };
+                $hex->building = new BuildingStateData(
+                    $buildingType,
+                    $player->id,
+                    isNeutral: $buildingType === BuildingType::Tower,
+                );
                 $state->board->hexes[$index] = $hex;
                 $state->pendingStartingBuildingHexId = $hexId;
 

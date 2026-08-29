@@ -1342,6 +1342,89 @@ class GameManagementTest extends TestCase
         }
     }
 
+    public function test_omar_places_a_neutral_tower_after_regular_buildings_and_before_monks(): void
+    {
+        $users = User::factory()->count(3)->create();
+        $game = Game::factory()->create([
+            'status' => GameStatus::Active,
+            'phase' => GamePhase::Setup,
+            'active_player_id' => $users[1]->id,
+        ]);
+        $regularPlayer = GamePlayer::factory()->create([
+            'game_id' => $game->id,
+            'user_id' => $users[0]->id,
+            'seat' => 1,
+            'faction' => Faction::Blessed,
+            'homeland' => TerrainType::Mountain,
+        ]);
+        $omarPlayer = GamePlayer::factory()->create([
+            'game_id' => $game->id,
+            'user_id' => $users[1]->id,
+            'seat' => 2,
+            'faction' => Faction::Omar,
+            'homeland' => TerrainType::Forest,
+        ]);
+        $monkPlayer = GamePlayer::factory()->create([
+            'game_id' => $game->id,
+            'user_id' => $users[2]->id,
+            'seat' => 3,
+            'faction' => Faction::Monks,
+            'homeland' => TerrainType::Wasteland,
+        ]);
+        $board = (new BoardStateFactory())->create(MapVariant::OneToThreePlayers);
+        $forestHexes = collect($board->hexes)->where('terrain', TerrainType::Forest)->take(3)->values();
+
+        $this->assertCount(3, $forestHexes);
+
+        foreach ($forestHexes->take(2) as $forestHex) {
+            $forestHex->building = new BuildingStateData(BuildingType::Workshop, $omarPlayer->id);
+        }
+
+        $game->update([
+            'state' => new GameStateData(
+                schemaVersion: 3,
+                turnOrder: [$regularPlayer->id, $omarPlayer->id, $monkPlayer->id],
+                board: $board,
+                planningSelections: [
+                    new PlayerPlanningSelectionData(
+                        $regularPlayer->id,
+                        new PlanningBundleData(TerrainType::Mountain, Faction::Blessed, RoundBonus::Coins),
+                    ),
+                    new PlayerPlanningSelectionData(
+                        $omarPlayer->id,
+                        new PlanningBundleData(TerrainType::Forest, Faction::Omar, RoundBonus::PowerCoins),
+                    ),
+                    new PlayerPlanningSelectionData(
+                        $monkPlayer->id,
+                        new PlanningBundleData(TerrainType::Wasteland, Faction::Monks, RoundBonus::Coins),
+                    ),
+                ],
+                startingBuildingTurnIndex: 4,
+            ),
+        ]);
+
+        $this->assertSame(
+            [
+                $regularPlayer->id,
+                $omarPlayer->id,
+                $omarPlayer->id,
+                $regularPlayer->id,
+                $omarPlayer->id,
+                $monkPlayer->id,
+            ],
+            app(DetermineStartingBuildingOrderAction::class)->execute($game->refresh()),
+        );
+
+        $towerHex = $forestHexes[2];
+        $this->actingAs($users[1])
+            ->post(route('games.starting-building.store', $game), ['hex_id' => $towerHex->id])
+            ->assertRedirect(route('games.show', $game));
+
+        $building = collect($game->refresh()->state->board->hexes)->firstWhere('id', $towerHex->id)?->building;
+        $this->assertSame(BuildingType::Tower, $building?->type);
+        $this->assertTrue($building?->isNeutral);
+    }
+
     public function test_monks_place_a_university_last_and_choose_a_starting_competency(): void
     {
         $users = User::factory()->count(2)->create();

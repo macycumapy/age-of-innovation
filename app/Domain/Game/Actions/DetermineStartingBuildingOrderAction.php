@@ -21,11 +21,16 @@ final class DetermineStartingBuildingOrderAction
             $orderedPlayerIds,
             static fn (int $playerId): bool => $playersById->get($playerId)?->faction === Faction::Monks,
         ));
+        $omarPlayerIds = array_values(array_filter(
+            $orderedPlayerIds,
+            static fn (int $playerId): bool => $playersById->get($playerId)?->faction === Faction::Omar,
+        ));
         $regularPlayerIds = array_values(array_diff($orderedPlayerIds, $monkPlayerIds));
 
         return [
             ...$regularPlayerIds,
             ...array_reverse($regularPlayerIds),
+            ...$omarPlayerIds,
             ...$monkPlayerIds,
         ];
     }

@@ -110,6 +110,13 @@ const isStartingBuildingStage = computed(
     () => props.game.data.phase === 'setup' && planningChoicesCompleted.value,
 );
 
+const isOmarStartingTowerTurn = computed(() =>
+    activePlayer.value?.faction === 'omar'
+    && props.game.data.board.hexes.filter(
+        (hex) => hex.building?.ownerPlayerId === activePlayer.value?.id,
+    ).length >= 2,
+);
+
 const canPlaceStartingBuilding = computed(
     () => isStartingBuildingStage.value
         && props.game.data.activePlayerId === page.props.auth.user.id
@@ -892,10 +899,14 @@ function updateStartingKnowledgeCount(discipline: KnowledgeDiscipline, event: Ev
                                     ? 'Земля преобразована — отмените действие или подтвердите.'
                                     : 'Выберите соседнюю ячейку для преобразования.'
                                 : game.data.pendingStartingBuildingHexId
-                                    ? 'Дом установлен — отмените действие или завершите ход.'
+                                    ? isOmarStartingTowerTurn
+                                        ? 'Стартовая вышка установлена — отмените действие или завершите ход.'
+                                        : 'Дом установлен — отмените действие или завершите ход.'
                                     : currentPlayer?.faction === 'monks'
                                         ? 'Установите стартовый университет на свободной ячейке родной местности.'
-                                        : 'Установите стартовый дом на свободной ячейке родной местности.'
+                                        : isOmarStartingTowerTurn
+                                            ? 'Установите стартовую вышку на свободной ячейке родной местности.'
+                                            : 'Установите стартовый дом на свободной ячейке родной местности.'
                     }}
                 </p>
 
@@ -927,12 +938,14 @@ function updateStartingKnowledgeCount(discipline: KnowledgeDiscipline, event: Ev
                                         variant="outline"
                                         size="icon"
                                         :disabled="processing"
-                                        aria-label="Отменить установку дома"
+                                        :aria-label="isOmarStartingTowerTurn ? 'Отменить установку стартовой вышки' : 'Отменить установку дома'"
                                     >
                                         <RotateCcw class="size-4" :class="processing ? 'animate-spin' : ''" />
                                     </Button>
                                 </TooltipTrigger>
-                                <TooltipContent>Отменить установку дома</TooltipContent>
+                                <TooltipContent>
+                                    {{ isOmarStartingTowerTurn ? 'Отменить установку стартовой вышки' : 'Отменить установку дома' }}
+                                </TooltipContent>
                             </Tooltip>
                         </Form>
 
@@ -1016,7 +1029,9 @@ function updateStartingKnowledgeCount(discipline: KnowledgeDiscipline, event: Ev
                                 isStartingBuildingStage
                                     ? game.data.pendingInteraction?.type === 'spend_spades'
                                         ? 'Стартовую лопату использует:'
-                                        : 'Стартовый дом устанавливает:'
+                                        : isOmarStartingTowerTurn
+                                            ? 'Стартовую вышку устанавливает:'
+                                            : 'Стартовый дом устанавливает:'
                                     : 'Сейчас ходит:'
                             }}
                         </span>
