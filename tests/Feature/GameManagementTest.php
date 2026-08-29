@@ -4,14 +4,19 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use App\Domain\Game\Actions\ApplyIncomeAction;
 use App\Domain\Game\Actions\DetermineStartingBuildingOrderAction;
 use App\Domain\Game\Actions\ResolveCompletedStartingSetupAction;
+use App\Domain\Game\Actions\ResolveIncomePhaseAction;
 use App\Domain\Game\Data\BoardHexStateData;
+use App\Domain\Game\Data\BoardStateData;
 use App\Domain\Game\Data\BuildingStateData;
 use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Data\GameStateData;
 use App\Domain\Game\Data\PlanningBundleData;
 use App\Domain\Game\Data\PlayerPlanningSelectionData;
+use App\Domain\Game\Data\PlayerResourcesData;
+use App\Domain\Game\Data\PowerBowlsStateData;
 use App\Domain\Game\Enums\BuildingType;
 use App\Domain\Game\Enums\Competency;
 use App\Domain\Game\Enums\Faction;
@@ -20,12 +25,14 @@ use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\GameStatus;
 use App\Domain\Game\Enums\Innovation;
 use App\Domain\Game\Enums\MapVariant;
+use App\Domain\Game\Enums\PalaceAbility;
 use App\Domain\Game\Enums\PendingInteractionType;
 use App\Domain\Game\Enums\PlayerColor;
 use App\Domain\Game\Enums\RoundBonus;
 use App\Domain\Game\Enums\TerrainType;
 use App\Domain\Game\Factories\BoardStateFactory;
 use App\Domain\Game\Factories\GameSetupPoolFactory;
+use App\Domain\Game\Services\PlayerIncomeCalculator;
 use App\Models\Builders\GameBuilder;
 use App\Models\Game;
 use App\Models\GameAction;
@@ -43,6 +50,152 @@ class GameManagementTest extends TestCase
     public function test_game_uses_custom_builder(): void
     {
         $this->assertInstanceOf(GameBuilder::class, Game::query());
+    }
+
+    public function test_player_income_is_calculated_from_buildings_and_owned_tiles(): void
+    {
+        $playerState = new GamePlayerStateData(
+            playerId: 15,
+            userId: 25,
+            color: PlayerColor::Grey,
+            faction: Faction::Omar,
+            homeland: TerrainType::Mountain,
+            roundBonus: RoundBonus::PowerCoins,
+            palaceId: PalaceAbility::Palace08->value,
+            competencyIds: [
+                Competency::Competency01->value,
+                Competency::Competency02->value,
+                Competency::Competency03->value,
+            ],
+            inventionIds: [
+                Innovation::Workshop->value,
+                Innovation::Guild->value,
+                Innovation::Palace->value,
+            ],
+        );
+        $buildingTypes = [
+            BuildingType::Workshop,
+            BuildingType::Workshop,
+            BuildingType::Guild,
+            BuildingType::Guild,
+            BuildingType::Guild,
+            BuildingType::School,
+            BuildingType::Tower,
+        ];
+        $board = new BoardStateData(
+            hexes: array_map(
+                static fn (BuildingType $buildingType, int $index): BoardHexStateData => new BoardHexStateData(
+                    id: (string) $index,
+                    q: $index,
+                    r: 0,
+                    initialTerrain: TerrainType::Mountain,
+                    terrain: TerrainType::Mountain,
+                    building: new BuildingStateData(
+                        $buildingType,
+                        15,
+                        isNeutral: $buildingType === BuildingType::Tower,
+                    ),
+                ),
+                $buildingTypes,
+                array_keys($buildingTypes),
+            ),
+        );
+
+        $this->assertSame([
+            'tools' => 8,
+            'coins' => 21,
+            'scholars' => 1,
+            'power' => 17,
+            'books' => 1,
+            'knowledgeSteps' => 1,
+        ], PlayerIncomeCalculator::calculate($playerState, $board));
+    }
+
+    public function test_income_is_applied_to_resources_power_books_and_knowledge(): void
+    {
+        $playerState = new GamePlayerStateData(
+            playerId: 15,
+            userId: 25,
+            color: PlayerColor::Green,
+            faction: Faction::Blessed,
+            homeland: TerrainType::Forest,
+            roundBonus: RoundBonus::Bridge,
+            resources: new PlayerResourcesData(
+                power: new PowerBowlsStateData(bowlOne: 1, bowlTwo: 2),
+            ),
+            palaceId: PalaceAbility::Palace06->value,
+            competencyIds: [Competency::Competency01->value],
+        );
+        $state = new GameStateData(
+            board: new BoardStateData(),
+            players: [$playerState],
+        );
+
+        app(ApplyIncomeAction::class)->execute($state, $playerState);
+
+        $this->assertSame(2, $playerState->resources->tools);
+        $this->assertSame(2, $playerState->resources->books->unassigned);
+        $this->assertSame(1, $playerState->knowledge->unassignedSteps);
+        $this->assertSame(0, $playerState->resources->power->bowlOne);
+        $this->assertSame(2, $playerState->resources->power->bowlTwo);
+        $this->assertSame(1, $playerState->resources->power->bowlThree);
+    }
+
+    public function test_income_skips_players_without_choices_and_stops_on_a_required_choice(): void
+    {
+        $users = User::factory()->count(2)->create();
+        $game = Game::factory()->create();
+        $firstPlayer = GamePlayer::factory()->create([
+            'game_id' => $game->id,
+            'user_id' => $users[0]->id,
+            'seat' => 1,
+        ]);
+        $secondPlayer = GamePlayer::factory()->create([
+            'game_id' => $game->id,
+            'user_id' => $users[1]->id,
+            'seat' => 2,
+        ]);
+        $firstPlayerState = new GamePlayerStateData(
+            $firstPlayer->id,
+            $users[0]->id,
+            PlayerColor::Green,
+            Faction::Blessed,
+            TerrainType::Forest,
+            RoundBonus::Coins,
+        );
+        $secondPlayerState = new GamePlayerStateData(
+            $secondPlayer->id,
+            $users[1]->id,
+            PlayerColor::Grey,
+            Faction::Felines,
+            TerrainType::Mountain,
+            RoundBonus::Bridge,
+        );
+        $state = new GameStateData(
+            turnOrder: [$firstPlayer->id, $secondPlayer->id],
+            board: new BoardStateData(),
+            players: [$firstPlayerState, $secondPlayerState],
+        );
+        $players = $game->players()->get();
+
+        [$activePlayer, $phase] = app(ResolveIncomePhaseAction::class)->execute($state, $players);
+
+        $this->assertSame($secondPlayer->id, $activePlayer->id);
+        $this->assertSame(GamePhase::Income, $phase);
+        $this->assertSame(GamePhase::Income, $state->round->phase);
+        $this->assertSame(2, $state->round->incomeTurnIndex);
+        $this->assertSame(1, $firstPlayerState->resources->tools);
+        $this->assertSame(6, $firstPlayerState->resources->coins);
+        $this->assertSame(1, $secondPlayerState->resources->books->unassigned);
+
+        $secondPlayerState->resources->books->unassigned = 0;
+        $secondPlayerTools = $secondPlayerState->resources->tools;
+        [$activePlayer, $phase] = app(ResolveIncomePhaseAction::class)->execute($state, $players);
+
+        $this->assertSame($firstPlayer->id, $activePlayer->id);
+        $this->assertSame(GamePhase::Actions, $phase);
+        $this->assertSame(GamePhase::Actions, $state->round->phase);
+        $this->assertSame($secondPlayerTools, $secondPlayerState->resources->tools);
     }
 
     public function test_game_history_is_loaded_in_batches_of_twenty_five(): void
@@ -110,6 +263,7 @@ class GameManagementTest extends TestCase
                 ->has('games.data', 2)
                 ->where('games.data.0.id', $ownGame->id)
                 ->where('games.data.0.status', 'lobby')
+                ->where('games.data.0.currentRound', null)
                 ->where('games.data.0.mapVariant', MapVariant::ThreeToFivePlayers->value)
                 ->where('games.data.0.playersCount', 1)
                 ->where('games.data.0.isJoined', true)
@@ -118,9 +272,33 @@ class GameManagementTest extends TestCase
                 ->missing('games.data.0.players')
                 ->missing('games.data.0.playerBoardStates')
                 ->where('games.data.1.id', $openGame->id)
+                ->where('games.data.1.currentRound', null)
                 ->where('games.data.1.mapVariant', MapVariant::OneToThreePlayers->value)
                 ->where('games.data.1.isJoined', false)
                 ->missing('games.data.2')
+            );
+    }
+
+    public function test_game_list_contains_the_current_round_for_an_active_game(): void
+    {
+        $user = User::factory()->create();
+        $game = Game::factory()->active()->create(['round' => 3]);
+        GamePlayer::factory()->create([
+            'game_id' => $game->id,
+            'user_id' => $user->id,
+            'seat' => 1,
+        ]);
+
+        $this->actingAs($user)
+            ->get(route('games.index'))
+            ->assertOk()
+            ->assertInertia(
+                fn (Assert $page) => $page
+                    ->has('games.data', 1)
+                    ->where('games.data.0.id', $game->id)
+                    ->where('games.data.0.status', GameStatus::Active->value)
+                    ->where('games.data.0.currentRound', 3)
+                    ->missing('games.data.0.board'),
             );
     }
 
@@ -639,12 +817,13 @@ class GameManagementTest extends TestCase
                     )
                     ->where('game.data.playerBoardStates.0.activeTownKeys', 0)
                     ->where('game.data.playerBoardStates.0.activeAnnexes', 0)
-                    ->where('game.data.playerBoardStates.0.income', [
-                        'tools' => 0,
-                        'coins' => 0,
-                        'scholars' => 0,
-                        'power' => 0,
-                    ])
+                    ->where(
+                        'game.data.playerBoardStates.0.income',
+                        PlayerIncomeCalculator::calculate(
+                            $game->state->players[0],
+                            $game->state->board,
+                        ),
+                    )
                     ->where(
                         'game.data.playerBoardStates.0.shippingLevel',
                         $game->state->players[0]->shippingLevel,
@@ -1057,6 +1236,7 @@ class GameManagementTest extends TestCase
         $game->refresh();
         $this->assertSame($forestHex->id, $game->state->pendingStartingBuildingHexId);
         $this->assertSame($firstPlayer->id, collect($game->state->board->hexes)->firstWhere('id', $forestHex->id)?->building?->ownerPlayerId);
+        $this->assertCount(0, $game->actions);
         $this->get(route('games.show', $game))
             ->assertInertia(
                 fn (Assert $page) => $page
@@ -1069,6 +1249,7 @@ class GameManagementTest extends TestCase
         $game->refresh();
         $this->assertNull($game->state->pendingStartingBuildingHexId);
         $this->assertNull(collect($game->state->board->hexes)->firstWhere('id', $forestHex->id)?->building);
+        $this->assertCount(0, $game->actions);
         $this->get(route('games.show', $game))
             ->assertInertia(
                 fn (Assert $page) => $page
@@ -1086,26 +1267,14 @@ class GameManagementTest extends TestCase
 
         $actions = $game->actions()->orderBy('sequence')->get();
 
-        $this->assertCount(4, $actions);
-        $this->assertSame(
-            [
-                GameActionType::PlaceStartingBuilding,
-                GameActionType::UndoStartingBuilding,
-                GameActionType::PlaceStartingBuilding,
-                GameActionType::FinishStartingBuildingTurn,
-            ],
-            $actions->pluck('type')->all(),
-        );
-        $this->assertSame([1, 2, 3, 4], $actions->pluck('sequence')->all());
+        $this->assertCount(1, $actions);
+        $this->assertSame([GameActionType::PlaceStartingBuilding], $actions->pluck('type')->all());
+        $this->assertSame([1], $actions->pluck('sequence')->all());
         $this->assertSame($forestHex->id, $actions[0]->payload['hex_id']);
+        $this->assertTrue($actions[0]->payload['confirmed']);
         $this->assertSame('starting_building_placed', $actions[0]->events[0]['type']);
-        $this->assertSame('starting_building_removed', $actions[1]->events[0]['type']);
-        $this->assertSame('starting_building_turn_finished', $actions[3]->events[0]['type']);
-
-        foreach ($actions as $index => $action) {
-            $this->assertSame($index, $action->state_version_before);
-            $this->assertSame($index + 1, $action->state_version_after);
-        }
+        $this->assertSame(0, $actions[0]->state_version_before);
+        $this->assertSame(1, $actions[0]->state_version_after);
     }
 
     public function test_desert_player_spends_starting_spade_after_all_starting_buildings_are_placed(): void
@@ -1244,7 +1413,7 @@ class GameManagementTest extends TestCase
 
         $game->refresh();
         $desertPlayerState = collect($game->state->players)->firstWhere('playerId', $desertPlayer->id);
-        $this->assertSame(GamePhase::Income, $game->phase);
+        $this->assertSame(GamePhase::Actions, $game->phase);
         $this->assertNull($game->state->pendingInteraction);
         $this->assertSame($targetTerrainAfter, collect($game->state->board->hexes)->firstWhere('id', $targetHexId)?->terrain);
         $this->assertSame(0, $desertPlayerState?->unassignedSpades);
@@ -1261,6 +1430,134 @@ class GameManagementTest extends TestCase
                     ->where("game.data.board.hexes.{$targetHexIndex}.initialTerrain", $targetTerrainBefore->value)
                     ->where("game.data.board.hexes.{$targetHexIndex}.terrain", $targetTerrainAfter->value),
             );
+    }
+
+    public function test_game_applies_income_and_enters_actions_when_no_income_choices_are_required(): void
+    {
+        $users = User::factory()->count(2)->create();
+        $game = Game::factory()->create([
+            'status' => GameStatus::Active,
+            'phase' => GamePhase::Setup,
+            'active_player_id' => $users[0]->id,
+        ]);
+        $firstPlayer = GamePlayer::factory()->create([
+            'game_id' => $game->id,
+            'user_id' => $users[0]->id,
+            'seat' => 1,
+            'color' => PlayerColor::Green,
+            'faction' => Faction::Blessed,
+            'homeland' => TerrainType::Forest,
+        ]);
+        $secondPlayer = GamePlayer::factory()->create([
+            'game_id' => $game->id,
+            'user_id' => $users[1]->id,
+            'seat' => 2,
+            'color' => PlayerColor::Grey,
+            'faction' => Faction::Felines,
+            'homeland' => TerrainType::Mountain,
+        ]);
+        $board = (new BoardStateFactory())->create(MapVariant::OneToThreePlayers);
+        $forestHexIds = collect($board->hexes)
+            ->where('terrain', TerrainType::Forest)
+            ->take(2)
+            ->pluck('id')
+            ->all();
+        $mountainHexIds = collect($board->hexes)
+            ->where('terrain', TerrainType::Mountain)
+            ->take(2)
+            ->pluck('id')
+            ->all();
+
+        $this->assertCount(2, $forestHexIds);
+        $this->assertCount(2, $mountainHexIds);
+
+        $game->update([
+            'state' => new GameStateData(
+                schemaVersion: 3,
+                turnOrder: [$firstPlayer->id, $secondPlayer->id],
+                board: $board,
+                players: [
+                    new GamePlayerStateData(
+                        $firstPlayer->id,
+                        $users[0]->id,
+                        PlayerColor::Green,
+                        Faction::Blessed,
+                        TerrainType::Forest,
+                        RoundBonus::Coins,
+                    ),
+                    new GamePlayerStateData(
+                        $secondPlayer->id,
+                        $users[1]->id,
+                        PlayerColor::Grey,
+                        Faction::Felines,
+                        TerrainType::Mountain,
+                        RoundBonus::PowerCoins,
+                    ),
+                ],
+                planningSelections: [
+                    new PlayerPlanningSelectionData(
+                        $firstPlayer->id,
+                        new PlanningBundleData(TerrainType::Forest, Faction::Blessed, RoundBonus::Coins),
+                    ),
+                    new PlayerPlanningSelectionData(
+                        $secondPlayer->id,
+                        new PlanningBundleData(TerrainType::Mountain, Faction::Felines, RoundBonus::PowerCoins),
+                    ),
+                ],
+            ),
+        ]);
+        $resourcesBeforeIncome = collect($game->state->players)->mapWithKeys(
+            static fn (GamePlayerStateData $playerState): array => [
+                $playerState->playerId => [
+                    'tools' => $playerState->resources->tools,
+                    'coins' => $playerState->resources->coins,
+                    'scholars' => $playerState->resources->scholars,
+                ],
+            ],
+        );
+
+        $placements = [
+            [$users[0], $forestHexIds[0]],
+            [$users[1], $mountainHexIds[0]],
+            [$users[1], $mountainHexIds[1]],
+            [$users[0], $forestHexIds[1]],
+        ];
+
+        foreach ($placements as [$user, $hexId]) {
+            $this->actingAs($user)
+                ->post(route('games.starting-building.store', $game), ['hex_id' => $hexId])
+                ->assertRedirect(route('games.show', $game));
+            $this->post(route('games.starting-building.finish', $game))
+                ->assertRedirect(route('games.show', $game));
+        }
+
+        $game->refresh();
+
+        $this->assertSame(4, $game->state->startingBuildingTurnIndex);
+        $this->assertSame(GamePhase::Actions, $game->phase);
+        $this->assertSame(GamePhase::Actions, $game->state->round->phase);
+        $this->assertSame($users[0]->id, $game->active_player_id);
+        $this->assertNull($game->state->pendingStartingBuildingHexId);
+        $this->assertNull($game->state->pendingInteraction);
+        $this->assertCount(4, $game->actions);
+        $this->assertTrue($game->actions->every(
+            static fn (GameAction $action): bool => $action->type === GameActionType::PlaceStartingBuilding,
+        ));
+        $incomeStartingAction = $game->actions()->latest('sequence')->firstOrFail();
+        $this->assertTrue($incomeStartingAction->payload['income_started']);
+        $this->assertSame(1, $incomeStartingAction->payload['round']);
+        $this->assertSame('income_phase_started', $incomeStartingAction->events[1]['type']);
+        $this->assertSame(1, $incomeStartingAction->events[1]['round']);
+
+        foreach ($game->state->players as $playerState) {
+            $income = PlayerIncomeCalculator::calculate($playerState, $game->state->board);
+            $resourcesBefore = $resourcesBeforeIncome->get($playerState->playerId);
+
+            $this->assertIsArray($resourcesBefore);
+            $this->assertSame($resourcesBefore['tools'] + $income['tools'], $playerState->resources->tools);
+            $this->assertSame($resourcesBefore['coins'] + $income['coins'], $playerState->resources->coins);
+            $this->assertSame($resourcesBefore['scholars'] + $income['scholars'], $playerState->resources->scholars);
+        }
     }
 
     public function test_setup_spends_competency_five_spades_without_building(): void
@@ -1332,7 +1629,7 @@ class GameManagementTest extends TestCase
         }
 
         $finalPlayerState = collect($game->state->players)->firstWhere('playerId', $player->id);
-        $this->assertSame(GamePhase::Income, $game->phase);
+        $this->assertSame(GamePhase::Actions, $game->phase);
         $this->assertNull($game->state->pendingInteraction);
         $this->assertSame(0, $finalPlayerState?->unassignedSpades);
         $this->assertSame($initialBuildingCount, collect($game->state->board->hexes)->whereNotNull('building')->count());
@@ -1550,8 +1847,9 @@ class GameManagementTest extends TestCase
         $this->assertContains(Competency::Competency04->value, $monkState->competencyIds);
         $this->assertContains(Competency::Competency04->value, $game->state->availableCompetencyIds);
         $this->assertSame($monkStateBefore->knowledge->medicine + 3, $monkState->knowledge->medicine);
-        $this->assertSame($monkStateBefore->resources->tools + 1, $monkState->resources->tools);
-        $this->assertSame($monkStateBefore->resources->coins + 2, $monkState->resources->coins);
+        $monkIncome = PlayerIncomeCalculator::calculate($monkState, $game->state->board);
+        $this->assertSame($monkStateBefore->resources->tools + 1 + $monkIncome['tools'], $monkState->resources->tools);
+        $this->assertSame($monkStateBefore->resources->coins + 2 + $monkIncome['coins'], $monkState->resources->coins);
         $this->assertSame($monkStateBefore->victoryPoints + 5, $monkState->victoryPoints);
         $this->assertSame(
             GameActionType::ChooseCompetency,

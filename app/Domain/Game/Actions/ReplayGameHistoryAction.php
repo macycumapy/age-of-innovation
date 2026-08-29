@@ -260,6 +260,10 @@ final class ReplayGameHistoryAction
                 $state->pendingStartingBuildingHexId = $hexId;
                 $game->state = $state;
 
+                if (($action->payload['confirmed'] ?? false) === true) {
+                    $this->replayFinishStartingBuildingTurn($game, $players, $action);
+                }
+
                 return;
             }
         }

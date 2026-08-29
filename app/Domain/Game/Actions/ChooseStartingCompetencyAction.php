@@ -91,14 +91,24 @@ final class ChooseStartingCompetencyAction
                 $lockedGame,
                 $user,
                 GameActionType::ChooseCompetency,
-                ['competency_id' => $competency->value],
-                [[
-                    'type' => 'starting_competency_chosen',
-                    'player_id' => $player->id,
+                [
                     'competency_id' => $competency->value,
-                    'next_player_id' => $nextPlayer->id,
-                    'next_phase' => $nextPhase->value,
-                ]],
+                    'income_started' => $nextPhase !== GamePhase::Setup,
+                    'round' => $state->round->number,
+                ],
+                [
+                    [
+                        'type' => 'starting_competency_chosen',
+                        'player_id' => $player->id,
+                        'competency_id' => $competency->value,
+                        'next_player_id' => $nextPlayer->id,
+                        'next_phase' => $nextPhase->value,
+                    ],
+                    ...($nextPhase !== GamePhase::Setup ? [[
+                        'type' => 'income_phase_started',
+                        'round' => $state->round->number,
+                    ]] : []),
+                ],
                 $stateVersionBefore,
                 $lockedGame->version,
             );

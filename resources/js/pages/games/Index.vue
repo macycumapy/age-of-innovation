@@ -11,7 +11,7 @@ import {
     CardTitle,
 } from '@/components/ui/card';
 import { index, show } from '@/routes/games';
-import type { GameCollection, GameStatus, MapVariant } from '@/types';
+import type { GameCollection, GameStatus, GameSummary, MapVariant } from '@/types';
 
 defineProps<{
     games: GameCollection;
@@ -47,6 +47,22 @@ const formatDate = (date: string | null): string =>
               timeStyle: 'short',
           }).format(new Date(date))
         : '—';
+
+function gameButtonLabel(game: GameSummary): string {
+    if (game.status === 'lobby') {
+        return game.isJoined ? 'Открыть подготовку' : 'Присоединиться';
+    }
+
+    if (game.status === 'finished') {
+        return 'Посмотреть результаты';
+    }
+
+    if (game.status === 'abandoned') {
+        return 'Посмотреть партию';
+    }
+
+    return 'Продолжить игру';
+}
 </script>
 
 <template>
@@ -139,17 +155,19 @@ const formatDate = (date: string | null): string =>
                                 {{ game.playersCount }}
                             </span>
                         </p>
+                        <p v-if="game.currentRound !== null">
+                            Текущий раунд:
+                            <span class="font-medium">
+                                {{ game.currentRound }}
+                            </span>
+                        </p>
                         <p class="text-muted-foreground">
                             Создана {{ formatDate(game.createdAt) }}
                         </p>
 
                         <Button as-child class="mt-3">
                             <Link :href="show(game.id)">
-                                {{
-                                    game.isJoined
-                                        ? 'Открыть подготовку'
-                                        : 'Посмотреть игру'
-                                }}
+                                {{ gameButtonLabel(game) }}
                             </Link>
                         </Button>
                     </CardContent>

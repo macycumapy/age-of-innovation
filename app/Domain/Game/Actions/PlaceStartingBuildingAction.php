@@ -8,7 +8,6 @@ use App\Domain\Game\Data\BoardHexStateData;
 use App\Domain\Game\Data\BuildingStateData;
 use App\Domain\Game\Enums\BuildingType;
 use App\Domain\Game\Enums\Faction;
-use App\Domain\Game\Enums\GameActionType;
 use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\GameStatus;
 use App\Models\Game;
@@ -18,17 +17,12 @@ use Illuminate\Validation\ValidationException;
 
 final class PlaceStartingBuildingAction
 {
-    public function __construct(private AppendGameHistoryAction $appendGameHistory)
-    {
-    }
-
     public function execute(Game $game, User $user, string $hexId): Game
     {
         return DB::transaction(function () use ($game, $user, $hexId): Game {
             $lockedGame = Game::query()->lockForUpdate()->findOrFail($game->id);
             $player = $lockedGame->players()->whereBelongsTo($user)->first();
             $state = $lockedGame->state;
-            $stateVersionBefore = $lockedGame->version;
 
             if ($lockedGame->status !== GameStatus::Active
                 || $lockedGame->phase !== GamePhase::Setup
@@ -68,24 +62,7 @@ final class PlaceStartingBuildingAction
                 $state->board->hexes[$index] = $hex;
                 $state->pendingStartingBuildingHexId = $hexId;
 
-                $lockedGame->update(['state' => $state, 'version' => $lockedGame->version + 1]);
-                $this->appendGameHistory->execute(
-                    $lockedGame,
-                    $user,
-                    GameActionType::PlaceStartingBuilding,
-                    [
-                        'hex_id' => $hexId,
-                        'building_type' => $buildingType->value,
-                    ],
-                    [[
-                        'type' => 'starting_building_placed',
-                        'player_id' => $player->id,
-                        'hex_id' => $hexId,
-                        'building_type' => $buildingType->value,
-                    ]],
-                    $stateVersionBefore,
-                    $lockedGame->version,
-                );
+                $lockedGame->update(['state' => $state]);
 
                 return $lockedGame->refresh();
             }

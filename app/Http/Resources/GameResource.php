@@ -18,6 +18,7 @@ use App\Domain\Game\Enums\GameStatus;
 use App\Domain\Game\Enums\Innovation;
 use App\Domain\Game\Enums\RoundBonus;
 use App\Domain\Game\Enums\TerrainType;
+use App\Domain\Game\Services\PlayerIncomeCalculator;
 use App\Models\Game;
 use App\Models\GameAction;
 use App\Models\GamePlayer;
@@ -48,12 +49,16 @@ class GameResource extends JsonResource
         return [
             'id' => $this->id,
             'status' => $this->status->value,
+            'currentRound' => $this->status === GameStatus::Lobby ? null : $this->state->round->number,
             'mapVariant' => $this->state->board->variant->value,
             'maxPlayers' => $this->state->board->variant->maxPlayers(),
             'playersCount' => (int) $this->getAttribute('players_count'),
             'isJoined' => (bool) $this->getAttribute('is_joined'),
             'isOwner' => $isOwner,
-            'canUndoLastAction' => $isOwner && $hasActions && ! $hasUnsupportedActions,
+            'canUndoLastAction' => $isOwner
+                && $hasActions
+                && ! $hasUnsupportedActions
+                && $this->state->pendingStartingBuildingHexId === null,
             'activePlayerId' => $this->active_player_id,
             'turnOrder' => $this->state->turnOrder,
             'board' => [
@@ -124,12 +129,7 @@ class GameResource extends JsonResource
                         'university' => $this->buildingCount($player->playerId, BuildingType::University),
                         'palace' => $this->buildingCount($player->playerId, BuildingType::Palace),
                     ],
-                    'income' => [
-                        'tools' => 0,
-                        'coins' => 0,
-                        'scholars' => 0,
-                        'power' => 0,
-                    ],
+                    'income' => PlayerIncomeCalculator::calculate($player, $this->state->board),
                     'shippingLevel' => $player->shippingLevel,
                     'terraformingLevel' => $player->terraformingLevel,
                     'unassignedSpades' => $player->unassignedSpades,

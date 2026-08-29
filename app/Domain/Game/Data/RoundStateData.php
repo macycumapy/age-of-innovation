@@ -13,6 +13,7 @@ use Spatie\LaravelData\Data;
  * @property string|null $scoringTileId Жетон подсчёта текущего раунда.
  * @property string|null $additionalScoringTileId Дополнительный жетон подсчёта шестого раунда.
  * @property list<string> $usedSharedActionIds Общие действия, уже использованные в текущем раунде.
+ * @property int $incomeTurnIndex Индекс следующего игрока в порядке начисления дохода.
  */
 class RoundStateData extends Data
 {
@@ -23,6 +24,7 @@ class RoundStateData extends Data
         public ?string $scoringTileId = null,
         public ?string $additionalScoringTileId = null,
         public array $usedSharedActionIds = [],
+        public int $incomeTurnIndex = 0,
     ) {
     }
 }

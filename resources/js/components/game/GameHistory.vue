@@ -133,6 +133,7 @@ function payloadString(entry: GameHistoryEntry, key: string): string | null {
 }
 
 function actionDetails(entry: GameHistoryEntry): string | null {
+    const details: string[] = [];
     const hexId = payloadString(entry, 'hex_id');
 
     if (hexId !== null && [
@@ -140,16 +141,25 @@ function actionDetails(entry: GameHistoryEntry): string | null {
         'undo_starting_building',
         'spend_starting_spade',
     ].includes(entry.type)) {
-        return `ячейка ${hexId}`;
+        details.push(`ячейка ${hexId}`);
     }
 
     const homeland = payloadString(entry, 'homeland') as TerrainType | null;
 
     if (entry.type === 'choose_planning_bundle' && homeland !== null && homeland in terrainNames) {
-        return terrainNames[homeland].toLocaleLowerCase('ru-RU');
+        details.push(terrainNames[homeland].toLocaleLowerCase('ru-RU'));
     }
 
-    return null;
+    if (entry.payload.income_started === true) {
+        const round = entry.payload.round;
+        details.push(
+            round === 1
+                ? 'началась фаза дохода первого раунда'
+                : `началась фаза дохода раунда ${String(round)}`,
+        );
+    }
+
+    return details.length > 0 ? details.join(' · ') : null;
 }
 
 function actionTime(createdAt: string | null): string {

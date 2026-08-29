@@ -105,8 +105,16 @@ final class FinishStartingSpadeAction
                     'terrain_after' => $terrainAfter,
                     'remaining_spades' => $remainingSpades,
                     'target_terrain' => $interaction->context['targetTerrain'] ?? null,
+                    'income_started' => $nextPhase !== GamePhase::Setup,
+                    'round' => $state->round->number,
                 ],
-                [['type' => 'starting_spade_spent', 'player_id' => $player->id, 'hex_id' => $hexId]],
+                [
+                    ['type' => 'starting_spade_spent', 'player_id' => $player->id, 'hex_id' => $hexId],
+                    ...($nextPhase !== GamePhase::Setup ? [[
+                        'type' => 'income_phase_started',
+                        'round' => $state->round->number,
+                    ]] : []),
+                ],
                 $stateVersionBefore,
                 $lockedGame->version,
             );

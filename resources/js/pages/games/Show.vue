@@ -85,6 +85,17 @@ const orderedPlayers = computed(() =>
 
 const playersWithSelectedFactions = computed(() => orderedPlayers.value.filter((player) => player.faction !== null));
 
+const pageTitle = computed(() => {
+    const prefix = {
+        lobby: 'Подготовка игры',
+        active: 'Игра',
+        finished: 'Результаты игры',
+        abandoned: 'Прерванная игра',
+    }[props.game.data.status];
+
+    return `${prefix} №${props.game.data.id}`;
+});
+
 const canChoosePlanningBundle = computed(
     () =>
         props.game.data.status === 'active' &&
@@ -377,7 +388,7 @@ function updateStartingKnowledgeCount(discipline: KnowledgeDiscipline, event: Ev
 </script>
 
 <template>
-    <Head :title="`Подготовка игры №${game.data.id}`" />
+    <Head :title="pageTitle" />
 
     <div class="flex h-full min-w-0 flex-1">
         <div class="flex min-w-0 flex-1 flex-col gap-6 p-4">
@@ -878,6 +889,13 @@ function updateStartingKnowledgeCount(discipline: KnowledgeDiscipline, event: Ev
                 v-if="game.data.status === 'active'"
                 class="sticky top-0 z-30 -mx-4 flex items-center justify-center gap-4 border-y border-border/80 bg-background/95 px-4 py-3 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-background/80"
             >
+                <span
+                    v-if="game.data.phase === 'income'"
+                    class="shrink-0 rounded-full border border-primary/40 bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary"
+                >
+                    Фаза дохода · Раунд {{ game.data.currentRound }}
+                </span>
+
                 <span
                     v-if="activePlayer?.user.id === page.props.auth.user.id"
                     class="shrink-0 rounded-full bg-primary px-2.5 py-1 text-xs font-semibold text-primary-foreground"

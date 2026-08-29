@@ -16,6 +16,8 @@ import medicineBookUrl from '../../../images/token_parts/medicine_book.png';
 import bowlOneUrl from '../../../images/token_parts/roman_one.png';
 import bowlThreeUrl from '../../../images/token_parts/roman_three.png';
 import bowlTwoUrl from '../../../images/token_parts/roman_two.png';
+import bookUrl from '../../../images/token_parts/gray_book.png';
+import knowledgeUrl from '../../../images/token_parts/gear.png';
 import scholarUrl from '../../../images/token_parts/scholar.png';
 import shovelUrl from '../../../images/token_parts/shovel.png';
 import victoryPointsUrl from '../../../images/token_parts/sunflower.png';
@@ -108,13 +110,19 @@ function incomeCounters(state: GamePlayerBoardState): StatCounter[] {
             image: toolUrl,
             value: state.income.tools,
         },
-        { label: 'Доход монет', image: coinUrl, value: state.income.coins },
+        { label: 'Доход золота', image: coinUrl, value: state.income.coins },
         {
             label: 'Доход учёных',
             image: scholarUrl,
             value: state.income.scholars,
         },
-        { label: 'Доход маны', image: manaUrl, value: state.income.power },
+        { label: 'Доход силы', image: manaUrl, value: state.income.power },
+        { label: 'Доход книг', image: bookUrl, value: state.income.books },
+        {
+            label: 'Доход шагов культа',
+            image: knowledgeUrl,
+            value: state.income.knowledgeSteps,
+        },
     ];
 }
 

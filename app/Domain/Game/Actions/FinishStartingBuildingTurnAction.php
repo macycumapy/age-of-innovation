@@ -40,6 +40,13 @@ final class FinishStartingBuildingTurnAction
             }
 
             $confirmedHexId = $state->pendingStartingBuildingHexId;
+            $confirmedBuilding = collect($state->board->hexes)
+                ->firstWhere('id', $confirmedHexId)?->building;
+
+            if ($confirmedBuilding === null) {
+                throw ValidationException::withMessages(['game' => 'Стартовое здание не найдено.']);
+            }
+
             $state->pendingStartingBuildingHexId = null;
             $state->startingBuildingTurnIndex++;
             $placementOrder = $this->determineStartingBuildingOrder->execute($lockedGame);
@@ -94,15 +101,26 @@ final class FinishStartingBuildingTurnAction
             $this->appendGameHistory->execute(
                 $lockedGame,
                 $user,
-                GameActionType::FinishStartingBuildingTurn,
-                ['hex_id' => $confirmedHexId],
-                [[
-                    'type' => 'starting_building_turn_finished',
+                GameActionType::PlaceStartingBuilding,
+                [
                     'hex_id' => $confirmedHexId,
-                    'turn_index' => $state->startingBuildingTurnIndex,
-                    'next_player_id' => $nextPlayer->id,
-                    'next_phase' => $nextPhase->value,
-                ]],
+                    'building_type' => $confirmedBuilding->type->value,
+                    'confirmed' => true,
+                    'income_started' => $nextPhase !== GamePhase::Setup,
+                    'round' => $state->round->number,
+                ],
+                [
+                    [
+                        'type' => 'starting_building_placed',
+                        'player_id' => $player->id,
+                        'hex_id' => $confirmedHexId,
+                        'building_type' => $confirmedBuilding->type->value,
+                    ],
+                    ...($nextPhase !== GamePhase::Setup ? [[
+                        'type' => 'income_phase_started',
+                        'round' => $state->round->number,
+                    ]] : []),
+                ],
                 $stateVersionBefore,
                 $lockedGame->version,
             );

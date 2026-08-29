@@ -18,6 +18,7 @@ final class GameBuilder extends Builder
             ->select([
                 'id',
                 'status',
+                'round',
                 'state->board->variant as map_variant',
                 'created_at',
             ])

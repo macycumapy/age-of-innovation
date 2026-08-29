@@ -5,6 +5,7 @@ export type GameStatus = 'lobby' | 'active' | 'finished' | 'abandoned';
 export type GameSummary = {
     id: number;
     status: GameStatus;
+    currentRound: number | null;
     mapVariant: MapVariant;
     maxPlayers: number;
     playersCount: number;
@@ -116,6 +117,8 @@ export type GamePlayerBoardState = {
         coins: number;
         scholars: number;
         power: number;
+        books: number;
+        knowledgeSteps: number;
     };
     shippingLevel: number;
     terraformingLevel: number;

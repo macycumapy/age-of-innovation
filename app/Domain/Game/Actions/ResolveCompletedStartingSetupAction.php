@@ -13,10 +13,13 @@ use App\Domain\Game\Enums\PendingInteractionType;
 use App\Domain\Game\Enums\TerrainType;
 use App\Models\GamePlayer;
 use Illuminate\Database\Eloquent\Collection;
-use Illuminate\Validation\ValidationException;
 
 final class ResolveCompletedStartingSetupAction
 {
+    public function __construct(private ResolveIncomePhaseAction $resolveIncomePhase)
+    {
+    }
+
     /**
      * @param Collection<int, GamePlayer> $players
      * @return array{GamePlayer, GamePhase}
@@ -72,15 +75,10 @@ final class ResolveCompletedStartingSetupAction
             return [$desertPlayer, GamePhase::Setup];
         }
 
-        $firstPlayer = $players->firstWhere('id', $state->turnOrder[0] ?? null);
-
-        if (! $firstPlayer instanceof GamePlayer) {
-            throw ValidationException::withMessages(['game' => 'Не найден первый игрок нового раунда.']);
-        }
-
         $state->round->phase = GamePhase::Income;
+        $state->round->incomeTurnIndex = 0;
 
-        return [$firstPlayer, GamePhase::Income];
+        return $this->resolveIncomePhase->execute($state, $players);
     }
 
     /** @return list<string> */

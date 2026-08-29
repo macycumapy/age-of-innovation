@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Resources;
 
+use App\Domain\Game\Enums\GameStatus;
 use App\Domain\Game\Enums\MapVariant;
 use App\Models\Game;
 use Illuminate\Http\Request;
@@ -20,6 +21,7 @@ final class GameSummaryResource extends JsonResource
         return [
             'id' => $this->id,
             'status' => $this->status->value,
+            'currentRound' => $this->status === GameStatus::Lobby ? null : $this->round,
             'mapVariant' => $mapVariant->value,
             'maxPlayers' => $mapVariant->maxPlayers(),
             'playersCount' => (int) $this->getAttribute('players_count'),
