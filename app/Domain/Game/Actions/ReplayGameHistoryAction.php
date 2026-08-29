@@ -41,6 +41,7 @@ final class ReplayGameHistoryAction
         GameActionType::UndoStartingBuilding,
         GameActionType::FinishStartingBuildingTurn,
         GameActionType::ChooseCompetency,
+        GameActionType::SpendStartingSpade,
     ];
 
     public function __construct(
@@ -48,6 +49,7 @@ final class ReplayGameHistoryAction
         private GamePlayerStateFactory $playerStateFactory,
         private GameSetupPoolFactory $setupPoolFactory,
         private GrantCompetencyAction $grantCompetency,
+        private ResolveCompletedStartingSetupAction $resolveCompletedStartingSetup,
     ) {
     }
 
@@ -90,6 +92,7 @@ final class ReplayGameHistoryAction
                 GameActionType::UndoStartingBuilding => $this->replayUndoStartingBuilding($game, $action),
                 GameActionType::FinishStartingBuildingTurn => $this->replayFinishStartingBuildingTurn($game, $players, $action),
                 GameActionType::ChooseCompetency => $this->replayStartingCompetency($game, $players, $action),
+                GameActionType::SpendStartingSpade => $this->replayStartingSpade($game, $players, $action),
                 default => null,
             };
 
@@ -306,9 +309,9 @@ final class ReplayGameHistoryAction
             );
             $game->active_player_id = $player->user_id;
         } elseif ($state->startingBuildingTurnIndex >= count($placementOrder)) {
-            $state->round->phase = GamePhase::Income;
-            $game->phase = GamePhase::Income;
-            $game->active_player_id = $players->firstWhere('id', $state->turnOrder[0])?->user_id;
+            [$nextPlayer, $nextPhase] = $this->resolveCompletedStartingSetup->execute($state, $players);
+            $game->phase = $nextPhase;
+            $game->active_player_id = $nextPlayer->user_id;
         } else {
             $game->active_player_id = $players->firstWhere(
                 'id',
@@ -338,9 +341,9 @@ final class ReplayGameHistoryAction
         $placementOrder = $this->startingBuildingOrder($state, $players);
 
         if ($state->startingBuildingTurnIndex >= count($placementOrder)) {
-            $state->round->phase = GamePhase::Income;
-            $game->phase = GamePhase::Income;
-            $game->active_player_id = $players->firstWhere('id', $state->turnOrder[0])?->user_id;
+            [$nextPlayer, $nextPhase] = $this->resolveCompletedStartingSetup->execute($state, $players);
+            $game->phase = $nextPhase;
+            $game->active_player_id = $nextPlayer->user_id;
         } else {
             $game->active_player_id = $players->firstWhere(
                 'id',
@@ -348,6 +351,33 @@ final class ReplayGameHistoryAction
             )?->user_id;
         }
 
+        $game->state = $state;
+    }
+
+    /** @param Collection<int, GamePlayer> $players */
+    private function replayStartingSpade(Game $game, Collection $players, GameAction $action): void
+    {
+        $player = $players->firstWhere('user_id', $action->player_id);
+
+        if (! $player instanceof GamePlayer) {
+            $this->invalidHistory();
+        }
+
+        $state = $game->state;
+
+        foreach ($state->board->hexes as $index => $hex) {
+            if ($hex->id === (string) $action->payload['hex_id']) {
+                $hex->terrain = TerrainType::from((string) $action->payload['terrain_after']);
+                $state->board->hexes[$index] = $hex;
+                break;
+            }
+        }
+
+        $this->playerState($state, $player->id)->unassignedSpades--;
+        $state->pendingInteraction = null;
+        $state->round->phase = GamePhase::Income;
+        $game->phase = GamePhase::Income;
+        $game->active_player_id = $players->firstWhere('id', $state->turnOrder[0])?->user_id;
         $game->state = $state;
     }
 

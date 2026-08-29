@@ -12,6 +12,7 @@ enum GameActionType: string
     case PlaceStartingBuilding = 'place_starting_building';
     case UndoStartingBuilding = 'undo_starting_building';
     case FinishStartingBuildingTurn = 'finish_starting_building_turn';
+    case SpendStartingSpade = 'spend_starting_spade';
     case TerraformAndBuild = 'terraform_and_build';
     case UpgradeBuilding = 'upgrade_building';
     case AdvanceShipping = 'advance_shipping';

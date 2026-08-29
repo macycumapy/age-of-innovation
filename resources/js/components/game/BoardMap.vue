@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue';
+import TerraformedTerrainTokens from '@/components/game/TerraformedTerrainTokens.vue';
 import { terrainColors, terrainNames } from '@/lib/gameDisplay';
 import type {
     BoardState,
@@ -275,6 +276,8 @@ function roundScoringTileY(index: number): number {
                     preserveAspectRatio="xMidYMid meet"
                 />
             </g>
+
+            <TerraformedTerrainTokens :hexes="visibleHexes" />
 
             <g
                 v-for="hex in visibleHexes"

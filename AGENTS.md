@@ -205,4 +205,16 @@ Use Wayfinder to generate TypeScript functions for Laravel routes. Import from `
 Vue components must have a single root element.
 - IMPORTANT: Activate `inertia-vue-development` when working with Inertia Vue client-side patterns.
 
+=== game interaction rules ===
+
+# Player Action Confirmation
+
+- Every action initiated by a player must be staged before it becomes final.
+- After the player selects an action or target, the interface must provide explicit controls to confirm the action or roll it back.
+- Do not permanently spend resources, advance the turn, or change the game phase until the player confirms the staged action.
+- Rolling back must restore the complete game state that existed before the staged action.
+- Game history must contain only the final confirmed player action. Do not add separate history entries for staging, confirmation, or rollback controls.
+- Replay logic must reproduce the final confirmed action without depending on temporary staged state.
+- Feature tests must cover selection, rollback, and confirmation for every new player action.
+
 </laravel-boost-guidelines>

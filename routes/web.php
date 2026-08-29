@@ -13,6 +13,8 @@ use App\Http\Controllers\StartingBuildingController;
 use App\Http\Controllers\StartingBuildingTurnController;
 use App\Http\Controllers\StartingCompetencyController;
 use App\Http\Controllers\StartingResourcesController;
+use App\Http\Controllers\StartingSpadeController;
+use App\Http\Controllers\StartingSpadeTurnController;
 use Illuminate\Support\Facades\Route;
 
 Route::redirect('/', '/games')->name('home');
@@ -38,6 +40,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('games.starting-building.finish');
     Route::post('games/{game}/starting-competency', [StartingCompetencyController::class, 'store'])
         ->name('games.starting-competency.store');
+    Route::post('games/{game}/starting-spade', [StartingSpadeController::class, 'store'])
+        ->name('games.starting-spade.store');
+    Route::delete('games/{game}/starting-spade', [StartingSpadeController::class, 'destroy'])
+        ->name('games.starting-spade.destroy');
+    Route::post('games/{game}/starting-spade/finish', StartingSpadeTurnController::class)
+        ->name('games.starting-spade.finish');
 });
 
 require __DIR__.'/settings.php';

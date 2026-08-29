@@ -28,6 +28,36 @@ enum TerrainType: string
         return $this !== self::Water;
     }
 
+    public function stepTowards(self $target): self
+    {
+        if ($this === self::Water || $target === self::Water || $this === $target) {
+            return $this;
+        }
+
+        $terrainCycle = [
+            self::Desert,
+            self::Plains,
+            self::Swamp,
+            self::Lake,
+            self::Forest,
+            self::Mountain,
+            self::Wasteland,
+        ];
+        $currentIndex = array_search($this, $terrainCycle, true);
+        $targetIndex = array_search($target, $terrainCycle, true);
+
+        if (! is_int($currentIndex) || ! is_int($targetIndex)) {
+            return $this;
+        }
+
+        $clockwiseDistance = ($targetIndex - $currentIndex + count($terrainCycle)) % count($terrainCycle);
+        $counterclockwiseDistance = ($currentIndex - $targetIndex + count($terrainCycle)) % count($terrainCycle);
+
+        return $clockwiseDistance < $counterclockwiseDistance
+            ? $terrainCycle[($currentIndex + 1) % count($terrainCycle)]
+            : $terrainCycle[($currentIndex - 1 + count($terrainCycle)) % count($terrainCycle)];
+    }
+
     public function description(): string
     {
         return match ($this) {

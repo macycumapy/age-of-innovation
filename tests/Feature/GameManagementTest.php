@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Domain\Game\Actions\DetermineStartingBuildingOrderAction;
+use App\Domain\Game\Data\BoardHexStateData;
+use App\Domain\Game\Data\BuildingStateData;
 use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Data\GameStateData;
 use App\Domain\Game\Data\PlanningBundleData;
@@ -1103,6 +1105,161 @@ class GameManagementTest extends TestCase
             $this->assertSame($index, $action->state_version_before);
             $this->assertSame($index + 1, $action->state_version_after);
         }
+    }
+
+    public function test_desert_player_spends_starting_spade_after_all_starting_buildings_are_placed(): void
+    {
+        $users = User::factory()->count(2)->create();
+        $game = Game::factory()->create([
+            'status' => GameStatus::Active,
+            'phase' => GamePhase::Setup,
+            'active_player_id' => $users[0]->id,
+        ]);
+        $desertPlayer = GamePlayer::factory()->create([
+            'game_id' => $game->id,
+            'user_id' => $users[0]->id,
+            'seat' => 1,
+            'color' => PlayerColor::Yellow,
+            'faction' => Faction::Blessed,
+            'homeland' => TerrainType::Desert,
+        ]);
+        $otherPlayer = GamePlayer::factory()->create([
+            'game_id' => $game->id,
+            'user_id' => $users[1]->id,
+            'seat' => 2,
+            'color' => PlayerColor::Green,
+            'faction' => Faction::Felines,
+            'homeland' => TerrainType::Forest,
+        ]);
+        $board = (new BoardStateFactory())->create(MapVariant::OneToThreePlayers);
+        $hexesById = collect($board->hexes)->keyBy('id');
+        $desertHex = collect($board->hexes)->first(function ($hex) use ($hexesById): bool {
+            if ($hex->terrain !== TerrainType::Desert) {
+                return false;
+            }
+
+            return collect($hex->adjacentHexIds)->contains(
+                fn (string $hexId): bool => $hexesById->get($hexId)?->terrain->isHomeland() === true
+                    && ! in_array(
+                        $hexesById->get($hexId)?->terrain,
+                        [TerrainType::Desert, TerrainType::Plains, TerrainType::Wasteland],
+                        true,
+                    ),
+            );
+        });
+
+        $this->assertNotNull($desertHex);
+        $targetHexId = collect($desertHex->adjacentHexIds)->first(
+            fn (string $hexId): bool => $hexesById->get($hexId)?->terrain->isHomeland() === true
+                && ! in_array(
+                    $hexesById->get($hexId)?->terrain,
+                    [TerrainType::Desert, TerrainType::Plains, TerrainType::Wasteland],
+                    true,
+                ),
+        );
+        $this->assertIsString($targetHexId);
+        $targetTerrainBefore = $hexesById->get($targetHexId)?->terrain;
+        $this->assertInstanceOf(TerrainType::class, $targetTerrainBefore);
+        $targetTerrainAfter = $targetTerrainBefore->stepTowards(TerrainType::Desert);
+
+        $desertHex->building = new BuildingStateData(BuildingType::Workshop, $desertPlayer->id);
+        $desertBundle = new PlanningBundleData(TerrainType::Desert, Faction::Blessed, RoundBonus::Coins);
+        $otherBundle = new PlanningBundleData(TerrainType::Forest, Faction::Felines, RoundBonus::PowerCoins);
+
+        $game->update([
+            'state' => new GameStateData(
+                turnOrder: [$desertPlayer->id, $otherPlayer->id],
+                board: $board,
+                players: [
+                    new GamePlayerStateData(
+                        playerId: $desertPlayer->id,
+                        userId: $users[0]->id,
+                        color: PlayerColor::Yellow,
+                        faction: Faction::Blessed,
+                        homeland: TerrainType::Desert,
+                        roundBonus: RoundBonus::Coins,
+                        unassignedSpades: 1,
+                    ),
+                    new GamePlayerStateData(
+                        playerId: $otherPlayer->id,
+                        userId: $users[1]->id,
+                        color: PlayerColor::Green,
+                        faction: Faction::Felines,
+                        homeland: TerrainType::Forest,
+                        roundBonus: RoundBonus::PowerCoins,
+                    ),
+                ],
+                planningSelections: [
+                    new PlayerPlanningSelectionData($desertPlayer->id, $desertBundle),
+                    new PlayerPlanningSelectionData($otherPlayer->id, $otherBundle),
+                ],
+                startingBuildingTurnIndex: 3,
+                pendingStartingBuildingHexId: $desertHex->id,
+            ),
+        ]);
+
+        $this->actingAs($users[0])
+            ->post(route('games.starting-building.finish', $game))
+            ->assertRedirect(route('games.show', $game));
+
+        $game->refresh();
+        $this->assertSame(GamePhase::Setup, $game->phase);
+        $this->assertSame($users[0]->id, $game->active_player_id);
+        $this->assertSame(PendingInteractionType::SpendSpades, $game->state->pendingInteraction?->type);
+        $this->assertContains($targetHexId, $game->state->pendingInteraction?->optionIds);
+        $historyCountBeforeSelection = $game->actions()->count();
+
+        $this->post(route('games.starting-spade.finish', $game))
+            ->assertSessionHasErrors('game');
+
+        $this->post(route('games.starting-spade.store', $game), ['hex_id' => $desertHex->id])
+            ->assertSessionHasErrors('hex_id');
+
+        $game->refresh();
+        $this->assertSame(PendingInteractionType::SpendSpades, $game->state->pendingInteraction?->type);
+
+        $this->post(route('games.starting-spade.store', $game), ['hex_id' => $targetHexId])
+            ->assertRedirect(route('games.show', $game));
+
+        $game->refresh();
+        $desertPlayerState = collect($game->state->players)->firstWhere('playerId', $desertPlayer->id);
+        $this->assertSame(GamePhase::Setup, $game->phase);
+        $this->assertSame($targetHexId, $game->state->pendingInteraction?->context['selectedHexId']);
+        $this->assertSame($targetTerrainAfter, collect($game->state->board->hexes)->firstWhere('id', $targetHexId)?->terrain);
+        $this->assertSame(1, $desertPlayerState?->unassignedSpades);
+        $this->assertCount($historyCountBeforeSelection, $game->actions);
+
+        $this->delete(route('games.starting-spade.destroy', $game))
+            ->assertRedirect(route('games.show', $game));
+
+        $game->refresh();
+        $this->assertSame($targetTerrainBefore, collect($game->state->board->hexes)->firstWhere('id', $targetHexId)?->terrain);
+        $this->assertArrayNotHasKey('selectedHexId', $game->state->pendingInteraction?->context ?? []);
+        $this->assertCount($historyCountBeforeSelection, $game->actions);
+
+        $this->post(route('games.starting-spade.store', $game), ['hex_id' => $targetHexId]);
+        $this->post(route('games.starting-spade.finish', $game))
+            ->assertRedirect(route('games.show', $game));
+
+        $game->refresh();
+        $desertPlayerState = collect($game->state->players)->firstWhere('playerId', $desertPlayer->id);
+        $this->assertSame(GamePhase::Income, $game->phase);
+        $this->assertNull($game->state->pendingInteraction);
+        $this->assertSame($targetTerrainAfter, collect($game->state->board->hexes)->firstWhere('id', $targetHexId)?->terrain);
+        $this->assertSame(0, $desertPlayerState?->unassignedSpades);
+        $this->assertCount($historyCountBeforeSelection + 1, $game->actions);
+        $this->assertSame(GameActionType::SpendStartingSpade, $game->actions()->latest('sequence')->firstOrFail()->type);
+
+        $targetHexIndex = collect($game->state->board->hexes)->search(
+            static fn (BoardHexStateData $hex): bool => $hex->id === $targetHexId,
+        );
+        $this->assertIsInt($targetHexIndex);
+        $this->get(route('games.show', $game))
+            ->assertInertia(
+                fn (Assert $page) => $page
+                    ->where("game.data.board.hexes.{$targetHexIndex}.initialTerrain", $targetTerrainBefore->value)
+                    ->where("game.data.board.hexes.{$targetHexIndex}.terrain", $targetTerrainAfter->value),
+            );
     }
 
     public function test_monks_place_a_university_last_and_choose_a_starting_competency(): void

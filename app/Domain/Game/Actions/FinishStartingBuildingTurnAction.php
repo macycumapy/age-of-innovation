@@ -21,6 +21,7 @@ final class FinishStartingBuildingTurnAction
     public function __construct(
         private AppendGameHistoryAction $appendGameHistory,
         private DetermineStartingBuildingOrderAction $determineStartingBuildingOrder,
+        private ResolveCompletedStartingSetupAction $resolveCompletedStartingSetup,
     ) {
     }
 
@@ -71,9 +72,10 @@ final class FinishStartingBuildingTurnAction
                 $nextPlayer = $player;
                 $nextPhase = GamePhase::Setup;
             } elseif ($state->startingBuildingTurnIndex >= count($placementOrder)) {
-                $nextPlayer = $lockedGame->players()->whereKey($state->turnOrder[0])->firstOrFail();
-                $state->round->phase = GamePhase::Income;
-                $nextPhase = GamePhase::Income;
+                [$nextPlayer, $nextPhase] = $this->resolveCompletedStartingSetup->execute(
+                    $state,
+                    $lockedGame->players()->get(),
+                );
             } else {
                 $nextPlayer = $lockedGame->players()->whereKey($placementOrder[$state->startingBuildingTurnIndex])->first();
                 $nextPhase = GamePhase::Setup;

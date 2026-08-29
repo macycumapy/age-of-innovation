@@ -48,6 +48,18 @@ final class GameEnumTest extends TestCase
         }
     }
 
+    public function test_terrain_moves_one_step_towards_desert(): void
+    {
+        $this->assertSame(TerrainType::Desert, TerrainType::Desert->stepTowards(TerrainType::Desert));
+        $this->assertSame(TerrainType::Desert, TerrainType::Plains->stepTowards(TerrainType::Desert));
+        $this->assertSame(TerrainType::Plains, TerrainType::Swamp->stepTowards(TerrainType::Desert));
+        $this->assertSame(TerrainType::Swamp, TerrainType::Lake->stepTowards(TerrainType::Desert));
+        $this->assertSame(TerrainType::Mountain, TerrainType::Forest->stepTowards(TerrainType::Desert));
+        $this->assertSame(TerrainType::Wasteland, TerrainType::Mountain->stepTowards(TerrainType::Desert));
+        $this->assertSame(TerrainType::Desert, TerrainType::Wasteland->stepTowards(TerrainType::Desert));
+        $this->assertSame(TerrainType::Water, TerrainType::Water->stepTowards(TerrainType::Desert));
+    }
+
     /** @return iterable<string, array{class-string<\BackedEnum>, list<string>}> */
     public static function gameEnumProvider(): iterable
     {

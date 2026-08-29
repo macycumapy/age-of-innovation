@@ -28,6 +28,7 @@ const actionDescriptions: Record<GameActionType, string> = {
     place_starting_building: 'установил стартовый дом',
     undo_starting_building: 'отменил установку стартового дома',
     finish_starting_building_turn: 'завершил ход выставления дома',
+    spend_starting_spade: 'использовал стартовую лопату',
     terraform_and_build: 'преобразовал местность и построил здание',
     upgrade_building: 'улучшил здание',
     advance_shipping: 'улучшил судоходство',
@@ -134,7 +135,11 @@ function payloadString(entry: GameHistoryEntry, key: string): string | null {
 function actionDetails(entry: GameHistoryEntry): string | null {
     const hexId = payloadString(entry, 'hex_id');
 
-    if (hexId !== null && ['place_starting_building', 'undo_starting_building'].includes(entry.type)) {
+    if (hexId !== null && [
+        'place_starting_building',
+        'undo_starting_building',
+        'spend_starting_spade',
+    ].includes(entry.type)) {
         return `ячейка ${hexId}`;
     }
 

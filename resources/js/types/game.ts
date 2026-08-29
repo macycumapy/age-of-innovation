@@ -55,6 +55,7 @@ export type GameActionType =
     | 'place_starting_building'
     | 'undo_starting_building'
     | 'finish_starting_building_turn'
+    | 'spend_starting_spade'
     | 'terraform_and_build'
     | 'upgrade_building'
     | 'advance_shipping'
@@ -314,6 +315,18 @@ export type PendingInteraction =
         playerId: number;
         optionIds: Competency[];
         context: Record<string, never>;
+    }
+    | {
+        type: 'spend_spades';
+        playerId: number;
+        optionIds: string[];
+        context: {
+            spadeCount: number;
+            targetTerrain: TerrainType;
+            selectedHexId?: string;
+            terrainBefore?: TerrainType;
+            terrainAfter?: TerrainType;
+        };
     };
 
 export type TerrainType =

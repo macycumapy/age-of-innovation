@@ -10,6 +10,8 @@ import StartingBuildingController from '@/actions/App/Http/Controllers/StartingB
 import StartingBuildingTurnController from '@/actions/App/Http/Controllers/StartingBuildingTurnController';
 import StartingCompetencyController from '@/actions/App/Http/Controllers/StartingCompetencyController';
 import StartingResourcesController from '@/actions/App/Http/Controllers/StartingResourcesController';
+import StartingSpadeController from '@/actions/App/Http/Controllers/StartingSpadeController';
+import StartingSpadeTurnController from '@/actions/App/Http/Controllers/StartingSpadeTurnController';
 import BoardMap from '@/components/game/BoardMap.vue';
 import CompetencySelector from '@/components/game/CompetencySelector.vue';
 import CultBoard from '@/components/game/CultBoard.vue';
@@ -121,7 +123,25 @@ const canChooseStartingCompetency = computed(
         && props.game.data.activePlayerId === page.props.auth.user.id,
 );
 
+const canSpendStartingSpade = computed(
+    () => props.game.data.pendingInteraction?.type === 'spend_spades'
+        && props.game.data.pendingInteraction.playerId === currentPlayer.value?.id
+        && props.game.data.activePlayerId === page.props.auth.user.id,
+);
+
+const pendingStartingSpadeHexId = computed(() =>
+    props.game.data.pendingInteraction?.type === 'spend_spades'
+        ? props.game.data.pendingInteraction.context.selectedHexId ?? null
+        : null,
+);
+
 const selectableStartingHexIds = computed(() => {
+    if (canSpendStartingSpade.value && props.game.data.pendingInteraction?.type === 'spend_spades') {
+        return pendingStartingSpadeHexId.value === null
+            ? props.game.data.pendingInteraction.optionIds
+            : [];
+    }
+
     if (!canPlaceStartingBuilding.value || !currentPlayer.value?.homeland) {
         return [];
     }
@@ -132,6 +152,14 @@ const selectableStartingHexIds = computed(() => {
 });
 
 function placeStartingBuilding(hexId: string): void {
+    if (canSpendStartingSpade.value) {
+        router.post(StartingSpadeController.store.url(props.game.data.id), { hex_id: hexId }, {
+            preserveScroll: true,
+        });
+
+        return;
+    }
+
     if (!canPlaceStartingBuilding.value) {
         return;
     }
@@ -859,11 +887,15 @@ function updateStartingKnowledgeCount(discipline: KnowledgeDiscipline, event: Ev
                     {{
                         game.data.pendingInteraction?.type === 'choose_competency'
                             ? 'Выберите стартовую компетенцию.'
-                            : game.data.pendingStartingBuildingHexId
-                            ? 'Дом установлен — отмените действие или завершите ход.'
-                            : currentPlayer?.faction === 'monks'
-                                ? 'Установите стартовый университет на свободной ячейке родной местности.'
-                                : 'Установите стартовый дом на свободной ячейке родной местности.'
+                            : game.data.pendingInteraction?.type === 'spend_spades'
+                                ? pendingStartingSpadeHexId
+                                    ? 'Земля преобразована — отмените действие или подтвердите.'
+                                    : 'Выберите соседнюю ячейку для преобразования.'
+                                : game.data.pendingStartingBuildingHexId
+                                    ? 'Дом установлен — отмените действие или завершите ход.'
+                                    : currentPlayer?.faction === 'monks'
+                                        ? 'Установите стартовый университет на свободной ячейке родной местности.'
+                                        : 'Установите стартовый дом на свободной ячейке родной местности.'
                     }}
                 </p>
 
@@ -917,6 +949,52 @@ function updateStartingKnowledgeCount(discipline: KnowledgeDiscipline, event: Ev
                     </div>
                 </TooltipProvider>
 
+                <TooltipProvider
+                    v-else-if="canSpendStartingSpade && pendingStartingSpadeHexId"
+                    :delay-duration="150"
+                >
+                    <div class="flex shrink-0 items-center gap-2">
+                        <Form
+                            v-bind="StartingSpadeController.destroy.form(game.data.id)"
+                            #default="{ processing }"
+                        >
+                            <Tooltip>
+                                <TooltipTrigger as-child>
+                                    <Button
+                                        type="submit"
+                                        variant="outline"
+                                        size="icon"
+                                        :disabled="processing"
+                                        aria-label="Отменить преобразование"
+                                    >
+                                        <RotateCcw class="size-4" :class="processing ? 'animate-spin' : ''" />
+                                    </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>Отменить преобразование</TooltipContent>
+                            </Tooltip>
+                        </Form>
+
+                        <Form
+                            v-bind="StartingSpadeTurnController.form(game.data.id)"
+                            #default="{ processing }"
+                        >
+                            <Tooltip>
+                                <TooltipTrigger as-child>
+                                    <Button
+                                        type="submit"
+                                        size="icon"
+                                        :disabled="processing"
+                                        aria-label="Подтвердить преобразование"
+                                    >
+                                        <Check class="size-4" />
+                                    </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>Подтвердить преобразование</TooltipContent>
+                            </Tooltip>
+                        </Form>
+                    </div>
+                </TooltipProvider>
+
                 <div
                     v-else-if="activePlayer?.user.id !== page.props.auth.user.id"
                     class="flex min-w-0 items-center gap-3"
@@ -926,7 +1004,13 @@ function updateStartingKnowledgeCount(discipline: KnowledgeDiscipline, event: Ev
                     <span class="size-2.5 shrink-0 rounded-full bg-primary shadow-sm" aria-hidden="true" />
                     <p class="truncate text-sm">
                         <span class="mr-2 text-muted-foreground">
-                            {{ isStartingBuildingStage ? 'Стартовый дом устанавливает:' : 'Сейчас ходит:' }}
+                            {{
+                                isStartingBuildingStage
+                                    ? game.data.pendingInteraction?.type === 'spend_spades'
+                                        ? 'Стартовую лопату использует:'
+                                        : 'Стартовый дом устанавливает:'
+                                    : 'Сейчас ходит:'
+                            }}
                         </span>
                         <span class="font-semibold">
                             {{ activePlayer?.user.name ?? 'ход игрока определяется' }}
@@ -985,7 +1069,7 @@ function updateStartingKnowledgeCount(discipline: KnowledgeDiscipline, event: Ev
                             :board="game.data.board"
                             :players="game.data.players"
                             :selectable-hex-ids="selectableStartingHexIds"
-                            :pending-hex-id="game.data.pendingStartingBuildingHexId"
+                            :pending-hex-id="game.data.pendingStartingBuildingHexId ?? pendingStartingSpadeHexId"
                             :round-scoring-tiles="game.data.roundScoringTiles"
                             :final-round-scoring-tile="game.data.finalRoundScoringTile"
                             :book-actions="game.data.bookActions"
