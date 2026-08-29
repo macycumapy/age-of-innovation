@@ -50,6 +50,11 @@ final class SpendStartingSpadeAction
 
             $terrainBefore = null;
             $terrainAfter = null;
+            $targetTerrain = TerrainType::tryFrom((string) ($interaction->context['targetTerrain'] ?? ''));
+
+            if (! $targetTerrain instanceof TerrainType) {
+                throw ValidationException::withMessages(['game' => 'Не определена целевая местность.']);
+            }
 
             foreach ($state->board->hexes as $index => $hex) {
                 if ($hex->id !== $hexId) {
@@ -58,12 +63,12 @@ final class SpendStartingSpadeAction
 
                 if ($hex->building !== null
                     || ! $hex->terrain->isHomeland()
-                    || $hex->terrain === TerrainType::Desert) {
+                    || $hex->terrain === $targetTerrain) {
                     throw ValidationException::withMessages(['hex_id' => 'Эту клетку нельзя преобразовать стартовой лопатой.']);
                 }
 
                 $terrainBefore = $hex->terrain;
-                $terrainAfter = $terrainBefore->stepTowards(TerrainType::Desert);
+                $terrainAfter = $terrainBefore->stepTowards($targetTerrain);
                 $hex->terrain = $terrainAfter;
                 $state->board->hexes[$index] = $hex;
                 break;

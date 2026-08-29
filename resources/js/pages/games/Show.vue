@@ -899,6 +899,14 @@ function updateStartingKnowledgeCount(discipline: KnowledgeDiscipline, event: Ev
                     }}
                 </p>
 
+                <span
+                    v-if="game.data.pendingInteraction?.type === 'spend_spades'"
+                    class="shrink-0 rounded-full border border-border bg-muted px-2.5 py-1 text-xs font-medium"
+                >
+                    Лопат осталось:
+                    {{ game.data.pendingInteraction.context.remainingSpades ?? game.data.pendingInteraction.context.spadeCount }}
+                </span>
+
                 <TooltipProvider
                     v-if="
                         isStartingBuildingStage &&

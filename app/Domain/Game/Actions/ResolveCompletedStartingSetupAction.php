@@ -7,6 +7,7 @@ namespace App\Domain\Game\Actions;
 use App\Domain\Game\Data\BoardHexStateData;
 use App\Domain\Game\Data\GameStateData;
 use App\Domain\Game\Data\PendingInteractionData;
+use App\Domain\Game\Enums\Competency;
 use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\PendingInteractionType;
 use App\Domain\Game\Enums\TerrainType;
@@ -22,12 +23,40 @@ final class ResolveCompletedStartingSetupAction
      */
     public function execute(GameStateData $state, Collection $players): array
     {
+        foreach ($players as $competencyPlayer) {
+            $competencyPlayerState = collect($state->players)->firstWhere('playerId', $competencyPlayer->id);
+
+            if ($competencyPlayerState?->unassignedSpades >= 2
+                && in_array(Competency::Competency05->value, $competencyPlayerState->competencyIds, true)) {
+                $eligibleHexIds = $this->eligibleHexIds(
+                    $state,
+                    $competencyPlayer->id,
+                    $competencyPlayerState->homeland,
+                );
+
+                if ($eligibleHexIds !== []) {
+                    $state->pendingInteraction = new PendingInteractionData(
+                        PendingInteractionType::SpendSpades,
+                        $competencyPlayer->id,
+                        $eligibleHexIds,
+                        [
+                            'spadeCount' => 2,
+                            'remainingSpades' => 2,
+                            'targetTerrain' => $competencyPlayerState->homeland->value,
+                        ],
+                    );
+
+                    return [$competencyPlayer, GamePhase::Setup];
+                }
+            }
+        }
+
         $desertPlayer = $players->firstWhere('homeland', TerrainType::Desert);
         $desertPlayerState = $desertPlayer instanceof GamePlayer
             ? collect($state->players)->firstWhere('playerId', $desertPlayer->id)
             : null;
         $eligibleHexIds = $desertPlayer instanceof GamePlayer
-            ? $this->eligibleHexIds($state, $desertPlayer->id)
+            ? $this->eligibleHexIds($state, $desertPlayer->id, TerrainType::Desert)
             : [];
 
         if ($desertPlayer instanceof GamePlayer
@@ -55,7 +84,7 @@ final class ResolveCompletedStartingSetupAction
     }
 
     /** @return list<string> */
-    private function eligibleHexIds(GameStateData $state, int $playerId): array
+    public function eligibleHexIds(GameStateData $state, int $playerId, TerrainType $targetTerrain): array
     {
         $hexesById = collect($state->board->hexes)->keyBy('id');
         $eligibleHexIds = [];
@@ -71,7 +100,7 @@ final class ResolveCompletedStartingSetupAction
                 if ($adjacentHex instanceof BoardHexStateData
                     && $adjacentHex->building === null
                     && $adjacentHex->terrain->isHomeland()
-                    && $adjacentHex->terrain !== TerrainType::Desert) {
+                    && $adjacentHex->terrain !== $targetTerrain) {
                     $eligibleHexIds[] = $adjacentHexId;
                 }
             }

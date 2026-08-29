@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Domain\Game\Actions\DetermineStartingBuildingOrderAction;
+use App\Domain\Game\Actions\ResolveCompletedStartingSetupAction;
 use App\Domain\Game\Data\BoardHexStateData;
 use App\Domain\Game\Data\BuildingStateData;
 use App\Domain\Game\Data\GamePlayerStateData;
@@ -1260,6 +1261,85 @@ class GameManagementTest extends TestCase
                     ->where("game.data.board.hexes.{$targetHexIndex}.initialTerrain", $targetTerrainBefore->value)
                     ->where("game.data.board.hexes.{$targetHexIndex}.terrain", $targetTerrainAfter->value),
             );
+    }
+
+    public function test_setup_spends_competency_five_spades_without_building(): void
+    {
+        $user = User::factory()->create();
+        $game = Game::factory()->create([
+            'status' => GameStatus::Active,
+            'phase' => GamePhase::Setup,
+            'active_player_id' => $user->id,
+        ]);
+        $player = GamePlayer::factory()->create([
+            'game_id' => $game->id,
+            'user_id' => $user->id,
+            'seat' => 1,
+            'color' => PlayerColor::Green,
+            'faction' => Faction::Inventors,
+            'homeland' => TerrainType::Forest,
+        ]);
+        $playerState = new GamePlayerStateData(
+            playerId: $player->id,
+            userId: $user->id,
+            color: PlayerColor::Green,
+            faction: Faction::Inventors,
+            homeland: TerrainType::Forest,
+            roundBonus: RoundBonus::Coins,
+            unassignedSpades: 2,
+            competencyIds: [Competency::Competency05->value],
+        );
+        $board = (new BoardStateFactory())->create(MapVariant::OneToThreePlayers);
+
+        foreach ($board->hexes as $hex) {
+            if ($hex->terrain === TerrainType::Forest) {
+                $hex->building = new BuildingStateData(BuildingType::Workshop, $player->id);
+            }
+        }
+
+        $targets = collect($board->hexes)
+            ->filter(fn (BoardHexStateData $hex): bool => in_array(
+                $hex->terrain,
+                [TerrainType::Lake, TerrainType::Mountain],
+                true,
+            ) && collect($hex->adjacentHexIds)->contains(
+                fn (string $adjacentId): bool => collect($board->hexes)->firstWhere('id', $adjacentId)?->building?->ownerPlayerId === $player->id,
+            ))
+            ->take(2)
+            ->values();
+        $this->assertCount(2, $targets);
+        $initialBuildingCount = collect($board->hexes)->whereNotNull('building')->count();
+        $state = new GameStateData(
+            turnOrder: [$player->id],
+            board: $board,
+            players: [$playerState],
+        );
+
+        [, $phase] = app(ResolveCompletedStartingSetupAction::class)->execute($state, $game->players()->get());
+        $game->update(['state' => $state]);
+
+        $this->assertSame(GamePhase::Setup, $phase);
+        $this->assertSame(PendingInteractionType::SpendSpades, $state->pendingInteraction?->type);
+
+        foreach ($targets as $index => $target) {
+            $this->actingAs($user)->post(route('games.starting-spade.store', $game), ['hex_id' => $target->id]);
+            $this->post(route('games.starting-spade.finish', $game));
+            $game->refresh();
+
+            if ($index === 0) {
+                $this->assertSame(1, $game->state->pendingInteraction?->context['remainingSpades']);
+            }
+        }
+
+        $finalPlayerState = collect($game->state->players)->firstWhere('playerId', $player->id);
+        $this->assertSame(GamePhase::Income, $game->phase);
+        $this->assertNull($game->state->pendingInteraction);
+        $this->assertSame(0, $finalPlayerState?->unassignedSpades);
+        $this->assertSame($initialBuildingCount, collect($game->state->board->hexes)->whereNotNull('building')->count());
+
+        foreach ($targets as $target) {
+            $this->assertNull(collect($game->state->board->hexes)->firstWhere('id', $target->id)?->building);
+        }
     }
 
     public function test_monks_place_a_university_last_and_choose_a_starting_competency(): void

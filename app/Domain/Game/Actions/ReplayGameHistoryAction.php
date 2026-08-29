@@ -374,11 +374,46 @@ final class ReplayGameHistoryAction
         }
 
         $this->playerState($state, $player->id)->unassignedSpades--;
-        $state->pendingInteraction = null;
-        $state->round->phase = GamePhase::Income;
-        $game->phase = GamePhase::Income;
-        $game->active_player_id = $players->firstWhere('id', $state->turnOrder[0])?->user_id;
+        $remainingSpades = (int) ($action->payload['remaining_spades'] ?? 0);
+
+        if ($remainingSpades > 0) {
+            $targetTerrain = TerrainType::from((string) $action->payload['target_terrain']);
+            $eligibleHexIds = $this->resolveCompletedStartingSetup->eligibleHexIds(
+                $state,
+                $player->id,
+                $targetTerrain,
+            );
+            $state->pendingInteraction = new PendingInteractionData(
+                PendingInteractionType::SpendSpades,
+                $player->id,
+                $eligibleHexIds,
+                [
+                    'spadeCount' => 2,
+                    'remainingSpades' => $remainingSpades,
+                    'targetTerrain' => $targetTerrain->value,
+                ],
+            );
+
+            if ($eligibleHexIds !== []) {
+                $game->phase = GamePhase::Setup;
+                $game->active_player_id = $player->user_id;
+            } else {
+                $this->completeStartingInteraction($game, $state, $players);
+            }
+        } else {
+            $this->completeStartingInteraction($game, $state, $players);
+        }
+
         $game->state = $state;
+    }
+
+    /** @param Collection<int, GamePlayer> $players */
+    private function completeStartingInteraction(Game $game, GameStateData $state, Collection $players): void
+    {
+        $state->pendingInteraction = null;
+        [$nextPlayer, $nextPhase] = $this->resolveCompletedStartingSetup->execute($state, $players);
+        $game->phase = $nextPhase;
+        $game->active_player_id = $nextPlayer->user_id;
     }
 
     /** @param Collection<int, GamePlayer> $players */

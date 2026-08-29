@@ -326,6 +326,7 @@ export type PendingInteraction =
             selectedHexId?: string;
             terrainBefore?: TerrainType;
             terrainAfter?: TerrainType;
+            remainingSpades?: number;
         };
     };
 

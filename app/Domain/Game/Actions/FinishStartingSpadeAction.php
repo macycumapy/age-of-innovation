@@ -7,6 +7,7 @@ namespace App\Domain\Game\Actions;
 use App\Domain\Game\Enums\GameActionType;
 use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\PendingInteractionType;
+use App\Domain\Game\Enums\TerrainType;
 use App\Models\Game;
 use App\Models\GamePlayer;
 use App\Models\User;
@@ -15,8 +16,10 @@ use Illuminate\Validation\ValidationException;
 
 final class FinishStartingSpadeAction
 {
-    public function __construct(private AppendGameHistoryAction $appendGameHistory)
-    {
+    public function __construct(
+        private AppendGameHistoryAction $appendGameHistory,
+        private ResolveCompletedStartingSetupAction $resolveCompletedStartingSetup,
+    ) {
     }
 
     public function execute(Game $game, User $user): Game
@@ -47,11 +50,47 @@ final class FinishStartingSpadeAction
             }
 
             $playerState->unassignedSpades--;
-            $state->pendingInteraction = null;
-            $state->round->phase = GamePhase::Income;
-            $nextPlayer = $lockedGame->players()->whereKey($state->turnOrder[0])->firstOrFail();
+            $terrainBefore = $interaction->context['terrainBefore'] ?? null;
+            $terrainAfter = $interaction->context['terrainAfter'] ?? null;
+            $remainingSpades = max(0, (int) ($interaction->context['remainingSpades'] ?? 1) - 1);
+            unset(
+                $interaction->context['selectedHexId'],
+                $interaction->context['terrainBefore'],
+                $interaction->context['terrainAfter'],
+            );
+            $interaction->context['remainingSpades'] = $remainingSpades;
+
+            if ($remainingSpades > 0) {
+                $targetTerrain = TerrainType::from(
+                    (string) $interaction->context['targetTerrain'],
+                );
+                $interaction->optionIds = $this->resolveCompletedStartingSetup->eligibleHexIds(
+                    $state,
+                    $player->id,
+                    $targetTerrain,
+                );
+
+                if ($interaction->optionIds !== []) {
+                    $state->pendingInteraction = $interaction;
+                    $nextPlayer = $player;
+                    $nextPhase = GamePhase::Setup;
+                } else {
+                    $state->pendingInteraction = null;
+                    [$nextPlayer, $nextPhase] = $this->resolveCompletedStartingSetup->execute(
+                        $state,
+                        $lockedGame->players()->get(),
+                    );
+                }
+            } else {
+                $state->pendingInteraction = null;
+                [$nextPlayer, $nextPhase] = $this->resolveCompletedStartingSetup->execute(
+                    $state,
+                    $lockedGame->players()->get(),
+                );
+            }
+
             $lockedGame->update([
-                'phase' => GamePhase::Income,
+                'phase' => $nextPhase,
                 'active_player_id' => $nextPlayer->user_id,
                 'state' => $state,
                 'version' => $lockedGame->version + 1,
@@ -62,8 +101,10 @@ final class FinishStartingSpadeAction
                 GameActionType::SpendStartingSpade,
                 [
                     'hex_id' => $hexId,
-                    'terrain_before' => $interaction->context['terrainBefore'] ?? null,
-                    'terrain_after' => $interaction->context['terrainAfter'] ?? null,
+                    'terrain_before' => $terrainBefore,
+                    'terrain_after' => $terrainAfter,
+                    'remaining_spades' => $remainingSpades,
+                    'target_terrain' => $interaction->context['targetTerrain'] ?? null,
                 ],
                 [['type' => 'starting_spade_spent', 'player_id' => $player->id, 'hex_id' => $hexId]],
                 $stateVersionBefore,
