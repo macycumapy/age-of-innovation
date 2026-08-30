@@ -11,6 +11,7 @@ use App\Http\Controllers\GamePlayerReadinessController;
 use App\Http\Controllers\GameStartController;
 use App\Http\Controllers\PlanningBundleController;
 use App\Http\Controllers\PowerSacrificeController;
+use App\Http\Controllers\ResourceExchangeController;
 use App\Http\Controllers\StartingBuildingController;
 use App\Http\Controllers\StartingBuildingTurnController;
 use App\Http\Controllers\StartingCompetencyController;
@@ -52,6 +53,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('games.power-sacrifice.store');
     Route::post('games/{game}/current-turn/restart', CurrentTurnRestartController::class)
         ->name('games.current-turn.restart');
+    Route::post('games/{game}/resource-exchange', ResourceExchangeController::class)
+        ->name('games.resource-exchange');
 });
 
 require __DIR__.'/settings.php';

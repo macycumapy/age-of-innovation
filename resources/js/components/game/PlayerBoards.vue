@@ -45,9 +45,10 @@ const props = defineProps<{
     roundBonusDescriptions: Record<RoundBonus, string>;
     competencyDescriptions: Record<Competency, string>;
     canSacrificePower: boolean;
+    canExchangeResources: boolean;
 }>();
 
-const emit = defineEmits<{ sacrificePower: [] }>();
+const emit = defineEmits<{ sacrificePower: []; exchangeResources: [] }>();
 
 const boardImages = import.meta.glob('../../../images/terrain_boards/*.webp', {
     eager: true,
@@ -386,6 +387,15 @@ function canSacrificeFromBowl(player: GamePlayerSummary, bowl: PowerBowl): boole
                             class="absolute w-[18%] -translate-x-1/2 -translate-y-1/2 drop-shadow-md"
                         />
                     </div>
+
+                    <button
+                        v-if="canExchangeResources && player.user.id === currentUserId"
+                        type="button"
+                        class="absolute z-20 rounded-md border border-amber-400/70 px-3 py-1.5 shadow-md w-4 cursor-pointer"
+                        :style="{ left: '72.5%', top: '44.5%', width: '7%', height: '15%' }"
+                        @click="emit('exchangeResources')"
+                        title="Обмен ресурсов"
+                    ></button>
 
                     <span
                         v-for="(slot, slotIndex) in buildingSlots"

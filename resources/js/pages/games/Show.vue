@@ -7,7 +7,6 @@ import GamePlayerController from '@/actions/App/Http/Controllers/GamePlayerContr
 import GamePlayerReadinessController from '@/actions/App/Http/Controllers/GamePlayerReadinessController';
 import GameStartController from '@/actions/App/Http/Controllers/GameStartController';
 import PlanningBundleController from '@/actions/App/Http/Controllers/PlanningBundleController';
-import PowerSacrificeController from '@/actions/App/Http/Controllers/PowerSacrificeController';
 import StartingBuildingController from '@/actions/App/Http/Controllers/StartingBuildingController';
 import StartingBuildingTurnController from '@/actions/App/Http/Controllers/StartingBuildingTurnController';
 import StartingCompetencyController from '@/actions/App/Http/Controllers/StartingCompetencyController';
@@ -21,6 +20,8 @@ import InnovationBoard from '@/components/game/InnovationBoard.vue';
 import PalaceBoard from '@/components/game/PalaceBoard.vue';
 import PlayerBoards from '@/components/game/PlayerBoards.vue';
 import PlayerStatsPanel from '@/components/game/PlayerStatsPanel.vue';
+import PowerSacrificeDialog from '@/components/game/PowerSacrificeDialog.vue';
+import ResourceExchangeDialog from '@/components/game/ResourceExchangeDialog.vue';
 import RoundBonusBoard from '@/components/game/RoundBonusBoard.vue';
 import TownTileBoard from '@/components/game/TownTileBoard.vue';
 import InputError from '@/components/InputError.vue';
@@ -206,7 +207,7 @@ const selectedStartingCompetency = ref<Competency | null>(null);
 const selectedMonkCompetency = ref<Competency | null>(null);
 const isPlanningBundleGroupOpen = ref(true);
 const isPowerSacrificeDialogOpen = ref(false);
-const sacrificePowerAmount = ref(1);
+const isResourceExchangeDialogOpen = ref(false);
 
 const currentPlayerState = computed(() =>
     props.game.data.playerBoardStates.find((state) => state.playerId === currentPlayer.value?.id),
@@ -223,14 +224,11 @@ const canSacrificePower = computed(
         && maximumPowerSacrifice.value > 0,
 );
 
-function openPowerSacrificeDialog(): void {
-    if (!canSacrificePower.value) {
-        return;
-    }
-
-    sacrificePowerAmount.value = 1;
-    isPowerSacrificeDialogOpen.value = true;
-}
+const canExchangeResources = computed(
+    () => props.game.data.phase === 'actions'
+        && props.game.data.activePlayerId === page.props.auth.user.id
+        && props.game.data.pendingInteraction === null,
+);
 
 function confirmRestartCurrentTurn(event: SubmitEvent): void {
     if (!window.confirm('Отменить все действия текущего хода и начать его заново?')) {
@@ -335,7 +333,6 @@ const knowledgeDisciplineNames: Record<KnowledgeDiscipline, string> = {
     engineering: 'Инженерное дело',
     medicine: 'Медицина',
 };
-
 const bookImages: Record<KnowledgeDiscipline, string> = {
     banking: bankingBookUrl,
     law: lawBookUrl,
@@ -1181,7 +1178,9 @@ function updateStartingKnowledgeCount(discipline: KnowledgeDiscipline, event: Ev
                             :round-bonus-descriptions="game.data.roundBonusDescriptions"
                             :competency-descriptions="game.data.competencyDescriptions"
                             :can-sacrifice-power="canSacrificePower"
-                            @sacrifice-power="openPowerSacrificeDialog"
+                            :can-exchange-resources="canExchangeResources"
+                            @sacrifice-power="isPowerSacrificeDialogOpen = true"
+                            @exchange-resources="isResourceExchangeDialogOpen = true"
                         />
                     </div>
 
@@ -1204,60 +1203,17 @@ function updateStartingKnowledgeCount(discipline: KnowledgeDiscipline, event: Ev
                 </div>
             </section>
 
-            <Dialog v-model:open="isPowerSacrificeDialogOpen">
-                <DialogContent>
-                    <Form
-                        v-bind="PowerSacrificeController.store.form(game.data.id)"
-                        class="contents"
-                        reset-on-success
-                        #default="{ errors, processing }"
-                        @success="isPowerSacrificeDialogOpen = false"
-                    >
-                        <DialogHeader>
-                            <DialogTitle>Пожертвовать Силу</DialogTitle>
-                            <DialogDescription>
-                                За каждый сброшенный жетон ещё один жетон переместится из чаши II в чашу III.
-                                Ход после этого продолжится.
-                            </DialogDescription>
-                        </DialogHeader>
+            <PowerSacrificeDialog
+                v-model:open="isPowerSacrificeDialogOpen"
+                :game-id="game.data.id"
+                :maximum-amount="maximumPowerSacrifice"
+            />
 
-                        <div class="grid gap-2">
-                            <label for="power-sacrifice-amount" class="text-sm font-medium">
-                                Количество сбрасываемой Силы
-                            </label>
-                            <Input
-                                id="power-sacrifice-amount"
-                                v-model="sacrificePowerAmount"
-                                name="amount"
-                                type="number"
-                                min="1"
-                                :max="maximumPowerSacrifice"
-                                required
-                            />
-                            <p class="text-sm text-muted-foreground">
-                                Можно сбросить от 1 до {{ maximumPowerSacrifice }}.
-                            </p>
-                            <InputError :message="errors.amount ?? errors.game" />
-                        </div>
-
-                        <DialogFooter class="gap-2">
-                            <DialogClose as-child>
-                                <Button type="button" variant="outline">Отмена</Button>
-                            </DialogClose>
-                            <Button
-                                type="submit"
-                                :disabled="
-                                    processing ||
-                                    sacrificePowerAmount < 1 ||
-                                    sacrificePowerAmount > maximumPowerSacrifice
-                                "
-                            >
-                                {{ processing ? 'Подтверждение…' : 'Подтвердить' }}
-                            </Button>
-                        </DialogFooter>
-                    </Form>
-                </DialogContent>
-            </Dialog>
+            <ResourceExchangeDialog
+                v-model:open="isResourceExchangeDialogOpen"
+                :game-id="game.data.id"
+                :player-state="currentPlayerState"
+            />
         </div>
 
         <PlayerStatsPanel

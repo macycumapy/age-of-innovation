@@ -21,6 +21,7 @@ use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\GameStatus;
 use App\Domain\Game\Enums\KnowledgeDiscipline;
 use App\Domain\Game\Enums\PendingInteractionType;
+use App\Domain\Game\Enums\ResourceExchange;
 use App\Domain\Game\Enums\TerrainType;
 use App\Domain\Game\Factories\BoardStateFactory;
 use App\Domain\Game\Factories\GamePlayerStateFactory;
@@ -44,6 +45,7 @@ final class ReplayGameHistoryAction
         GameActionType::ChooseCompetency,
         GameActionType::SpendStartingSpade,
         GameActionType::SacrificePower,
+        GameActionType::ExchangeResources,
     ];
 
     public function __construct(
@@ -51,6 +53,7 @@ final class ReplayGameHistoryAction
         private GamePlayerStateFactory $playerStateFactory,
         private GameSetupPoolFactory $setupPoolFactory,
         private GrantCompetencyAction $grantCompetency,
+        private ApplyResourceExchangeAction $applyResourceExchange,
         private ResolveCompletedStartingSetupAction $resolveCompletedStartingSetup,
     ) {
     }
@@ -96,6 +99,7 @@ final class ReplayGameHistoryAction
                 GameActionType::ChooseCompetency => $this->replayStartingCompetency($game, $players, $action),
                 GameActionType::SpendStartingSpade => $this->replayStartingSpade($game, $players, $action),
                 GameActionType::SacrificePower => $this->replaySacrificePower($game, $players, $action),
+                GameActionType::ExchangeResources => $this->replayResourceExchange($game, $players, $action),
                 default => null,
             };
 
@@ -443,6 +447,60 @@ final class ReplayGameHistoryAction
         $playerState->resources->power->bowlTwo -= $amount * 2;
         $playerState->resources->power->bowlThree += $amount;
         $game->state = $state;
+    }
+
+    /** @param Collection<int, GamePlayer> $players */
+    private function replayResourceExchange(Game $game, Collection $players, GameAction $action): void
+    {
+        $player = $players->firstWhere('user_id', $action->player_id);
+
+        if (! $player instanceof GamePlayer) {
+            $this->invalidHistory();
+        }
+
+        $state = $game->state;
+
+        if ($state->turnStartSnapshot === null) {
+            $state->turnStartSnapshot = $state->toArray();
+            $state->round->turnStartVersion = $game->version;
+        }
+
+        $this->applyResourceExchange->execute(
+            $this->playerState($state, $player->id),
+            $this->resourceExchanges($action),
+        );
+        $game->state = $state;
+    }
+
+    /** @return array<string, int|array<string, int>> */
+    private function resourceExchanges(GameAction $action): array
+    {
+        $exchanges = $action->payload['exchanges'] ?? null;
+
+        if (is_array($exchanges)) {
+            return $exchanges;
+        }
+
+        $bookCounts = array_fill_keys(array_column(KnowledgeDiscipline::cases(), 'value'), 0);
+        $normalized = [
+            ResourceExchange::PowerToScholar->value => 0,
+            ResourceExchange::PowerToTool->value => 0,
+            ResourceExchange::PowerToCoin->value => 0,
+            ResourceExchange::ScholarToTool->value => 0,
+            ResourceExchange::ToolToCoin->value => 0,
+            ResourceExchange::PowerToBook->value => $bookCounts,
+            ResourceExchange::BookToCoin->value => $bookCounts,
+        ];
+        $exchange = ResourceExchange::from((string) $action->payload['exchange']);
+
+        if (in_array($exchange, [ResourceExchange::PowerToBook, ResourceExchange::BookToCoin], true)) {
+            $discipline = KnowledgeDiscipline::from((string) $action->payload['discipline']);
+            $normalized[$exchange->value][$discipline->value] = 1;
+        } else {
+            $normalized[$exchange->value] = 1;
+        }
+
+        return $normalized;
     }
 
     /** @param Collection<int, GamePlayer> $players */
