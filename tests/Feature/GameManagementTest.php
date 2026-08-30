@@ -14,6 +14,7 @@ use App\Domain\Game\Data\BoardStateData;
 use App\Domain\Game\Data\BuildingStateData;
 use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Data\GameStateData;
+use App\Domain\Game\Data\PendingInteractionData;
 use App\Domain\Game\Data\PlanningBundleData;
 use App\Domain\Game\Data\PlayerPlanningSelectionData;
 use App\Domain\Game\Data\PlayerResourcesData;
@@ -30,6 +31,7 @@ use App\Domain\Game\Enums\MapVariant;
 use App\Domain\Game\Enums\PalaceAbility;
 use App\Domain\Game\Enums\PendingInteractionType;
 use App\Domain\Game\Enums\PlayerColor;
+use App\Domain\Game\Enums\PowerAction;
 use App\Domain\Game\Enums\RoundBonus;
 use App\Domain\Game\Enums\TerrainType;
 use App\Domain\Game\Factories\BoardStateFactory;
@@ -269,6 +271,293 @@ class GameManagementTest extends TestCase
         $this->assertSame('power_sacrificed', $action->events[0]['type']);
         $this->assertSame(2, $action->events[0]['sacrificed']);
         $this->assertSame(2, $action->events[0]['moved_to_bowl_three']);
+    }
+
+    public function test_power_action_can_sacrifice_missing_power_and_apply_the_effect_atomically(): void
+    {
+        $user = User::factory()->create();
+        $game = Game::factory()->create([
+            'status' => GameStatus::Active,
+            'phase' => GamePhase::Actions,
+            'active_player_id' => $user->id,
+        ]);
+        $player = GamePlayer::factory()->create([
+            'game_id' => $game->id,
+            'user_id' => $user->id,
+            'seat' => 1,
+        ]);
+        $game->update([
+            'state' => new GameStateData(
+                turnOrder: [$player->id],
+                round: new RoundStateData(phase: GamePhase::Actions),
+                players: [new GamePlayerStateData(
+                    playerId: $player->id,
+                    userId: $user->id,
+                    color: PlayerColor::Green,
+                    faction: Faction::Blessed,
+                    homeland: TerrainType::Forest,
+                    roundBonus: RoundBonus::Coins,
+                    resources: new PlayerResourcesData(
+                        power: new PowerBowlsStateData(bowlTwo: 4, bowlThree: 2),
+                    ),
+                )],
+            ),
+        ]);
+
+        $this->actingAs($user)
+            ->post(route('games.power-action', $game), [
+                'action' => PowerAction::GainTools->value,
+                'sacrifice_amount' => 2,
+            ])
+            ->assertRedirect(route('games.show', $game));
+
+        $game->refresh();
+        $playerState = $game->state->players[0];
+        $this->assertSame(0, $playerState->resources->power->bowlTwo);
+        $this->assertSame(0, $playerState->resources->power->bowlThree);
+        $this->assertSame(4, $playerState->resources->power->bowlOne);
+        $this->assertSame(2, $playerState->resources->tools);
+        $this->assertContains(PowerAction::GainTools->value, $game->state->round->usedSharedActionIds);
+        $this->assertSame(GameActionType::PowerAction, $game->actions()->sole()->type);
+        $this->assertSame(2, $game->actions()->sole()->payload['sacrifice_amount']);
+
+        $this->post(route('games.power-action', $game), [
+            'action' => PowerAction::GainTools->value,
+            'sacrifice_amount' => 0,
+        ])->assertSessionHasErrors('action');
+
+        $this->assertSame(1, $game->actions()->count());
+    }
+
+    public function test_power_action_is_not_applied_when_power_cannot_be_sacrificed(): void
+    {
+        $user = User::factory()->create();
+        $game = Game::factory()->create([
+            'status' => GameStatus::Active,
+            'phase' => GamePhase::Actions,
+            'active_player_id' => $user->id,
+        ]);
+        $player = GamePlayer::factory()->create([
+            'game_id' => $game->id,
+            'user_id' => $user->id,
+            'seat' => 1,
+        ]);
+        $game->update([
+            'state' => new GameStateData(
+                turnOrder: [$player->id],
+                round: new RoundStateData(phase: GamePhase::Actions),
+                players: [new GamePlayerStateData(
+                    playerId: $player->id,
+                    userId: $user->id,
+                    color: PlayerColor::Green,
+                    faction: Faction::Blessed,
+                    homeland: TerrainType::Forest,
+                    roundBonus: RoundBonus::Coins,
+                    resources: new PlayerResourcesData(
+                        power: new PowerBowlsStateData(bowlTwo: 2, bowlThree: 2),
+                    ),
+                )],
+            ),
+        ]);
+
+        $this->actingAs($user)
+            ->post(route('games.power-action', $game), [
+                'action' => PowerAction::GainTools->value,
+                'sacrifice_amount' => 2,
+            ])
+            ->assertSessionHasErrors('sacrifice_amount');
+
+        $game->refresh();
+        $this->assertSame(2, $game->state->players[0]->resources->power->bowlTwo);
+        $this->assertSame(2, $game->state->players[0]->resources->power->bowlThree);
+        $this->assertSame(0, $game->state->players[0]->resources->tools);
+        $this->assertSame(0, $game->actions()->count());
+    }
+
+    public function test_power_action_spades_can_be_selected_rolled_back_and_confirmed_immediately(): void
+    {
+        $user = User::factory()->create();
+        $game = Game::factory()->create([
+            'status' => GameStatus::Active,
+            'phase' => GamePhase::Actions,
+            'active_player_id' => $user->id,
+        ]);
+        $player = GamePlayer::factory()->create([
+            'game_id' => $game->id,
+            'user_id' => $user->id,
+            'seat' => 1,
+        ]);
+        $buildingHex = new BoardHexStateData(
+            id: '0:0',
+            q: 0,
+            r: 0,
+            initialTerrain: TerrainType::Forest,
+            terrain: TerrainType::Forest,
+            adjacentHexIds: ['1:0'],
+            building: new BuildingStateData(BuildingType::Workshop, $player->id),
+        );
+        $targetHex = new BoardHexStateData(
+            id: '1:0',
+            q: 1,
+            r: 0,
+            initialTerrain: TerrainType::Desert,
+            terrain: TerrainType::Desert,
+            adjacentHexIds: ['0:0'],
+        );
+        $game->update([
+            'state' => new GameStateData(
+                turnOrder: [$player->id],
+                board: new BoardStateData(hexes: [$buildingHex, $targetHex]),
+                round: new RoundStateData(phase: GamePhase::Actions),
+                players: [new GamePlayerStateData(
+                    playerId: $player->id,
+                    userId: $user->id,
+                    color: PlayerColor::Green,
+                    faction: Faction::Blessed,
+                    homeland: TerrainType::Forest,
+                    roundBonus: RoundBonus::Coins,
+                    resources: new PlayerResourcesData(
+                        power: new PowerBowlsStateData(bowlThree: 6),
+                    ),
+                )],
+            ),
+        ]);
+
+        $this->actingAs($user)->post(route('games.power-action', $game), [
+            'action' => PowerAction::TerraformTwoSpades->value,
+            'sacrifice_amount' => 0,
+        ])->assertRedirect(route('games.show', $game));
+
+        $game->refresh();
+        $this->assertSame(PendingInteractionType::SpendSpades, $game->state->pendingInteraction?->type);
+        $this->assertSame(GamePhase::Actions->value, $game->state->pendingInteraction?->context['phase']);
+        $this->assertSame(2, $game->state->players[0]->unassignedSpades);
+
+        $this->post(route('games.starting-spade.store', $game), ['hex_id' => '1:0'])
+            ->assertRedirect(route('games.show', $game));
+        $game->refresh();
+        $this->assertSame(TerrainType::Wasteland, $game->state->board->hexes[1]->terrain);
+
+        $this->delete(route('games.starting-spade.destroy', $game))
+            ->assertRedirect(route('games.show', $game));
+        $game->refresh();
+        $this->assertSame(TerrainType::Desert, $game->state->board->hexes[1]->terrain);
+
+        $this->post(route('games.starting-spade.store', $game), ['hex_id' => '1:0']);
+        $this->post(route('games.starting-spade.finish', $game));
+        $game->refresh();
+        $this->assertSame(1, $game->state->pendingInteraction?->context['remainingSpades']);
+        $this->assertSame(1, $game->state->players[0]->unassignedSpades);
+
+        $this->post(route('games.starting-spade.store', $game), ['hex_id' => '1:0']);
+        $this->post(route('games.starting-spade.finish', $game));
+        $game->refresh();
+        $this->assertNull($game->state->pendingInteraction);
+        $this->assertSame(GamePhase::Actions, $game->phase);
+        $this->assertSame(0, $game->state->players[0]->unassignedSpades);
+        $this->assertSame(TerrainType::Mountain, $game->state->board->hexes[1]->terrain);
+    }
+
+    public function test_power_terraforming_offers_a_workshop_and_turn_can_be_finished_after_building(): void
+    {
+        $user = User::factory()->create();
+        $nextUser = User::factory()->create();
+        $game = Game::factory()->create([
+            'status' => GameStatus::Active,
+            'phase' => GamePhase::Actions,
+            'active_player_id' => $user->id,
+        ]);
+        $player = GamePlayer::factory()->create(['game_id' => $game->id, 'user_id' => $user->id, 'seat' => 1]);
+        $nextPlayer = GamePlayer::factory()->create(['game_id' => $game->id, 'user_id' => $nextUser->id, 'seat' => 2]);
+        $game->update(['state' => new GameStateData(
+            turnOrder: [$player->id, $nextPlayer->id],
+            board: new BoardStateData(hexes: [new BoardHexStateData(
+                id: '1:0',
+                q: 1,
+                r: 0,
+                initialTerrain: TerrainType::Mountain,
+                terrain: TerrainType::Forest,
+            )]),
+            round: new RoundStateData(phase: GamePhase::Actions, turnStartVersion: 0),
+            players: [new GamePlayerStateData(
+                playerId: $player->id,
+                userId: $user->id,
+                color: PlayerColor::Green,
+                faction: Faction::Blessed,
+                homeland: TerrainType::Mountain,
+                roundBonus: RoundBonus::Coins,
+                resources: new PlayerResourcesData(coins: 4, tools: 2),
+                unassignedSpades: 1,
+            )],
+            pendingInteraction: new PendingInteractionData(
+                PendingInteractionType::SpendSpades,
+                $player->id,
+                ['1:0'],
+                [
+                    'phase' => GamePhase::Actions->value,
+                    'spadeCount' => 1,
+                    'remainingSpades' => 1,
+                    'targetTerrain' => TerrainType::Mountain->value,
+                ],
+            ),
+        )]);
+
+        $this->actingAs($user)->post(route('games.starting-spade.store', $game), ['hex_id' => '1:0']);
+        $this->post(route('games.starting-spade.finish', $game));
+        $game->refresh();
+        $this->assertSame(PendingInteractionType::BuildWorkshopAfterTerraforming, $game->state->pendingInteraction?->type);
+
+        $this->post(route('games.terraform-workshop', $game), ['build' => true, 'hex_id' => '1:0'])
+            ->assertRedirect(route('games.show', $game));
+        $game->refresh();
+        $this->assertSame(BuildingType::Workshop, $game->state->board->hexes[0]->building?->type);
+        $this->assertSame(1, $game->state->players[0]->resources->tools);
+        $this->assertSame(2, $game->state->players[0]->resources->coins);
+        $this->assertNull($game->state->pendingInteraction);
+
+        $this->post(route('games.current-turn.finish', $game))
+            ->assertRedirect(route('games.show', $game));
+        $game->refresh();
+        $this->assertSame($nextUser->id, $game->active_player_id);
+        $this->assertNull($game->state->round->turnStartVersion);
+        $this->assertSame(GameActionType::FinishTurn, $game->actions()->latest('sequence')->first()?->type);
+    }
+
+    public function test_player_can_decline_workshop_after_power_terraforming(): void
+    {
+        $user = User::factory()->create();
+        $game = Game::factory()->create([
+            'status' => GameStatus::Active,
+            'phase' => GamePhase::Actions,
+            'active_player_id' => $user->id,
+        ]);
+        $player = GamePlayer::factory()->create(['game_id' => $game->id, 'user_id' => $user->id]);
+        $game->update(['state' => new GameStateData(
+            turnOrder: [$player->id],
+            round: new RoundStateData(phase: GamePhase::Actions),
+            players: [new GamePlayerStateData(
+                playerId: $player->id,
+                userId: $user->id,
+                color: PlayerColor::Green,
+                faction: Faction::Blessed,
+                homeland: TerrainType::Mountain,
+                roundBonus: RoundBonus::Coins,
+                resources: new PlayerResourcesData(coins: 2, tools: 1),
+            )],
+            pendingInteraction: new PendingInteractionData(
+                PendingInteractionType::BuildWorkshopAfterTerraforming,
+                $player->id,
+                ['1:0'],
+            ),
+        )]);
+
+        $this->actingAs($user)->post(route('games.terraform-workshop', $game), ['build' => false]);
+        $game->refresh();
+
+        $this->assertNull($game->state->pendingInteraction);
+        $this->assertSame(1, $game->state->players[0]->resources->tools);
+        $this->assertSame(2, $game->state->players[0]->resources->coins);
+        $this->assertFalse((bool) $game->actions()->latest('sequence')->first()?->payload['built']);
     }
 
     public function test_active_player_can_exchange_multiple_resources_without_ending_the_turn(): void

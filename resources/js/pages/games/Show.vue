@@ -3,6 +3,7 @@ import { Form, Head, Link, router, usePage, usePoll } from '@inertiajs/vue3';
 import { Check, ChevronDown, RotateCcw } from '@lucide/vue';
 import { computed, reactive, ref, watch } from 'vue';
 import CurrentTurnRestartController from '@/actions/App/Http/Controllers/CurrentTurnRestartController';
+import CurrentTurnFinishController from '@/actions/App/Http/Controllers/CurrentTurnFinishController';
 import GamePlayerController from '@/actions/App/Http/Controllers/GamePlayerController';
 import GamePlayerReadinessController from '@/actions/App/Http/Controllers/GamePlayerReadinessController';
 import GameStartController from '@/actions/App/Http/Controllers/GameStartController';
@@ -20,8 +21,10 @@ import InnovationBoard from '@/components/game/InnovationBoard.vue';
 import PalaceBoard from '@/components/game/PalaceBoard.vue';
 import PlayerBoards from '@/components/game/PlayerBoards.vue';
 import PlayerStatsPanel from '@/components/game/PlayerStatsPanel.vue';
+import PowerActionDialog from '@/components/game/PowerActionDialog.vue';
 import PowerSacrificeDialog from '@/components/game/PowerSacrificeDialog.vue';
 import ResourceExchangeDialog from '@/components/game/ResourceExchangeDialog.vue';
+import TerraformWorkshopDialog from '@/components/game/TerraformWorkshopDialog.vue';
 import RoundBonusBoard from '@/components/game/RoundBonusBoard.vue';
 import TownTileBoard from '@/components/game/TownTileBoard.vue';
 import InputError from '@/components/InputError.vue';
@@ -57,6 +60,7 @@ import type {
     GameResource,
     KnowledgeDiscipline,
     MapVariant,
+    PowerActionState,
     RoundBonus,
     TerrainType,
 } from '@/types';
@@ -207,7 +211,9 @@ const selectedStartingCompetency = ref<Competency | null>(null);
 const selectedMonkCompetency = ref<Competency | null>(null);
 const isPlanningBundleGroupOpen = ref(true);
 const isPowerSacrificeDialogOpen = ref(false);
+const isPowerActionDialogOpen = ref(false);
 const isResourceExchangeDialogOpen = ref(false);
+const selectedPowerAction = ref<PowerActionState | null>(null);
 
 const currentPlayerState = computed(() =>
     props.game.data.playerBoardStates.find((state) => state.playerId === currentPlayer.value?.id),
@@ -230,8 +236,19 @@ const canExchangeResources = computed(
         && props.game.data.pendingInteraction === null,
 );
 
+function selectPowerAction(action: PowerActionState): void {
+    selectedPowerAction.value = action;
+    isPowerActionDialogOpen.value = true;
+}
+
 function confirmRestartCurrentTurn(event: SubmitEvent): void {
     if (!window.confirm('Отменить все действия текущего хода и начать его заново?')) {
+        event.preventDefault();
+    }
+}
+
+function confirmFinishCurrentTurn(event: SubmitEvent): void {
+    if (!window.confirm('Завершить текущий ход и передать его следующему игроку?')) {
         event.preventDefault();
     }
 }
@@ -936,7 +953,10 @@ function updateStartingKnowledgeCount(discipline: KnowledgeDiscipline, event: Ev
                 </span>
 
                 <p
-                    v-if="isStartingBuildingStage && activePlayer?.user.id === page.props.auth.user.id"
+                    v-if="
+                        activePlayer?.user.id === page.props.auth.user.id &&
+                        (isStartingBuildingStage || canSpendStartingSpade)
+                    "
                     class="truncate text-sm font-medium"
                     role="status"
                     aria-live="polite"
@@ -1066,24 +1086,44 @@ function updateStartingKnowledgeCount(discipline: KnowledgeDiscipline, event: Ev
                     </div>
                 </TooltipProvider>
 
-                <Form
-                    v-else-if="game.data.canRestartCurrentTurn"
-                    v-bind="CurrentTurnRestartController.form(game.data.id)"
-                    #default="{ processing }"
-                    @submit="confirmRestartCurrentTurn"
+                <div
+                    v-else-if="
+                        game.data.phase === 'actions' &&
+                        activePlayer?.user.id === page.props.auth.user.id &&
+                        game.data.pendingInteraction === null
+                    "
+                    class="flex shrink-0 items-center gap-2"
                 >
-                    <TooltipProvider :delay-duration="150">
-                        <Tooltip>
-                            <TooltipTrigger as-child>
-                                <Button type="submit" variant="outline" :disabled="processing">
-                                    <RotateCcw class="size-4" :class="processing ? 'animate-spin' : ''" />
-                                    Перезапустить ход
-                                </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>Отменить все действия текущего хода</TooltipContent>
-                        </Tooltip>
-                    </TooltipProvider>
-                </Form>
+                    <Form
+                        v-if="game.data.canRestartCurrentTurn"
+                        v-bind="CurrentTurnRestartController.form(game.data.id)"
+                        #default="{ processing }"
+                        @submit="confirmRestartCurrentTurn"
+                    >
+                        <TooltipProvider :delay-duration="150">
+                            <Tooltip>
+                                <TooltipTrigger as-child>
+                                    <Button type="submit" variant="outline" :disabled="processing">
+                                        <RotateCcw class="size-4" :class="processing ? 'animate-spin' : ''" />
+                                        Перезапустить ход
+                                    </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>Отменить все действия текущего хода</TooltipContent>
+                            </Tooltip>
+                        </TooltipProvider>
+                    </Form>
+
+                    <Form
+                        v-if="game.data.canFinishCurrentTurn"
+                        v-bind="CurrentTurnFinishController.form(game.data.id)"
+                        #default="{ processing }"
+                        @submit="confirmFinishCurrentTurn"
+                    >
+                        <Button type="submit" :disabled="processing">
+                            Завершить ход
+                        </Button>
+                    </Form>
+                </div>
 
                 <div
                     v-else-if="activePlayer?.user.id !== page.props.auth.user.id"
@@ -1167,7 +1207,9 @@ function updateStartingKnowledgeCount(discipline: KnowledgeDiscipline, event: Ev
                             :book-actions="game.data.bookActions"
                             :used-book-action-ids="game.data.usedBookActionIds"
                             :power-actions="game.data.powerActions"
+                            :can-use-power-actions="canExchangeResources"
                             @hex-click="placeStartingBuilding"
+                            @power-action-click="selectPowerAction"
                         />
 
                         <PlayerBoards
@@ -1209,10 +1251,27 @@ function updateStartingKnowledgeCount(discipline: KnowledgeDiscipline, event: Ev
                 :maximum-amount="maximumPowerSacrifice"
             />
 
+            <PowerActionDialog
+                v-model:open="isPowerActionDialogOpen"
+                :game-id="game.data.id"
+                :action="selectedPowerAction"
+                :player-state="currentPlayerState"
+            />
+
             <ResourceExchangeDialog
                 v-model:open="isResourceExchangeDialogOpen"
                 :game-id="game.data.id"
                 :player-state="currentPlayerState"
+            />
+
+            <TerraformWorkshopDialog
+                v-if="
+                    game.data.pendingInteraction?.type === 'build_workshop_after_terraforming' &&
+                    game.data.pendingInteraction.playerId === currentPlayer?.id
+                "
+                :game-id="game.data.id"
+                :hex-ids="game.data.pendingInteraction.optionIds"
+                :hexes="game.data.board.hexes"
             />
         </div>
 

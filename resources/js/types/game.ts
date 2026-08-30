@@ -24,6 +24,7 @@ export type GameResource = {
         isOwner: boolean;
         canUndoLastAction: boolean;
         canRestartCurrentTurn: boolean;
+        canFinishCurrentTurn: boolean;
         activePlayerId: number | null;
         turnOrder: number[];
         board: BoardState;
@@ -61,6 +62,7 @@ export type GameActionType =
     | 'finish_starting_building_turn'
     | 'spend_starting_spade'
     | 'terraform_and_build'
+    | 'finish_turn'
     | 'upgrade_building'
     | 'advance_shipping'
     | 'advance_terraforming'
@@ -349,6 +351,16 @@ export type PendingInteraction =
             terrainBefore?: TerrainType;
             terrainAfter?: TerrainType;
             remainingSpades?: number;
+            buildableHexIds?: string[];
+        };
+    }
+    | {
+        type: 'build_workshop_after_terraforming';
+        playerId: number;
+        optionIds: string[];
+        context: {
+            toolCost: number;
+            coinCost: number;
         };
     };
 

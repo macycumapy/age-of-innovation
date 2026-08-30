@@ -25,6 +25,7 @@ type Props = {
     players?: GamePlayerSummary[];
     selectableHexIds?: string[];
     pendingHexId?: string | null;
+    canUsePowerActions?: boolean;
 };
 
 type BoardLayout = {
@@ -58,9 +59,13 @@ const props = withDefaults(defineProps<Props>(), {
     players: () => [],
     selectableHexIds: () => [],
     pendingHexId: null,
+    canUsePowerActions: false,
 });
 
-const emit = defineEmits<{ hexClick: [hexId: string] }>();
+const emit = defineEmits<{
+    hexClick: [hexId: string];
+    powerActionClick: [action: PowerActionState];
+}>();
 
 const boardWidth = 2004;
 const boardHeight = 1285;
@@ -237,10 +242,14 @@ function powerActionX(index: number): number {
     return boardLayout.value.powerActionStartX + index * boardLayout.value.powerActionSpacing;
 }
 
+function canSelectPowerAction(action: PowerActionState): boolean {
+    return props.canUsePowerActions && !action.isUsed && action.id !== 'build_bridge';
+}
+
 const closedActionTokenSize = 82;
 
 function closedActionTokenX(actionX: number, actionWidth: number): number {
-    return actionX + (actionWidth - closedActionTokenSize) / 2;
+    return actionX + (actionWidth - closedActionTokenSize) - 10;
 }
 </script>
 
@@ -326,10 +335,16 @@ function closedActionTokenX(actionX: number, actionWidth: number): number {
             <g
                 v-for="(action, index) in powerActions"
                 :key="`power-${action.id}`"
-                class="power-action-group cursor-pointer"
-                :class="{ 'power-action-used': action.isUsed }"
+                class="power-action-group"
+                :class="[
+                    { 'power-action-used': action.isUsed },
+                    canSelectPowerAction(action) ? 'cursor-pointer' : '',
+                ]"
+                @click="canSelectPowerAction(action) && emit('powerActionClick', action)"
             >
-                <title>{{ action.description }}</title>
+                <title>
+                    {{ action.id === 'build_bridge' ? 'Выбор позиции моста пока недоступен.' : action.description }}
+                </title>
                 <rect
                     :x="powerActionX(index)"
                     :y="boardLayout.powerActionY"

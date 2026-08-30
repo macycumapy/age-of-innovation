@@ -18,6 +18,8 @@ final class FinishStartingSpadeAction
 {
     public function __construct(
         private AppendGameHistoryAction $appendGameHistory,
+        private FindEligibleTerraformHexesAction $findEligibleTerraformHexes,
+        private OfferWorkshopAfterTerraformingAction $offerWorkshopAfterTerraforming,
         private ResolveCompletedStartingSetupAction $resolveCompletedStartingSetup,
     ) {
     }
@@ -27,6 +29,7 @@ final class FinishStartingSpadeAction
         return DB::transaction(function () use ($game, $user): Game {
             $lockedGame = Game::query()->lockForUpdate()->findOrFail($game->id);
             $state = $lockedGame->state;
+            $interactionPhase = $lockedGame->phase;
             $interaction = $state->pendingInteraction;
             $hexId = $interaction?->context['selectedHexId'] ?? null;
             $stateVersionBefore = $lockedGame->version;
@@ -35,7 +38,7 @@ final class FinishStartingSpadeAction
                 ->whereBelongsTo($user)
                 ->first();
 
-            if ($lockedGame->phase !== GamePhase::Setup
+            if (! in_array($lockedGame->phase, [GamePhase::Setup, GamePhase::Actions], true)
                 || $lockedGame->active_player_id !== $user->id
                 || $interaction?->type !== PendingInteractionType::SpendSpades
                 || ! is_string($hexId)
@@ -46,25 +49,33 @@ final class FinishStartingSpadeAction
             $playerState = collect($state->players)->firstWhere('playerId', $player->id);
 
             if ($playerState === null || $playerState->unassignedSpades < 1) {
-                throw ValidationException::withMessages(['game' => 'У игрока нет доступной стартовой лопаты.']);
+                throw ValidationException::withMessages(['game' => 'У игрока нет доступной лопаты.']);
             }
 
             $playerState->unassignedSpades--;
             $terrainBefore = $interaction->context['terrainBefore'] ?? null;
             $terrainAfter = $interaction->context['terrainAfter'] ?? null;
             $remainingSpades = max(0, (int) ($interaction->context['remainingSpades'] ?? 1) - 1);
+            $buildableHexIds = $interaction->context['buildableHexIds'] ?? [];
+
+            if ($interactionPhase === GamePhase::Actions
+                && $terrainAfter === $playerState->homeland->value) {
+                $buildableHexIds[] = $hexId;
+            }
             unset(
                 $interaction->context['selectedHexId'],
                 $interaction->context['terrainBefore'],
                 $interaction->context['terrainAfter'],
             );
             $interaction->context['remainingSpades'] = $remainingSpades;
+            $interaction->context['buildableHexIds'] = array_values(array_unique($buildableHexIds));
+            $buildOffered = false;
 
             if ($remainingSpades > 0) {
                 $targetTerrain = TerrainType::from(
                     (string) $interaction->context['targetTerrain'],
                 );
-                $interaction->optionIds = $this->resolveCompletedStartingSetup->eligibleHexIds(
+                $interaction->optionIds = $this->findEligibleTerraformHexes->execute(
                     $state,
                     $player->id,
                     $targetTerrain,
@@ -73,7 +84,15 @@ final class FinishStartingSpadeAction
                 if ($interaction->optionIds !== []) {
                     $state->pendingInteraction = $interaction;
                     $nextPlayer = $player;
-                    $nextPhase = GamePhase::Setup;
+                    $nextPhase = $interactionPhase;
+                } elseif ($interactionPhase === GamePhase::Actions) {
+                    $buildOffered = $this->offerWorkshopAfterTerraforming->execute(
+                        $state,
+                        $playerState,
+                        $buildableHexIds,
+                    );
+                    $nextPlayer = $player;
+                    $nextPhase = GamePhase::Actions;
                 } else {
                     $state->pendingInteraction = null;
                     [$nextPlayer, $nextPhase] = $this->resolveCompletedStartingSetup->execute(
@@ -81,6 +100,14 @@ final class FinishStartingSpadeAction
                         $lockedGame->players()->get(),
                     );
                 }
+            } elseif ($interactionPhase === GamePhase::Actions) {
+                $buildOffered = $this->offerWorkshopAfterTerraforming->execute(
+                    $state,
+                    $playerState,
+                    $buildableHexIds,
+                );
+                $nextPlayer = $player;
+                $nextPhase = GamePhase::Actions;
             } else {
                 $state->pendingInteraction = null;
                 [$nextPlayer, $nextPhase] = $this->resolveCompletedStartingSetup->execute(
@@ -105,12 +132,21 @@ final class FinishStartingSpadeAction
                     'terrain_after' => $terrainAfter,
                     'remaining_spades' => $remainingSpades,
                     'target_terrain' => $interaction->context['targetTerrain'] ?? null,
-                    'income_started' => $nextPhase !== GamePhase::Setup,
+                    'phase' => $interactionPhase->value,
+                    'income_started' => $interactionPhase === GamePhase::Setup && $nextPhase !== GamePhase::Setup,
                     'round' => $state->round->number,
+                    'buildable_hex_ids' => $buildableHexIds,
+                    'build_offered' => $buildOffered,
                 ],
                 [
-                    ['type' => 'starting_spade_spent', 'player_id' => $player->id, 'hex_id' => $hexId],
-                    ...($nextPhase !== GamePhase::Setup ? [[
+                    [
+                        'type' => $interactionPhase === GamePhase::Setup
+                            ? 'starting_spade_spent'
+                            : 'spade_spent',
+                        'player_id' => $player->id,
+                        'hex_id' => $hexId,
+                    ],
+                    ...($interactionPhase === GamePhase::Setup && $nextPhase !== GamePhase::Setup ? [[
                         'type' => 'income_phase_started',
                         'round' => $state->round->number,
                     ]] : []),

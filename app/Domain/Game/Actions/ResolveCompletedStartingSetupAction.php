@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Domain\Game\Actions;
 
-use App\Domain\Game\Data\BoardHexStateData;
 use App\Domain\Game\Data\GameStateData;
 use App\Domain\Game\Data\PendingInteractionData;
 use App\Domain\Game\Enums\Competency;
@@ -16,8 +15,10 @@ use Illuminate\Database\Eloquent\Collection;
 
 final class ResolveCompletedStartingSetupAction
 {
-    public function __construct(private ResolveIncomePhaseAction $resolveIncomePhase)
-    {
+    public function __construct(
+        private FindEligibleTerraformHexesAction $findEligibleTerraformHexes,
+        private ResolveIncomePhaseAction $resolveIncomePhase,
+    ) {
     }
 
     /**
@@ -31,7 +32,7 @@ final class ResolveCompletedStartingSetupAction
 
             if ($competencyPlayerState?->unassignedSpades >= 2
                 && in_array(Competency::Competency05->value, $competencyPlayerState->competencyIds, true)) {
-                $eligibleHexIds = $this->eligibleHexIds(
+                $eligibleHexIds = $this->findEligibleTerraformHexes->execute(
                     $state,
                     $competencyPlayer->id,
                     $competencyPlayerState->homeland,
@@ -59,7 +60,7 @@ final class ResolveCompletedStartingSetupAction
             ? collect($state->players)->firstWhere('playerId', $desertPlayer->id)
             : null;
         $eligibleHexIds = $desertPlayer instanceof GamePlayer
-            ? $this->eligibleHexIds($state, $desertPlayer->id, TerrainType::Desert)
+            ? $this->findEligibleTerraformHexes->execute($state, $desertPlayer->id, TerrainType::Desert)
             : [];
 
         if ($desertPlayer instanceof GamePlayer
@@ -79,31 +80,5 @@ final class ResolveCompletedStartingSetupAction
         $state->round->incomeTurnIndex = 0;
 
         return $this->resolveIncomePhase->execute($state, $players);
-    }
-
-    /** @return list<string> */
-    public function eligibleHexIds(GameStateData $state, int $playerId, TerrainType $targetTerrain): array
-    {
-        $hexesById = collect($state->board->hexes)->keyBy('id');
-        $eligibleHexIds = [];
-
-        foreach ($state->board->hexes as $hex) {
-            if ($hex->building?->ownerPlayerId !== $playerId) {
-                continue;
-            }
-
-            foreach ($hex->adjacentHexIds as $adjacentHexId) {
-                $adjacentHex = $hexesById->get($adjacentHexId);
-
-                if ($adjacentHex instanceof BoardHexStateData
-                    && $adjacentHex->building === null
-                    && $adjacentHex->terrain->isHomeland()
-                    && $adjacentHex->terrain !== $targetTerrain) {
-                    $eligibleHexIds[] = $adjacentHexId;
-                }
-            }
-        }
-
-        return array_values(array_unique($eligibleHexIds));
     }
 }

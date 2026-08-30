@@ -21,6 +21,7 @@ use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\GameStatus;
 use App\Domain\Game\Enums\KnowledgeDiscipline;
 use App\Domain\Game\Enums\PendingInteractionType;
+use App\Domain\Game\Enums\PowerAction;
 use App\Domain\Game\Enums\ResourceExchange;
 use App\Domain\Game\Enums\TerrainType;
 use App\Domain\Game\Factories\BoardStateFactory;
@@ -46,6 +47,9 @@ final class ReplayGameHistoryAction
         GameActionType::SpendStartingSpade,
         GameActionType::SacrificePower,
         GameActionType::ExchangeResources,
+        GameActionType::PowerAction,
+        GameActionType::TerraformAndBuild,
+        GameActionType::FinishTurn,
     ];
 
     public function __construct(
@@ -54,6 +58,8 @@ final class ReplayGameHistoryAction
         private GameSetupPoolFactory $setupPoolFactory,
         private GrantCompetencyAction $grantCompetency,
         private ApplyResourceExchangeAction $applyResourceExchange,
+        private ApplyPowerActionAction $applyPowerAction,
+        private FindEligibleTerraformHexesAction $findEligibleTerraformHexes,
         private ResolveCompletedStartingSetupAction $resolveCompletedStartingSetup,
     ) {
     }
@@ -100,6 +106,9 @@ final class ReplayGameHistoryAction
                 GameActionType::SpendStartingSpade => $this->replayStartingSpade($game, $players, $action),
                 GameActionType::SacrificePower => $this->replaySacrificePower($game, $players, $action),
                 GameActionType::ExchangeResources => $this->replayResourceExchange($game, $players, $action),
+                GameActionType::PowerAction => $this->replayPowerAction($game, $players, $action),
+                GameActionType::TerraformAndBuild => $this->replayTerraformAndBuild($game, $players, $action),
+                GameActionType::FinishTurn => $this->replayFinishTurn($game, $players, $action),
                 default => null,
             };
 
@@ -390,10 +399,12 @@ final class ReplayGameHistoryAction
 
         $this->playerState($state, $player->id)->unassignedSpades--;
         $remainingSpades = (int) ($action->payload['remaining_spades'] ?? 0);
+        $interactionPhase = GamePhase::tryFrom((string) ($action->payload['phase'] ?? ''))
+            ?? GamePhase::Setup;
 
         if ($remainingSpades > 0) {
             $targetTerrain = TerrainType::from((string) $action->payload['target_terrain']);
-            $eligibleHexIds = $this->resolveCompletedStartingSetup->eligibleHexIds(
+            $eligibleHexIds = $this->findEligibleTerraformHexes->execute(
                 $state,
                 $player->id,
                 $targetTerrain,
@@ -406,19 +417,87 @@ final class ReplayGameHistoryAction
                     'spadeCount' => 2,
                     'remainingSpades' => $remainingSpades,
                     'targetTerrain' => $targetTerrain->value,
+                    'phase' => $interactionPhase->value,
+                    'buildableHexIds' => $action->payload['buildable_hex_ids'] ?? [],
                 ],
             );
 
             if ($eligibleHexIds !== []) {
-                $game->phase = GamePhase::Setup;
+                $game->phase = $interactionPhase;
                 $game->active_player_id = $player->user_id;
+            } elseif ($interactionPhase === GamePhase::Actions) {
+                $state->pendingInteraction = null;
             } else {
                 $this->completeStartingInteraction($game, $state, $players);
             }
+        } elseif ($interactionPhase === GamePhase::Actions) {
+            $buildableHexIds = $action->payload['buildable_hex_ids'] ?? [];
+            $playerState = $this->playerState($state, $player->id);
+            $availableHexIds = array_values(array_filter(
+                $buildableHexIds,
+                static fn (string $hexId): bool => collect($state->board->hexes)->contains(
+                    static fn (BoardHexStateData $hex): bool => $hex->id === $hexId
+                        && $hex->terrain === $playerState->homeland
+                        && $hex->building === null,
+                ),
+            ));
+            $state->pendingInteraction = $availableHexIds === []
+                || ! (bool) ($action->payload['build_offered'] ?? false)
+                    ? null
+                    : new PendingInteractionData(
+                        PendingInteractionType::BuildWorkshopAfterTerraforming,
+                        $player->id,
+                        $availableHexIds,
+                        ['toolCost' => 1, 'coinCost' => 2],
+                    );
         } else {
             $this->completeStartingInteraction($game, $state, $players);
         }
 
+        $game->state = $state;
+    }
+
+    /** @param Collection<int, GamePlayer> $players */
+    private function replayTerraformAndBuild(Game $game, Collection $players, GameAction $action): void
+    {
+        $player = $players->firstWhere('user_id', $action->player_id);
+
+        if (! $player instanceof GamePlayer) {
+            $this->invalidHistory();
+        }
+
+        $state = $game->state;
+
+        if ((bool) ($action->payload['built'] ?? false)) {
+            $hex = collect($state->board->hexes)->firstWhere('id', $action->payload['hex_id'] ?? null);
+            $playerState = $this->playerState($state, $player->id);
+
+            if (! $hex instanceof BoardHexStateData) {
+                $this->invalidHistory();
+            }
+
+            $playerState->resources->tools--;
+            $playerState->resources->coins -= 2;
+            $hex->building = new BuildingStateData(BuildingType::Workshop, $player->id);
+        }
+
+        $state->pendingInteraction = null;
+        $game->state = $state;
+    }
+
+    /** @param Collection<int, GamePlayer> $players */
+    private function replayFinishTurn(Game $game, Collection $players, GameAction $action): void
+    {
+        $nextPlayer = $players->firstWhere('id', (int) ($action->payload['next_player_id'] ?? 0));
+
+        if (! $nextPlayer instanceof GamePlayer) {
+            $this->invalidHistory();
+        }
+
+        $state = $game->state;
+        $state->turnStartSnapshot = null;
+        $state->round->turnStartVersion = null;
+        $game->active_player_id = $nextPlayer->user_id;
         $game->state = $state;
     }
 
@@ -468,6 +547,31 @@ final class ReplayGameHistoryAction
         $this->applyResourceExchange->execute(
             $this->playerState($state, $player->id),
             $this->resourceExchanges($action),
+        );
+        $game->state = $state;
+    }
+
+    /** @param Collection<int, GamePlayer> $players */
+    private function replayPowerAction(Game $game, Collection $players, GameAction $action): void
+    {
+        $player = $players->firstWhere('user_id', $action->player_id);
+
+        if (! $player instanceof GamePlayer) {
+            $this->invalidHistory();
+        }
+
+        $state = $game->state;
+
+        if ($state->turnStartSnapshot === null) {
+            $state->turnStartSnapshot = $state->toArray();
+            $state->round->turnStartVersion = $game->version;
+        }
+
+        $this->applyPowerAction->execute(
+            $state,
+            $this->playerState($state, $player->id),
+            PowerAction::from((string) $action->payload['action']),
+            (int) ($action->payload['sacrifice_amount'] ?? 0),
         );
         $game->state = $state;
     }

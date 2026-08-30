@@ -30,6 +30,7 @@ const actionDescriptions: Record<GameActionType, string> = {
     finish_starting_building_turn: 'завершил ход выставления дома',
     spend_starting_spade: 'использовал стартовую лопату',
     terraform_and_build: 'преобразовал местность и построил здание',
+    finish_turn: 'завершил ход',
     upgrade_building: 'улучшил здание',
     advance_shipping: 'улучшил судоходство',
     advance_terraforming: 'улучшил преобразование',
@@ -133,6 +134,14 @@ function payloadString(entry: GameHistoryEntry, key: string): string | null {
     return typeof value === 'string' ? value : null;
 }
 
+function actionDescription(entry: GameHistoryEntry): string {
+    if (entry.type === 'terraform_and_build' && entry.payload.built === false) {
+        return 'отказался от строительства после преобразования';
+    }
+
+    return actionDescriptions[entry.type];
+}
+
 function actionDetails(entry: GameHistoryEntry): string | null {
     const details: string[] = [];
     const hexId = payloadString(entry, 'hex_id');
@@ -141,6 +150,7 @@ function actionDetails(entry: GameHistoryEntry): string | null {
         'place_starting_building',
         'undo_starting_building',
         'spend_starting_spade',
+        'terraform_and_build',
     ].includes(entry.type)) {
         details.push(`ячейка ${hexId}`);
     }
@@ -222,7 +232,7 @@ function actionTime(createdAt: string | null): string {
                     />
                     <p class="min-w-0 leading-snug">
                         <span class="font-bold">{{ entry.player?.name ?? 'Система' }}</span>
-                        {{ actionDescriptions[entry.type] }}
+                        {{ actionDescription(entry) }}
                         <span v-if="actionDetails(entry)" class="text-muted-foreground">
                             — {{ actionDetails(entry) }}
                         </span>

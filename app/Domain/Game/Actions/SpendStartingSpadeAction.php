@@ -26,13 +26,13 @@ final class SpendStartingSpadeAction
                 ->whereBelongsTo($user)
                 ->first();
 
-            if ($lockedGame->phase !== GamePhase::Setup
+            if (! in_array($lockedGame->phase, [GamePhase::Setup, GamePhase::Actions], true)
                 || $lockedGame->active_player_id !== $user->id
                 || $interaction?->type !== PendingInteractionType::SpendSpades
                 || isset($interaction->context['selectedHexId'])
                 || ! $player instanceof GamePlayer
                 || ! in_array($hexId, $interaction->optionIds, true)) {
-                throw ValidationException::withMessages(['hex_id' => 'Эта клетка недоступна для стартовой лопаты.']);
+                throw ValidationException::withMessages(['hex_id' => 'Эта клетка недоступна для преобразования.']);
             }
 
             $playerStateIndex = null;
@@ -45,7 +45,7 @@ final class SpendStartingSpadeAction
             }
 
             if ($playerStateIndex === null || $state->players[$playerStateIndex]->unassignedSpades < 1) {
-                throw ValidationException::withMessages(['game' => 'У игрока нет доступной стартовой лопаты.']);
+                throw ValidationException::withMessages(['game' => 'У игрока нет доступной лопаты.']);
             }
 
             $terrainBefore = null;

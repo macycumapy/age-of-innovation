@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Http\Controllers\CurrentTurnFinishController;
 use App\Http\Controllers\CurrentTurnRestartController;
 use App\Http\Controllers\GameController;
 use App\Http\Controllers\GameHistoryController;
@@ -10,6 +11,7 @@ use App\Http\Controllers\GamePlayerController;
 use App\Http\Controllers\GamePlayerReadinessController;
 use App\Http\Controllers\GameStartController;
 use App\Http\Controllers\PlanningBundleController;
+use App\Http\Controllers\PowerActionController;
 use App\Http\Controllers\PowerSacrificeController;
 use App\Http\Controllers\ResourceExchangeController;
 use App\Http\Controllers\StartingBuildingController;
@@ -18,6 +20,7 @@ use App\Http\Controllers\StartingCompetencyController;
 use App\Http\Controllers\StartingResourcesController;
 use App\Http\Controllers\StartingSpadeController;
 use App\Http\Controllers\StartingSpadeTurnController;
+use App\Http\Controllers\TerraformWorkshopController;
 use Illuminate\Support\Facades\Route;
 
 Route::redirect('/', '/games')->name('home');
@@ -49,10 +52,16 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('games.starting-spade.destroy');
     Route::post('games/{game}/starting-spade/finish', StartingSpadeTurnController::class)
         ->name('games.starting-spade.finish');
+    Route::post('games/{game}/terraform-workshop', TerraformWorkshopController::class)
+        ->name('games.terraform-workshop');
     Route::post('games/{game}/power-sacrifice', [PowerSacrificeController::class, 'store'])
         ->name('games.power-sacrifice.store');
+    Route::post('games/{game}/power-action', PowerActionController::class)
+        ->name('games.power-action');
     Route::post('games/{game}/current-turn/restart', CurrentTurnRestartController::class)
         ->name('games.current-turn.restart');
+    Route::post('games/{game}/current-turn/finish', CurrentTurnFinishController::class)
+        ->name('games.current-turn.finish');
     Route::post('games/{game}/resource-exchange', ResourceExchangeController::class)
         ->name('games.resource-exchange');
 });

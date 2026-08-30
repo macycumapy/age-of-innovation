@@ -23,7 +23,7 @@ final class UndoStartingSpadeAction
             $hexId = $interaction?->context['selectedHexId'] ?? null;
             $terrainBefore = $interaction?->context['terrainBefore'] ?? null;
 
-            if ($lockedGame->phase !== GamePhase::Setup
+            if (! in_array($lockedGame->phase, [GamePhase::Setup, GamePhase::Actions], true)
                 || $lockedGame->active_player_id !== $user->id
                 || $interaction?->type !== PendingInteractionType::SpendSpades
                 || ! is_string($hexId)
