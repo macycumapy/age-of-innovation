@@ -20,4 +20,14 @@ enum BuildingType: string
     case Tower = 'tower';
     /** Нейтральный монумент силы 4, позволяющий город из двух зданий. */
     case Monument = 'monument';
+
+    public function powerValue(): int
+    {
+        return match ($this) {
+            self::Workshop => 1,
+            self::Guild, self::School, self::Tower => 2,
+            self::University, self::Palace => 3,
+            self::Monument => 4,
+        };
+    }
 }

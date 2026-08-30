@@ -362,6 +362,21 @@ export type PendingInteraction =
             toolCost: number;
             coinCost: number;
         };
+    }
+    | {
+        type: 'power_offer';
+        playerId: number;
+        optionIds: never[];
+        context: {
+            buildingPlayerId: number;
+            builtHexId: string;
+            powerAmount: number;
+            remainingOffers: Array<{
+                playerId: number;
+                userId: number;
+                powerAmount: number;
+            }>;
+        };
     };
 
 export type TerrainType =

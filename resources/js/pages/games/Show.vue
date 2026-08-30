@@ -1,21 +1,19 @@
 <script setup lang="ts">
 import { Form, Head, Link, router, usePage, usePoll } from '@inertiajs/vue3';
-import { Check, ChevronDown, RotateCcw } from '@lucide/vue';
+import { ChevronDown } from '@lucide/vue';
 import { computed, reactive, ref, watch } from 'vue';
-import CurrentTurnRestartController from '@/actions/App/Http/Controllers/CurrentTurnRestartController';
-import CurrentTurnFinishController from '@/actions/App/Http/Controllers/CurrentTurnFinishController';
 import GamePlayerController from '@/actions/App/Http/Controllers/GamePlayerController';
 import GamePlayerReadinessController from '@/actions/App/Http/Controllers/GamePlayerReadinessController';
 import GameStartController from '@/actions/App/Http/Controllers/GameStartController';
 import PlanningBundleController from '@/actions/App/Http/Controllers/PlanningBundleController';
 import StartingBuildingController from '@/actions/App/Http/Controllers/StartingBuildingController';
-import StartingBuildingTurnController from '@/actions/App/Http/Controllers/StartingBuildingTurnController';
 import StartingCompetencyController from '@/actions/App/Http/Controllers/StartingCompetencyController';
 import StartingResourcesController from '@/actions/App/Http/Controllers/StartingResourcesController';
 import StartingSpadeController from '@/actions/App/Http/Controllers/StartingSpadeController';
-import StartingSpadeTurnController from '@/actions/App/Http/Controllers/StartingSpadeTurnController';
 import BoardMap from '@/components/game/BoardMap.vue';
 import CompetencySelector from '@/components/game/CompetencySelector.vue';
+import CurrentTurnFinishDialog from '@/components/game/CurrentTurnFinishDialog.vue';
+import CurrentTurnPanel from '@/components/game/CurrentTurnPanel.vue';
 import CultBoard from '@/components/game/CultBoard.vue';
 import InnovationBoard from '@/components/game/InnovationBoard.vue';
 import PalaceBoard from '@/components/game/PalaceBoard.vue';
@@ -213,6 +211,7 @@ const isPlanningBundleGroupOpen = ref(true);
 const isPowerSacrificeDialogOpen = ref(false);
 const isPowerActionDialogOpen = ref(false);
 const isResourceExchangeDialogOpen = ref(false);
+const isCurrentTurnFinishDialogOpen = ref(false);
 const selectedPowerAction = ref<PowerActionState | null>(null);
 
 const currentPlayerState = computed(() =>
@@ -239,18 +238,6 @@ const canExchangeResources = computed(
 function selectPowerAction(action: PowerActionState): void {
     selectedPowerAction.value = action;
     isPowerActionDialogOpen.value = true;
-}
-
-function confirmRestartCurrentTurn(event: SubmitEvent): void {
-    if (!window.confirm('Отменить все действия текущего хода и начать его заново?')) {
-        event.preventDefault();
-    }
-}
-
-function confirmFinishCurrentTurn(event: SubmitEvent): void {
-    if (!window.confirm('Завершить текущий ход и передать его следующему игроку?')) {
-        event.preventDefault();
-    }
 }
 
 const availableStartingBookCount = computed(() => props.game.data.pendingInteraction?.context.bookCount ?? 0);
@@ -934,223 +921,17 @@ function updateStartingKnowledgeCount(discipline: KnowledgeDiscipline, event: Ev
                 </Card>
             </Collapsible>
 
-            <div
-                v-if="game.data.status === 'active'"
-                class="sticky top-0 z-30 -mx-4 flex items-center justify-center gap-4 border-y border-border/80 bg-background/95 px-4 py-3 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-background/80"
-            >
-                <span
-                    v-if="game.data.phase === 'income'"
-                    class="shrink-0 rounded-full border border-primary/40 bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary"
-                >
-                    Фаза дохода · Раунд {{ game.data.currentRound }}
-                </span>
-
-                <span
-                    v-if="activePlayer?.user.id === page.props.auth.user.id"
-                    class="shrink-0 rounded-full bg-primary px-2.5 py-1 text-xs font-semibold text-primary-foreground"
-                >
-                    Ваш ход
-                </span>
-
-                <p
-                    v-if="
-                        activePlayer?.user.id === page.props.auth.user.id &&
-                        (isStartingBuildingStage || canSpendStartingSpade)
-                    "
-                    class="truncate text-sm font-medium"
-                    role="status"
-                    aria-live="polite"
-                >
-                    {{
-                        game.data.pendingInteraction?.type === 'choose_competency'
-                            ? 'Выберите стартовую компетенцию.'
-                            : game.data.pendingInteraction?.type === 'spend_spades'
-                                ? pendingStartingSpadeHexId
-                                    ? 'Земля преобразована — отмените действие или подтвердите.'
-                                    : 'Выберите соседнюю ячейку для преобразования.'
-                                : game.data.pendingStartingBuildingHexId
-                                    ? isOmarStartingTowerTurn
-                                        ? 'Стартовая вышка установлена — отмените действие или завершите ход.'
-                                        : 'Дом установлен — отмените действие или завершите ход.'
-                                    : currentPlayer?.faction === 'monks'
-                                        ? 'Установите стартовый университет на свободной ячейке родной местности.'
-                                        : isOmarStartingTowerTurn
-                                            ? 'Установите стартовую вышку на свободной ячейке родной местности.'
-                                            : 'Установите стартовый дом на свободной ячейке родной местности.'
-                    }}
-                </p>
-
-                <span
-                    v-if="game.data.pendingInteraction?.type === 'spend_spades'"
-                    class="shrink-0 rounded-full border border-border bg-muted px-2.5 py-1 text-xs font-medium"
-                >
-                    Лопат осталось:
-                    {{ game.data.pendingInteraction.context.remainingSpades ?? game.data.pendingInteraction.context.spadeCount }}
-                </span>
-
-                <TooltipProvider
-                    v-if="
-                        isStartingBuildingStage &&
-                        activePlayer?.user.id === page.props.auth.user.id &&
-                        game.data.pendingStartingBuildingHexId
-                    "
-                    :delay-duration="150"
-                >
-                    <div class="flex shrink-0 items-center gap-2">
-                        <Form
-                            v-bind="StartingBuildingController.destroy.form(game.data.id)"
-                            #default="{ processing }"
-                        >
-                            <Tooltip>
-                                <TooltipTrigger as-child>
-                                    <Button
-                                        type="submit"
-                                        variant="outline"
-                                        size="icon"
-                                        :disabled="processing"
-                                        :aria-label="isOmarStartingTowerTurn ? 'Отменить установку стартовой вышки' : 'Отменить установку дома'"
-                                    >
-                                        <RotateCcw class="size-4" :class="processing ? 'animate-spin' : ''" />
-                                    </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                    {{ isOmarStartingTowerTurn ? 'Отменить установку стартовой вышки' : 'Отменить установку дома' }}
-                                </TooltipContent>
-                            </Tooltip>
-                        </Form>
-
-                        <Form
-                            v-bind="StartingBuildingTurnController.form(game.data.id)"
-                            #default="{ processing }"
-                        >
-                            <Tooltip>
-                                <TooltipTrigger as-child>
-                                    <Button
-                                        type="submit"
-                                        size="icon"
-                                        :disabled="processing"
-                                        aria-label="Подтвердить и закончить ход"
-                                    >
-                                        <Check class="size-4" />
-                                    </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>Подтвердить и закончить ход</TooltipContent>
-                            </Tooltip>
-                        </Form>
-                    </div>
-                </TooltipProvider>
-
-                <TooltipProvider
-                    v-else-if="canSpendStartingSpade && pendingStartingSpadeHexId"
-                    :delay-duration="150"
-                >
-                    <div class="flex shrink-0 items-center gap-2">
-                        <Form
-                            v-bind="StartingSpadeController.destroy.form(game.data.id)"
-                            #default="{ processing }"
-                        >
-                            <Tooltip>
-                                <TooltipTrigger as-child>
-                                    <Button
-                                        type="submit"
-                                        variant="outline"
-                                        size="icon"
-                                        :disabled="processing"
-                                        aria-label="Отменить преобразование"
-                                    >
-                                        <RotateCcw class="size-4" :class="processing ? 'animate-spin' : ''" />
-                                    </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>Отменить преобразование</TooltipContent>
-                            </Tooltip>
-                        </Form>
-
-                        <Form
-                            v-bind="StartingSpadeTurnController.form(game.data.id)"
-                            #default="{ processing }"
-                        >
-                            <Tooltip>
-                                <TooltipTrigger as-child>
-                                    <Button
-                                        type="submit"
-                                        size="icon"
-                                        :disabled="processing"
-                                        aria-label="Подтвердить преобразование"
-                                    >
-                                        <Check class="size-4" />
-                                    </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>Подтвердить преобразование</TooltipContent>
-                            </Tooltip>
-                        </Form>
-                    </div>
-                </TooltipProvider>
-
-                <div
-                    v-else-if="
-                        game.data.phase === 'actions' &&
-                        activePlayer?.user.id === page.props.auth.user.id &&
-                        game.data.pendingInteraction === null
-                    "
-                    class="flex shrink-0 items-center gap-2"
-                >
-                    <Form
-                        v-if="game.data.canRestartCurrentTurn"
-                        v-bind="CurrentTurnRestartController.form(game.data.id)"
-                        #default="{ processing }"
-                        @submit="confirmRestartCurrentTurn"
-                    >
-                        <TooltipProvider :delay-duration="150">
-                            <Tooltip>
-                                <TooltipTrigger as-child>
-                                    <Button type="submit" variant="outline" :disabled="processing">
-                                        <RotateCcw class="size-4" :class="processing ? 'animate-spin' : ''" />
-                                        Перезапустить ход
-                                    </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>Отменить все действия текущего хода</TooltipContent>
-                            </Tooltip>
-                        </TooltipProvider>
-                    </Form>
-
-                    <Form
-                        v-if="game.data.canFinishCurrentTurn"
-                        v-bind="CurrentTurnFinishController.form(game.data.id)"
-                        #default="{ processing }"
-                        @submit="confirmFinishCurrentTurn"
-                    >
-                        <Button type="submit" :disabled="processing">
-                            Завершить ход
-                        </Button>
-                    </Form>
-                </div>
-
-                <div
-                    v-else-if="activePlayer?.user.id !== page.props.auth.user.id"
-                    class="flex min-w-0 items-center gap-3"
-                    role="status"
-                    aria-live="polite"
-                >
-                    <span class="size-2.5 shrink-0 rounded-full bg-primary shadow-sm" aria-hidden="true" />
-                    <p class="truncate text-sm">
-                        <span class="mr-2 text-muted-foreground">
-                            {{
-                                isStartingBuildingStage
-                                    ? game.data.pendingInteraction?.type === 'spend_spades'
-                                        ? 'Стартовую лопату использует:'
-                                        : isOmarStartingTowerTurn
-                                            ? 'Стартовую вышку устанавливает:'
-                                            : 'Стартовый дом устанавливает:'
-                                    : 'Сейчас ходит:'
-                            }}
-                        </span>
-                        <span class="font-semibold">
-                            {{ activePlayer?.user.name ?? 'ход игрока определяется' }}
-                        </span>
-                    </p>
-                </div>
-            </div>
-
+            <CurrentTurnPanel
+                :game="game"
+                :active-player="activePlayer"
+                :current-player="currentPlayer"
+                :current-user-id="page.props.auth.user.id"
+                :is-starting-building-stage="isStartingBuildingStage"
+                :is-omar-starting-tower-turn="isOmarStartingTowerTurn"
+                :can-spend-starting-spade="canSpendStartingSpade"
+                :pending-starting-spade-hex-id="pendingStartingSpadeHexId"
+                @finish-turn="isCurrentTurnFinishDialogOpen = true"
+            />
             <Card
                 v-if="canChooseStartingCompetency && game.data.pendingInteraction?.type === 'choose_competency'"
                 class="mx-auto w-full max-w-3xl border-primary/40"
@@ -1272,6 +1053,11 @@ function updateStartingKnowledgeCount(discipline: KnowledgeDiscipline, event: Ev
                 :game-id="game.data.id"
                 :hex-ids="game.data.pendingInteraction.optionIds"
                 :hexes="game.data.board.hexes"
+            />
+
+            <CurrentTurnFinishDialog
+                v-model:open="isCurrentTurnFinishDialogOpen"
+                :game-id="game.data.id"
             />
         </div>
 

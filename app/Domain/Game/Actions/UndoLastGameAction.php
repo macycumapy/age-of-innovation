@@ -20,6 +20,7 @@ final class UndoLastGameAction
     {
         return DB::transaction(function () use ($game): Game {
             $lockedGame = Game::query()->lockForUpdate()->findOrFail($game->id);
+
             /** @var Collection<int, GameAction> $actions */
             $actions = $lockedGame->actions()
                 ->lockForUpdate()

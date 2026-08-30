@@ -50,6 +50,8 @@ final class ReplayGameHistoryAction
         GameActionType::PowerAction,
         GameActionType::TerraformAndBuild,
         GameActionType::FinishTurn,
+        GameActionType::AcceptPower,
+        GameActionType::DeclinePower,
     ];
 
     public function __construct(
@@ -60,6 +62,8 @@ final class ReplayGameHistoryAction
         private ApplyResourceExchangeAction $applyResourceExchange,
         private ApplyPowerActionAction $applyPowerAction,
         private FindEligibleTerraformHexesAction $findEligibleTerraformHexes,
+        private CreatePowerOffersAfterBuildingAction $createPowerOffersAfterBuilding,
+        private ApplyPowerOfferDecisionAction $applyPowerOfferDecision,
         private ResolveCompletedStartingSetupAction $resolveCompletedStartingSetup,
     ) {
     }
@@ -109,6 +113,11 @@ final class ReplayGameHistoryAction
                 GameActionType::PowerAction => $this->replayPowerAction($game, $players, $action),
                 GameActionType::TerraformAndBuild => $this->replayTerraformAndBuild($game, $players, $action),
                 GameActionType::FinishTurn => $this->replayFinishTurn($game, $players, $action),
+                GameActionType::AcceptPower, GameActionType::DeclinePower => $this->replayPowerOfferDecision(
+                    $game,
+                    $players,
+                    $action,
+                ),
                 default => null,
             };
 
@@ -479,9 +488,35 @@ final class ReplayGameHistoryAction
             $playerState->resources->tools--;
             $playerState->resources->coins -= 2;
             $hex->building = new BuildingStateData(BuildingType::Workshop, $player->id);
+            $nextActiveUserId = $this->createPowerOffersAfterBuilding->execute(
+                $state,
+                $player->id,
+                $hex->id,
+            );
+            $game->active_player_id = $nextActiveUserId ?? $player->user_id;
+        } else {
+            $state->pendingInteraction = null;
         }
 
-        $state->pendingInteraction = null;
+        $game->state = $state;
+    }
+
+    /** @param Collection<int, GamePlayer> $players */
+    private function replayPowerOfferDecision(Game $game, Collection $players, GameAction $action): void
+    {
+        $player = $players->firstWhere('user_id', $action->player_id);
+
+        if (! $player instanceof GamePlayer) {
+            $this->invalidHistory();
+        }
+
+        $state = $game->state;
+        $result = $this->applyPowerOfferDecision->execute(
+            $state,
+            $player->id,
+            $action->type === GameActionType::AcceptPower,
+        );
+        $game->active_player_id = $result['nextActiveUserId'];
         $game->state = $state;
     }
 
@@ -497,6 +532,7 @@ final class ReplayGameHistoryAction
         $state = $game->state;
         $state->turnStartSnapshot = null;
         $state->round->turnStartVersion = null;
+        $state->round->isCurrentTurnIrrevocable = false;
         $game->active_player_id = $nextPlayer->user_id;
         $game->state = $state;
     }

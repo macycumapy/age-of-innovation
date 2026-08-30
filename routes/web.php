@@ -12,6 +12,7 @@ use App\Http\Controllers\GamePlayerReadinessController;
 use App\Http\Controllers\GameStartController;
 use App\Http\Controllers\PlanningBundleController;
 use App\Http\Controllers\PowerActionController;
+use App\Http\Controllers\PowerOfferController;
 use App\Http\Controllers\PowerSacrificeController;
 use App\Http\Controllers\ResourceExchangeController;
 use App\Http\Controllers\StartingBuildingController;
@@ -58,6 +59,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('games.power-sacrifice.store');
     Route::post('games/{game}/power-action', PowerActionController::class)
         ->name('games.power-action');
+    Route::post('games/{game}/power-offer', PowerOfferController::class)
+        ->name('games.power-offer');
     Route::post('games/{game}/current-turn/restart', CurrentTurnRestartController::class)
         ->name('games.current-turn.restart');
     Route::post('games/{game}/current-turn/finish', CurrentTurnFinishController::class)

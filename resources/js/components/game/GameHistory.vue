@@ -174,6 +174,16 @@ function actionDetails(entry: GameHistoryEntry): string | null {
         details.push(`сброшено ${entry.payload.amount} · переведено в чашу III ${entry.payload.amount}`);
     }
 
+    if (entry.type === 'accept_power' && typeof entry.payload.received_power === 'number') {
+        details.push(
+            `получено ${entry.payload.received_power} Силы · потеряно ${String(entry.payload.victory_points_spent ?? 0)} ПО`,
+        );
+    }
+
+    if (entry.type === 'decline_power' && typeof entry.payload.offered_power === 'number') {
+        details.push(`предложено ${entry.payload.offered_power} Силы`);
+    }
+
     return details.length > 0 ? details.join(' · ') : null;
 }
 

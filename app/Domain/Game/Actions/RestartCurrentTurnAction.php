@@ -25,10 +25,13 @@ final class RestartCurrentTurnAction
             if ($lockedGame->phase !== GamePhase::Actions
                 || $lockedGame->active_player_id !== $user->id
                 || ! $player instanceof GamePlayer
+                || $lockedGame->state->round->isCurrentTurnIrrevocable
                 || $turnStartVersion === null
                 || ! is_array($turnStartSnapshot)) {
                 throw ValidationException::withMessages([
-                    'game' => 'В текущем ходу пока нет действий для отката.',
+                    'game' => $lockedGame->state->round->isCurrentTurnIrrevocable
+                        ? 'Ход нельзя перезапустить после принятия Силы другим игроком.'
+                        : 'В текущем ходу пока нет действий для отката.',
                 ]);
             }
 

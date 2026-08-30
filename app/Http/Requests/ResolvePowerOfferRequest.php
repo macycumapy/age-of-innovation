@@ -5,10 +5,11 @@ declare(strict_types=1);
 namespace App\Http\Requests;
 
 use App\Domain\Game\Enums\GamePhase;
+use App\Domain\Game\Enums\PendingInteractionType;
 use App\Models\Game;
 use Illuminate\Foundation\Http\FormRequest;
 
-final class RestartCurrentTurnRequest extends FormRequest
+final class ResolvePowerOfferRequest extends FormRequest
 {
     public function authorize(): bool
     {
@@ -17,12 +18,12 @@ final class RestartCurrentTurnRequest extends FormRequest
         return $game instanceof Game
             && $game->phase === GamePhase::Actions
             && $game->active_player_id === $this->user()?->id
-            && ! $game->state->round->isCurrentTurnIrrevocable;
+            && $game->state->pendingInteraction?->type === PendingInteractionType::PowerOffer;
     }
 
     /** @return array<string, mixed> */
     public function rules(): array
     {
-        return [];
+        return ['accept' => ['required', 'boolean']];
     }
 }

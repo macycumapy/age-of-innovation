@@ -19,8 +19,10 @@ use Illuminate\Validation\ValidationException;
 
 final class ResolveWorkshopAfterTerraformingAction
 {
-    public function __construct(private AppendGameHistoryAction $appendGameHistory)
-    {
+    public function __construct(
+        private AppendGameHistoryAction $appendGameHistory,
+        private CreatePowerOffersAfterBuildingAction $createPowerOffersAfterBuilding,
+    ) {
     }
 
     public function execute(Game $game, User $user, bool $build, ?string $hexId): Game
@@ -70,7 +72,14 @@ final class ResolveWorkshopAfterTerraformingAction
 
             $stateVersionBefore = $lockedGame->version;
             $state->pendingInteraction = null;
-            $lockedGame->update(['state' => $state, 'version' => $lockedGame->version + 1]);
+            $nextActiveUserId = $build
+                ? $this->createPowerOffersAfterBuilding->execute($state, $player->id, (string) $hexId)
+                : null;
+            $lockedGame->update([
+                'active_player_id' => $nextActiveUserId ?? $player->user_id,
+                'state' => $state,
+                'version' => $lockedGame->version + 1,
+            ]);
             $this->appendGameHistory->execute(
                 $lockedGame,
                 $user,

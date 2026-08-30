@@ -56,6 +56,7 @@ final class FinishActionTurnAction
             $stateVersionBefore = $lockedGame->version;
             $state->turnStartSnapshot = null;
             $state->round->turnStartVersion = null;
+            $state->round->isCurrentTurnIrrevocable = false;
             $lockedGame->update([
                 'active_player_id' => $nextPlayer->user_id,
                 'state' => $state,

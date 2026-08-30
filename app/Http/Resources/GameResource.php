@@ -59,11 +59,11 @@ class GameResource extends JsonResource
             'isOwner' => $isOwner,
             'canUndoLastAction' => $isOwner
                 && $hasActions
-                && ! $hasUnsupportedActions
-                && $this->state->pendingStartingBuildingHexId === null,
+                && ! $hasUnsupportedActions,
             'canRestartCurrentTurn' => $this->phase === GamePhase::Actions
                 && $this->active_player_id === $request->user()?->id
-                && $this->state->round->turnStartVersion !== null,
+                && $this->state->round->turnStartVersion !== null
+                && ! $this->state->round->isCurrentTurnIrrevocable,
             'canFinishCurrentTurn' => $this->phase === GamePhase::Actions
                 && $this->active_player_id === $request->user()?->id
                 && $this->state->pendingInteraction === null
