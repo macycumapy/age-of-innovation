@@ -36,6 +36,8 @@ export type GameResource = {
         roundScoringTiles: RoundScoringTile[];
         finalRoundScoringTile: FinalRoundScoringTile | null;
         bookActions: BookAction[];
+        usedBookActionIds: BookAction[];
+        powerActions: PowerActionState[];
         innovations: Innovation[];
         competencies: Competency[];
         availablePalaceIds: PalaceAbility[];
@@ -216,6 +218,21 @@ export type BookAction =
     | 'upgrade_to_guild'
     | 'score_guilds'
     | 'terraform_three_spades';
+
+export type PowerAction =
+    | 'build_bridge'
+    | 'gain_scholar'
+    | 'gain_tools'
+    | 'gain_coins'
+    | 'terraform_one_spade'
+    | 'terraform_two_spades';
+
+export type PowerActionState = {
+    id: PowerAction;
+    cost: number;
+    description: string;
+    isUsed: boolean;
+};
 
 export type Innovation =
     | 'deus_ex_machina'

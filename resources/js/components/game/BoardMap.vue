@@ -8,16 +8,20 @@ import type {
     FinalRoundScoringTile,
     GamePlayerSummary,
     MapVariant,
+    PowerActionState,
     RoundScoringTile,
 } from '@/types';
 import gameBoardUrl from '../../../images/game_board.webp';
 import gameBoardTwoPlayerUrl from '../../../images/game_board_2p.webp';
+import goldCrossUrl from '../../../images/token_parts/gold_cross.png';
 
 type Props = {
     board: BoardState;
     roundScoringTiles?: RoundScoringTile[];
     finalRoundScoringTile?: FinalRoundScoringTile | null;
     bookActions?: BookAction[];
+    usedBookActionIds?: BookAction[];
+    powerActions?: PowerActionState[];
     players?: GamePlayerSummary[];
     selectableHexIds?: string[];
     pendingHexId?: string | null;
@@ -38,12 +42,19 @@ type BoardLayout = {
     bookActionSpacing: number;
     bookActionWidth: number;
     bookActionHeight: number;
+    powerActionY: number;
+    powerActionStartX: number;
+    powerActionSpacing: number;
+    powerActionWidth: number;
+    powerActionHeight: number;
 };
 
 const props = withDefaults(defineProps<Props>(), {
     roundScoringTiles: () => [],
     finalRoundScoringTile: null,
     bookActions: () => [],
+    usedBookActionIds: () => [],
+    powerActions: () => [],
     players: () => [],
     selectableHexIds: () => [],
     pendingHexId: null,
@@ -73,6 +84,11 @@ const boardLayouts: Record<MapVariant, BoardLayout> = {
         bookActionSpacing: 213,
         bookActionWidth: 185,
         bookActionHeight: 90,
+        powerActionY: 1175,
+        powerActionStartX: 705,
+        powerActionSpacing: 217,
+        powerActionWidth: 185,
+        powerActionHeight: 90,
     },
     three_to_five_players: {
         hexOriginX: 327,
@@ -89,6 +105,11 @@ const boardLayouts: Record<MapVariant, BoardLayout> = {
         bookActionSpacing: 213,
         bookActionWidth: 185,
         bookActionHeight: 90,
+        powerActionY: 1176,
+        powerActionStartX: 717,
+        powerActionSpacing: 215,
+        powerActionWidth: 185,
+        powerActionHeight: 90,
     },
 };
 
@@ -211,6 +232,16 @@ function bookActionImage(action: BookAction): string {
 function roundScoringTileY(index: number): number {
     return boardLayout.value.firstRoundScoringTileY - index * boardLayout.value.roundScoringTileSpacing;
 }
+
+function powerActionX(index: number): number {
+    return boardLayout.value.powerActionStartX + index * boardLayout.value.powerActionSpacing;
+}
+
+const closedActionTokenSize = 82;
+
+function closedActionTokenX(actionX: number, actionWidth: number): number {
+    return actionX + (actionWidth - closedActionTokenSize) / 2;
+}
 </script>
 
 <template>
@@ -273,6 +304,48 @@ function roundScoringTileY(index: number): number {
                     :width="boardLayout.bookActionWidth"
                     :height="boardLayout.bookActionHeight"
                     class="book-action-image"
+                    preserveAspectRatio="xMidYMid meet"
+                />
+                <image
+                    v-if="usedBookActionIds.includes(action)"
+                    :href="goldCrossUrl"
+                    :x="
+                        closedActionTokenX(
+                            boardLayout.bookActionStartX + index * boardLayout.bookActionSpacing,
+                            boardLayout.bookActionWidth,
+                        )
+                    "
+                    :y="boardLayout.bookActionY + (boardLayout.bookActionHeight - closedActionTokenSize) / 2"
+                    :width="closedActionTokenSize"
+                    :height="closedActionTokenSize"
+                    class="pointer-events-none"
+                    preserveAspectRatio="xMidYMid meet"
+                />
+            </g>
+
+            <g
+                v-for="(action, index) in powerActions"
+                :key="`power-${action.id}`"
+                class="power-action-group cursor-pointer"
+                :class="{ 'power-action-used': action.isUsed }"
+            >
+                <title>{{ action.description }}</title>
+                <rect
+                    :x="powerActionX(index)"
+                    :y="boardLayout.powerActionY"
+                    :width="boardLayout.powerActionWidth"
+                    :height="boardLayout.powerActionHeight"
+                    class="power-action-hitbox"
+                    rx="12"
+                />
+                <image
+                    v-if="action.isUsed"
+                    :href="goldCrossUrl"
+                    :x="closedActionTokenX(powerActionX(index), boardLayout.powerActionWidth)"
+                    :y="boardLayout.powerActionY + (boardLayout.powerActionHeight - closedActionTokenSize) / 2"
+                    :width="closedActionTokenSize"
+                    :height="closedActionTokenSize"
+                    class="pointer-events-none"
                     preserveAspectRatio="xMidYMid meet"
                 />
             </g>
@@ -360,10 +433,16 @@ function roundScoringTileY(index: number): number {
 
 .book-action-image {
     pointer-events: none;
-    transition: filter 150ms ease-in-out;
 }
 
-.book-action-group:hover .book-action-image {
-    filter: brightness(1.18) saturate(1.12) drop-shadow(0 0 8px rgba(250, 204, 21, 0.95));
+.power-action-hitbox {
+    fill: transparent;
+    pointer-events: all;
+    stroke: transparent;
+    stroke-width: 5;
+    transition:
+        fill 150ms ease-in-out,
+        stroke 150ms ease-in-out;
 }
+
 </style>

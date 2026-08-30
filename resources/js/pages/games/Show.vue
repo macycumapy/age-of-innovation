@@ -1114,6 +1114,8 @@ function updateStartingKnowledgeCount(discipline: KnowledgeDiscipline, event: Ev
                             :round-scoring-tiles="game.data.roundScoringTiles"
                             :final-round-scoring-tile="game.data.finalRoundScoringTile"
                             :book-actions="game.data.bookActions"
+                            :used-book-action-ids="game.data.usedBookActionIds"
+                            :power-actions="game.data.powerActions"
                             @hex-click="placeStartingBuilding"
                         />
 

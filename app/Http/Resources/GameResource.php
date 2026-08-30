@@ -16,6 +16,7 @@ use App\Domain\Game\Enums\Competency;
 use App\Domain\Game\Enums\Faction;
 use App\Domain\Game\Enums\GameStatus;
 use App\Domain\Game\Enums\Innovation;
+use App\Domain\Game\Enums\PowerAction;
 use App\Domain\Game\Enums\RoundBonus;
 use App\Domain\Game\Enums\TerrainType;
 use App\Domain\Game\Services\PlayerIncomeCalculator;
@@ -200,6 +201,23 @@ class GameResource extends JsonResource
             ),
             'bookActions' => $this->enumValues(
                 $this->state->setupPool?->bookActions ?? [],
+            ),
+            'usedBookActionIds' => array_values(array_filter(
+                $this->enumValues($this->state->setupPool?->bookActions ?? []),
+                fn (string $actionId): bool => in_array(
+                    $actionId,
+                    $this->state->round->usedSharedActionIds,
+                    true,
+                ),
+            )),
+            'powerActions' => array_map(
+                fn (PowerAction $action): array => [
+                    'id' => $action->value,
+                    'cost' => $action->cost(),
+                    'description' => $action->description(),
+                    'isUsed' => in_array($action->value, $this->state->round->usedSharedActionIds, true),
+                ],
+                PowerAction::cases(),
             ),
             'innovations' => $this->enumValues(
                 $this->state->setupPool?->innovations ?? [],

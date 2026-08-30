@@ -863,6 +863,17 @@ class GameManagementTest extends TestCase
                         $game->state->setupPool->additionalFinalRoundGoal->value,
                     )
                     ->has('game.data.bookActions', 3)
+                    ->has('game.data.usedBookActionIds', 0)
+                    ->has('game.data.powerActions', 6)
+                    ->where('game.data.powerActions.0.id', 'build_bridge')
+                    ->where('game.data.powerActions.0.cost', 3)
+                    ->where(
+                        'game.data.powerActions.0.description',
+                        'Потратить 3 силы, чтобы построить мост.',
+                    )
+                    ->where('game.data.powerActions.0.isUsed', false)
+                    ->where('game.data.powerActions.5.id', 'terraform_two_spades')
+                    ->where('game.data.powerActions.5.cost', 6)
                     ->has('game.data.innovations', 6)
                     ->has('game.data.competencies', 12),
             );
