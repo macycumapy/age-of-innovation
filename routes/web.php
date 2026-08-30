@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Http\Controllers\BuildingUpgradeController;
 use App\Http\Controllers\CurrentTurnFinishController;
 use App\Http\Controllers\CurrentTurnRestartController;
 use App\Http\Controllers\GameController;
@@ -61,6 +62,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('games.power-action');
     Route::post('games/{game}/power-offer', PowerOfferController::class)
         ->name('games.power-offer');
+    Route::post('games/{game}/building-upgrade', BuildingUpgradeController::class)
+        ->name('games.building-upgrade');
     Route::post('games/{game}/current-turn/restart', CurrentTurnRestartController::class)
         ->name('games.current-turn.restart');
     Route::post('games/{game}/current-turn/finish', CurrentTurnFinishController::class)

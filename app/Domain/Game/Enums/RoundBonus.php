@@ -42,4 +42,13 @@ enum RoundBonus: string
             self::Coins => 'Доход: 6 монет.',
         };
     }
+
+    public function buildingVictoryPoints(BuildingType $buildingType, bool $isRiverBank): int
+    {
+        return match ($this) {
+            self::RiverWorkshop => $buildingType === BuildingType::Workshop && $isRiverBank ? 2 : 0,
+            self::BuildGuild => $buildingType === BuildingType::Guild ? 3 : 0,
+            default => 0,
+        };
+    }
 }

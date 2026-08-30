@@ -23,6 +23,7 @@ use App\Domain\Game\Data\RoundStateData;
 use App\Domain\Game\Enums\BuildingType;
 use App\Domain\Game\Enums\Competency;
 use App\Domain\Game\Enums\Faction;
+use App\Domain\Game\Enums\FinalRoundScoringTile;
 use App\Domain\Game\Enums\GameActionType;
 use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\GameStatus;
@@ -33,6 +34,7 @@ use App\Domain\Game\Enums\PendingInteractionType;
 use App\Domain\Game\Enums\PlayerColor;
 use App\Domain\Game\Enums\PowerAction;
 use App\Domain\Game\Enums\RoundBonus;
+use App\Domain\Game\Enums\RoundScoringTile;
 use App\Domain\Game\Enums\TerrainType;
 use App\Domain\Game\Factories\BoardStateFactory;
 use App\Domain\Game\Factories\GamePlayerStateFactory;
@@ -619,22 +621,35 @@ class GameManagementTest extends TestCase
         );
         $game->update(['state' => new GameStateData(
             turnOrder: [$builder->id, $firstNeighbor->id, $secondNeighbor->id],
-            board: new BoardStateData(hexes: [
-                $targetHex,
-                $firstWorkshopHex,
-                $firstGuildHex,
-                $secondUniversityHex,
-            ]),
-            round: new RoundStateData(phase: GamePhase::Actions, turnStartVersion: 0),
+            board: new BoardStateData(
+                hexes: [
+                    $targetHex,
+                    $firstWorkshopHex,
+                    $firstGuildHex,
+                    $secondUniversityHex,
+                ],
+                riverBankHexIds: ['0:0'],
+                edgeHexIds: ['0:0'],
+            ),
+            round: new RoundStateData(
+                number: 6,
+                phase: GamePhase::Actions,
+                scoringTileId: RoundScoringTile::WorkshopLaw->value,
+                additionalScoringTileId: FinalRoundScoringTile::EdgeWorkshop->value,
+                turnStartVersion: 0,
+            ),
             players: [
                 new GamePlayerStateData(
                     playerId: $builder->id,
                     userId: $builderUser->id,
                     color: PlayerColor::Green,
-                    faction: Faction::Blessed,
+                    faction: Faction::Navigators,
                     homeland: TerrainType::Mountain,
-                    roundBonus: RoundBonus::Coins,
+                    roundBonus: RoundBonus::RiverWorkshop,
                     resources: new PlayerResourcesData(coins: 2, tools: 1),
+                    palaceId: PalaceAbility::Palace12->value,
+                    competencyIds: [Competency::Competency11->value],
+                    inventionIds: [Innovation::TradeRoutes->value],
                 ),
                 new GamePlayerStateData(
                     playerId: $firstNeighbor->id,
@@ -671,6 +686,11 @@ class GameManagementTest extends TestCase
             'hex_id' => '0:0',
         ]);
         $game->refresh();
+        $this->assertSame(34, $game->state->players[0]->victoryPoints);
+        $this->assertSame(1, $game->state->players[0]->resources->coins);
+        $this->assertSame(14, $game->actions()->first()?->payload['victory_points']);
+        $this->assertSame(1, $game->actions()->first()?->payload['bonus_coins']);
+        $this->assertCount(6, $game->actions()->first()?->payload['scoring_sources']);
         $this->assertSame($firstNeighborUser->id, $game->active_player_id);
         $this->assertSame(PendingInteractionType::PowerOffer, $game->state->pendingInteraction?->type);
         $this->assertSame(3, $game->state->pendingInteraction?->context['powerAmount']);
@@ -717,6 +737,92 @@ class GameManagementTest extends TestCase
         $game->refresh();
         $this->assertFalse($game->state->round->isCurrentTurnIrrevocable);
         $this->assertSame($firstNeighborUser->id, $game->active_player_id);
+    }
+
+    public function test_player_can_upgrade_a_workshop_to_a_discounted_guild(): void
+    {
+        $user = User::factory()->create();
+        $neighborUser = User::factory()->create();
+        $game = Game::factory()->create([
+            'status' => GameStatus::Active,
+            'phase' => GamePhase::Actions,
+            'active_player_id' => $user->id,
+        ]);
+        $player = GamePlayer::factory()->create(['game_id' => $game->id, 'user_id' => $user->id, 'seat' => 1]);
+        $neighbor = GamePlayer::factory()->create(['game_id' => $game->id, 'user_id' => $neighborUser->id, 'seat' => 2]);
+        $game->update(['state' => new GameStateData(
+            turnOrder: [$player->id, $neighbor->id],
+            board: new BoardStateData(hexes: [
+                new BoardHexStateData(
+                    id: '0:0',
+                    q: 0,
+                    r: 0,
+                    initialTerrain: TerrainType::Forest,
+                    terrain: TerrainType::Forest,
+                    adjacentHexIds: ['1:0'],
+                    building: new BuildingStateData(BuildingType::Workshop, $player->id),
+                ),
+                new BoardHexStateData(
+                    id: '1:0',
+                    q: 1,
+                    r: 0,
+                    initialTerrain: TerrainType::Mountain,
+                    terrain: TerrainType::Mountain,
+                    adjacentHexIds: ['0:0'],
+                    building: new BuildingStateData(BuildingType::Workshop, $neighbor->id),
+                ),
+            ]),
+            round: new RoundStateData(
+                phase: GamePhase::Actions,
+                scoringTileId: RoundScoringTile::GuildLaw->value,
+            ),
+            players: [
+                new GamePlayerStateData(
+                    playerId: $player->id,
+                    userId: $user->id,
+                    color: PlayerColor::Green,
+                    faction: Faction::Blessed,
+                    homeland: TerrainType::Forest,
+                    roundBonus: RoundBonus::BuildGuild,
+                    resources: new PlayerResourcesData(coins: 2, tools: 2),
+                    palaceId: PalaceAbility::Palace13->value,
+                ),
+                new GamePlayerStateData(
+                    playerId: $neighbor->id,
+                    userId: $neighborUser->id,
+                    color: PlayerColor::Red,
+                    faction: Faction::Blessed,
+                    homeland: TerrainType::Mountain,
+                    roundBonus: RoundBonus::Coins,
+                    resources: new PlayerResourcesData(power: new PowerBowlsStateData(bowlTwo: 1)),
+                ),
+            ],
+        )]);
+
+        $this->actingAs($user)
+            ->get(route('games.show', $game))
+            ->assertInertia(
+                fn (Assert $page) => $page->where('game.data.buildingUpgrades', []),
+            );
+        $state = $game->state;
+        $state->players[0]->resources->coins = 3;
+        $game->update(['state' => $state]);
+
+        $this->post(route('games.building-upgrade', $game), [
+            'hex_id' => '0:0',
+            'target' => BuildingType::Guild->value,
+        ])->assertRedirect(route('games.show', $game));
+
+        $game->refresh();
+        $this->assertSame(BuildingType::Guild, $game->state->board->hexes[0]->building?->type);
+        $this->assertSame(0, $game->state->players[0]->resources->tools);
+        $this->assertSame(0, $game->state->players[0]->resources->coins);
+        $this->assertSame(29, $game->state->players[0]->victoryPoints);
+        $this->assertSame(PendingInteractionType::PowerOffer, $game->state->pendingInteraction?->type);
+        $this->assertSame($neighborUser->id, $game->active_player_id);
+        $this->assertSame(GameActionType::UpgradeBuilding, $game->actions()->sole()->type);
+        $this->assertSame(9, $game->actions()->sole()->payload['victory_points']);
+        $this->assertCount(3, $game->actions()->sole()->payload['scoring_sources']);
     }
 
     public function test_active_player_can_exchange_multiple_resources_without_ending_the_turn(): void

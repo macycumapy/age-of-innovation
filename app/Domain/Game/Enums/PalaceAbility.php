@@ -40,4 +40,14 @@ enum PalaceAbility: string
     case Palace16 = 'palace_16';
     /** Доход 2 силы; при строительстве получить 10 ПО. */
     case Palace17 = 'palace_17';
+
+    public function buildingVictoryPoints(BuildingType $buildingType): int
+    {
+        return match ($this) {
+            self::Palace12 => $buildingType === BuildingType::Workshop ? 2 : 0,
+            self::Palace13 => $buildingType === BuildingType::Guild ? 3 : 0,
+            self::Palace17 => $buildingType === BuildingType::Palace ? 10 : 0,
+            default => 0,
+        };
+    }
 }

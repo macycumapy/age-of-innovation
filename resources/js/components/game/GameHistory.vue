@@ -184,6 +184,14 @@ function actionDetails(entry: GameHistoryEntry): string | null {
         details.push(`предложено ${entry.payload.offered_power} Силы`);
     }
 
+    if (typeof entry.payload.victory_points === 'number' && entry.payload.victory_points > 0) {
+        details.push(`получено ${entry.payload.victory_points} ПО`);
+    }
+
+    if (typeof entry.payload.bonus_coins === 'number' && entry.payload.bonus_coins > 0) {
+        details.push(`получено ${entry.payload.bonus_coins} золота`);
+    }
+
     return details.length > 0 ? details.join(' · ') : null;
 }
 

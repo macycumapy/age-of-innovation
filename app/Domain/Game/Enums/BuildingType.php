@@ -30,4 +30,39 @@ enum BuildingType: string
             self::Monument => 4,
         };
     }
+
+    /** @return list<self> */
+    public function upgradeOptions(): array
+    {
+        return match ($this) {
+            self::Workshop => [self::Guild],
+            self::Guild => [self::Palace, self::School],
+            self::School => [self::University],
+            default => [],
+        };
+    }
+
+    /** @return array{tools: int, coins: int} */
+    public function upgradeCostTo(self $target, bool $hasAdjacentOpponent = false): array
+    {
+        return match ([$this, $target]) {
+            [self::Workshop, self::Guild] => ['tools' => 2, 'coins' => $hasAdjacentOpponent ? 3 : 6],
+            [self::Guild, self::Palace] => ['tools' => 4, 'coins' => 6],
+            [self::Guild, self::School] => ['tools' => 3, 'coins' => 5],
+            [self::School, self::University] => ['tools' => 5, 'coins' => 8],
+            default => ['tools' => PHP_INT_MAX, 'coins' => PHP_INT_MAX],
+        };
+    }
+
+    public function supplyLimit(): int
+    {
+        return match ($this) {
+            self::Workshop => 9,
+            self::Guild => 4,
+            self::School => 3,
+            self::University => 2,
+            self::Palace => 1,
+            self::Tower, self::Monument => 0,
+        };
+    }
 }

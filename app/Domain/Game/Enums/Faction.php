@@ -48,4 +48,16 @@ enum Faction: string
             self::Psychics => 'Старт: дополнительный инструмент, по 1 шагу в банковском деле и медицине. Особое действие даёт 5 силы и дополнительное действие.',
         };
     }
+
+    /** @return array{victoryPoints: int, coins: int} */
+    public function buildingRewards(BuildingType $buildingType, bool $isRiverBank): array
+    {
+        if ($this === self::Navigators
+            && $buildingType === BuildingType::Workshop
+            && $isRiverBank) {
+            return ['victoryPoints' => 2, 'coins' => 1];
+        }
+
+        return ['victoryPoints' => 0, 'coins' => 0];
+    }
 }

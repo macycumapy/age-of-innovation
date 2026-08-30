@@ -48,4 +48,13 @@ enum Competency: string
             self::Competency12 => 'При пасе получить ПО по уровню слабейшей дисциплины.',
         };
     }
+
+    public function buildingVictoryPoints(BuildingType $buildingType, bool $isEdgeHex): int
+    {
+        return $this === self::Competency11
+            && $buildingType === BuildingType::Workshop
+            && $isEdgeHex
+                ? 3
+                : 0;
+    }
 }

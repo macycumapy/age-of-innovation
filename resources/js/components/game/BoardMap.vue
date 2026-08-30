@@ -26,6 +26,7 @@ type Props = {
     selectableHexIds?: string[];
     pendingHexId?: string | null;
     canUsePowerActions?: boolean;
+    upgradeableBuildingHexIds?: string[];
 };
 
 type BoardLayout = {
@@ -60,11 +61,13 @@ const props = withDefaults(defineProps<Props>(), {
     selectableHexIds: () => [],
     pendingHexId: null,
     canUsePowerActions: false,
+    upgradeableBuildingHexIds: () => [],
 });
 
 const emit = defineEmits<{
     hexClick: [hexId: string];
     powerActionClick: [action: PowerActionState];
+    buildingClick: [hexId: string];
 }>();
 
 const boardWidth = 2004;
@@ -372,8 +375,12 @@ function closedActionTokenX(actionX: number, actionWidth: number): number {
                 :key="hex.id"
                 :transform="`translate(${hex.x} ${hex.y})`"
                 class="board-hex-group"
-                :class="selectableHexIds.includes(hex.id) ? 'cursor-pointer' : ''"
-                @click="selectableHexIds.includes(hex.id) && emit('hexClick', hex.id)"
+                :class="selectableHexIds.includes(hex.id) || upgradeableBuildingHexIds.includes(hex.id) ? 'cursor-pointer' : ''"
+                @click="
+                    upgradeableBuildingHexIds.includes(hex.id)
+                        ? emit('buildingClick', hex.id)
+                        : selectableHexIds.includes(hex.id) && emit('hexClick', hex.id)
+                "
             >
                 <title>{{ terrainNames[hex.terrain] }} ({{ hex.q }}, {{ hex.r }})</title>
                 <path

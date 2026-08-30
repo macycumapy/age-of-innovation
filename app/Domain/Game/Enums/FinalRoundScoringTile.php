@@ -32,4 +32,19 @@ enum FinalRoundScoringTile: string
             self::School => 4,
         };
     }
+
+    public function buildingVictoryPoints(BuildingType $buildingType, bool $isEdgeHex): int
+    {
+        if ($buildingType !== match ($this) {
+            self::Workshop, self::EdgeWorkshop => BuildingType::Workshop,
+            self::Guild => BuildingType::Guild,
+            self::School => BuildingType::School,
+        }) {
+            return 0;
+        }
+
+        return $this !== self::EdgeWorkshop || $isEdgeHex
+            ? $this->victoryPoints()
+            : 0;
+    }
 }

@@ -47,6 +47,21 @@ enum RoundScoringTile: string
         };
     }
 
+    public function buildingVictoryPoints(BuildingType $buildingType): int
+    {
+        return match ($this->goal()) {
+            RoundScoringGoal::Workshop => $buildingType === BuildingType::Workshop ? 2 : 0,
+            RoundScoringGoal::Guild => $buildingType === BuildingType::Guild ? 3 : 0,
+            RoundScoringGoal::School => $buildingType === BuildingType::School ? 4 : 0,
+            RoundScoringGoal::PalaceOrUniversity => in_array(
+                $buildingType,
+                [BuildingType::Palace, BuildingType::University],
+                true,
+            ) ? 5 : 0,
+            default => 0,
+        };
+    }
+
     public function knowledgeDiscipline(): KnowledgeDiscipline
     {
         return match ($this) {

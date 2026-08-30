@@ -11,6 +11,7 @@ import StartingCompetencyController from '@/actions/App/Http/Controllers/Startin
 import StartingResourcesController from '@/actions/App/Http/Controllers/StartingResourcesController';
 import StartingSpadeController from '@/actions/App/Http/Controllers/StartingSpadeController';
 import BoardMap from '@/components/game/BoardMap.vue';
+import BuildingUpgradeDialog from '@/components/game/BuildingUpgradeDialog.vue';
 import CompetencySelector from '@/components/game/CompetencySelector.vue';
 import CurrentTurnFinishDialog from '@/components/game/CurrentTurnFinishDialog.vue';
 import CurrentTurnPanel from '@/components/game/CurrentTurnPanel.vue';
@@ -212,6 +213,8 @@ const isPowerSacrificeDialogOpen = ref(false);
 const isPowerActionDialogOpen = ref(false);
 const isResourceExchangeDialogOpen = ref(false);
 const isCurrentTurnFinishDialogOpen = ref(false);
+const isBuildingUpgradeDialogOpen = ref(false);
+const selectedBuildingUpgradeHexId = ref<string | null>(null);
 const selectedPowerAction = ref<PowerActionState | null>(null);
 
 const currentPlayerState = computed(() =>
@@ -238,6 +241,17 @@ const canExchangeResources = computed(
 function selectPowerAction(action: PowerActionState): void {
     selectedPowerAction.value = action;
     isPowerActionDialogOpen.value = true;
+}
+
+const selectedBuildingUpgradeOptions = computed(() =>
+    props.game.data.buildingUpgrades.filter(
+        (option) => option.hexId === selectedBuildingUpgradeHexId.value,
+    ),
+);
+
+function selectBuildingUpgrade(hexId: string): void {
+    selectedBuildingUpgradeHexId.value = hexId;
+    isBuildingUpgradeDialogOpen.value = true;
 }
 
 const availableStartingBookCount = computed(() => props.game.data.pendingInteraction?.context.bookCount ?? 0);
@@ -989,8 +1003,10 @@ function updateStartingKnowledgeCount(discipline: KnowledgeDiscipline, event: Ev
                             :used-book-action-ids="game.data.usedBookActionIds"
                             :power-actions="game.data.powerActions"
                             :can-use-power-actions="canExchangeResources"
+                            :upgradeable-building-hex-ids="game.data.buildingUpgrades.map((option) => option.hexId)"
                             @hex-click="placeStartingBuilding"
                             @power-action-click="selectPowerAction"
+                            @building-click="selectBuildingUpgrade"
                         />
 
                         <PlayerBoards
@@ -1058,6 +1074,14 @@ function updateStartingKnowledgeCount(discipline: KnowledgeDiscipline, event: Ev
             <CurrentTurnFinishDialog
                 v-model:open="isCurrentTurnFinishDialogOpen"
                 :game-id="game.data.id"
+            />
+
+            <BuildingUpgradeDialog
+                v-model:open="isBuildingUpgradeDialogOpen"
+                :game-id="game.data.id"
+                :hex-id="selectedBuildingUpgradeHexId"
+                :options="selectedBuildingUpgradeOptions"
+                :player-color="currentPlayer?.color ?? null"
             />
         </div>
 

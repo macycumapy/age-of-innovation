@@ -40,6 +40,7 @@ export type GameResource = {
         bookActions: BookAction[];
         usedBookActionIds: BookAction[];
         powerActions: PowerActionState[];
+        buildingUpgrades: BuildingUpgradeOption[];
         innovations: Innovation[];
         competencies: Competency[];
         availablePalaceIds: PalaceAbility[];
@@ -403,6 +404,16 @@ export type BuildingState = {
     ownerPlayerId: number;
     isNeutral: boolean;
     hasAnnex: boolean;
+};
+
+export type BuildingType = BuildingState['type'];
+
+export type BuildingUpgradeOption = {
+    hexId: string;
+    source: BuildingType;
+    target: BuildingType;
+    tools: number;
+    coins: number;
 };
 
 export type BoardState = {

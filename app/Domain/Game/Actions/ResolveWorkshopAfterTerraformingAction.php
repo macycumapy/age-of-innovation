@@ -22,6 +22,7 @@ final class ResolveWorkshopAfterTerraformingAction
     public function __construct(
         private AppendGameHistoryAction $appendGameHistory,
         private CreatePowerOffersAfterBuildingAction $createPowerOffersAfterBuilding,
+        private ApplyBuildingBonusesAction $applyBuildingBonuses,
     ) {
     }
 
@@ -48,6 +49,8 @@ final class ResolveWorkshopAfterTerraformingAction
                 throw ValidationException::withMessages(['game' => 'Не найдено состояние игрока.']);
             }
 
+            $bonuses = ['victoryPoints' => 0, 'coins' => 0, 'sources' => []];
+
             if ($build) {
                 $hex = collect($state->board->hexes)->firstWhere('id', $hexId);
                 $workshopsOnMap = count(array_filter(
@@ -68,6 +71,12 @@ final class ResolveWorkshopAfterTerraformingAction
                 $playerState->resources->tools--;
                 $playerState->resources->coins -= 2;
                 $hex->building = new BuildingStateData(BuildingType::Workshop, $player->id);
+                $bonuses = $this->applyBuildingBonuses->execute(
+                    $state,
+                    $playerState,
+                    $hex,
+                    BuildingType::Workshop,
+                );
             }
 
             $stateVersionBefore = $lockedGame->version;
@@ -84,7 +93,13 @@ final class ResolveWorkshopAfterTerraformingAction
                 $lockedGame,
                 $user,
                 GameActionType::TerraformAndBuild,
-                ['built' => $build, 'hex_id' => $build ? $hexId : null],
+                [
+                    'built' => $build,
+                    'hex_id' => $build ? $hexId : null,
+                    'victory_points' => $bonuses['victoryPoints'],
+                    'bonus_coins' => $bonuses['coins'],
+                    'scoring_sources' => $bonuses['sources'],
+                ],
                 [[
                     'type' => $build ? 'workshop_built_after_terraforming' : 'workshop_declined_after_terraforming',
                     'player_id' => $player->id,

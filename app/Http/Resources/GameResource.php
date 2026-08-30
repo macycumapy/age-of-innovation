@@ -47,6 +47,7 @@ class GameResource extends JsonResource
                 ),
             )
             ->exists();
+        $currentPlayerState = collect($this->state->players)->firstWhere('userId', $request->user()?->id);
 
         return [
             'id' => $this->id,
@@ -227,6 +228,12 @@ class GameResource extends JsonResource
                 ],
                 PowerAction::cases(),
             ),
+            'buildingUpgrades' => $this->phase === GamePhase::Actions
+                && $this->active_player_id === $request->user()?->id
+                && $this->state->pendingInteraction === null
+                && $currentPlayerState instanceof GamePlayerStateData
+                ? $this->buildingUpgrades($currentPlayerState)
+                : [],
             'innovations' => $this->enumValues(
                 $this->state->setupPool?->innovations ?? [],
             ),
@@ -288,6 +295,46 @@ class GameResource extends JsonResource
                 && $hex->building->type === $type
                 && ! $hex->building->isNeutral,
         ));
+    }
+
+    /** @return list<array{hexId: string, source: string, target: string, tools: int, coins: int}> */
+    private function buildingUpgrades(GamePlayerStateData $player): array
+    {
+        $upgrades = [];
+
+        foreach ($this->state->board->hexes as $hex) {
+            if ($hex->building === null
+                || $hex->building->ownerPlayerId !== $player->playerId
+                || $hex->building->isNeutral) {
+                continue;
+            }
+
+            $hasAdjacentOpponent = collect($this->state->board->hexes)->contains(
+                static fn (BoardHexStateData $candidate): bool => in_array($candidate->id, $hex->adjacentHexIds, true)
+                    && $candidate->building !== null
+                    && $candidate->building->ownerPlayerId !== $player->playerId,
+            );
+
+            foreach ($hex->building->type->upgradeOptions() as $target) {
+                $cost = $hex->building->type->upgradeCostTo($target, $hasAdjacentOpponent);
+
+                if ($player->resources->tools < $cost['tools']
+                    || $player->resources->coins < $cost['coins']
+                    || $this->buildingCount($player->playerId, $target) >= $target->supplyLimit()) {
+                    continue;
+                }
+
+                $upgrades[] = [
+                    'hexId' => $hex->id,
+                    'source' => $hex->building->type->value,
+                    'target' => $target->value,
+                    'tools' => $cost['tools'],
+                    'coins' => $cost['coins'],
+                ];
+            }
+        }
+
+        return $upgrades;
     }
 
     /**
