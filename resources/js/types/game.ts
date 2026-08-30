@@ -23,6 +23,7 @@ export type GameResource = {
         playerBoardStates: GamePlayerBoardState[];
         isOwner: boolean;
         canUndoLastAction: boolean;
+        canRestartCurrentTurn: boolean;
         activePlayerId: number | null;
         turnOrder: number[];
         board: BoardState;
@@ -66,6 +67,7 @@ export type GameActionType =
     | 'make_innovation'
     | 'send_scholar'
     | 'power_action'
+    | 'sacrifice_power'
     | 'book_action'
     | 'special_action'
     | 'exchange_resources'

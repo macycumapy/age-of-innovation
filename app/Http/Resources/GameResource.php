@@ -14,6 +14,7 @@ use App\Domain\Game\Data\RoundBonusOfferData;
 use App\Domain\Game\Enums\BuildingType;
 use App\Domain\Game\Enums\Competency;
 use App\Domain\Game\Enums\Faction;
+use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\GameStatus;
 use App\Domain\Game\Enums\Innovation;
 use App\Domain\Game\Enums\PowerAction;
@@ -60,6 +61,9 @@ class GameResource extends JsonResource
                 && $hasActions
                 && ! $hasUnsupportedActions
                 && $this->state->pendingStartingBuildingHexId === null,
+            'canRestartCurrentTurn' => $this->phase === GamePhase::Actions
+                && $this->active_player_id === $request->user()?->id
+                && $this->state->round->turnStartVersion !== null,
             'activePlayerId' => $this->active_player_id,
             'turnOrder' => $this->state->turnOrder,
             'board' => [

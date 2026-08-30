@@ -36,6 +36,7 @@ const actionDescriptions: Record<GameActionType, string> = {
     make_innovation: 'создал изобретение',
     send_scholar: 'отправил учёного',
     power_action: 'выполнил действие силы',
+    sacrifice_power: 'пожертвовал Силу',
     book_action: 'выполнил действие за книги',
     special_action: 'выполнил особое действие',
     exchange_resources: 'обменял ресурсы',
@@ -157,6 +158,10 @@ function actionDetails(entry: GameHistoryEntry): string | null {
                 ? 'началась фаза дохода первого раунда'
                 : `началась фаза дохода раунда ${String(round)}`,
         );
+    }
+
+    if (entry.type === 'sacrifice_power' && typeof entry.payload.amount === 'number') {
+        details.push(`сброшено ${entry.payload.amount} · переведено в чашу III ${entry.payload.amount}`);
     }
 
     return details.length > 0 ? details.join(' · ') : null;

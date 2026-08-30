@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Http\Controllers\CurrentTurnRestartController;
 use App\Http\Controllers\GameController;
 use App\Http\Controllers\GameHistoryController;
 use App\Http\Controllers\GameHistoryUndoController;
@@ -9,6 +10,7 @@ use App\Http\Controllers\GamePlayerController;
 use App\Http\Controllers\GamePlayerReadinessController;
 use App\Http\Controllers\GameStartController;
 use App\Http\Controllers\PlanningBundleController;
+use App\Http\Controllers\PowerSacrificeController;
 use App\Http\Controllers\StartingBuildingController;
 use App\Http\Controllers\StartingBuildingTurnController;
 use App\Http\Controllers\StartingCompetencyController;
@@ -46,6 +48,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('games.starting-spade.destroy');
     Route::post('games/{game}/starting-spade/finish', StartingSpadeTurnController::class)
         ->name('games.starting-spade.finish');
+    Route::post('games/{game}/power-sacrifice', [PowerSacrificeController::class, 'store'])
+        ->name('games.power-sacrifice.store');
+    Route::post('games/{game}/current-turn/restart', CurrentTurnRestartController::class)
+        ->name('games.current-turn.restart');
 });
 
 require __DIR__.'/settings.php';

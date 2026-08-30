@@ -44,7 +44,10 @@ const props = defineProps<{
     currentUserId: number;
     roundBonusDescriptions: Record<RoundBonus, string>;
     competencyDescriptions: Record<Competency, string>;
+    canSacrificePower: boolean;
 }>();
+
+const emit = defineEmits<{ sacrificePower: [] }>();
 
 const boardImages = import.meta.glob('../../../images/terrain_boards/*.webp', {
     eager: true,
@@ -326,6 +329,13 @@ function powerInBowl(
 ): number {
     return state?.power[bowl.key] ?? 0;
 }
+
+function canSacrificeFromBowl(player: GamePlayerSummary, bowl: PowerBowl): boolean {
+    return props.canSacrificePower
+        && player.user.id === props.currentUserId
+        && bowl.key === 'bowlTwo'
+        && powerInBowl(playerState(player.id), bowl) > 1;
+}
 </script>
 
 <template>
@@ -355,9 +365,14 @@ function powerInBowl(
                         v-for="bowl in powerBowls"
                         :key="bowl.key"
                         :style="powerBowlStyle(bowl)"
-                        class="pointer-events-none absolute z-10 aspect-square rounded-full"
-                        role="img"
+                        class="absolute z-10 aspect-square rounded-full"
+                        :class="canSacrificeFromBowl(player, bowl) ? 'cursor-pointer' : 'pointer-events-none'"
+                        :role="canSacrificeFromBowl(player, bowl) ? 'button' : 'img'"
+                        :tabindex="canSacrificeFromBowl(player, bowl) ? 0 : undefined"
                         :aria-label="`${bowl.label}: ${powerInBowl(playerState(player.id), bowl)}`"
+                        @click="canSacrificeFromBowl(player, bowl) && emit('sacrificePower')"
+                        @keydown.enter="canSacrificeFromBowl(player, bowl) && emit('sacrificePower')"
+                        @keydown.space.prevent="canSacrificeFromBowl(player, bowl) && emit('sacrificePower')"
                     >
                         <img
                             v-for="manaIndex in powerInBowl(

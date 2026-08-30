@@ -23,6 +23,7 @@ use Spatie\LaravelData\Data;
  * @property PendingInteractionData|null $pendingInteraction Незавершённое решение игрока, блокирующее продолжение партии.
  * @property int $startingBuildingTurnIndex Индекс текущего хода стартового выставления.
  * @property string|null $pendingStartingBuildingHexId Гекс дома, который ещё можно отменить.
+ * @property array<string, mixed>|null $turnStartSnapshot Состояние игры до первого действия текущего хода.
  */
 class GameStateData extends Data
 {
@@ -54,6 +55,7 @@ class GameStateData extends Data
         public ?PendingInteractionData $pendingInteraction = null,
         public int $startingBuildingTurnIndex = 0,
         public ?string $pendingStartingBuildingHexId = null,
+        public ?array $turnStartSnapshot = null,
     ) {
     }
 }

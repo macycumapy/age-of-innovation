@@ -43,6 +43,7 @@ final class ReplayGameHistoryAction
         GameActionType::FinishStartingBuildingTurn,
         GameActionType::ChooseCompetency,
         GameActionType::SpendStartingSpade,
+        GameActionType::SacrificePower,
     ];
 
     public function __construct(
@@ -94,6 +95,7 @@ final class ReplayGameHistoryAction
                 GameActionType::FinishStartingBuildingTurn => $this->replayFinishStartingBuildingTurn($game, $players, $action),
                 GameActionType::ChooseCompetency => $this->replayStartingCompetency($game, $players, $action),
                 GameActionType::SpendStartingSpade => $this->replayStartingSpade($game, $players, $action),
+                GameActionType::SacrificePower => $this->replaySacrificePower($game, $players, $action),
                 default => null,
             };
 
@@ -413,6 +415,33 @@ final class ReplayGameHistoryAction
             $this->completeStartingInteraction($game, $state, $players);
         }
 
+        $game->state = $state;
+    }
+
+    /** @param Collection<int, GamePlayer> $players */
+    private function replaySacrificePower(Game $game, Collection $players, GameAction $action): void
+    {
+        $player = $players->firstWhere('user_id', $action->player_id);
+
+        if (! $player instanceof GamePlayer) {
+            $this->invalidHistory();
+        }
+
+        $state = $game->state;
+        $playerState = $this->playerState($state, $player->id);
+        $amount = (int) ($action->payload['amount'] ?? 0);
+
+        if ($amount < 1 || $amount * 2 > $playerState->resources->power->bowlTwo) {
+            $this->invalidHistory();
+        }
+
+        if ($state->turnStartSnapshot === null) {
+            $state->turnStartSnapshot = $state->toArray();
+            $state->round->turnStartVersion = $game->version;
+        }
+
+        $playerState->resources->power->bowlTwo -= $amount * 2;
+        $playerState->resources->power->bowlThree += $amount;
         $game->state = $state;
     }
 

@@ -2,10 +2,12 @@
 import { Form, Head, Link, router, usePage, usePoll } from '@inertiajs/vue3';
 import { Check, ChevronDown, RotateCcw } from '@lucide/vue';
 import { computed, reactive, ref, watch } from 'vue';
+import CurrentTurnRestartController from '@/actions/App/Http/Controllers/CurrentTurnRestartController';
 import GamePlayerController from '@/actions/App/Http/Controllers/GamePlayerController';
 import GamePlayerReadinessController from '@/actions/App/Http/Controllers/GamePlayerReadinessController';
 import GameStartController from '@/actions/App/Http/Controllers/GameStartController';
 import PlanningBundleController from '@/actions/App/Http/Controllers/PlanningBundleController';
+import PowerSacrificeController from '@/actions/App/Http/Controllers/PowerSacrificeController';
 import StartingBuildingController from '@/actions/App/Http/Controllers/StartingBuildingController';
 import StartingBuildingTurnController from '@/actions/App/Http/Controllers/StartingBuildingTurnController';
 import StartingCompetencyController from '@/actions/App/Http/Controllers/StartingCompetencyController';
@@ -22,6 +24,7 @@ import PlayerStatsPanel from '@/components/game/PlayerStatsPanel.vue';
 import RoundBonusBoard from '@/components/game/RoundBonusBoard.vue';
 import TownTileBoard from '@/components/game/TownTileBoard.vue';
 import InputError from '@/components/InputError.vue';
+import { Input } from '@/components/ui/input';
 import { factionNames, roundBonusNames, terrainNames } from '@/lib/gameDisplay';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -202,6 +205,38 @@ const startingKnowledgeCounts = reactive<Record<KnowledgeDiscipline, number>>({
 const selectedStartingCompetency = ref<Competency | null>(null);
 const selectedMonkCompetency = ref<Competency | null>(null);
 const isPlanningBundleGroupOpen = ref(true);
+const isPowerSacrificeDialogOpen = ref(false);
+const sacrificePowerAmount = ref(1);
+
+const currentPlayerState = computed(() =>
+    props.game.data.playerBoardStates.find((state) => state.playerId === currentPlayer.value?.id),
+);
+
+const maximumPowerSacrifice = computed(() =>
+    Math.floor((currentPlayerState.value?.power.bowlTwo ?? 0) / 2),
+);
+
+const canSacrificePower = computed(
+    () => props.game.data.phase === 'actions'
+        && props.game.data.activePlayerId === page.props.auth.user.id
+        && props.game.data.pendingInteraction === null
+        && maximumPowerSacrifice.value > 0,
+);
+
+function openPowerSacrificeDialog(): void {
+    if (!canSacrificePower.value) {
+        return;
+    }
+
+    sacrificePowerAmount.value = 1;
+    isPowerSacrificeDialogOpen.value = true;
+}
+
+function confirmRestartCurrentTurn(event: SubmitEvent): void {
+    if (!window.confirm('Отменить все действия текущего хода и начать его заново?')) {
+        event.preventDefault();
+    }
+}
 
 const availableStartingBookCount = computed(() => props.game.data.pendingInteraction?.context.bookCount ?? 0);
 
@@ -1034,6 +1069,25 @@ function updateStartingKnowledgeCount(discipline: KnowledgeDiscipline, event: Ev
                     </div>
                 </TooltipProvider>
 
+                <Form
+                    v-else-if="game.data.canRestartCurrentTurn"
+                    v-bind="CurrentTurnRestartController.form(game.data.id)"
+                    #default="{ processing }"
+                    @submit="confirmRestartCurrentTurn"
+                >
+                    <TooltipProvider :delay-duration="150">
+                        <Tooltip>
+                            <TooltipTrigger as-child>
+                                <Button type="submit" variant="outline" :disabled="processing">
+                                    <RotateCcw class="size-4" :class="processing ? 'animate-spin' : ''" />
+                                    Перезапустить ход
+                                </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Отменить все действия текущего хода</TooltipContent>
+                        </Tooltip>
+                    </TooltipProvider>
+                </Form>
+
                 <div
                     v-else-if="activePlayer?.user.id !== page.props.auth.user.id"
                     class="flex min-w-0 items-center gap-3"
@@ -1126,6 +1180,8 @@ function updateStartingKnowledgeCount(discipline: KnowledgeDiscipline, event: Ev
                             :current-user-id="page.props.auth.user.id"
                             :round-bonus-descriptions="game.data.roundBonusDescriptions"
                             :competency-descriptions="game.data.competencyDescriptions"
+                            :can-sacrifice-power="canSacrificePower"
+                            @sacrifice-power="openPowerSacrificeDialog"
                         />
                     </div>
 
@@ -1147,6 +1203,61 @@ function updateStartingKnowledgeCount(discipline: KnowledgeDiscipline, event: Ev
                     </aside>
                 </div>
             </section>
+
+            <Dialog v-model:open="isPowerSacrificeDialogOpen">
+                <DialogContent>
+                    <Form
+                        v-bind="PowerSacrificeController.store.form(game.data.id)"
+                        class="contents"
+                        reset-on-success
+                        #default="{ errors, processing }"
+                        @success="isPowerSacrificeDialogOpen = false"
+                    >
+                        <DialogHeader>
+                            <DialogTitle>Пожертвовать Силу</DialogTitle>
+                            <DialogDescription>
+                                За каждый сброшенный жетон ещё один жетон переместится из чаши II в чашу III.
+                                Ход после этого продолжится.
+                            </DialogDescription>
+                        </DialogHeader>
+
+                        <div class="grid gap-2">
+                            <label for="power-sacrifice-amount" class="text-sm font-medium">
+                                Количество сбрасываемой Силы
+                            </label>
+                            <Input
+                                id="power-sacrifice-amount"
+                                v-model="sacrificePowerAmount"
+                                name="amount"
+                                type="number"
+                                min="1"
+                                :max="maximumPowerSacrifice"
+                                required
+                            />
+                            <p class="text-sm text-muted-foreground">
+                                Можно сбросить от 1 до {{ maximumPowerSacrifice }}.
+                            </p>
+                            <InputError :message="errors.amount ?? errors.game" />
+                        </div>
+
+                        <DialogFooter class="gap-2">
+                            <DialogClose as-child>
+                                <Button type="button" variant="outline">Отмена</Button>
+                            </DialogClose>
+                            <Button
+                                type="submit"
+                                :disabled="
+                                    processing ||
+                                    sacrificePowerAmount < 1 ||
+                                    sacrificePowerAmount > maximumPowerSacrifice
+                                "
+                            >
+                                {{ processing ? 'Подтверждение…' : 'Подтвердить' }}
+                            </Button>
+                        </DialogFooter>
+                    </Form>
+                </DialogContent>
+            </Dialog>
         </div>
 
         <PlayerStatsPanel

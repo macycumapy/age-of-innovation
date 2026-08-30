@@ -20,6 +20,7 @@ enum GameActionType: string
     case MakeInnovation = 'make_innovation';
     case SendScholar = 'send_scholar';
     case PowerAction = 'power_action';
+    case SacrificePower = 'sacrifice_power';
     case BookAction = 'book_action';
     case SpecialAction = 'special_action';
     case ExchangeResources = 'exchange_resources';

@@ -17,6 +17,7 @@ use App\Domain\Game\Data\PlanningBundleData;
 use App\Domain\Game\Data\PlayerPlanningSelectionData;
 use App\Domain\Game\Data\PlayerResourcesData;
 use App\Domain\Game\Data\PowerBowlsStateData;
+use App\Domain\Game\Data\RoundStateData;
 use App\Domain\Game\Enums\BuildingType;
 use App\Domain\Game\Enums\Competency;
 use App\Domain\Game\Enums\Faction;
@@ -31,6 +32,7 @@ use App\Domain\Game\Enums\PlayerColor;
 use App\Domain\Game\Enums\RoundBonus;
 use App\Domain\Game\Enums\TerrainType;
 use App\Domain\Game\Factories\BoardStateFactory;
+use App\Domain\Game\Factories\GamePlayerStateFactory;
 use App\Domain\Game\Factories\GameSetupPoolFactory;
 use App\Domain\Game\Services\PlayerIncomeCalculator;
 use App\Models\Builders\GameBuilder;
@@ -196,6 +198,76 @@ class GameManagementTest extends TestCase
         $this->assertSame(GamePhase::Actions, $phase);
         $this->assertSame(GamePhase::Actions, $state->round->phase);
         $this->assertSame($secondPlayerTools, $secondPlayerState->resources->tools);
+    }
+
+    public function test_active_player_can_sacrifice_power_without_ending_the_turn(): void
+    {
+        $users = User::factory()->count(2)->create();
+        $game = Game::factory()->create([
+            'status' => GameStatus::Active,
+            'phase' => GamePhase::Actions,
+            'active_player_id' => $users[0]->id,
+            'version' => 7,
+        ]);
+        $activePlayer = GamePlayer::factory()->create([
+            'game_id' => $game->id,
+            'user_id' => $users[0]->id,
+            'seat' => 1,
+        ]);
+        GamePlayer::factory()->create([
+            'game_id' => $game->id,
+            'user_id' => $users[1]->id,
+            'seat' => 2,
+        ]);
+        $game->update([
+            'state' => new GameStateData(
+                turnOrder: [$activePlayer->id],
+                round: new RoundStateData(phase: GamePhase::Actions),
+                players: [
+                    new GamePlayerStateData(
+                        playerId: $activePlayer->id,
+                        userId: $users[0]->id,
+                        color: PlayerColor::Green,
+                        faction: Faction::Blessed,
+                        homeland: TerrainType::Forest,
+                        roundBonus: RoundBonus::Coins,
+                        resources: new PlayerResourcesData(
+                            power: new PowerBowlsStateData(bowlTwo: 5, bowlThree: 1),
+                        ),
+                    ),
+                ],
+            ),
+        ]);
+
+        $this->actingAs($users[1])
+            ->post(route('games.power-sacrifice.store', $game), ['amount' => 1])
+            ->assertForbidden();
+
+        $this->actingAs($users[0])
+            ->post(route('games.power-sacrifice.store', $game), ['amount' => 3])
+            ->assertSessionHasErrors('amount');
+
+        $game->refresh();
+        $this->assertSame(5, $game->state->players[0]->resources->power->bowlTwo);
+        $this->assertSame(1, $game->state->players[0]->resources->power->bowlThree);
+        $this->assertCount(0, $game->actions);
+
+        $this->post(route('games.power-sacrifice.store', $game), ['amount' => 2])
+            ->assertRedirect(route('games.show', $game));
+
+        $game->refresh();
+        $this->assertSame(1, $game->state->players[0]->resources->power->bowlTwo);
+        $this->assertSame(3, $game->state->players[0]->resources->power->bowlThree);
+        $this->assertSame($users[0]->id, $game->active_player_id);
+        $this->assertSame(GamePhase::Actions, $game->phase);
+        $this->assertSame(8, $game->version);
+
+        $action = $game->actions()->sole();
+        $this->assertSame(GameActionType::SacrificePower, $action->type);
+        $this->assertSame(['amount' => 2], $action->payload);
+        $this->assertSame('power_sacrificed', $action->events[0]['type']);
+        $this->assertSame(2, $action->events[0]['sacrificed']);
+        $this->assertSame(2, $action->events[0]['moved_to_bowl_three']);
     }
 
     public function test_game_history_is_loaded_in_batches_of_twenty_five(): void
@@ -1482,37 +1554,35 @@ class GameManagementTest extends TestCase
         $this->assertCount(2, $forestHexIds);
         $this->assertCount(2, $mountainHexIds);
 
+        $firstBundle = new PlanningBundleData(
+            TerrainType::Forest,
+            Faction::Blessed,
+            RoundBonus::Coins,
+        );
+        $secondBundle = new PlanningBundleData(
+            TerrainType::Mountain,
+            Faction::Felines,
+            RoundBonus::PowerCoins,
+        );
+        $playerStateFactory = app(GamePlayerStateFactory::class);
+
         $game->update([
             'state' => new GameStateData(
                 schemaVersion: 3,
                 turnOrder: [$firstPlayer->id, $secondPlayer->id],
                 board: $board,
                 players: [
-                    new GamePlayerStateData(
-                        $firstPlayer->id,
-                        $users[0]->id,
-                        PlayerColor::Green,
-                        Faction::Blessed,
-                        TerrainType::Forest,
-                        RoundBonus::Coins,
-                    ),
-                    new GamePlayerStateData(
-                        $secondPlayer->id,
-                        $users[1]->id,
-                        PlayerColor::Grey,
-                        Faction::Felines,
-                        TerrainType::Mountain,
-                        RoundBonus::PowerCoins,
-                    ),
+                    $playerStateFactory->create($firstPlayer, $firstBundle),
+                    $playerStateFactory->create($secondPlayer, $secondBundle),
                 ],
                 planningSelections: [
                     new PlayerPlanningSelectionData(
                         $firstPlayer->id,
-                        new PlanningBundleData(TerrainType::Forest, Faction::Blessed, RoundBonus::Coins),
+                        $firstBundle,
                     ),
                     new PlayerPlanningSelectionData(
                         $secondPlayer->id,
-                        new PlanningBundleData(TerrainType::Mountain, Faction::Felines, RoundBonus::PowerCoins),
+                        $secondBundle,
                     ),
                 ],
             ),
@@ -1569,6 +1639,45 @@ class GameManagementTest extends TestCase
             $this->assertSame($resourcesBefore['coins'] + $income['coins'], $playerState->resources->coins);
             $this->assertSame($resourcesBefore['scholars'] + $income['scholars'], $playerState->resources->scholars);
         }
+
+        $activePlayerState = collect($game->state->players)->firstWhere('userId', $users[0]->id);
+        $this->assertInstanceOf(GamePlayerStateData::class, $activePlayerState);
+        $this->assertGreaterThanOrEqual(4, $activePlayerState->resources->power->bowlTwo);
+        $bowlTwoAtTurnStart = $activePlayerState->resources->power->bowlTwo;
+        $bowlThreeAtTurnStart = $activePlayerState->resources->power->bowlThree;
+
+        $this->actingAs($users[0]);
+        $this->post(route('games.power-sacrifice.store', $game), ['amount' => 1]);
+        $this->post(route('games.power-sacrifice.store', $game), ['amount' => 1]);
+
+        $game->refresh();
+        $this->assertCount(6, $game->actions);
+        $this->assertSame(4, $game->state->round->turnStartVersion);
+        $this->assertSame($bowlTwoAtTurnStart - 4, $game->state->players[0]->resources->power->bowlTwo);
+        $this->assertSame($bowlThreeAtTurnStart + 2, $game->state->players[0]->resources->power->bowlThree);
+        $this->get(route('games.show', $game))
+            ->assertInertia(
+                fn (Assert $page) => $page->where('game.data.canRestartCurrentTurn', true),
+            );
+
+        $this->actingAs($users[1])
+            ->post(route('games.current-turn.restart', $game))
+            ->assertForbidden();
+
+        $this->actingAs($users[0])
+            ->post(route('games.current-turn.restart', $game))
+            ->assertRedirect(route('games.show', $game));
+
+        $game->refresh();
+        $restartedPlayerState = collect($game->state->players)->firstWhere('userId', $users[0]->id);
+        $this->assertInstanceOf(GamePlayerStateData::class, $restartedPlayerState);
+        $this->assertSame($bowlTwoAtTurnStart, $restartedPlayerState->resources->power->bowlTwo);
+        $this->assertSame($bowlThreeAtTurnStart, $restartedPlayerState->resources->power->bowlThree);
+        $this->assertSame($users[0]->id, $game->active_player_id);
+        $this->assertSame(GamePhase::Actions, $game->phase);
+        $this->assertNull($game->state->round->turnStartVersion);
+        $this->assertSame(4, $game->version);
+        $this->assertCount(4, $game->actions);
     }
 
     public function test_setup_spends_competency_five_spades_without_building(): void
