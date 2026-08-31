@@ -5,6 +5,7 @@ import { terrainColors, terrainNames } from '@/lib/gameDisplay';
 import type {
     BoardState,
     BookAction,
+    BookActionState,
     FinalRoundScoringTile,
     GamePlayerSummary,
     MapVariant,
@@ -21,11 +22,13 @@ type Props = {
     finalRoundScoringTile?: FinalRoundScoringTile | null;
     bookActions?: BookAction[];
     usedBookActionIds?: BookAction[];
+    bookActionStates?: BookActionState[];
     powerActions?: PowerActionState[];
     players?: GamePlayerSummary[];
     selectableHexIds?: string[];
     pendingHexId?: string | null;
     canUsePowerActions?: boolean;
+    canUseBookActions?: boolean;
     upgradeableBuildingHexIds?: string[];
 };
 
@@ -56,17 +59,20 @@ const props = withDefaults(defineProps<Props>(), {
     finalRoundScoringTile: null,
     bookActions: () => [],
     usedBookActionIds: () => [],
+    bookActionStates: () => [],
     powerActions: () => [],
     players: () => [],
     selectableHexIds: () => [],
     pendingHexId: null,
     canUsePowerActions: false,
+    canUseBookActions: false,
     upgradeableBuildingHexIds: () => [],
 });
 
 const emit = defineEmits<{
     hexClick: [hexId: string];
     powerActionClick: [action: PowerActionState];
+    bookActionClick: [action: BookActionState];
     buildingClick: [hexId: string];
 }>();
 
@@ -249,6 +255,24 @@ function canSelectPowerAction(action: PowerActionState): boolean {
     return props.canUsePowerActions && !action.isUsed && action.id !== 'build_bridge';
 }
 
+function bookActionState(action: BookAction): BookActionState | undefined {
+    return props.bookActionStates.find((state) => state.id === action);
+}
+
+function canSelectBookAction(action: BookAction): boolean {
+    const state = bookActionState(action);
+
+    return props.canUseBookActions && state !== undefined && !state.isUsed;
+}
+
+function selectBookAction(action: BookAction): void {
+    const state = bookActionState(action);
+
+    if (state !== undefined && canSelectBookAction(action)) {
+        emit('bookActionClick', state);
+    }
+}
+
 const closedActionTokenSize = 82;
 
 function closedActionTokenX(actionX: number, actionWidth: number): number {
@@ -299,7 +323,13 @@ function closedActionTokenX(actionX: number, actionWidth: number): number {
                 </image>
             </g>
 
-            <g v-for="(action, index) in bookActions" :key="`book-${action}`" class="book-action-group cursor-pointer">
+            <g
+                v-for="(action, index) in bookActions"
+                :key="`book-${action}`"
+                class="book-action-group"
+                :class="canSelectBookAction(action) ? 'cursor-pointer' : ''"
+                @click="selectBookAction(action)"
+            >
                 <title>Действие за книги: {{ bookActionNames[action] }}</title>
                 <rect
                     :x="boardLayout.bookActionStartX + index * boardLayout.bookActionSpacing"

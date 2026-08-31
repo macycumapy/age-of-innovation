@@ -11,6 +11,10 @@ use Illuminate\Validation\ValidationException;
 
 final class GrantCompetencyAction
 {
+    public function __construct(private AdvanceKnowledgeAction $advanceKnowledge)
+    {
+    }
+
     /** @param list<Competency|string> $availableCompetencies */
     public function execute(
         GamePlayerStateData $playerState,
@@ -29,7 +33,7 @@ final class GrantCompetencyAction
         $competencyRow = intdiv($competencyIndex, count($disciplines));
 
         $playerState->competencyIds[] = $competency->value;
-        $this->advanceKnowledge($playerState, $discipline, 3 - $competencyRow);
+        $this->advanceKnowledge->execute($playerState, $discipline, 3 - $competencyRow);
         $playerState->resources->books->{$discipline->value} += $competencyRow;
         $this->applyImmediateEffect($playerState, $competency);
     }
@@ -68,38 +72,4 @@ final class GrantCompetencyAction
         $playerState->victoryPoints += 5;
     }
 
-    private function advanceKnowledge(
-        GamePlayerStateData $playerState,
-        KnowledgeDiscipline $discipline,
-        int $steps,
-    ): void {
-        $currentLevel = $playerState->knowledge->{$discipline->value};
-        $newLevel = $currentLevel + $steps;
-        $powerRewards = [3 => 1, 5 => 2, 7 => 2, 12 => 3];
-
-        foreach ($powerRewards as $level => $power) {
-            if ($currentLevel < $level && $newLevel >= $level) {
-                $this->gainPower($playerState, $power);
-            }
-        }
-
-        $playerState->knowledge->{$discipline->value} = $newLevel;
-    }
-
-    private function gainPower(GamePlayerStateData $playerState, int $power): void
-    {
-        for ($step = 0; $step < $power; $step++) {
-            if ($playerState->resources->power->bowlOne > 0) {
-                $playerState->resources->power->bowlOne--;
-                $playerState->resources->power->bowlTwo++;
-
-                continue;
-            }
-
-            if ($playerState->resources->power->bowlTwo > 0) {
-                $playerState->resources->power->bowlTwo--;
-                $playerState->resources->power->bowlThree++;
-            }
-        }
-    }
 }

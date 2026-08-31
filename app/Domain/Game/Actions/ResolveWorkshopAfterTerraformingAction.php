@@ -81,6 +81,7 @@ final class ResolveWorkshopAfterTerraformingAction
 
             $stateVersionBefore = $lockedGame->version;
             $state->pendingInteraction = null;
+            $state->round->hasTakenMainAction = true;
             $nextActiveUserId = $build
                 ? $this->createPowerOffersAfterBuilding->execute($state, $player->id, (string) $hexId)
                 : null;

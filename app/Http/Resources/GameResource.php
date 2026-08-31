@@ -11,6 +11,7 @@ use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Data\PlanningBundleData;
 use App\Domain\Game\Data\PlayerPlanningSelectionData;
 use App\Domain\Game\Data\RoundBonusOfferData;
+use App\Domain\Game\Enums\BookAction;
 use App\Domain\Game\Enums\BuildingType;
 use App\Domain\Game\Enums\Competency;
 use App\Domain\Game\Enums\Faction;
@@ -68,7 +69,8 @@ class GameResource extends JsonResource
             'canFinishCurrentTurn' => $this->phase === GamePhase::Actions
                 && $this->active_player_id === $request->user()?->id
                 && $this->state->pendingInteraction === null
-                && $this->state->round->turnStartVersion !== null,
+                && $this->state->round->turnStartVersion !== null
+                && $this->state->round->hasTakenMainAction,
             'activePlayerId' => $this->active_player_id,
             'turnOrder' => $this->state->turnOrder,
             'board' => [
@@ -213,12 +215,25 @@ class GameResource extends JsonResource
             ),
             'usedBookActionIds' => array_values(array_filter(
                 $this->enumValues($this->state->setupPool?->bookActions ?? []),
-                fn (string $actionId): bool => in_array(
-                    $actionId,
-                    $this->state->round->usedSharedActionIds,
-                    true,
-                ),
+                fn (string $actionId): bool => in_array($actionId, $this->state->round->usedBookActionIds, true),
             )),
+            'bookActionStates' => array_map(
+                function (BookAction|string $action): array {
+                    $bookAction = $action instanceof BookAction ? $action : BookAction::from($action);
+
+                    return [
+                        'id' => $bookAction->value,
+                        'cost' => $bookAction->cost(),
+                        'description' => $bookAction->description(),
+                        'isUsed' => in_array(
+                            $bookAction->value,
+                            $this->state->round->usedBookActionIds,
+                            true,
+                        ),
+                    ];
+                },
+                $this->state->setupPool?->bookActions ?? [],
+            ),
             'powerActions' => array_map(
                 fn (PowerAction $action): array => [
                     'id' => $action->value,

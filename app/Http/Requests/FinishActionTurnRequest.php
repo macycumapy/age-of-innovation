@@ -18,7 +18,8 @@ final class FinishActionTurnRequest extends FormRequest
             && $game->phase === GamePhase::Actions
             && $game->active_player_id === $this->user()?->id
             && $game->state->pendingInteraction === null
-            && $game->state->round->turnStartVersion !== null;
+            && $game->state->round->turnStartVersion !== null
+            && $game->state->round->hasTakenMainAction;
     }
 
     /** @return array<string, mixed> */

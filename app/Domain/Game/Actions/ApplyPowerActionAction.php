@@ -86,5 +86,6 @@ final class ApplyPowerActionAction
         }
 
         $state->round->usedSharedActionIds[] = $action->value;
+        $state->round->hasTakenMainAction = true;
     }
 }

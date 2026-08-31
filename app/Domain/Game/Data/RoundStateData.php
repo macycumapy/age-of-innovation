@@ -13,21 +13,28 @@ use Spatie\LaravelData\Data;
  * @property string|null $scoringTileId Жетон подсчёта текущего раунда.
  * @property string|null $additionalScoringTileId Дополнительный жетон подсчёта шестого раунда.
  * @property list<string> $usedSharedActionIds Общие действия, уже использованные в текущем раунде.
+ * @property list<string> $usedBookActionIds Книжные действия, использованные в текущем раунде.
  * @property int $incomeTurnIndex Индекс следующего игрока в порядке начисления дохода.
  * @property int|null $turnStartVersion Версия состояния в начале текущего хода.
+ * @property bool $hasTakenMainAction Выполнил ли активный игрок основное действие текущего хода.
  * @property bool $isCurrentTurnIrrevocable Нельзя ли перезапустить текущий ход из-за принятой другим игроком Силы.
  */
 class RoundStateData extends Data
 {
-    /** @param list<string> $usedSharedActionIds */
+    /**
+     * @param list<string> $usedSharedActionIds
+     * @param list<string> $usedBookActionIds
+     */
     public function __construct(
         public int $number = 1,
         public GamePhase $phase = GamePhase::Setup,
         public ?string $scoringTileId = null,
         public ?string $additionalScoringTileId = null,
         public array $usedSharedActionIds = [],
+        public array $usedBookActionIds = [],
         public int $incomeTurnIndex = 0,
         public ?int $turnStartVersion = null,
+        public bool $hasTakenMainAction = false,
         public bool $isCurrentTurnIrrevocable = false,
     ) {
     }

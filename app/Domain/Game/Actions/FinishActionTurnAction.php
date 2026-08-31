@@ -29,6 +29,7 @@ final class FinishActionTurnAction
                 || $lockedGame->active_player_id !== $user->id
                 || $state->pendingInteraction !== null
                 || $state->round->turnStartVersion === null
+                || ! $state->round->hasTakenMainAction
                 || ! $player instanceof GamePlayer) {
                 throw ValidationException::withMessages(['game' => 'Сейчас нельзя завершить ход.']);
             }
@@ -56,6 +57,7 @@ final class FinishActionTurnAction
             $stateVersionBefore = $lockedGame->version;
             $state->turnStartSnapshot = null;
             $state->round->turnStartVersion = null;
+            $state->round->hasTakenMainAction = false;
             $state->round->isCurrentTurnIrrevocable = false;
             $lockedGame->update([
                 'active_player_id' => $nextPlayer->user_id,

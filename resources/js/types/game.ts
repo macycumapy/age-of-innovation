@@ -39,6 +39,7 @@ export type GameResource = {
         finalRoundScoringTile: FinalRoundScoringTile | null;
         bookActions: BookAction[];
         usedBookActionIds: BookAction[];
+        bookActionStates: BookActionState[];
         powerActions: PowerActionState[];
         buildingUpgrades: BuildingUpgradeOption[];
         innovations: Innovation[];
@@ -223,6 +224,13 @@ export type BookAction =
     | 'upgrade_to_guild'
     | 'score_guilds'
     | 'terraform_three_spades';
+
+export type BookActionState = {
+    id: BookAction;
+    cost: number;
+    description: string;
+    isUsed: boolean;
+};
 
 export type PowerAction =
     | 'build_bridge'

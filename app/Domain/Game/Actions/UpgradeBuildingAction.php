@@ -80,6 +80,7 @@ final class UpgradeBuildingAction
             $playerState->resources->tools -= $cost['tools'];
             $playerState->resources->coins -= $cost['coins'];
             $hex->building->type = $target;
+            $state->round->hasTakenMainAction = true;
             $bonuses = $this->applyBuildingBonuses->execute($state, $playerState, $hex, $target);
             $nextActiveUserId = $this->createBuildingFollowUpInteraction->execute(
                 $state,

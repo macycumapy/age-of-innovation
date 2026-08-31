@@ -12,6 +12,7 @@ use App\Domain\Game\Actions\ResolveCompletedStartingSetupAction;
 use App\Domain\Game\Actions\ResolveIncomePhaseAction;
 use App\Domain\Game\Data\BoardHexStateData;
 use App\Domain\Game\Data\BoardStateData;
+use App\Domain\Game\Data\BookSupplyData;
 use App\Domain\Game\Data\BuildingStateData;
 use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Data\GameStateData;
@@ -21,6 +22,7 @@ use App\Domain\Game\Data\PlayerPlanningSelectionData;
 use App\Domain\Game\Data\PlayerResourcesData;
 use App\Domain\Game\Data\PowerBowlsStateData;
 use App\Domain\Game\Data\RoundStateData;
+use App\Domain\Game\Enums\BookAction;
 use App\Domain\Game\Enums\BuildingType;
 use App\Domain\Game\Enums\Competency;
 use App\Domain\Game\Enums\Faction;
@@ -329,6 +331,79 @@ class GameManagementTest extends TestCase
             'sacrifice_amount' => 0,
         ])->assertSessionHasErrors('action');
 
+        $this->assertSame(1, $game->actions()->count());
+    }
+
+    public function test_player_can_activate_a_book_action_only_once_per_round(): void
+    {
+        $user = User::factory()->create();
+        $game = Game::factory()->create([
+            'status' => GameStatus::Active,
+            'phase' => GamePhase::Actions,
+            'active_player_id' => $user->id,
+        ]);
+        $player = GamePlayer::factory()->create([
+            'game_id' => $game->id,
+            'user_id' => $user->id,
+            'seat' => 1,
+        ]);
+        $setupPool = app(GameSetupPoolFactory::class)->create(2);
+        $setupPool->bookActions = [
+            BookAction::GainCoins,
+            BookAction::GainPower,
+            BookAction::ScoreGuilds,
+        ];
+        $game->update(['state' => new GameStateData(
+            turnOrder: [$player->id],
+            round: new RoundStateData(
+                phase: GamePhase::Actions,
+                usedSharedActionIds: [PowerAction::GainCoins->value],
+            ),
+            players: [new GamePlayerStateData(
+                playerId: $player->id,
+                userId: $user->id,
+                color: PlayerColor::Green,
+                faction: Faction::Blessed,
+                homeland: TerrainType::Forest,
+                roundBonus: RoundBonus::Coins,
+                resources: new PlayerResourcesData(
+                    books: new BookSupplyData(banking: 1, law: 1),
+                ),
+            )],
+            setupPool: $setupPool,
+        )]);
+
+        $this->actingAs($user)
+            ->get(route('games.show', $game))
+            ->assertInertia(
+                fn (Assert $page) => $page
+                    ->has('game.data.bookActionStates', 3)
+                    ->where('game.data.bookActionStates.0.id', BookAction::GainCoins->value)
+                    ->where('game.data.bookActionStates.0.cost', 2)
+                    ->where('game.data.bookActionStates.0.isUsed', false),
+            );
+
+        $payload = [
+            'action' => BookAction::GainCoins->value,
+            'book_counts' => [
+                'banking' => 1,
+                'law' => 1,
+                'engineering' => 0,
+                'medicine' => 0,
+            ],
+        ];
+        $this->actingAs($user)
+            ->post(route('games.book-action', $game), $payload)
+            ->assertRedirect(route('games.show', $game));
+
+        $game->refresh();
+        $this->assertSame(6, $game->state->players[0]->resources->coins);
+        $this->assertSame(0, $game->state->players[0]->resources->books->banking);
+        $this->assertSame(0, $game->state->players[0]->resources->books->law);
+        $this->assertContains(BookAction::GainCoins->value, $game->state->round->usedBookActionIds);
+        $this->assertSame(GameActionType::BookAction, $game->actions()->sole()->type);
+
+        $this->post(route('games.book-action', $game), $payload)->assertSessionHasErrors('action');
         $this->assertSame(1, $game->actions()->count());
     }
 

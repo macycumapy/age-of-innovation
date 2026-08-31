@@ -11,6 +11,7 @@ import StartingCompetencyController from '@/actions/App/Http/Controllers/Startin
 import StartingResourcesController from '@/actions/App/Http/Controllers/StartingResourcesController';
 import StartingSpadeController from '@/actions/App/Http/Controllers/StartingSpadeController';
 import BoardMap from '@/components/game/BoardMap.vue';
+import BookActionDialog from '@/components/game/BookActionDialog.vue';
 import BuildingUpgradeDialog from '@/components/game/BuildingUpgradeDialog.vue';
 import CompetencySelector from '@/components/game/CompetencySelector.vue';
 import CurrentTurnFinishDialog from '@/components/game/CurrentTurnFinishDialog.vue';
@@ -54,6 +55,7 @@ import medicineBookUrl from '../../../images/token_parts/medicine_book.png';
 import medicineRoundUrl from '../../../images/token_parts/medicine_round.png';
 import type {
     Competency,
+    BookActionState,
     Faction,
     GamePlayerSummary,
     GameResource,
@@ -216,11 +218,13 @@ const selectedMonkCompetency = ref<Competency | null>(null);
 const isPlanningBundleGroupOpen = ref(true);
 const isPowerSacrificeDialogOpen = ref(false);
 const isPowerActionDialogOpen = ref(false);
+const isBookActionDialogOpen = ref(false);
 const isResourceExchangeDialogOpen = ref(false);
 const isCurrentTurnFinishDialogOpen = ref(false);
 const isBuildingUpgradeDialogOpen = ref(false);
 const selectedBuildingUpgradeHexId = ref<string | null>(null);
 const selectedPowerAction = ref<PowerActionState | null>(null);
+const selectedBookAction = ref<BookActionState | null>(null);
 
 const currentPlayerState = computed(() =>
     props.game.data.playerBoardStates.find((state) => state.playerId === currentPlayer.value?.id),
@@ -246,6 +250,11 @@ const canExchangeResources = computed(
 function selectPowerAction(action: PowerActionState): void {
     selectedPowerAction.value = action;
     isPowerActionDialogOpen.value = true;
+}
+
+function selectBookAction(action: BookActionState): void {
+    selectedBookAction.value = action;
+    isBookActionDialogOpen.value = true;
 }
 
 const selectedBuildingUpgradeOptions = computed(() =>
@@ -1010,11 +1019,14 @@ function updateStartingKnowledgeCount(discipline: KnowledgeDiscipline, event: Ev
                             :final-round-scoring-tile="game.data.finalRoundScoringTile"
                             :book-actions="game.data.bookActions"
                             :used-book-action-ids="game.data.usedBookActionIds"
+                            :book-action-states="game.data.bookActionStates"
                             :power-actions="game.data.powerActions"
                             :can-use-power-actions="canExchangeResources"
+                            :can-use-book-actions="canExchangeResources"
                             :upgradeable-building-hex-ids="game.data.buildingUpgrades.map((option) => option.hexId)"
                             @hex-click="placeStartingBuilding"
                             @power-action-click="selectPowerAction"
+                            @book-action-click="selectBookAction"
                             @building-click="selectBuildingUpgrade"
                         />
 
@@ -1062,6 +1074,14 @@ function updateStartingKnowledgeCount(discipline: KnowledgeDiscipline, event: Ev
                 :game-id="game.data.id"
                 :action="selectedPowerAction"
                 :player-state="currentPlayerState"
+            />
+
+            <BookActionDialog
+                v-model:open="isBookActionDialogOpen"
+                :game-id="game.data.id"
+                :action="selectedBookAction"
+                :player-state="currentPlayerState"
+                :board="game.data.board"
             />
 
             <ResourceExchangeDialog

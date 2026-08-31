@@ -13,6 +13,7 @@ use App\Domain\Game\Data\PlanningBundleData;
 use App\Domain\Game\Data\PlayerPlanningSelectionData;
 use App\Domain\Game\Data\RoundBonusOfferData;
 use App\Domain\Game\Data\RoundStateData;
+use App\Domain\Game\Enums\BookAction;
 use App\Domain\Game\Enums\BuildingType;
 use App\Domain\Game\Enums\Competency;
 use App\Domain\Game\Enums\Faction;
@@ -48,6 +49,7 @@ final class ReplayGameHistoryAction
         GameActionType::SacrificePower,
         GameActionType::ExchangeResources,
         GameActionType::PowerAction,
+        GameActionType::BookAction,
         GameActionType::TerraformAndBuild,
         GameActionType::FinishTurn,
         GameActionType::AcceptPower,
@@ -62,6 +64,7 @@ final class ReplayGameHistoryAction
         private GrantCompetencyAction $grantCompetency,
         private ApplyResourceExchangeAction $applyResourceExchange,
         private ApplyPowerActionAction $applyPowerAction,
+        private ApplyBookActionAction $applyBookAction,
         private FindEligibleTerraformHexesAction $findEligibleTerraformHexes,
         private CreatePowerOffersAfterBuildingAction $createPowerOffersAfterBuilding,
         private CreateBuildingFollowUpInteractionAction $createBuildingFollowUpInteraction,
@@ -113,6 +116,7 @@ final class ReplayGameHistoryAction
                 GameActionType::SacrificePower => $this->replaySacrificePower($game, $players, $action),
                 GameActionType::ExchangeResources => $this->replayResourceExchange($game, $players, $action),
                 GameActionType::PowerAction => $this->replayPowerAction($game, $players, $action),
+                GameActionType::BookAction => $this->replayBookAction($game, $players, $action),
                 GameActionType::TerraformAndBuild => $this->replayTerraformAndBuild($game, $players, $action),
                 GameActionType::FinishTurn => $this->replayFinishTurn($game, $players, $action),
                 GameActionType::AcceptPower, GameActionType::DeclinePower => $this->replayPowerOfferDecision(
@@ -564,6 +568,7 @@ final class ReplayGameHistoryAction
         $playerState->resources->coins += (int) ($action->payload['bonus_coins'] ?? 0);
         $playerState->victoryPoints += (int) ($action->payload['victory_points'] ?? 0);
         $hex->building->type = BuildingType::from((string) $action->payload['target']);
+        $state->round->hasTakenMainAction = true;
         $nextActiveUserId = $this->createBuildingFollowUpInteraction->execute(
             $state,
             $playerState,
@@ -586,6 +591,7 @@ final class ReplayGameHistoryAction
         $state = $game->state;
         $state->turnStartSnapshot = null;
         $state->round->turnStartVersion = null;
+        $state->round->hasTakenMainAction = false;
         $state->round->isCurrentTurnIrrevocable = false;
         $game->active_player_id = $nextPlayer->user_id;
         $game->state = $state;
@@ -663,6 +669,36 @@ final class ReplayGameHistoryAction
             PowerAction::from((string) $action->payload['action']),
             (int) ($action->payload['sacrifice_amount'] ?? 0),
         );
+        $game->state = $state;
+    }
+
+    /** @param Collection<int, GamePlayer> $players */
+    private function replayBookAction(Game $game, Collection $players, GameAction $action): void
+    {
+        $player = $players->firstWhere('user_id', $action->player_id);
+
+        if (! $player instanceof GamePlayer) {
+            $this->invalidHistory();
+        }
+
+        $state = $game->state;
+
+        if ($state->turnStartSnapshot === null) {
+            $state->turnStartSnapshot = $state->toArray();
+            $state->round->turnStartVersion = $game->version;
+        }
+
+        $disciplineValue = $action->payload['discipline'] ?? null;
+        $hexId = $action->payload['hex_id'] ?? null;
+        $result = $this->applyBookAction->execute(
+            $state,
+            $this->playerState($state, $player->id),
+            BookAction::from((string) $action->payload['action']),
+            (array) ($action->payload['book_counts'] ?? []),
+            is_string($disciplineValue) ? KnowledgeDiscipline::from($disciplineValue) : null,
+            is_string($hexId) ? $hexId : null,
+        );
+        $game->active_player_id = $result['nextActiveUserId'];
         $game->state = $state;
     }
 

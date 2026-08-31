@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Http\Controllers\BookActionController;
 use App\Http\Controllers\BuildingUpgradeController;
 use App\Http\Controllers\CurrentTurnFinishController;
 use App\Http\Controllers\CurrentTurnRestartController;
@@ -60,6 +61,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('games.power-sacrifice.store');
     Route::post('games/{game}/power-action', PowerActionController::class)
         ->name('games.power-action');
+    Route::post('games/{game}/book-action', BookActionController::class)
+        ->name('games.book-action');
     Route::post('games/{game}/power-offer', PowerOfferController::class)
         ->name('games.power-offer');
     Route::post('games/{game}/building-upgrade', BuildingUpgradeController::class)
