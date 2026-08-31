@@ -28,6 +28,8 @@ use Spatie\LaravelData\Data;
  * @property list<string> $competencyIds Полученные компетенции.
  * @property list<string> $inventionIds Созданные изобретения.
  * @property list<string> $usedSpecialActionIds Особые действия, использованные в текущем раунде.
+ * @property list<string> $scholarDisciplineIds Дисциплины, в которые установлены учёные игрока.
+ * @property int $scholarPoolSize Количество физических фигурок учёных, оставшихся на планшете игрока.
  */
 class GamePlayerStateData extends Data
 {
@@ -36,6 +38,7 @@ class GamePlayerStateData extends Data
      * @param list<string> $competencyIds
      * @param list<string> $inventionIds
      * @param list<string> $usedSpecialActionIds
+     * @param list<string> $scholarDisciplineIds
      */
     public function __construct(
         public int $playerId,
@@ -55,6 +58,8 @@ class GamePlayerStateData extends Data
         public array $competencyIds = [],
         public array $inventionIds = [],
         public array $usedSpecialActionIds = [],
+        public array $scholarDisciplineIds = [],
+        public int $scholarPoolSize = 7,
     ) {
     }
 }

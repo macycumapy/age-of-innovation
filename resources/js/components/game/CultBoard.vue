@@ -1,14 +1,8 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import type { CSSProperties } from 'vue';
-import type {
-    GamePlayerBoardState,
-    GamePlayerSummary,
-    PlayerColor,
-} from '@/types';
+import type { GamePlayerBoardState, GamePlayerSummary, KnowledgeDiscipline, PlayerColor } from '@/types';
 import cultBoardUrl from '../../../images/cult_board.png';
-
-type KnowledgeDiscipline = keyof GamePlayerBoardState['knowledge'];
 
 type KnowledgeMarker = {
     playerId: number;
@@ -19,9 +13,21 @@ type KnowledgeMarker = {
     collisionCount: number;
 };
 
+type ScholarMarker = {
+    playerId: number;
+    color: PlayerColor;
+    discipline: KnowledgeDiscipline;
+    slotIndex: number;
+};
+
 const props = defineProps<{
     players: GamePlayerSummary[];
     playerStates: GamePlayerBoardState[];
+    canSendScholar: boolean;
+}>();
+
+const emit = defineEmits<{
+    sendScholar: [discipline: KnowledgeDiscipline];
 }>();
 
 const boardWidth = 861;
@@ -33,18 +39,19 @@ const disciplineX: Record<KnowledgeDiscipline, number> = {
     engineering: 489,
     medicine: 684,
 };
-const levelY = [
-    1014, 933, 860, 783, 706, 627, 552, 470, 385, 319, 267, 210, 73,
-];
+const levelY = [1014, 933, 860, 783, 706, 627, 552, 470, 385, 319, 267, 210, 73];
 
-const tokenImages = import.meta.glob(
-    '../../../images/buildings/*/token.png',
-    {
-        eager: true,
-        import: 'default',
-        query: '?url',
-    },
-) as Record<string, string>;
+const tokenImages = import.meta.glob('../../../images/buildings/*/token.png', {
+    eager: true,
+    import: 'default',
+    query: '?url',
+}) as Record<string, string>;
+
+const scholarImages = import.meta.glob('../../../images/buildings/*/scientist.png', {
+    eager: true,
+    import: 'default',
+    query: '?url',
+}) as Record<string, string>;
 
 const disciplines = Object.keys(disciplineX) as KnowledgeDiscipline[];
 
@@ -52,11 +59,13 @@ function tokenImage(color: PlayerColor): string {
     return tokenImages[`../../../images/buildings/${color}/token.png`];
 }
 
+function scholarImage(color: PlayerColor): string {
+    return scholarImages[`../../../images/buildings/${color}/scientist.png`];
+}
+
 const knowledgeMarkers = computed<KnowledgeMarker[]>(() => {
     const markersWithoutCollisions = props.playerStates.flatMap((state) => {
-        const player = props.players.find(
-            (candidate) => candidate.id === state.playerId,
-        );
+        const player = props.players.find((candidate) => candidate.id === state.playerId);
 
         if (player === undefined || player.color === null) {
             return [];
@@ -72,9 +81,7 @@ const knowledgeMarkers = computed<KnowledgeMarker[]>(() => {
 
     return markersWithoutCollisions.map((marker) => {
         const collisions = markersWithoutCollisions.filter(
-            (candidate) =>
-                candidate.discipline === marker.discipline &&
-                candidate.level === marker.level,
+            (candidate) => candidate.discipline === marker.discipline && candidate.level === marker.level,
         );
 
         return {
@@ -85,9 +92,31 @@ const knowledgeMarkers = computed<KnowledgeMarker[]>(() => {
     });
 });
 
+const scholarMarkers = computed<ScholarMarker[]>(() =>
+    disciplines.flatMap((discipline) => {
+        let slotIndex = 0;
+
+        return props.playerStates.flatMap((state) => {
+            const player = props.players.find((candidate) => candidate.id === state.playerId);
+
+            if (player === undefined || player.color === null) {
+                return [];
+            }
+
+            return state.scholarDisciplineIds
+                .filter((disciplineId) => disciplineId === discipline)
+                .map(() => ({
+                    playerId: state.playerId,
+                    color: player.color,
+                    discipline,
+                    slotIndex: slotIndex++,
+                }));
+        });
+    }),
+);
+
 function markerStyle(marker: KnowledgeMarker): CSSProperties {
-    const collisionOffset =
-        (marker.collisionIndex - (marker.collisionCount - 1) / 2) * 18;
+    const collisionOffset = (marker.collisionIndex - (marker.collisionCount - 1) / 2) * 18;
 
     return {
         left: `${((disciplineX[marker.discipline] + collisionOffset) / boardWidth) * 100}%`,
@@ -95,17 +124,29 @@ function markerStyle(marker: KnowledgeMarker): CSSProperties {
         width: `${(tokenWidth / boardWidth) * 100}%`,
     };
 }
+
+function scholarStyle(marker: ScholarMarker): CSSProperties {
+    const xOffset = marker.slotIndex % 2 === 0 ? -10 : 80;
+    const y = marker.slotIndex < 2 ? 1105 : 1220;
+
+    return {
+        left: `${((disciplineX[marker.discipline] + xOffset) / boardWidth) * 100}%`,
+        top: `${(y / boardHeight) * 100}%`,
+        width: `${(90 / boardWidth) * 100}%`,
+    };
+}
+
+function disciplineOverlayStyle(discipline: KnowledgeDiscipline): CSSProperties {
+    return {
+        left: `${((disciplineX[discipline] - 50) / boardWidth) * 100}%`,
+        width: `${(165 / boardWidth) * 100}%`,
+    };
+}
 </script>
 
 <template>
-    <div
-        class="relative overflow-hidden rounded-xl border border-border shadow-inner"
-    >
-        <img
-            :src="cultBoardUrl"
-            alt="Поле культов"
-            class="block h-auto w-full"
-        />
+    <div class="relative overflow-hidden rounded-xl border border-border shadow-inner">
+        <img :src="cultBoardUrl" alt="Поле культов" class="block h-auto w-full" />
 
         <img
             v-for="marker in knowledgeMarkers"
@@ -114,6 +155,26 @@ function markerStyle(marker: KnowledgeMarker): CSSProperties {
             :style="markerStyle(marker)"
             :alt="`Уровень ${marker.level}`"
             class="pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-1/2 drop-shadow-md"
+        />
+
+        <img
+            v-for="marker in scholarMarkers"
+            :key="`${marker.playerId}-${marker.discipline}-${marker.slotIndex}`"
+            :src="scholarImage(marker.color)"
+            :style="scholarStyle(marker)"
+            alt="Установленный учёный"
+            class="pointer-events-none absolute z-20 -translate-x-1/2 -translate-y-1/2 drop-shadow-md"
+        />
+
+        <button
+            v-for="discipline in disciplines"
+            v-show="canSendScholar"
+            :key="discipline"
+            type="button"
+            :style="disciplineOverlayStyle(discipline)"
+            class="absolute bottom-[4%] z-30 h-[15%] cursor-pointer"
+            :aria-label="`Отправить учёного: ${discipline}`"
+            @click="emit('sendScholar', discipline)"
         />
     </div>
 </template>

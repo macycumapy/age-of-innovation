@@ -101,7 +101,6 @@ const boardWidth = 1219;
 const boardHeight = 636;
 const buildingWidth = 80;
 const tokenWidth = 85;
-const scholarPoolSize = 7;
 const factionCardX = 593;
 const factionCardY = 60;
 const factionCardWidth = 380;
@@ -274,8 +273,15 @@ function playerState(playerId: number): GamePlayerBoardState | undefined {
 function scholarsForPlayer(playerId: number): number {
     return Math.max(
         0,
-        Math.min(playerState(playerId)?.scholars ?? 0, scholarPoolSize),
+        Math.min(
+            playerState(playerId)?.scholars ?? 0,
+            playerState(playerId)?.scholarPoolSize ?? 7,
+        ),
     );
+}
+
+function scholarPoolSizeForPlayer(playerId: number): number {
+    return Math.max(0, Math.min(playerState(playerId)?.scholarPoolSize ?? 7, 7));
 }
 
 function availableBridgesForPlayer(playerId: number): number {
@@ -528,7 +534,7 @@ function canSacrificeFromBowl(player: GamePlayerSummary, bowl: PowerBowl): boole
                             :aria-label="`Доступные учёные: ${scholarsForPlayer(player.id)}`"
                         >
                             <img
-                                v-for="scholarIndex in scholarPoolSize"
+                                v-for="scholarIndex in scholarPoolSizeForPlayer(player.id)"
                                 :key="scholarIndex"
                                 :src="scientistImage(player.color)"
                                 alt=""

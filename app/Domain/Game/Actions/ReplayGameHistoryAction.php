@@ -58,6 +58,7 @@ final class ReplayGameHistoryAction
         GameActionType::UpgradeBuilding,
         GameActionType::ChoosePalace,
         GameActionType::PlacePalaceGuild,
+        GameActionType::SendScholar,
     ];
 
     public function __construct(
@@ -72,6 +73,7 @@ final class ReplayGameHistoryAction
         private CreatePowerOffersAfterBuildingAction $createPowerOffersAfterBuilding,
         private CreateBuildingFollowUpInteractionAction $createBuildingFollowUpInteraction,
         private ApplyPowerOfferDecisionAction $applyPowerOfferDecision,
+        private AdvanceKnowledgeAction $advanceKnowledge,
         private ResolveCompletedStartingSetupAction $resolveCompletedStartingSetup,
     ) {
     }
@@ -130,6 +132,7 @@ final class ReplayGameHistoryAction
                 GameActionType::UpgradeBuilding => $this->replayUpgradeBuilding($game, $players, $action),
                 GameActionType::ChoosePalace => $this->replayChoosePalace($game, $players, $action),
                 GameActionType::PlacePalaceGuild => $this->replayPlacePalaceGuild($game, $players, $action),
+                GameActionType::SendScholar => $this->replaySendScholar($game, $players, $action),
                 default => null,
             };
 
@@ -606,6 +609,37 @@ final class ReplayGameHistoryAction
             [(string) ($action->payload['palace_built_hex_id'] ?? '')],
         );
         $game->active_player_id = $nextActiveUserId ?? $player->user_id;
+        $game->state = $state;
+    }
+
+    /** @param Collection<int, GamePlayer> $players */
+    private function replaySendScholar(Game $game, Collection $players, GameAction $action): void
+    {
+        $player = $players->firstWhere('user_id', $action->player_id);
+        $discipline = KnowledgeDiscipline::tryFrom((string) ($action->payload['discipline'] ?? ''));
+
+        if (! $player instanceof GamePlayer || $discipline === null) {
+            $this->invalidHistory();
+        }
+
+        $state = $game->state;
+        $playerState = $this->playerState($state, $player->id);
+
+        if ($state->turnStartSnapshot === null) {
+            $state->turnStartSnapshot = $state->toArray();
+            $state->round->turnStartVersion = $game->version;
+        }
+
+        $playerState->resources->scholars--;
+
+        if ((bool) ($action->payload['placed'] ?? false)) {
+            $playerState->scholarPoolSize--;
+            $playerState->scholarDisciplineIds[] = $discipline->value;
+        }
+
+        $this->advanceKnowledge->execute($playerState, $discipline, (int) ($action->payload['steps'] ?? 0));
+        $playerState->victoryPoints += (int) ($action->payload['victory_points'] ?? 0);
+        $state->round->hasTakenMainAction = true;
         $game->state = $state;
     }
 

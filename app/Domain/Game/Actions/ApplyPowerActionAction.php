@@ -34,6 +34,11 @@ final class ApplyPowerActionAction
             throw ValidationException::withMessages(['action' => 'Это действие Силы уже использовано.']);
         }
 
+        if ($action === PowerAction::GainScholar
+            && $playerState->resources->scholars >= $playerState->scholarPoolSize) {
+            throw ValidationException::withMessages(['action' => 'В пуле игрока нет доступной фигурки учёного.']);
+        }
+
         $requiredSacrifice = max(0, $action->cost() - $playerState->resources->power->bowlThree);
 
         if ($sacrificeAmount !== $requiredSacrifice

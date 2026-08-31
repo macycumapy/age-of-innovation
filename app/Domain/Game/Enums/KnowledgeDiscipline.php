@@ -14,4 +14,14 @@ enum KnowledgeDiscipline: string
     case Engineering = 'engineering';
     /** Медицина, белая дисциплина знаний. */
     case Medicine = 'medicine';
+
+    public function displayName(): string
+    {
+        return match ($this) {
+            self::Banking => 'Банковское дело',
+            self::Law => 'Право',
+            self::Engineering => 'Инженерное дело',
+            self::Medicine => 'Медицина',
+        };
+    }
 }

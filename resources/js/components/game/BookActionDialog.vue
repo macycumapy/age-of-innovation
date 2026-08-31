@@ -36,6 +36,7 @@ const props = defineProps<{
     action: BookActionState | null;
     playerState?: GamePlayerBoardState;
     board: BoardState;
+    disciplineNames: Record<KnowledgeDiscipline, string>;
 }>();
 
 const isOpen = defineModel<boolean>('open', { required: true });
@@ -48,12 +49,6 @@ const bookCounts = reactive<Record<BookType, number>>({
     medicine: 0,
 });
 const bookTypes: BookType[] = ['banking', 'law', 'engineering', 'medicine'];
-const disciplineNames: Record<KnowledgeDiscipline, string> = {
-    banking: 'Банковское дело',
-    law: 'Право',
-    engineering: 'Инженерное дело',
-    medicine: 'Медицина',
-};
 const disciplines: KnowledgeDiscipline[] = ['banking', 'law', 'engineering', 'medicine'];
 const disciplineImages: Record<KnowledgeDiscipline, string> = {
     banking: bankingCultUrl,
@@ -61,7 +56,6 @@ const disciplineImages: Record<KnowledgeDiscipline, string> = {
     engineering: engineeringCultUrl,
     medicine: medicineCultUrl,
 };
-const bookNames: Record<BookType, string> = disciplineNames;
 const bookImages: Record<BookType, string> = {
     banking: bankingBookUrl,
     law: lawBookUrl,
@@ -138,8 +132,8 @@ function actionSucceeded(): void {
 
                 <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
                     <div v-for="bookType in bookTypes" :key="bookType" class="grid justify-items-center gap-2 rounded-lg border p-3 text-center text-sm">
-                        <img :src="bookImages[bookType]" :alt="bookNames[bookType]" class="h-12 w-auto object-contain" />
-                        <span class="min-h-10">{{ bookNames[bookType] }}</span>
+                        <img :src="bookImages[bookType]" :alt="disciplineNames[bookType]" class="h-12 w-auto object-contain" />
+                        <span class="min-h-10">{{ disciplineNames[bookType] }}</span>
                         <NumberStepper
                             v-model="bookCounts[bookType]"
                             :name="`book_counts[${bookType}]`"

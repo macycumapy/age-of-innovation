@@ -20,7 +20,10 @@ final class ApplyIncomeAction
 
         $player->resources->tools += $income['tools'];
         $player->resources->coins += $income['coins'];
-        $player->resources->scholars += $income['scholars'];
+        $player->resources->scholars = min(
+            $player->scholarPoolSize,
+            $player->resources->scholars + $income['scholars'],
+        );
         $player->resources->books->unassigned += $income['books'];
         $player->knowledge->unassignedSteps += $income['knowledgeSteps'];
         $this->gainPower->execute($player, $income['power']);

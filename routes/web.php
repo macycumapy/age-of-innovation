@@ -20,6 +20,7 @@ use App\Http\Controllers\PowerActionController;
 use App\Http\Controllers\PowerOfferController;
 use App\Http\Controllers\PowerSacrificeController;
 use App\Http\Controllers\ResourceExchangeController;
+use App\Http\Controllers\ScholarController;
 use App\Http\Controllers\StartingBuildingController;
 use App\Http\Controllers\StartingBuildingTurnController;
 use App\Http\Controllers\StartingCompetencyController;
@@ -84,6 +85,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('games.current-turn.finish');
     Route::post('games/{game}/resource-exchange', ResourceExchangeController::class)
         ->name('games.resource-exchange');
+    Route::post('games/{game}/scholar', ScholarController::class)
+        ->name('games.scholar');
 });
 
 require __DIR__.'/settings.php';

@@ -29,6 +29,7 @@ export type GameResource = {
         turnOrder: number[];
         board: BoardState;
         canStart: boolean;
+        canSendScholar: boolean;
         planningBundles: PlanningBundle[];
         planningSelections: PlanningSelection[];
         planningBundleDescriptions: PlanningBundleDescriptions;
@@ -36,6 +37,7 @@ export type GameResource = {
         innovationDescriptions: Record<Innovation, string>;
         roundBonusDescriptions: Record<RoundBonus, string>;
         palaceDescriptions: Record<PalaceAbility, string>;
+        knowledgeDisciplineNames: Record<KnowledgeDiscipline, string>;
         roundScoringTiles: RoundScoringTile[];
         finalRoundScoringTile: FinalRoundScoringTile | null;
         bookActions: BookAction[];
@@ -108,6 +110,8 @@ export type GamePlayerBoardState = {
     victoryPoints: number;
     roundBonus: RoundBonus;
     scholars: number;
+    scholarPoolSize: number;
+    scholarDisciplineIds: KnowledgeDiscipline[];
     coins: number;
     tools: number;
     books: {

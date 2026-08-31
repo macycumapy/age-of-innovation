@@ -44,6 +44,7 @@ final class ApplyResourceExchangeAction
         $hasEnoughResources = $exchangeCount > 0
             && $powerSpent <= $player->resources->power->bowlThree
             && $scholarToTool <= $player->resources->scholars + $powerToScholar
+            && $player->resources->scholars + $powerToScholar - $scholarToTool <= $player->scholarPoolSize
             && $toolToCoin <= $player->resources->tools + $powerToTool + $scholarToTool;
 
         foreach (KnowledgeDiscipline::cases() as $discipline) {

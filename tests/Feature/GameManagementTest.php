@@ -31,6 +31,7 @@ use App\Domain\Game\Enums\GameActionType;
 use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\GameStatus;
 use App\Domain\Game\Enums\Innovation;
+use App\Domain\Game\Enums\KnowledgeDiscipline;
 use App\Domain\Game\Enums\MapVariant;
 use App\Domain\Game\Enums\PalaceAbility;
 use App\Domain\Game\Enums\PendingInteractionType;
@@ -1283,6 +1284,104 @@ class GameManagementTest extends TestCase
         $this->post(route('games.current-turn.finish', $game))->assertForbidden();
     }
 
+    public function test_scholars_advance_disciplines_and_only_placed_scholars_leave_the_pool(): void
+    {
+        $firstUser = User::factory()->create();
+        $secondUser = User::factory()->create();
+        $game = Game::factory()->create([
+            'status' => GameStatus::Active,
+            'phase' => GamePhase::Actions,
+            'active_player_id' => $firstUser->id,
+        ]);
+        $firstPlayer = GamePlayer::factory()->create([
+            'game_id' => $game->id,
+            'user_id' => $firstUser->id,
+            'seat' => 1,
+        ]);
+        $secondPlayer = GamePlayer::factory()->create([
+            'game_id' => $game->id,
+            'user_id' => $secondUser->id,
+            'seat' => 2,
+        ]);
+        $game->update(['state' => new GameStateData(
+            turnOrder: [$firstPlayer->id, $secondPlayer->id],
+            round: new RoundStateData(phase: GamePhase::Actions),
+            players: [
+                new GamePlayerStateData(
+                    playerId: $firstPlayer->id,
+                    userId: $firstUser->id,
+                    color: PlayerColor::Green,
+                    faction: Faction::Blessed,
+                    homeland: TerrainType::Forest,
+                    roundBonus: RoundBonus::Coins,
+                    resources: new PlayerResourcesData(scholars: 2),
+                ),
+                new GamePlayerStateData(
+                    playerId: $secondPlayer->id,
+                    userId: $secondUser->id,
+                    color: PlayerColor::Red,
+                    faction: Faction::Blessed,
+                    homeland: TerrainType::Mountain,
+                    roundBonus: RoundBonus::Coins,
+                    resources: new PlayerResourcesData(scholars: 1),
+                ),
+            ],
+        )]);
+
+        $this->assertSame(7, $game->state->players[0]->scholarPoolSize);
+        $this->assertSame(7, $game->state->players[1]->scholarPoolSize);
+
+        $this->actingAs($firstUser)->post(route('games.scholar', $game), [
+            'discipline' => 'law',
+            'place' => true,
+        ])->assertRedirect(route('games.show', $game));
+
+        $game->refresh();
+        $this->assertSame(3, $game->state->players[0]->knowledge->law);
+        $this->assertSame(1, $game->state->players[0]->resources->scholars);
+        $this->assertSame(6, $game->state->players[0]->scholarPoolSize);
+        $this->assertSame(['law'], $game->state->players[0]->scholarDisciplineIds);
+
+        $state = $game->state;
+        $state->round->hasTakenMainAction = false;
+        $state->turnStartSnapshot = null;
+        $state->round->turnStartVersion = null;
+        $game->update(['active_player_id' => $secondUser->id, 'state' => $state]);
+
+        $this->actingAs($secondUser)->post(route('games.scholar', $game), [
+            'discipline' => 'law',
+            'place' => true,
+        ])->assertRedirect(route('games.show', $game));
+
+        $game->refresh();
+        $this->assertSame(2, $game->state->players[1]->knowledge->law);
+        $this->assertSame(0, $game->state->players[1]->resources->scholars);
+        $this->assertSame(6, $game->state->players[1]->scholarPoolSize);
+
+        $state = $game->state;
+        $state->round->hasTakenMainAction = false;
+        $state->turnStartSnapshot = null;
+        $state->round->turnStartVersion = null;
+        $game->update(['active_player_id' => $firstUser->id, 'state' => $state]);
+
+        $this->actingAs($firstUser)->post(route('games.scholar', $game), [
+            'discipline' => 'medicine',
+            'place' => false,
+        ])->assertRedirect(route('games.show', $game));
+
+        $game->refresh();
+        $this->assertSame(1, $game->state->players[0]->knowledge->medicine);
+        $this->assertSame(0, $game->state->players[0]->resources->scholars);
+        $this->assertSame(6, $game->state->players[0]->scholarPoolSize);
+        $this->assertSame(['law'], $game->state->players[0]->scholarDisciplineIds);
+        $this->assertTrue($game->state->round->hasTakenMainAction);
+        $this->assertSame([
+            GameActionType::SendScholar,
+            GameActionType::SendScholar,
+            GameActionType::SendScholar,
+        ], $game->actions()->orderBy('sequence')->pluck('type')->all());
+    }
+
     public function test_all_resource_exchange_rates_are_applied(): void
     {
         $playerState = new GamePlayerStateData(
@@ -1943,6 +2042,7 @@ class GameManagementTest extends TestCase
                     ->has('game.data.innovationDescriptions', 18)
                     ->has('game.data.roundBonusDescriptions', 10)
                     ->has('game.data.palaceDescriptions', 17)
+                    ->has('game.data.knowledgeDisciplineNames', 4)
                     ->where(
                         'game.data.competencyDescriptions.'.Competency::Competency01->value,
                         Competency::Competency01->description(),
@@ -1958,6 +2058,10 @@ class GameManagementTest extends TestCase
                     ->where(
                         'game.data.palaceDescriptions.'.PalaceAbility::Palace01->value,
                         PalaceAbility::Palace01->description(),
+                    )
+                    ->where(
+                        'game.data.knowledgeDisciplineNames.'.KnowledgeDiscipline::Banking->value,
+                        KnowledgeDiscipline::Banking->displayName(),
                     )
                     ->where(
                         'game.data.planningBundleDescriptions.homelands.desert',
@@ -1984,6 +2088,14 @@ class GameManagementTest extends TestCase
                     ->where(
                         'game.data.playerBoardStates.0.scholars',
                         $game->state->players[0]->resources->scholars,
+                    )
+                    ->where(
+                        'game.data.playerBoardStates.0.scholarDisciplineIds',
+                        $game->state->players[0]->scholarDisciplineIds,
+                    )
+                    ->where(
+                        'game.data.playerBoardStates.0.scholarPoolSize',
+                        $game->state->players[0]->scholarPoolSize,
                     )
                     ->where(
                         'game.data.playerBoardStates.0.coins',

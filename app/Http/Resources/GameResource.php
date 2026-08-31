@@ -18,6 +18,7 @@ use App\Domain\Game\Enums\Faction;
 use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\GameStatus;
 use App\Domain\Game\Enums\Innovation;
+use App\Domain\Game\Enums\KnowledgeDiscipline;
 use App\Domain\Game\Enums\PalaceAbility;
 use App\Domain\Game\Enums\PowerAction;
 use App\Domain\Game\Enums\RoundBonus;
@@ -72,6 +73,12 @@ class GameResource extends JsonResource
                 && $this->state->pendingInteraction === null
                 && $this->state->round->turnStartVersion !== null
                 && $this->state->round->hasTakenMainAction,
+            'canSendScholar' => $this->phase === GamePhase::Actions
+                && $this->active_player_id === $request->user()?->id
+                && $this->state->pendingInteraction === null
+                && ! $this->state->round->hasTakenMainAction
+                && $currentPlayerState instanceof GamePlayerStateData
+                && $currentPlayerState->resources->scholars > 0,
             'activePlayerId' => $this->active_player_id,
             'turnOrder' => $this->state->turnOrder,
             'board' => [
@@ -108,6 +115,8 @@ class GameResource extends JsonResource
                     'victoryPoints' => $player->victoryPoints,
                     'roundBonus' => $player->roundBonus->value,
                     'scholars' => $player->resources->scholars,
+                    'scholarPoolSize' => $player->scholarPoolSize,
+                    'scholarDisciplineIds' => $player->scholarDisciplineIds,
                     'coins' => $player->resources->coins,
                     'tools' => $player->resources->tools,
                     'books' => [
@@ -209,6 +218,10 @@ class GameResource extends JsonResource
             'palaceDescriptions' => $this->enumDescriptions(
                 PalaceAbility::cases(),
                 static fn (PalaceAbility $palace): string => $palace->description(),
+            ),
+            'knowledgeDisciplineNames' => $this->enumDescriptions(
+                KnowledgeDiscipline::cases(),
+                static fn (KnowledgeDiscipline $discipline): string => $discipline->displayName(),
             ),
             'roundScoringTiles' => $this->enumValues(
                 $this->state->setupPool?->roundScoringTiles ?? [],

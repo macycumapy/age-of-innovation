@@ -27,6 +27,7 @@ import PlayerStatsPanel from '@/components/game/PlayerStatsPanel.vue';
 import PowerActionDialog from '@/components/game/PowerActionDialog.vue';
 import PowerSacrificeDialog from '@/components/game/PowerSacrificeDialog.vue';
 import ResourceExchangeDialog from '@/components/game/ResourceExchangeDialog.vue';
+import ScholarActionDialog from '@/components/game/ScholarActionDialog.vue';
 import TerraformWorkshopDialog from '@/components/game/TerraformWorkshopDialog.vue';
 import RoundBonusBoard from '@/components/game/RoundBonusBoard.vue';
 import TownTileBoard from '@/components/game/TownTileBoard.vue';
@@ -259,9 +260,11 @@ const isBookActionDialogOpen = ref(false);
 const isResourceExchangeDialogOpen = ref(false);
 const isCurrentTurnFinishDialogOpen = ref(false);
 const isBuildingUpgradeDialogOpen = ref(false);
+const isScholarActionDialogOpen = ref(false);
 const selectedBuildingUpgradeHexId = ref<string | null>(null);
 const selectedPowerAction = ref<PowerActionState | null>(null);
 const selectedBookAction = ref<BookActionState | null>(null);
+const selectedScholarDiscipline = ref<KnowledgeDiscipline | null>(null);
 
 const currentPlayerState = computed(() =>
     props.game.data.playerBoardStates.find((state) => state.playerId === currentPlayer.value?.id),
@@ -270,6 +273,25 @@ const currentPlayerState = computed(() =>
 const maximumPowerSacrifice = computed(() =>
     Math.floor((currentPlayerState.value?.power.bowlTwo ?? 0) / 2),
 );
+const selectedScholarDisciplineOccupiedSlots = computed(() =>
+    selectedScholarDiscipline.value === null
+        ? 0
+        : props.game.data.playerBoardStates.reduce(
+            (total, state) => total + state.scholarDisciplineIds.filter(
+                (discipline) => discipline === selectedScholarDiscipline.value,
+            ).length,
+            0,
+        ),
+);
+
+function selectScholarDiscipline(discipline: KnowledgeDiscipline): void {
+    if (!props.game.data.canSendScholar) {
+        return;
+    }
+
+    selectedScholarDiscipline.value = discipline;
+    isScholarActionDialogOpen.value = true;
+}
 
 const canSacrificePower = computed(
     () => props.game.data.phase === 'actions'
@@ -397,12 +419,7 @@ const competencyImages = import.meta.glob('../../../images/competencies/*.png', 
     query: '?url',
 }) as Record<string, string>;
 
-const knowledgeDisciplineNames: Record<KnowledgeDiscipline, string> = {
-    banking: 'Банковское дело',
-    law: 'Право',
-    engineering: 'Инженерное дело',
-    medicine: 'Медицина',
-};
+const knowledgeDisciplineNames = computed(() => props.game.data.knowledgeDisciplineNames);
 const bookImages: Record<KnowledgeDiscipline, string> = {
     banking: bankingBookUrl,
     law: lawBookUrl,
@@ -1120,7 +1137,12 @@ function updateStartingKnowledgeCount(discipline: KnowledgeDiscipline, event: Ev
                     </div>
 
                     <aside class="grid gap-4">
-                        <CultBoard :players="orderedPlayers" :player-states="game.data.playerBoardStates" />
+                        <CultBoard
+                            :players="orderedPlayers"
+                            :player-states="game.data.playerBoardStates"
+                            :can-send-scholar="game.data.canSendScholar"
+                            @send-scholar="selectScholarDiscipline"
+                        />
                         <RoundBonusBoard
                             :offers="game.data.roundBonusOffers"
                             :descriptions="game.data.roundBonusDescriptions"
@@ -1157,12 +1179,23 @@ function updateStartingKnowledgeCount(discipline: KnowledgeDiscipline, event: Ev
                 :action="selectedBookAction"
                 :player-state="currentPlayerState"
                 :board="game.data.board"
+                :discipline-names="game.data.knowledgeDisciplineNames"
+            />
+
+            <ScholarActionDialog
+                v-model:open="isScholarActionDialogOpen"
+                :game-id="game.data.id"
+                :discipline="selectedScholarDiscipline"
+                :player-state="currentPlayerState"
+                :occupied-slots="selectedScholarDisciplineOccupiedSlots"
+                :discipline-names="game.data.knowledgeDisciplineNames"
             />
 
             <ResourceExchangeDialog
                 v-model:open="isResourceExchangeDialogOpen"
                 :game-id="game.data.id"
                 :player-state="currentPlayerState"
+                :knowledge-discipline-names="game.data.knowledgeDisciplineNames"
             />
 
             <TerraformWorkshopDialog

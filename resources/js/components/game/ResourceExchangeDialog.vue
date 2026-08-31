@@ -35,6 +35,7 @@ type ResourceIcon = 'power' | 'scholar' | 'tool' | 'coin';
 defineProps<{
     gameId: number;
     playerState?: GamePlayerBoardState;
+    knowledgeDisciplineNames: Record<KnowledgeDiscipline, string>;
 }>();
 
 const isOpen = defineModel<boolean>('open', { required: true });
@@ -76,12 +77,6 @@ const bookImages: Record<KnowledgeDiscipline, string> = {
     law: lawBookUrl,
     engineering: engineeringBookUrl,
     medicine: medicineBookUrl,
-};
-const knowledgeDisciplineNames: Record<KnowledgeDiscipline, string> = {
-    banking: 'Банковское дело',
-    law: 'Право',
-    engineering: 'Инженерное дело',
-    medicine: 'Медицина',
 };
 const scalarResourceExchangeOptions: {
     value: ScalarResourceExchange;
