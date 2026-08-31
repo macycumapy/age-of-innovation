@@ -73,6 +73,14 @@ class BoardStateFactoryTest extends TestCase
         }
     }
 
+    public function test_map_connects_only_banks_with_corners_facing_each_other(): void
+    {
+        $largeBoard = app(BoardStateFactory::class)->create(MapVariant::ThreeToFivePlayers);
+        $largeBank = collect($largeBoard->hexes)->firstWhere('id', '8:5');
+
+        $this->assertSame(['7:7'], $largeBank->riverConnectedHexIds);
+    }
+
     public function test_large_map_contains_declared_river_bank_hexes(): void
     {
         $board = (new BoardStateFactory())->create(MapVariant::ThreeToFivePlayers);

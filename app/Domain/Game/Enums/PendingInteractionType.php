@@ -15,4 +15,5 @@ enum PendingInteractionType: string
     case ChooseCompetency = 'choose_competency';
     case SpendSpades = 'spend_spades';
     case BuildWorkshopAfterTerraforming = 'build_workshop_after_terraforming';
+    case PlaceBridge = 'place_bridge';
 }

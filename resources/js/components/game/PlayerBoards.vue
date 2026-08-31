@@ -350,7 +350,7 @@ function isRoundBonusActionUsed(playerId: number): boolean {
     const state = playerState(playerId);
 
     return state !== undefined
-        && ['spade', 'knowledge'].includes(state.roundBonus)
+        && ['spade', 'bridge', 'knowledge'].includes(state.roundBonus)
         && !state.canUseRoundBonusAction;
 }
 

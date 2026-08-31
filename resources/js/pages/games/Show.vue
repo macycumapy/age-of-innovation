@@ -5,6 +5,7 @@ import { computed, reactive, ref, watch } from 'vue';
 import GamePlayerController from '@/actions/App/Http/Controllers/GamePlayerController';
 import GamePlayerReadinessController from '@/actions/App/Http/Controllers/GamePlayerReadinessController';
 import GameStartController from '@/actions/App/Http/Controllers/GameStartController';
+import BridgeController from '@/actions/App/Http/Controllers/BridgeController';
 import PalaceChoiceController from '@/actions/App/Http/Controllers/PalaceChoiceController';
 import PalaceGuildController from '@/actions/App/Http/Controllers/PalaceGuildController';
 import PlanningBundleController from '@/actions/App/Http/Controllers/PlanningBundleController';
@@ -191,8 +192,95 @@ const pendingStartingSpadeHexId = computed(() =>
         ? props.game.data.pendingInteraction.context.selectedHexId ?? null
         : null,
 );
+const selectedBridgeFromHexId = ref<string | null>(null);
+const pendingBridgeInteraction = computed(() => props.game.data.pendingInteraction?.type === 'place_bridge'
+    ? props.game.data.pendingInteraction
+    : null);
+const bridgeOffsets = [[1, 1], [-1, -1], [2, -1], [-2, 1], [1, -2], [-1, 2]] as const;
+const neighbourOffsets = [[1, 0], [1, -1], [0, -1], [-1, 0], [-1, 1], [0, 1]] as const;
+const eligibleBridgePairs = computed(() => {
+    if (pendingBridgeInteraction.value === null || currentPlayer.value === undefined) {
+        return [];
+    }
+
+    const hexesById = new Map(props.game.data.board.hexes.map((hex) => [hex.id, hex]));
+    const riverBankHexIds = new Set(props.game.data.board.riverBankHexIds);
+
+    return props.game.data.board.hexes.flatMap((fromHex) => {
+        if (fromHex.building?.ownerPlayerId !== currentPlayer.value?.id
+            || fromHex.building.isNeutral
+            || !riverBankHexIds.has(fromHex.id)) {
+            return [];
+        }
+
+        return bridgeOffsets.flatMap(([qOffset, rOffset]) => {
+            const toHex = hexesById.get(`${fromHex.q + qOffset}:${fromHex.r + rOffset}`);
+
+            if (toHex === undefined || toHex.terrain === 'water' || !riverBankHexIds.has(toHex.id)) {
+                return [];
+            }
+
+            const fromNeighbours = neighbourOffsets.map(
+                ([q, r]) => `${fromHex.q + q}:${fromHex.r + r}`,
+            );
+            const toNeighbours = new Set(neighbourOffsets.map(
+                ([q, r]) => `${toHex.q + q}:${toHex.r + r}`,
+            ));
+            const betweenHexIds = fromNeighbours.filter((hexId) => toNeighbours.has(hexId));
+            const hasWaterBetween = betweenHexIds.length === 2
+                && betweenHexIds.every((hexId) => hexesById.get(hexId)?.terrain === 'water');
+            const bridgeExists = (props.game.data.board.bridges ?? []).some(
+                (bridge) => (bridge.fromHexId === fromHex.id && bridge.toHexId === toHex.id)
+                    || (bridge.fromHexId === toHex.id && bridge.toHexId === fromHex.id),
+            );
+
+            return hasWaterBetween && !bridgeExists
+                ? [{ fromHexId: fromHex.id, toHexId: toHex.id }]
+                : [];
+        });
+    });
+});
+const pendingBridge = computed(() => {
+    const interaction = pendingBridgeInteraction.value;
+
+    if (interaction?.context.selectedFromHexId === undefined
+        || interaction.context.selectedToHexId === undefined
+        || currentPlayer.value === undefined) {
+        return null;
+    }
+
+    return {
+        fromHexId: interaction.context.selectedFromHexId,
+        toHexId: interaction.context.selectedToHexId,
+        ownerPlayerId: currentPlayer.value.id,
+    };
+});
+
+watch(
+    () => pendingBridgeInteraction.value?.context.selectedFromHexId,
+    () => {
+        if (pendingBridgeInteraction.value?.context.selectedFromHexId !== undefined
+            || pendingBridgeInteraction.value === null) {
+            selectedBridgeFromHexId.value = null;
+        }
+    },
+);
 
 const selectableStartingHexIds = computed(() => {
+    if (pendingBridgeInteraction.value !== null) {
+        if (pendingBridgeInteraction.value.context.selectedFromHexId !== undefined) {
+            return [];
+        }
+
+        if (selectedBridgeFromHexId.value === null) {
+            return [...new Set(eligibleBridgePairs.value.map((pair) => pair.fromHexId))];
+        }
+
+        return eligibleBridgePairs.value
+            .filter((pair) => pair.fromHexId === selectedBridgeFromHexId.value)
+            .map((pair) => pair.toHexId);
+    }
+
     if (canPlacePalaceGuild.value && props.game.data.pendingInteraction?.type === 'place_palace_guild') {
         return pendingPalaceGuildHexId.value === null
             ? props.game.data.pendingInteraction.optionIds
@@ -215,6 +303,26 @@ const selectableStartingHexIds = computed(() => {
 });
 
 function placeStartingBuilding(hexId: string): void {
+    if (pendingBridgeInteraction.value !== null) {
+        if (selectedBridgeFromHexId.value === null) {
+            selectedBridgeFromHexId.value = hexId;
+
+            return;
+        }
+
+        router.post(BridgeController.store.url(props.game.data.id), {
+            from_hex_id: selectedBridgeFromHexId.value,
+            to_hex_id: hexId,
+        }, {
+            preserveScroll: true,
+            onSuccess: () => {
+                selectedBridgeFromHexId.value = null;
+            },
+        });
+
+        return;
+    }
+
     if (canPlacePalaceGuild.value) {
         router.post(PalaceGuildController.store.url(props.game.data.id), { hex_id: hexId }, {
             preserveScroll: true,
@@ -1021,6 +1129,8 @@ function updateStartingKnowledgeCount(discipline: KnowledgeDiscipline, event: Ev
                 :can-spend-starting-spade="canSpendStartingSpade"
                 :pending-starting-spade-hex-id="pendingStartingSpadeHexId"
                 :pending-palace-guild-hex-id="pendingPalaceGuildHexId"
+                :selected-bridge-from-hex-id="selectedBridgeFromHexId"
+                @reset-bridge-selection="selectedBridgeFromHexId = null"
                 @finish-turn="isCurrentTurnFinishDialogOpen = true"
             />
             <Card
@@ -1112,7 +1222,8 @@ function updateStartingKnowledgeCount(discipline: KnowledgeDiscipline, event: Ev
                             :board="game.data.board"
                             :players="game.data.players"
                             :selectable-hex-ids="selectableStartingHexIds"
-                            :pending-hex-id="game.data.pendingStartingBuildingHexId ?? pendingStartingSpadeHexId ?? pendingPalaceGuildHexId"
+                            :pending-hex-id="game.data.pendingStartingBuildingHexId ?? pendingStartingSpadeHexId ?? pendingPalaceGuildHexId ?? selectedBridgeFromHexId"
+                            :pending-bridge="pendingBridge"
                             :round-scoring-tiles="game.data.roundScoringTiles"
                             :final-round-scoring-tile="game.data.finalRoundScoringTile"
                             :book-actions="game.data.bookActions"

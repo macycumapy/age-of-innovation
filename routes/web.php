@@ -3,6 +3,8 @@
 declare(strict_types=1);
 
 use App\Http\Controllers\BookActionController;
+use App\Http\Controllers\BridgeConfirmationController;
+use App\Http\Controllers\BridgeController;
 use App\Http\Controllers\BuildingUpgradeController;
 use App\Http\Controllers\CurrentTurnFinishController;
 use App\Http\Controllers\CurrentTurnRestartController;
@@ -73,6 +75,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('games.round-bonus-action');
     Route::post('games/{game}/faction-action', FactionActionController::class)
         ->name('games.faction-action');
+    Route::post('games/{game}/bridge', [BridgeController::class, 'store'])
+        ->name('games.bridge.store');
+    Route::delete('games/{game}/bridge', [BridgeController::class, 'destroy'])
+        ->name('games.bridge.destroy');
+    Route::post('games/{game}/bridge/confirm', BridgeConfirmationController::class)
+        ->name('games.bridge.confirm');
     Route::post('games/{game}/power-offer', PowerOfferController::class)
         ->name('games.power-offer');
     Route::post('games/{game}/building-upgrade', BuildingUpgradeController::class)

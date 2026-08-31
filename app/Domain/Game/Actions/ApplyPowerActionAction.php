@@ -14,8 +14,10 @@ use Illuminate\Validation\ValidationException;
 
 final class ApplyPowerActionAction
 {
-    public function __construct(private FindEligibleTerraformHexesAction $findEligibleTerraformHexes)
-    {
+    public function __construct(
+        private CreateBridgeInteractionAction $createBridgeInteraction,
+        private FindEligibleTerraformHexesAction $findEligibleTerraformHexes,
+    ) {
     }
 
     public function execute(
@@ -24,12 +26,6 @@ final class ApplyPowerActionAction
         PowerAction $action,
         int $sacrificeAmount,
     ): void {
-        if ($action === PowerAction::BuildBridge) {
-            throw ValidationException::withMessages([
-                'action' => 'Сначала необходимо добавить выбор позиции моста.',
-            ]);
-        }
-
         if (in_array($action->value, $state->round->usedSharedActionIds, true)) {
             throw ValidationException::withMessages(['action' => 'Это действие Силы уже использовано.']);
         }
@@ -54,12 +50,12 @@ final class ApplyPowerActionAction
         $playerState->resources->power->bowlOne += $action->cost();
 
         match ($action) {
+            PowerAction::BuildBridge => $this->createBridgeInteraction->execute($state, $playerState),
             PowerAction::GainScholar => $playerState->resources->scholars++,
             PowerAction::GainTools => $playerState->resources->tools += 2,
             PowerAction::GainCoins => $playerState->resources->coins += 7,
             PowerAction::TerraformOneSpade => $playerState->unassignedSpades++,
             PowerAction::TerraformTwoSpades => $playerState->unassignedSpades += 2,
-            PowerAction::BuildBridge => null,
         };
 
         $spadeCount = match ($action) {

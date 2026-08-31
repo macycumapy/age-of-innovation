@@ -17,9 +17,17 @@ final class BoardStateFactory
         [-1, 0], [-1, 1], [0, 1],
     ];
 
+    /** @var list<array{int, int}> */
+    private const array BRIDGE_OFFSETS = [
+        [1, 1], [-1, -1],
+        [2, -1], [-2, 1],
+        [1, -2], [-1, 2],
+    ];
+
     public function create(MapVariant $variant = MapVariant::ThreeToFivePlayers): BoardStateData
     {
         $terrainByCoordinate = $this->terrainByCoordinate($variant);
+        $riverBankHexIds = $this->riverBankHexIds($variant);
 
         $hexes = [];
 
@@ -33,15 +41,85 @@ final class BoardStateFactory
                 initialTerrain: $terrain,
                 terrain: $terrain,
                 adjacentHexIds: $this->adjacentHexIds($q, $r, $terrainByCoordinate),
+                riverConnectedHexIds: $this->riverConnectedHexIds(
+                    $q,
+                    $r,
+                    $terrainByCoordinate,
+                    $riverBankHexIds,
+                ),
             );
         }
 
         return new BoardStateData(
             variant: $variant,
             hexes: $hexes,
-            riverBankHexIds: $this->riverBankHexIds($variant),
+            riverBankHexIds: $riverBankHexIds,
             edgeHexIds: $this->edgeHexIds($variant),
         );
+    }
+
+    /**
+     * @param array<string, TerrainType> $terrainByCoordinate
+     * @param list<string> $riverBankHexIds
+     * @return list<string>
+     */
+    private function riverConnectedHexIds(
+        int $q,
+        int $r,
+        array $terrainByCoordinate,
+        array $riverBankHexIds,
+    ): array {
+        $coordinate = "{$q}:{$r}";
+
+        if (($terrainByCoordinate[$coordinate] ?? null) === TerrainType::Water
+            || ! in_array($coordinate, $riverBankHexIds, true)) {
+            return [];
+        }
+
+        $connectedHexIds = [];
+
+        foreach (self::BRIDGE_OFFSETS as [$qOffset, $rOffset]) {
+            $oppositeCoordinate = ($q + $qOffset).':'.($r + $rOffset);
+
+            if (isset($terrainByCoordinate[$oppositeCoordinate])
+                && $terrainByCoordinate[$oppositeCoordinate] !== TerrainType::Water
+                && in_array($oppositeCoordinate, $riverBankHexIds, true)
+                && $this->hasWaterBetweenFacingCorners(
+                    $q,
+                    $r,
+                    $q + $qOffset,
+                    $r + $rOffset,
+                    $terrainByCoordinate,
+                )) {
+                $connectedHexIds[] = $oppositeCoordinate;
+            }
+        }
+
+        return $connectedHexIds;
+    }
+
+    /** @param array<string, TerrainType> $terrainByCoordinate */
+    private function hasWaterBetweenFacingCorners(
+        int $fromQ,
+        int $fromR,
+        int $toQ,
+        int $toR,
+        array $terrainByCoordinate,
+    ): bool {
+        $fromNeighbours = array_map(
+            static fn (array $offset): string => ($fromQ + $offset[0]).':'.($fromR + $offset[1]),
+            self::NEIGHBOUR_OFFSETS,
+        );
+        $toNeighbours = array_map(
+            static fn (array $offset): string => ($toQ + $offset[0]).':'.($toR + $offset[1]),
+            self::NEIGHBOUR_OFFSETS,
+        );
+        $betweenHexIds = array_values(array_intersect($fromNeighbours, $toNeighbours));
+
+        return count($betweenHexIds) === 2
+            && collect($betweenHexIds)->every(
+                static fn (string $hexId): bool => ($terrainByCoordinate[$hexId] ?? null) === TerrainType::Water,
+            );
     }
 
     /**

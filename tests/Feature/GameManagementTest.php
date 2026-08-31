@@ -591,6 +591,80 @@ class GameManagementTest extends TestCase
         $this->assertSame(0, $game->actions()->count());
     }
 
+    public function test_power_bridge_can_be_selected_rolled_back_and_confirmed(): void
+    {
+        [$game, $user] = $this->gameForBridgeAction();
+
+        $this->actingAs($user)->post(route('games.power-action', $game), [
+            'action' => PowerAction::BuildBridge->value,
+            'sacrifice_amount' => 0,
+        ])->assertRedirect(route('games.show', $game));
+
+        $game->refresh();
+        $this->assertSame(PendingInteractionType::PlaceBridge, $game->state->pendingInteraction?->type);
+        $this->assertSame(0, $game->state->players[0]->resources->power->bowlThree);
+
+        $state = $game->state;
+        $state->pendingInteraction->context['pairs'] = [[
+            'fromHexId' => '8:5',
+            'toHexId' => '6:7',
+        ], [
+            'fromHexId' => '8:5',
+            'toHexId' => '8:7',
+        ]];
+        $game->update(['state' => $state]);
+
+        $this->post(route('games.bridge.store', $game), [
+            'from_hex_id' => '0:0',
+            'to_hex_id' => '3:0',
+        ])->assertSessionHasErrors('bridge');
+        $game->refresh();
+        $this->assertCount(0, $game->state->board->bridges);
+
+        $bridge = ['from_hex_id' => '8:5', 'to_hex_id' => '7:7'];
+        $this->post(route('games.bridge.store', $game), $bridge)
+            ->assertRedirect(route('games.show', $game));
+        $game->refresh();
+        $this->assertSame('8:5', $game->state->pendingInteraction?->context['selectedFromHexId']);
+
+        $this->delete(route('games.bridge.destroy', $game))
+            ->assertRedirect(route('games.show', $game));
+        $game->refresh();
+        $this->assertArrayNotHasKey('selectedFromHexId', $game->state->pendingInteraction?->context ?? []);
+
+        $this->post(route('games.bridge.store', $game), $bridge);
+        $this->post(route('games.bridge.confirm', $game))
+            ->assertRedirect(route('games.show', $game));
+
+        $game->refresh();
+        $this->assertNull($game->state->pendingInteraction);
+        $this->assertCount(1, $game->state->board->bridges);
+        $this->assertSame('8:5', $game->state->board->bridges[0]->fromHexId);
+        $this->assertSame('7:7', $game->state->board->bridges[0]->toHexId);
+        $this->assertSame(
+            [GameActionType::PowerAction],
+            $game->actions()->orderBy('sequence')->pluck('type')->all(),
+        );
+    }
+
+    public function test_round_bonus_bridge_starts_the_same_bridge_interaction(): void
+    {
+        [$game, $user] = $this->gameForBridgeAction(RoundBonus::Bridge);
+
+        $this->actingAs($user)->post(route('games.round-bonus-action', $game))
+            ->assertRedirect(route('games.show', $game));
+
+        $game->refresh();
+        $this->assertSame(PendingInteractionType::PlaceBridge, $game->state->pendingInteraction?->type);
+        $this->assertContains(RoundBonus::Bridge->value, $game->state->players[0]->usedSpecialActionIds);
+
+        $this->post(route('games.current-turn.restart', $game))
+            ->assertRedirect(route('games.show', $game));
+        $game->refresh();
+        $this->assertNull($game->state->pendingInteraction);
+        $this->assertSame([], $game->state->players[0]->usedSpecialActionIds);
+    }
+
     public function test_power_action_spades_can_be_selected_rolled_back_and_confirmed_immediately(): void
     {
         $user = User::factory()->create();
@@ -1599,6 +1673,74 @@ class GameManagementTest extends TestCase
         $this->assertSame(0, $game->state->players[0]->resources->scholars);
         $this->assertSame(0, $game->state->players[0]->resources->tools);
         $this->assertCount(0, $game->actions);
+    }
+
+    /** @return array{Game, User} */
+    private function gameForBridgeAction(RoundBonus $roundBonus = RoundBonus::Coins): array
+    {
+        $user = User::factory()->create();
+        $game = Game::factory()->create([
+            'status' => GameStatus::Active,
+            'phase' => GamePhase::Actions,
+            'active_player_id' => $user->id,
+        ]);
+        $player = GamePlayer::factory()->create([
+            'game_id' => $game->id,
+            'user_id' => $user->id,
+            'seat' => 1,
+        ]);
+        $game->update([
+            'state' => new GameStateData(
+                turnOrder: [$player->id],
+                board: new BoardStateData(hexes: [
+                    new BoardHexStateData(
+                        id: '8:5',
+                        q: 8,
+                        r: 5,
+                        initialTerrain: TerrainType::Forest,
+                        terrain: TerrainType::Forest,
+                        riverConnectedHexIds: ['6:7', '8:7'],
+                        building: new BuildingStateData(BuildingType::Workshop, $player->id),
+                    ),
+                    new BoardHexStateData(
+                        id: '8:6',
+                        q: 8,
+                        r: 6,
+                        initialTerrain: TerrainType::Water,
+                        terrain: TerrainType::Water,
+                    ),
+                    new BoardHexStateData(
+                        id: '7:6',
+                        q: 7,
+                        r: 6,
+                        initialTerrain: TerrainType::Water,
+                        terrain: TerrainType::Water,
+                    ),
+                    new BoardHexStateData(
+                        id: '7:7',
+                        q: 7,
+                        r: 7,
+                        initialTerrain: TerrainType::Plains,
+                        terrain: TerrainType::Plains,
+                        riverConnectedHexIds: ['8:5'],
+                    ),
+                ], riverBankHexIds: ['8:5', '7:7']),
+                round: new RoundStateData(phase: GamePhase::Actions),
+                players: [new GamePlayerStateData(
+                    playerId: $player->id,
+                    userId: $user->id,
+                    color: PlayerColor::Green,
+                    faction: Faction::Blessed,
+                    homeland: TerrainType::Forest,
+                    roundBonus: $roundBonus,
+                    resources: new PlayerResourcesData(
+                        power: new PowerBowlsStateData(bowlThree: 3),
+                    ),
+                )],
+            ),
+        ]);
+
+        return [$game, $user];
     }
 
     /** @return array{Game, User} */

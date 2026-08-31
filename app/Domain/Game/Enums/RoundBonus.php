@@ -55,7 +55,7 @@ enum RoundBonus: string
     public function hasAvailableSpecialAction(): bool
     {
         return match ($this) {
-            self::Spade, self::Knowledge => true,
+            self::Spade, self::Bridge, self::Knowledge => true,
             default => false,
         };
     }

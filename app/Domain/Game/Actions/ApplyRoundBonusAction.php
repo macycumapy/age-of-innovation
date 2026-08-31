@@ -17,6 +17,7 @@ final class ApplyRoundBonusAction
 {
     public function __construct(
         private AdvanceKnowledgeAction $advanceKnowledge,
+        private CreateBridgeInteractionAction $createBridgeInteraction,
         private FindEligibleTerraformHexesAction $findEligibleTerraformHexes,
     ) {
     }
@@ -62,6 +63,10 @@ final class ApplyRoundBonusAction
                     ],
                 );
             }
+        }
+
+        if ($roundBonus === RoundBonus::Bridge) {
+            $this->createBridgeInteraction->execute($state, $playerState);
         }
 
         $playerState->usedSpecialActionIds[] = $roundBonus->value;

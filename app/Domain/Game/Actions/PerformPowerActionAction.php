@@ -50,21 +50,28 @@ final class PerformPowerActionAction
             }
 
             $this->applyPowerAction->execute($state, $playerState, $action, $sacrificeAmount);
+            if ($action === PowerAction::BuildBridge && $state->pendingInteraction !== null) {
+                $state->pendingInteraction->context['source'] = 'power';
+                $state->pendingInteraction->context['sacrificeAmount'] = $sacrificeAmount;
+            }
             $lockedGame->update(['state' => $state, 'version' => $lockedGame->version + 1]);
-            $this->appendGameHistory->execute(
-                $lockedGame,
-                $user,
-                GameActionType::PowerAction,
-                ['action' => $action->value, 'sacrifice_amount' => $sacrificeAmount],
-                [[
-                    'type' => 'power_action_used',
-                    'player_id' => $player->id,
-                    'action' => $action->value,
-                    'sacrifice_amount' => $sacrificeAmount,
-                ]],
-                $stateVersionBefore,
-                $lockedGame->version,
-            );
+
+            if ($action !== PowerAction::BuildBridge) {
+                $this->appendGameHistory->execute(
+                    $lockedGame,
+                    $user,
+                    GameActionType::PowerAction,
+                    ['action' => $action->value, 'sacrifice_amount' => $sacrificeAmount],
+                    [[
+                        'type' => 'power_action_used',
+                        'player_id' => $player->id,
+                        'action' => $action->value,
+                        'sacrifice_amount' => $sacrificeAmount,
+                    ]],
+                    $stateVersionBefore,
+                    $lockedGame->version,
+                );
+            }
 
             return $lockedGame->refresh();
         });

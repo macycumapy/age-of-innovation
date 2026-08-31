@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import TerraformedTerrainTokens from '@/components/game/TerraformedTerrainTokens.vue';
+import BridgeTokens from '@/components/game/BridgeTokens.vue';
 import { terrainColors, terrainNames } from '@/lib/gameDisplay';
 import type {
     BoardState,
@@ -30,6 +31,7 @@ type Props = {
     canUsePowerActions?: boolean;
     canUseBookActions?: boolean;
     upgradeableBuildingHexIds?: string[];
+    pendingBridge?: { fromHexId: string; toHexId: string; ownerPlayerId: number } | null;
 };
 
 type BoardLayout = {
@@ -67,6 +69,7 @@ const props = withDefaults(defineProps<Props>(), {
     canUsePowerActions: false,
     canUseBookActions: false,
     upgradeableBuildingHexIds: () => [],
+    pendingBridge: null,
 });
 
 const emit = defineEmits<{
@@ -252,7 +255,7 @@ function powerActionX(index: number): number {
 }
 
 function canSelectPowerAction(action: PowerActionState): boolean {
-    return props.canUsePowerActions && !action.isUsed && action.id !== 'build_bridge';
+    return props.canUsePowerActions && !action.isUsed;
 }
 
 function bookActionState(action: BookAction): BookActionState | undefined {
@@ -376,7 +379,7 @@ function closedActionTokenX(actionX: number, actionWidth: number): number {
                 @click="canSelectPowerAction(action) && emit('powerActionClick', action)"
             >
                 <title>
-                    {{ action.id === 'build_bridge' ? 'Выбор позиции моста пока недоступен.' : action.description }}
+                    {{ action.description }}
                 </title>
                 <rect
                     :x="powerActionX(index)"
@@ -399,6 +402,12 @@ function closedActionTokenX(actionX: number, actionWidth: number): number {
             </g>
 
             <TerraformedTerrainTokens :hexes="visibleHexes" />
+            <BridgeTokens
+                :hexes="visibleHexes"
+                :bridges="board.bridges ?? []"
+                :players="players"
+                :pending-bridge="pendingBridge"
+            />
 
             <g
                 v-for="hex in visibleHexes"

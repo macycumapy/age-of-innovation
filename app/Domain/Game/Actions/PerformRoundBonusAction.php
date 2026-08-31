@@ -8,6 +8,7 @@ use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Enums\GameActionType;
 use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\KnowledgeDiscipline;
+use App\Domain\Game\Enums\RoundBonus;
 use App\Models\Game;
 use App\Models\GamePlayer;
 use App\Models\User;
@@ -51,21 +52,27 @@ final class PerformRoundBonusAction
 
             $roundBonus = $playerState->roundBonus;
             $this->applyRoundBonusAction->execute($state, $playerState, $discipline);
+            if ($roundBonus === RoundBonus::Bridge && $state->pendingInteraction !== null) {
+                $state->pendingInteraction->context['source'] = 'round_bonus';
+            }
             $lockedGame->update(['state' => $state, 'version' => $lockedGame->version + 1]);
-            $this->appendGameHistory->execute(
-                $lockedGame,
-                $user,
-                GameActionType::SpecialAction,
-                ['round_bonus' => $roundBonus->value, 'discipline' => $discipline?->value],
-                [[
-                    'type' => 'round_bonus_action_used',
-                    'player_id' => $player->id,
-                    'round_bonus' => $roundBonus->value,
-                    'discipline' => $discipline?->value,
-                ]],
-                $stateVersionBefore,
-                $lockedGame->version,
-            );
+
+            if ($roundBonus !== RoundBonus::Bridge) {
+                $this->appendGameHistory->execute(
+                    $lockedGame,
+                    $user,
+                    GameActionType::SpecialAction,
+                    ['round_bonus' => $roundBonus->value, 'discipline' => $discipline?->value],
+                    [[
+                        'type' => 'round_bonus_action_used',
+                        'player_id' => $player->id,
+                        'round_bonus' => $roundBonus->value,
+                        'discipline' => $discipline?->value,
+                    ]],
+                    $stateVersionBefore,
+                    $lockedGame->version,
+                );
+            }
 
             return $lockedGame->refresh();
         });

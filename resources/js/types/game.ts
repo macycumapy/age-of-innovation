@@ -395,6 +395,16 @@ export type PendingInteraction =
         };
     }
     | {
+        type: 'place_bridge';
+        playerId: number;
+        optionIds: string[];
+        context: {
+            pairs: Array<{ fromHexId: string; toHexId: string }>;
+            selectedFromHexId?: string;
+            selectedToHexId?: string;
+        };
+    }
+    | {
         type: 'build_workshop_after_terraforming';
         playerId: number;
         optionIds: string[];
@@ -436,6 +446,7 @@ export type BoardHexState = {
     r: number;
     initialTerrain: TerrainType;
     terrain: TerrainType;
+    riverConnectedHexIds?: string[];
     building: BuildingState | null;
 };
 
@@ -460,5 +471,10 @@ export type BoardState = {
     variant: MapVariant;
     riverBankHexIds: string[];
     edgeHexIds: string[];
+    bridges?: Array<{
+        fromHexId: string;
+        toHexId: string;
+        ownerPlayerId: number;
+    }>;
     hexes: BoardHexState[];
 };

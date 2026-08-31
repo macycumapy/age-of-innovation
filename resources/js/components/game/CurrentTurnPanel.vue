@@ -3,6 +3,8 @@ import { Form } from '@inertiajs/vue3';
 import { Check, RotateCcw } from '@lucide/vue';
 import { computed } from 'vue';
 import CurrentTurnRestartController from '@/actions/App/Http/Controllers/CurrentTurnRestartController';
+import BridgeConfirmationController from '@/actions/App/Http/Controllers/BridgeConfirmationController';
+import BridgeController from '@/actions/App/Http/Controllers/BridgeController';
 import PalaceGuildConfirmationController from '@/actions/App/Http/Controllers/PalaceGuildConfirmationController';
 import PalaceGuildController from '@/actions/App/Http/Controllers/PalaceGuildController';
 import PowerOfferController from '@/actions/App/Http/Controllers/PowerOfferController';
@@ -24,10 +26,12 @@ const props = defineProps<{
     canSpendStartingSpade: boolean;
     pendingStartingSpadeHexId: string | null;
     pendingPalaceGuildHexId: string | null;
+    selectedBridgeFromHexId: string | null;
 }>();
 
 const emit = defineEmits<{
     finishTurn: [];
+    resetBridgeSelection: [];
 }>();
 
 const isCurrentUsersTurn = computed(() => props.activePlayer?.user.id === props.currentUserId);
@@ -70,7 +74,7 @@ function confirmRestartCurrentTurn(event: SubmitEvent): void {
         </span>
 
         <p
-            v-if="isCurrentUsersTurn && (isStartingBuildingStage || canSpendStartingSpade || canResolvePowerOffer || game.data.pendingInteraction?.type === 'place_palace_guild')"
+            v-if="isCurrentUsersTurn && (isStartingBuildingStage || canSpendStartingSpade || canResolvePowerOffer || game.data.pendingInteraction?.type === 'place_palace_guild' || game.data.pendingInteraction?.type === 'place_bridge')"
             class="truncate text-sm font-medium"
             role="status"
             aria-live="polite"
@@ -90,6 +94,13 @@ function confirmRestartCurrentTurn(event: SubmitEvent): void {
                 {{ pendingPalaceGuildHexId
                     ? 'Рынок размещён — отмените действие или подтвердите.'
                     : 'Разместите бесплатный рынок на свободной родной местности.' }}
+            </template>
+            <template v-else-if="game.data.pendingInteraction?.type === 'place_bridge'">
+                {{ game.data.pendingInteraction.context.selectedFromHexId
+                    ? 'Мост размещён — отмените действие или подтвердите.'
+                    : selectedBridgeFromHexId
+                        ? 'Выберите противоположный берег.'
+                        : 'Выберите ячейку со своим зданием для начала моста.' }}
             </template>
             <template v-else-if="game.data.pendingStartingBuildingHexId">
                 {{ isOmarStartingTowerTurn
@@ -125,6 +136,70 @@ function confirmRestartCurrentTurn(event: SubmitEvent): void {
                 <Button type="submit" :disabled="processing">Принять Силу</Button>
             </Form>
         </div>
+
+        <TooltipProvider
+            v-else-if="isCurrentUsersTurn && game.data.pendingInteraction?.type === 'place_bridge' && game.data.pendingInteraction.context.selectedFromHexId"
+            :delay-duration="150"
+        >
+            <div class="flex shrink-0 items-center gap-2">
+                <Form
+                    v-if="game.data.canRestartCurrentTurn"
+                    v-bind="CurrentTurnRestartController.form(game.data.id)"
+                    #default="{ processing }"
+                    @submit="confirmRestartCurrentTurn"
+                >
+                    <Button type="submit" variant="outline" :disabled="processing">
+                        Перезапустить ход
+                    </Button>
+                </Form>
+                <Form v-bind="BridgeController.destroy.form(game.data.id)" #default="{ processing }">
+                    <Tooltip>
+                        <TooltipTrigger as-child>
+                            <Button type="submit" variant="outline" size="icon" :disabled="processing" aria-label="Отменить размещение моста">
+                                <RotateCcw class="size-4" :class="processing ? 'animate-spin' : ''" />
+                            </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Отменить размещение моста</TooltipContent>
+                    </Tooltip>
+                </Form>
+                <Form v-bind="BridgeConfirmationController.form(game.data.id)" #default="{ processing }">
+                    <Tooltip>
+                        <TooltipTrigger as-child>
+                            <Button type="submit" size="icon" :disabled="processing" aria-label="Подтвердить строительство моста">
+                                <Check class="size-4" />
+                            </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Подтвердить строительство моста</TooltipContent>
+                    </Tooltip>
+                </Form>
+            </div>
+        </TooltipProvider>
+
+        <div
+            v-else-if="isCurrentUsersTurn && game.data.pendingInteraction?.type === 'place_bridge' && selectedBridgeFromHexId"
+            class="flex shrink-0 items-center gap-2"
+        >
+            <Form
+                v-if="game.data.canRestartCurrentTurn"
+                v-bind="CurrentTurnRestartController.form(game.data.id)"
+                #default="{ processing }"
+                @submit="confirmRestartCurrentTurn"
+            >
+                <Button type="submit" variant="outline" :disabled="processing">Перезапустить ход</Button>
+            </Form>
+            <Button type="button" variant="outline" size="sm" @click="emit('resetBridgeSelection')">
+                Выбрать другой берег
+            </Button>
+        </div>
+
+        <Form
+            v-else-if="isCurrentUsersTurn && game.data.pendingInteraction?.type === 'place_bridge'"
+            v-bind="CurrentTurnRestartController.form(game.data.id)"
+            #default="{ processing }"
+            @submit="confirmRestartCurrentTurn"
+        >
+            <Button type="submit" variant="outline" :disabled="processing">Перезапустить ход</Button>
+        </Form>
 
         <TooltipProvider
             v-else-if="isCurrentUsersTurn && game.data.pendingInteraction?.type === 'place_palace_guild' && pendingPalaceGuildHexId"

@@ -85,6 +85,14 @@ class GameResource extends JsonResource
                 'variant' => $this->state->board->variant->value,
                 'riverBankHexIds' => $this->state->board->riverBankHexIds,
                 'edgeHexIds' => $this->state->board->edgeHexIds,
+                'bridges' => array_map(
+                    static fn (BridgeStateData $bridge): array => [
+                        'fromHexId' => $bridge->fromHexId,
+                        'toHexId' => $bridge->toHexId,
+                        'ownerPlayerId' => $bridge->ownerPlayerId,
+                    ],
+                    $this->state->board->bridges,
+                ),
                 'hexes' => array_map(
                     static fn (BoardHexStateData $hex): array => [
                         'id' => $hex->id,
@@ -92,6 +100,7 @@ class GameResource extends JsonResource
                         'r' => $hex->r,
                         'initialTerrain' => $hex->initialTerrain->value,
                         'terrain' => $hex->terrain->value,
+                        'riverConnectedHexIds' => $hex->riverConnectedHexIds,
                         'building' => $hex->building === null ? null : [
                             'type' => $hex->building->type->value,
                             'ownerPlayerId' => $hex->building->ownerPlayerId,

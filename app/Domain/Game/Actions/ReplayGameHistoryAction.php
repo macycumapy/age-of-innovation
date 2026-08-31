@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Domain\Game\Actions;
 
 use App\Domain\Game\Data\BoardHexStateData;
+use App\Domain\Game\Data\BridgeStateData;
 use App\Domain\Game\Data\BuildingStateData;
 use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Data\GameStateData;
@@ -167,8 +168,11 @@ final class ReplayGameHistoryAction
             $this->applyRoundBonusAction->execute($state, $playerState, $discipline);
         }
 
+        $this->applyReplayedBridge($state, $player->id, $action);
+
         $game->state = $state;
     }
+
 
     /** @param Collection<int, GamePlayer> $players */
     private function replayStartGame(Game $game, Collection $players, GameAction $action): void
@@ -813,7 +817,21 @@ final class ReplayGameHistoryAction
             PowerAction::from((string) $action->payload['action']),
             (int) ($action->payload['sacrifice_amount'] ?? 0),
         );
+        $this->applyReplayedBridge($state, $player->id, $action);
         $game->state = $state;
+    }
+
+    private function applyReplayedBridge(GameStateData $state, int $playerId, GameAction $action): void
+    {
+        $fromHexId = $action->payload['from_hex_id'] ?? null;
+        $toHexId = $action->payload['to_hex_id'] ?? null;
+
+        if (! is_string($fromHexId) || ! is_string($toHexId)) {
+            return;
+        }
+
+        $state->board->bridges[] = new BridgeStateData($fromHexId, $toHexId, $playerId);
+        $state->pendingInteraction = null;
     }
 
     /** @param Collection<int, GamePlayer> $players */
