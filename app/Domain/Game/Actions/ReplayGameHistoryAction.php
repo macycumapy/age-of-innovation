@@ -77,6 +77,7 @@ final class ReplayGameHistoryAction
         private AdvanceKnowledgeAction $advanceKnowledge,
         private ResolveCompletedStartingSetupAction $resolveCompletedStartingSetup,
         private ApplyRoundBonusAction $applyRoundBonusAction,
+        private ApplyFactionAction $applyFactionAction,
     ) {
     }
 
@@ -157,11 +158,15 @@ final class ReplayGameHistoryAction
 
         $state = $game->state;
         $disciplineValue = $action->payload['discipline'] ?? null;
-        $this->applyRoundBonusAction->execute(
-            $state,
-            $this->playerState($state, $player->id),
-            is_string($disciplineValue) ? KnowledgeDiscipline::from($disciplineValue) : null,
-        );
+        $discipline = is_string($disciplineValue) ? KnowledgeDiscipline::from($disciplineValue) : null;
+        $playerState = $this->playerState($state, $player->id);
+
+        if (isset($action->payload['faction'])) {
+            $this->applyFactionAction->execute($state, $playerState, $discipline);
+        } else {
+            $this->applyRoundBonusAction->execute($state, $playerState, $discipline);
+        }
+
         $game->state = $state;
     }
 

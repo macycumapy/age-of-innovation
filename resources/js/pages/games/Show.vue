@@ -18,6 +18,7 @@ import BuildingUpgradeDialog from '@/components/game/BuildingUpgradeDialog.vue';
 import CompetencySelector from '@/components/game/CompetencySelector.vue';
 import CurrentTurnFinishDialog from '@/components/game/CurrentTurnFinishDialog.vue';
 import CurrentTurnPanel from '@/components/game/CurrentTurnPanel.vue';
+import FactionActionDialog from '@/components/game/FactionActionDialog.vue';
 import CultBoard from '@/components/game/CultBoard.vue';
 import InnovationBoard from '@/components/game/InnovationBoard.vue';
 import PalaceBoard from '@/components/game/PalaceBoard.vue';
@@ -263,6 +264,7 @@ const isCurrentTurnFinishDialogOpen = ref(false);
 const isBuildingUpgradeDialogOpen = ref(false);
 const isScholarActionDialogOpen = ref(false);
 const isRoundBonusActionDialogOpen = ref(false);
+const isFactionActionDialogOpen = ref(false);
 const selectedBuildingUpgradeHexId = ref<string | null>(null);
 const selectedPowerAction = ref<PowerActionState | null>(null);
 const selectedBookAction = ref<BookActionState | null>(null);
@@ -1137,9 +1139,11 @@ function updateStartingKnowledgeCount(discipline: KnowledgeDiscipline, event: Ev
                             :can-sacrifice-power="canSacrificePower"
                             :can-exchange-resources="canExchangeResources"
                             :can-use-round-bonus-action="canExchangeResources"
+                            :can-use-faction-action="canExchangeResources"
                             @sacrifice-power="isPowerSacrificeDialogOpen = true"
                             @exchange-resources="isResourceExchangeDialogOpen = true"
                             @use-round-bonus-action="isRoundBonusActionDialogOpen = true"
+                            @use-faction-action="isFactionActionDialogOpen = true"
                         />
                     </div>
 
@@ -1203,6 +1207,13 @@ function updateStartingKnowledgeCount(discipline: KnowledgeDiscipline, event: Ev
                 :game-id="game.data.id"
                 :round-bonus="currentPlayerState?.roundBonus ?? null"
                 :description="currentRoundBonusDescription"
+                :discipline-names="game.data.knowledgeDisciplineNames"
+            />
+
+            <FactionActionDialog
+                v-model:open="isFactionActionDialogOpen"
+                :game-id="game.data.id"
+                :faction="currentPlayer?.faction ?? null"
                 :discipline-names="game.data.knowledgeDisciplineNames"
             />
 

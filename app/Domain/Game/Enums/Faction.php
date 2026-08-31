@@ -60,4 +60,17 @@ enum Faction: string
 
         return ['victoryPoints' => 0, 'coins' => 0];
     }
+
+    public function hasSpecialAction(): bool
+    {
+        return match ($this) {
+            self::Philosophers, self::Psychics => true,
+            default => false,
+        };
+    }
+
+    public function specialActionId(): string
+    {
+        return "faction:{$this->value}";
+    }
 }

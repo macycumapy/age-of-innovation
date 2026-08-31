@@ -50,12 +50,14 @@ const props = defineProps<{
     canSacrificePower: boolean;
     canExchangeResources: boolean;
     canUseRoundBonusAction: boolean;
+    canUseFactionAction: boolean;
 }>();
 
 const emit = defineEmits<{
     sacrificePower: [];
     exchangeResources: [];
     useRoundBonusAction: [];
+    useFactionAction: [];
 }>();
 
 const boardImages = import.meta.glob('../../../images/terrain_boards/*.webp', {
@@ -231,6 +233,34 @@ function factionCardStyle(): CSSProperties {
         left: `${(factionCardX / boardWidth) * 100}%`,
         top: `${(factionCardY / boardHeight) * 100}%`,
         width: `${(factionCardWidth / boardWidth) * 100}%`,
+    };
+}
+
+function isFactionActionAvailable(player: GamePlayerSummary): boolean {
+    return props.canUseFactionAction
+        && player.user.id === props.currentUserId
+        && (playerState(player.id)?.canUseFactionAction ?? false);
+}
+
+function isFactionActionUsed(player: GamePlayerSummary): boolean {
+    return player.faction !== null
+        && ['philosophers', 'psychics'].includes(player.faction)
+        && !(playerState(player.id)?.canUseFactionAction ?? false);
+}
+
+function factionActionTokenStyle(faction: Faction): CSSProperties {
+    const sourceWidth = 592;
+    const sourceHeight = 438;
+    const actionCenter = faction === 'philosophers'
+        ? { x: 76, y: 249 }
+        : { x: 76, y: 154 };
+    const renderedHeight = factionCardWidth * sourceHeight / sourceWidth;
+    const tokenSize = 82;
+
+    return {
+        left: `${((factionCardX + actionCenter.x / sourceWidth * factionCardWidth - tokenSize / 2) / boardWidth) * 100}%`,
+        top: `${((factionCardY + actionCenter.y / sourceHeight * renderedHeight - tokenSize / 2) / boardHeight) * 100}%`,
+        width: `${(tokenSize / boardWidth) * 100}%`,
     };
 }
 
@@ -417,6 +447,20 @@ function canSacrificeFromBowl(player: GamePlayerSummary, bowl: PowerBowl): boole
                         :alt="`Раса игрока ${player.user.name}: ${factionNames[player.faction]}`"
                         :style="factionCardStyle()"
                         class="absolute z-0 rounded-sm shadow-md"
+                        :class="isFactionActionAvailable(player) ? 'cursor-pointer' : ''"
+                        :role="isFactionActionAvailable(player) ? 'button' : undefined"
+                        :tabindex="isFactionActionAvailable(player) ? 0 : undefined"
+                        @click="isFactionActionAvailable(player) && emit('useFactionAction')"
+                        @keydown.enter="isFactionActionAvailable(player) && emit('useFactionAction')"
+                        @keydown.space.prevent="isFactionActionAvailable(player) && emit('useFactionAction')"
+                    />
+
+                    <img
+                        v-if="player.faction && isFactionActionUsed(player)"
+                        :src="goldCrossUrl"
+                        alt="Действие расы использовано"
+                        :style="factionActionTokenStyle(player.faction)"
+                        class="pointer-events-none absolute z-10 h-auto drop-shadow-md"
                     />
 
                     <div

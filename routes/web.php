@@ -6,6 +6,7 @@ use App\Http\Controllers\BookActionController;
 use App\Http\Controllers\BuildingUpgradeController;
 use App\Http\Controllers\CurrentTurnFinishController;
 use App\Http\Controllers\CurrentTurnRestartController;
+use App\Http\Controllers\FactionActionController;
 use App\Http\Controllers\GameController;
 use App\Http\Controllers\GameHistoryController;
 use App\Http\Controllers\GameHistoryUndoController;
@@ -70,6 +71,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('games.book-action');
     Route::post('games/{game}/round-bonus-action', RoundBonusActionController::class)
         ->name('games.round-bonus-action');
+    Route::post('games/{game}/faction-action', FactionActionController::class)
+        ->name('games.faction-action');
     Route::post('games/{game}/power-offer', PowerOfferController::class)
         ->name('games.power-offer');
     Route::post('games/{game}/building-upgrade', BuildingUpgradeController::class)
