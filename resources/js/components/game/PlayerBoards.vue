@@ -6,6 +6,7 @@ import type {
     Faction,
     GamePlayerBoardState,
     GamePlayerSummary,
+    PalaceAbility,
     PlayerColor,
     RoundBonus,
 } from '@/types';
@@ -44,6 +45,7 @@ const props = defineProps<{
     currentUserId: number;
     roundBonusDescriptions: Record<RoundBonus, string>;
     competencyDescriptions: Record<Competency, string>;
+    palaceDescriptions: Record<PalaceAbility, string>;
     canSacrificePower: boolean;
     canExchangeResources: boolean;
 }>();
@@ -89,6 +91,12 @@ const competencyImages = import.meta.glob(
     },
 ) as Record<string, string>;
 
+const palaceImages = import.meta.glob('../../../images/palaces/*.jpg', {
+    eager: true,
+    import: 'default',
+    query: '?url',
+}) as Record<string, string>;
+
 const boardWidth = 1219;
 const boardHeight = 636;
 const buildingWidth = 80;
@@ -97,6 +105,9 @@ const scholarPoolSize = 7;
 const factionCardX = 593;
 const factionCardY = 60;
 const factionCardWidth = 380;
+const palaceTileX = 95;
+const palaceTileY = 320;
+const palaceTileWidth = 215;
 const shippingLevelY = [160, 110, 60, 10];
 const terraformingLevelY = [150, 100, 50];
 
@@ -234,6 +245,26 @@ function competencyImage(competency: Competency): string {
     return competencyImages[
         `../../../images/competencies/${competency}.png`
     ];
+}
+
+function palaceImage(palace: PalaceAbility | null | undefined): string {
+    if (!palace) {
+        return '';
+    }
+
+    return palaceImages[`../../../images/palaces/${palace}.jpg`];
+}
+
+function palaceDescription(palace: PalaceAbility | null | undefined): string {
+    return palace ? props.palaceDescriptions[palace] : '';
+}
+
+function palaceTileStyle(): CSSProperties {
+    return {
+        left: `${(palaceTileX / boardWidth) * 100}%`,
+        top: `${(palaceTileY / boardHeight) * 100}%`,
+        width: `${(palaceTileWidth / boardWidth) * 100}%`,
+    };
 }
 
 function playerState(playerId: number): GamePlayerBoardState | undefined {
@@ -410,6 +441,26 @@ function canSacrificeFromBowl(player: GamePlayerSummary, bowl: PowerBowl): boole
                             class="h-full w-full object-contain drop-shadow-md transition-transform duration-500 ease-in-out group-hover:translate-x-[25px] group-hover:-translate-y-[25px]"
                         />
                     </span>
+
+                    <TooltipProvider v-if="playerState(player.id)?.palaceId" :delay-duration="150">
+                        <Tooltip>
+                            <TooltipTrigger as-child>
+                                <img
+                                    :src="palaceImage(playerState(player.id)?.palaceId)"
+                                    :alt="`Жетон Дворца игрока ${player.user.name}`"
+                                    :style="palaceTileStyle()"
+                                    tabindex="0"
+                                    class="absolute z-10 h-auto cursor-help rounded-sm shadow-md"
+                                />
+                            </TooltipTrigger>
+                            <TooltipContent class="max-w-xs">
+                                <p class="font-semibold">
+                                    Жетон Дворца {{ Number(playerState(player.id)?.palaceId?.slice(-2)) }}
+                                </p>
+                                <p>{{ palaceDescription(playerState(player.id)?.palaceId) }}</p>
+                            </TooltipContent>
+                        </Tooltip>
+                    </TooltipProvider>
 
                     <span
                         :style="

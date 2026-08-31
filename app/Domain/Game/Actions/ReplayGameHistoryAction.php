@@ -21,6 +21,7 @@ use App\Domain\Game\Enums\GameActionType;
 use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\GameStatus;
 use App\Domain\Game\Enums\KnowledgeDiscipline;
+use App\Domain\Game\Enums\PalaceAbility;
 use App\Domain\Game\Enums\PendingInteractionType;
 use App\Domain\Game\Enums\PowerAction;
 use App\Domain\Game\Enums\ResourceExchange;
@@ -55,6 +56,8 @@ final class ReplayGameHistoryAction
         GameActionType::AcceptPower,
         GameActionType::DeclinePower,
         GameActionType::UpgradeBuilding,
+        GameActionType::ChoosePalace,
+        GameActionType::PlacePalaceGuild,
     ];
 
     public function __construct(
@@ -125,6 +128,8 @@ final class ReplayGameHistoryAction
                     $action,
                 ),
                 GameActionType::UpgradeBuilding => $this->replayUpgradeBuilding($game, $players, $action),
+                GameActionType::ChoosePalace => $this->replayChoosePalace($game, $players, $action),
+                GameActionType::PlacePalaceGuild => $this->replayPlacePalaceGuild($game, $players, $action),
                 default => null,
             };
 
@@ -499,6 +504,7 @@ final class ReplayGameHistoryAction
         }
 
         $state = $game->state;
+        $state->round->hasTakenMainAction = true;
 
         if ((bool) ($action->payload['built'] ?? false)) {
             $hex = collect($state->board->hexes)->firstWhere('id', $action->payload['hex_id'] ?? null);
@@ -523,6 +529,83 @@ final class ReplayGameHistoryAction
             $state->pendingInteraction = null;
         }
 
+        $game->state = $state;
+    }
+
+    /** @param Collection<int, GamePlayer> $players */
+    private function replayChoosePalace(Game $game, Collection $players, GameAction $action): void
+    {
+        $player = $players->firstWhere('user_id', $action->player_id);
+
+        if (! $player instanceof GamePlayer
+            || $game->state->pendingInteraction?->type !== PendingInteractionType::ChoosePalace) {
+            $this->invalidHistory();
+        }
+
+        $state = $game->state;
+        $playerState = $this->playerState($state, $player->id);
+        $palace = PalaceAbility::tryFrom((string) ($action->payload['palace_id'] ?? ''));
+
+        if ($palace === null || ! in_array($palace->value, $state->availablePalaceIds, true)) {
+            $this->invalidHistory();
+        }
+
+        $playerState->palaceId = $palace->value;
+        $playerState->victoryPoints += (int) ($action->payload['victory_points'] ?? 0);
+        $state->availablePalaceIds = array_values(array_filter(
+            $state->availablePalaceIds,
+            static fn (string $palaceId): bool => $palaceId !== $palace->value,
+        ));
+        $builtHexId = (string) ($action->payload['built_hex_id'] ?? '');
+        $state->pendingInteraction = null;
+
+        if ($palace === PalaceAbility::Palace16) {
+            $state->pendingInteraction = new PendingInteractionData(
+                PendingInteractionType::PlacePalaceGuild,
+                $player->id,
+                array_values(array_map(
+                    static fn (BoardHexStateData $hex): string => $hex->id,
+                    array_filter(
+                        $state->board->hexes,
+                        static fn (BoardHexStateData $hex): bool => $hex->terrain === $playerState->homeland
+                            && $hex->building === null,
+                    ),
+                )),
+                ['palaceBuiltHexId' => $builtHexId, 'selectedHexId' => null],
+            );
+            $game->active_player_id = $player->user_id;
+        } else {
+            $nextActiveUserId = $this->createPowerOffersAfterBuilding->execute($state, $player->id, $builtHexId);
+            $game->active_player_id = $nextActiveUserId ?? $player->user_id;
+        }
+        $game->state = $state;
+    }
+
+    /** @param Collection<int, GamePlayer> $players */
+    private function replayPlacePalaceGuild(Game $game, Collection $players, GameAction $action): void
+    {
+        $player = $players->firstWhere('user_id', $action->player_id);
+        $hex = collect($game->state->board->hexes)->firstWhere('id', $action->payload['hex_id'] ?? null);
+
+        if (! $player instanceof GamePlayer
+            || ! $hex instanceof BoardHexStateData
+            || $game->state->pendingInteraction?->type !== PendingInteractionType::PlacePalaceGuild) {
+            $this->invalidHistory();
+        }
+
+        $state = $game->state;
+        $playerState = $this->playerState($state, $player->id);
+        $hex->building = new BuildingStateData(BuildingType::Guild, $player->id);
+        $playerState->resources->coins += (int) ($action->payload['bonus_coins'] ?? 0);
+        $playerState->victoryPoints += (int) ($action->payload['victory_points'] ?? 0);
+        $state->pendingInteraction = null;
+        $nextActiveUserId = $this->createPowerOffersAfterBuilding->execute(
+            $state,
+            $player->id,
+            $hex->id,
+            [(string) ($action->payload['palace_built_hex_id'] ?? '')],
+        );
+        $game->active_player_id = $nextActiveUserId ?? $player->user_id;
         $game->state = $state;
     }
 

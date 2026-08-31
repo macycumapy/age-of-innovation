@@ -12,8 +12,10 @@ use Illuminate\Validation\ValidationException;
 
 final class ApplyPowerOfferDecisionAction
 {
-    public function __construct(private GainPowerAction $gainPower)
-    {
+    public function __construct(
+        private CreatePowerOffersAfterBuildingAction $createPowerOffersAfterBuilding,
+        private GainPowerAction $gainPower,
+    ) {
     }
 
     /** @return array{receivedPower: int, victoryPointsSpent: int, nextActiveUserId: int} */
@@ -51,6 +53,9 @@ final class ApplyPowerOfferDecisionAction
                     'builtHexId' => (string) $interaction->context['builtHexId'],
                     'powerAmount' => (int) $nextOffer['powerAmount'],
                     'remainingOffers' => $remainingOffers,
+                    ...(isset($interaction->context['queuedBuiltHexIds'])
+                        ? ['queuedBuiltHexIds' => $interaction->context['queuedBuiltHexIds']]
+                        : []),
                 ],
             );
             $nextActiveUserId = (int) $nextOffer['userId'];
@@ -64,8 +69,21 @@ final class ApplyPowerOfferDecisionAction
                 throw ValidationException::withMessages(['game' => 'Не найден построивший здание игрок.']);
             }
 
-            $state->pendingInteraction = null;
-            $nextActiveUserId = $buildingPlayer->userId;
+            $queuedBuiltHexIds = $interaction->context['queuedBuiltHexIds'] ?? [];
+            $nextBuiltHexId = array_shift($queuedBuiltHexIds);
+            $nextActiveUserId = is_string($nextBuiltHexId)
+                ? $this->createPowerOffersAfterBuilding->execute(
+                    $state,
+                    $buildingPlayer->playerId,
+                    $nextBuiltHexId,
+                    $queuedBuiltHexIds,
+                )
+                : null;
+
+            if ($nextActiveUserId === null) {
+                $state->pendingInteraction = null;
+                $nextActiveUserId = $buildingPlayer->userId;
+            }
         }
 
         return [

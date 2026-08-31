@@ -5,6 +5,8 @@ import { computed, reactive, ref, watch } from 'vue';
 import GamePlayerController from '@/actions/App/Http/Controllers/GamePlayerController';
 import GamePlayerReadinessController from '@/actions/App/Http/Controllers/GamePlayerReadinessController';
 import GameStartController from '@/actions/App/Http/Controllers/GameStartController';
+import PalaceChoiceController from '@/actions/App/Http/Controllers/PalaceChoiceController';
+import PalaceGuildController from '@/actions/App/Http/Controllers/PalaceGuildController';
 import PlanningBundleController from '@/actions/App/Http/Controllers/PlanningBundleController';
 import StartingBuildingController from '@/actions/App/Http/Controllers/StartingBuildingController';
 import StartingCompetencyController from '@/actions/App/Http/Controllers/StartingCompetencyController';
@@ -19,6 +21,7 @@ import CurrentTurnPanel from '@/components/game/CurrentTurnPanel.vue';
 import CultBoard from '@/components/game/CultBoard.vue';
 import InnovationBoard from '@/components/game/InnovationBoard.vue';
 import PalaceBoard from '@/components/game/PalaceBoard.vue';
+import PalaceSelector from '@/components/game/PalaceSelector.vue';
 import PlayerBoards from '@/components/game/PlayerBoards.vue';
 import PlayerStatsPanel from '@/components/game/PlayerStatsPanel.vue';
 import PowerActionDialog from '@/components/game/PowerActionDialog.vue';
@@ -61,6 +64,7 @@ import type {
     GameResource,
     KnowledgeDiscipline,
     MapVariant,
+    PalaceAbility,
     PowerActionState,
     RoundBonus,
     TerrainType,
@@ -150,6 +154,24 @@ const canChooseStartingCompetency = computed(
         && props.game.data.activePlayerId === page.props.auth.user.id,
 );
 
+const canChoosePalace = computed(
+    () => props.game.data.pendingInteraction?.type === 'choose_palace'
+        && props.game.data.pendingInteraction.playerId === currentPlayer.value?.id
+        && props.game.data.activePlayerId === page.props.auth.user.id,
+);
+
+const canPlacePalaceGuild = computed(
+    () => props.game.data.pendingInteraction?.type === 'place_palace_guild'
+        && props.game.data.pendingInteraction.playerId === currentPlayer.value?.id
+        && props.game.data.activePlayerId === page.props.auth.user.id,
+);
+
+const pendingPalaceGuildHexId = computed(() =>
+    props.game.data.pendingInteraction?.type === 'place_palace_guild'
+        ? props.game.data.pendingInteraction.context.selectedHexId
+        : null,
+);
+
 const isBuildingCompetencyChoice = computed(
     () => props.game.data.pendingInteraction?.type === 'choose_competency'
         && props.game.data.pendingInteraction.context.reason === 'building',
@@ -168,6 +190,12 @@ const pendingStartingSpadeHexId = computed(() =>
 );
 
 const selectableStartingHexIds = computed(() => {
+    if (canPlacePalaceGuild.value && props.game.data.pendingInteraction?.type === 'place_palace_guild') {
+        return pendingPalaceGuildHexId.value === null
+            ? props.game.data.pendingInteraction.optionIds
+            : [];
+    }
+
     if (canSpendStartingSpade.value && props.game.data.pendingInteraction?.type === 'spend_spades') {
         return pendingStartingSpadeHexId.value === null
             ? props.game.data.pendingInteraction.optionIds
@@ -184,6 +212,14 @@ const selectableStartingHexIds = computed(() => {
 });
 
 function placeStartingBuilding(hexId: string): void {
+    if (canPlacePalaceGuild.value) {
+        router.post(PalaceGuildController.store.url(props.game.data.id), { hex_id: hexId }, {
+            preserveScroll: true,
+        });
+
+        return;
+    }
+
     if (canSpendStartingSpade.value) {
         router.post(StartingSpadeController.store.url(props.game.data.id), { hex_id: hexId }, {
             preserveScroll: true,
@@ -215,6 +251,7 @@ const startingKnowledgeCounts = reactive<Record<KnowledgeDiscipline, number>>({
 });
 const selectedStartingCompetency = ref<Competency | null>(null);
 const selectedMonkCompetency = ref<Competency | null>(null);
+const selectedPalace = ref<PalaceAbility | null>(null);
 const isPlanningBundleGroupOpen = ref(true);
 const isPowerSacrificeDialogOpen = ref(false);
 const isPowerActionDialogOpen = ref(false);
@@ -304,6 +341,7 @@ watch(
 
         selectedStartingCompetency.value = null;
         selectedMonkCompetency.value = null;
+        selectedPalace.value = null;
     },
 );
 
@@ -958,6 +996,7 @@ function updateStartingKnowledgeCount(discipline: KnowledgeDiscipline, event: Ev
                 :is-omar-starting-tower-turn="isOmarStartingTowerTurn"
                 :can-spend-starting-spade="canSpendStartingSpade"
                 :pending-starting-spade-hex-id="pendingStartingSpadeHexId"
+                :pending-palace-guild-hex-id="pendingPalaceGuildHexId"
                 @finish-turn="isCurrentTurnFinishDialogOpen = true"
             />
             <Card
@@ -1007,6 +1046,41 @@ function updateStartingKnowledgeCount(discipline: KnowledgeDiscipline, event: Ev
                 </CardContent>
             </Card>
 
+            <Card
+                v-if="canChoosePalace && game.data.pendingInteraction?.type === 'choose_palace'"
+                class="mx-auto w-full max-w-5xl border-primary/40"
+            >
+                <CardHeader>
+                    <CardTitle>Жетон Дворца</CardTitle>
+                    <CardDescription>
+                        Выберите один из доступных жетонов для построенного Дворца.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <Form
+                        v-bind="PalaceChoiceController.form(game.data.id)"
+                        #default="{ errors, processing }"
+                        class="grid gap-4"
+                    >
+                        <input type="hidden" name="palace_id" :value="selectedPalace ?? ''" />
+                        <PalaceSelector
+                            v-model="selectedPalace"
+                            :palaces="game.data.pendingInteraction.optionIds"
+                            :descriptions="game.data.palaceDescriptions"
+                            :disabled="processing"
+                        />
+                        <InputError :message="errors.palace_id" />
+                        <Button
+                            type="submit"
+                            class="justify-self-end"
+                            :disabled="selectedPalace === null || processing"
+                        >
+                            {{ processing ? 'Подтверждение…' : 'Подтвердить выбор' }}
+                        </Button>
+                    </Form>
+                </CardContent>
+            </Card>
+
             <section v-if="game.data.status === 'active'" class="grid gap-4">
                 <div class="grid items-start gap-4 lg:grid-cols-[minmax(0,7fr)_minmax(16rem,3fr)]">
                     <div class="grid gap-4">
@@ -1014,7 +1088,7 @@ function updateStartingKnowledgeCount(discipline: KnowledgeDiscipline, event: Ev
                             :board="game.data.board"
                             :players="game.data.players"
                             :selectable-hex-ids="selectableStartingHexIds"
-                            :pending-hex-id="game.data.pendingStartingBuildingHexId ?? pendingStartingSpadeHexId"
+                            :pending-hex-id="game.data.pendingStartingBuildingHexId ?? pendingStartingSpadeHexId ?? pendingPalaceGuildHexId"
                             :round-scoring-tiles="game.data.roundScoringTiles"
                             :final-round-scoring-tile="game.data.finalRoundScoringTile"
                             :book-actions="game.data.bookActions"
@@ -1037,6 +1111,7 @@ function updateStartingKnowledgeCount(discipline: KnowledgeDiscipline, event: Ev
                             :current-user-id="page.props.auth.user.id"
                             :round-bonus-descriptions="game.data.roundBonusDescriptions"
                             :competency-descriptions="game.data.competencyDescriptions"
+                            :palace-descriptions="game.data.palaceDescriptions"
                             :can-sacrifice-power="canSacrificePower"
                             :can-exchange-resources="canExchangeResources"
                             @sacrifice-power="isPowerSacrificeDialogOpen = true"

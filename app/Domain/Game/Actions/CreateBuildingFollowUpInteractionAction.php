@@ -28,6 +28,23 @@ final class CreateBuildingFollowUpInteractionAction
         $isNeutralUniversity = $buildingType === BuildingType::University
             && $builtHex instanceof BoardHexStateData
             && $builtHex->building?->isNeutral === true;
+        $isNeutralPalace = $buildingType === BuildingType::Palace
+            && $builtHex instanceof BoardHexStateData
+            && $builtHex->building?->isNeutral === true;
+
+        if (! $isNeutralPalace && $buildingType === BuildingType::Palace) {
+            $state->pendingInteraction = new PendingInteractionData(
+                PendingInteractionType::ChoosePalace,
+                $playerState->playerId,
+                $state->availablePalaceIds,
+                [
+                    'reason' => 'building',
+                    'builtHexId' => $builtHexId,
+                ],
+            );
+
+            return $playerState->userId;
+        }
 
         if (! $isNeutralUniversity
             && in_array($buildingType, [BuildingType::School, BuildingType::University], true)) {

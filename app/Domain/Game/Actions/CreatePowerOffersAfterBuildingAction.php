@@ -12,8 +12,13 @@ use App\Domain\Game\Enums\PendingInteractionType;
 
 final class CreatePowerOffersAfterBuildingAction
 {
-    public function execute(GameStateData $state, int $buildingPlayerId, string $builtHexId): ?int
-    {
+    /** @param list<string> $queuedBuiltHexIds */
+    public function execute(
+        GameStateData $state,
+        int $buildingPlayerId,
+        string $builtHexId,
+        array $queuedBuiltHexIds = [],
+    ): ?int {
         $builtHex = collect($state->board->hexes)->firstWhere('id', $builtHexId);
 
         if (! $builtHex instanceof BoardHexStateData) {
@@ -63,6 +68,12 @@ final class CreatePowerOffersAfterBuildingAction
         }
 
         if ($offers === []) {
+            $nextBuiltHexId = array_shift($queuedBuiltHexIds);
+
+            if (is_string($nextBuiltHexId)) {
+                return $this->execute($state, $buildingPlayerId, $nextBuiltHexId, $queuedBuiltHexIds);
+            }
+
             $state->pendingInteraction = null;
 
             return null;
@@ -78,6 +89,7 @@ final class CreatePowerOffersAfterBuildingAction
                 'builtHexId' => $builtHexId,
                 'powerAmount' => $currentOffer['powerAmount'],
                 'remainingOffers' => $offers,
+                ...($queuedBuiltHexIds === [] ? [] : ['queuedBuiltHexIds' => $queuedBuiltHexIds]),
             ],
         );
 

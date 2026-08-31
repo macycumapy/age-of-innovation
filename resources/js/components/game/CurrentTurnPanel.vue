@@ -3,6 +3,8 @@ import { Form } from '@inertiajs/vue3';
 import { Check, RotateCcw } from '@lucide/vue';
 import { computed } from 'vue';
 import CurrentTurnRestartController from '@/actions/App/Http/Controllers/CurrentTurnRestartController';
+import PalaceGuildConfirmationController from '@/actions/App/Http/Controllers/PalaceGuildConfirmationController';
+import PalaceGuildController from '@/actions/App/Http/Controllers/PalaceGuildController';
 import PowerOfferController from '@/actions/App/Http/Controllers/PowerOfferController';
 import StartingBuildingController from '@/actions/App/Http/Controllers/StartingBuildingController';
 import StartingBuildingTurnController from '@/actions/App/Http/Controllers/StartingBuildingTurnController';
@@ -21,6 +23,7 @@ const props = defineProps<{
     isOmarStartingTowerTurn: boolean;
     canSpendStartingSpade: boolean;
     pendingStartingSpadeHexId: string | null;
+    pendingPalaceGuildHexId: string | null;
 }>();
 
 const emit = defineEmits<{
@@ -67,7 +70,7 @@ function confirmRestartCurrentTurn(event: SubmitEvent): void {
         </span>
 
         <p
-            v-if="isCurrentUsersTurn && (isStartingBuildingStage || canSpendStartingSpade || canResolvePowerOffer)"
+            v-if="isCurrentUsersTurn && (isStartingBuildingStage || canSpendStartingSpade || canResolvePowerOffer || game.data.pendingInteraction?.type === 'place_palace_guild')"
             class="truncate text-sm font-medium"
             role="status"
             aria-live="polite"
@@ -82,6 +85,11 @@ function confirmRestartCurrentTurn(event: SubmitEvent): void {
                 {{ pendingStartingSpadeHexId
                     ? 'Земля преобразована — отмените действие или подтвердите.'
                     : 'Выберите соседнюю ячейку для преобразования.' }}
+            </template>
+            <template v-else-if="game.data.pendingInteraction?.type === 'place_palace_guild'">
+                {{ pendingPalaceGuildHexId
+                    ? 'Рынок размещён — отмените действие или подтвердите.'
+                    : 'Разместите бесплатный рынок на свободной родной местности.' }}
             </template>
             <template v-else-if="game.data.pendingStartingBuildingHexId">
                 {{ isOmarStartingTowerTurn
@@ -117,6 +125,34 @@ function confirmRestartCurrentTurn(event: SubmitEvent): void {
                 <Button type="submit" :disabled="processing">Принять Силу</Button>
             </Form>
         </div>
+
+        <TooltipProvider
+            v-else-if="isCurrentUsersTurn && game.data.pendingInteraction?.type === 'place_palace_guild' && pendingPalaceGuildHexId"
+            :delay-duration="150"
+        >
+            <div class="flex shrink-0 items-center gap-2">
+                <Form v-bind="PalaceGuildController.destroy.form(game.data.id)" #default="{ processing }">
+                    <Tooltip>
+                        <TooltipTrigger as-child>
+                            <Button type="submit" variant="outline" size="icon" :disabled="processing" aria-label="Отменить размещение рынка">
+                                <RotateCcw class="size-4" :class="processing ? 'animate-spin' : ''" />
+                            </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Отменить размещение рынка</TooltipContent>
+                    </Tooltip>
+                </Form>
+                <Form v-bind="PalaceGuildConfirmationController.form(game.data.id)" #default="{ processing }">
+                    <Tooltip>
+                        <TooltipTrigger as-child>
+                            <Button type="submit" size="icon" :disabled="processing" aria-label="Подтвердить размещение рынка">
+                                <Check class="size-4" />
+                            </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Подтвердить размещение рынка</TooltipContent>
+                    </Tooltip>
+                </Form>
+            </div>
+        </TooltipProvider>
 
         <TooltipProvider
             v-else-if="isStartingBuildingStage && isCurrentUsersTurn && game.data.pendingStartingBuildingHexId"

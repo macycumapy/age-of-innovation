@@ -35,6 +35,7 @@ export type GameResource = {
         competencyDescriptions: Record<Competency, string>;
         innovationDescriptions: Record<Innovation, string>;
         roundBonusDescriptions: Record<RoundBonus, string>;
+        palaceDescriptions: Record<PalaceAbility, string>;
         roundScoringTiles: RoundScoringTile[];
         finalRoundScoringTile: FinalRoundScoringTile | null;
         bookActions: BookAction[];
@@ -80,6 +81,7 @@ export type GameActionType =
     | 'decline_power'
     | 'choose_town'
     | 'choose_palace'
+    | 'place_palace_guild'
     | 'choose_competency';
 
 export type GameHistoryEntry = {
@@ -117,6 +119,7 @@ export type GamePlayerBoardState = {
     };
     availableBridges: number;
     competencyIds: Competency[];
+    palaceId: PalaceAbility | null;
     activeTownKeys: number;
     activeAnnexes: number;
     buildingsOnMap: Record<'workshop' | 'guild' | 'school' | 'university' | 'palace', number>;
@@ -354,6 +357,24 @@ export type PendingInteraction =
         };
     }
     | {
+        type: 'choose_palace';
+        playerId: number;
+        optionIds: PalaceAbility[];
+        context: {
+            reason: 'building';
+            builtHexId: string;
+        };
+    }
+    | {
+        type: 'place_palace_guild';
+        playerId: number;
+        optionIds: string[];
+        context: {
+            palaceBuiltHexId: string;
+            selectedHexId: string | null;
+        };
+    }
+    | {
         type: 'spend_spades';
         playerId: number;
         optionIds: string[];
@@ -389,6 +410,7 @@ export type PendingInteraction =
                 userId: number;
                 powerAmount: number;
             }>;
+            queuedBuiltHexIds?: string[];
         };
     };
 

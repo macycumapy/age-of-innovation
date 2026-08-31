@@ -11,6 +11,7 @@ enum PendingInteractionType: string
     case PowerOffer = 'power_offer';
     case ChooseTown = 'choose_town';
     case ChoosePalace = 'choose_palace';
+    case PlacePalaceGuild = 'place_palace_guild';
     case ChooseCompetency = 'choose_competency';
     case SpendSpades = 'spend_spades';
     case BuildWorkshopAfterTerraforming = 'build_workshop_after_terraforming';

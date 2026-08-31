@@ -12,6 +12,9 @@ use App\Http\Controllers\GameHistoryUndoController;
 use App\Http\Controllers\GamePlayerController;
 use App\Http\Controllers\GamePlayerReadinessController;
 use App\Http\Controllers\GameStartController;
+use App\Http\Controllers\PalaceChoiceController;
+use App\Http\Controllers\PalaceGuildConfirmationController;
+use App\Http\Controllers\PalaceGuildController;
 use App\Http\Controllers\PlanningBundleController;
 use App\Http\Controllers\PowerActionController;
 use App\Http\Controllers\PowerOfferController;
@@ -67,6 +70,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('games.power-offer');
     Route::post('games/{game}/building-upgrade', BuildingUpgradeController::class)
         ->name('games.building-upgrade');
+    Route::post('games/{game}/palace-choice', PalaceChoiceController::class)
+        ->name('games.palace-choice');
+    Route::post('games/{game}/palace-guild', [PalaceGuildController::class, 'store'])
+        ->name('games.palace-guild.store');
+    Route::delete('games/{game}/palace-guild', [PalaceGuildController::class, 'destroy'])
+        ->name('games.palace-guild.destroy');
+    Route::post('games/{game}/palace-guild/confirm', PalaceGuildConfirmationController::class)
+        ->name('games.palace-guild.confirm');
     Route::post('games/{game}/current-turn/restart', CurrentTurnRestartController::class)
         ->name('games.current-turn.restart');
     Route::post('games/{game}/current-turn/finish', CurrentTurnFinishController::class)

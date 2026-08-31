@@ -1014,6 +1014,179 @@ class GameManagementTest extends TestCase
         ];
     }
 
+    public function test_player_chooses_an_available_palace_tile_after_building_a_palace(): void
+    {
+        $user = User::factory()->create();
+        $game = Game::factory()->create([
+            'status' => GameStatus::Active,
+            'phase' => GamePhase::Actions,
+            'active_player_id' => $user->id,
+        ]);
+        $player = GamePlayer::factory()->create([
+            'game_id' => $game->id,
+            'user_id' => $user->id,
+            'seat' => 1,
+        ]);
+        $game->update(['state' => new GameStateData(
+            turnOrder: [$player->id],
+            board: new BoardStateData(hexes: [
+                new BoardHexStateData(
+                    id: '0:0',
+                    q: 0,
+                    r: 0,
+                    initialTerrain: TerrainType::Forest,
+                    terrain: TerrainType::Forest,
+                    building: new BuildingStateData(BuildingType::Guild, $player->id),
+                ),
+            ]),
+            round: new RoundStateData(phase: GamePhase::Actions),
+            players: [new GamePlayerStateData(
+                playerId: $player->id,
+                userId: $user->id,
+                color: PlayerColor::Green,
+                faction: Faction::Blessed,
+                homeland: TerrainType::Forest,
+                roundBonus: RoundBonus::Coins,
+                resources: new PlayerResourcesData(tools: 4, coins: 6),
+            )],
+            availablePalaceIds: [
+                PalaceAbility::Palace01->value,
+                PalaceAbility::Palace17->value,
+            ],
+        )]);
+
+        $this->actingAs($user)->post(route('games.building-upgrade', $game), [
+            'hex_id' => '0:0',
+            'target' => BuildingType::Palace->value,
+        ])->assertRedirect(route('games.show', $game));
+
+        $game->refresh();
+        $this->assertSame(PendingInteractionType::ChoosePalace, $game->state->pendingInteraction?->type);
+        $this->assertSame([
+            'reason' => 'building',
+            'builtHexId' => '0:0',
+        ], $game->state->pendingInteraction?->context);
+        $this->assertSame([
+            PalaceAbility::Palace01->value,
+            PalaceAbility::Palace17->value,
+        ], $game->state->pendingInteraction?->optionIds);
+        $this->assertNull($game->state->players[0]->palaceId);
+
+        $this->post(route('games.palace-choice', $game), [
+            'palace_id' => PalaceAbility::Palace02->value,
+        ])->assertSessionHasErrors('palace_id');
+
+        $this->post(route('games.palace-choice', $game), [
+            'palace_id' => PalaceAbility::Palace17->value,
+        ])->assertRedirect(route('games.show', $game));
+
+        $game->refresh();
+        $this->assertSame(PalaceAbility::Palace17->value, $game->state->players[0]->palaceId);
+        $this->assertSame(30, $game->state->players[0]->victoryPoints);
+        $this->assertSame([PalaceAbility::Palace01->value], $game->state->availablePalaceIds);
+        $this->assertNull($game->state->pendingInteraction);
+        $this->get(route('games.show', $game))
+            ->assertInertia(
+                fn (Assert $page) => $page->where(
+                    'game.data.playerBoardStates.0.palaceId',
+                    PalaceAbility::Palace17->value,
+                ),
+            );
+        $this->assertSame([
+            GameActionType::UpgradeBuilding,
+            GameActionType::ChoosePalace,
+        ], $game->actions()->orderBy('sequence')->pluck('type')->all());
+    }
+
+    public function test_palace_sixteen_places_a_free_guild_on_any_empty_homeland_hex(): void
+    {
+        $user = User::factory()->create();
+        $game = Game::factory()->create([
+            'status' => GameStatus::Active,
+            'phase' => GamePhase::Actions,
+            'active_player_id' => $user->id,
+        ]);
+        $player = GamePlayer::factory()->create([
+            'game_id' => $game->id,
+            'user_id' => $user->id,
+            'seat' => 1,
+        ]);
+        $game->update(['state' => new GameStateData(
+            turnOrder: [$player->id],
+            board: new BoardStateData(hexes: [
+                new BoardHexStateData(
+                    id: '0:0',
+                    q: 0,
+                    r: 0,
+                    initialTerrain: TerrainType::Forest,
+                    terrain: TerrainType::Forest,
+                    building: new BuildingStateData(BuildingType::Guild, $player->id),
+                ),
+                new BoardHexStateData(
+                    id: '5:5',
+                    q: 5,
+                    r: 5,
+                    initialTerrain: TerrainType::Forest,
+                    terrain: TerrainType::Forest,
+                ),
+                new BoardHexStateData(
+                    id: '1:0',
+                    q: 1,
+                    r: 0,
+                    initialTerrain: TerrainType::Desert,
+                    terrain: TerrainType::Desert,
+                ),
+            ]),
+            round: new RoundStateData(phase: GamePhase::Actions),
+            players: [new GamePlayerStateData(
+                playerId: $player->id,
+                userId: $user->id,
+                color: PlayerColor::Green,
+                faction: Faction::Blessed,
+                homeland: TerrainType::Forest,
+                roundBonus: RoundBonus::Coins,
+                resources: new PlayerResourcesData(tools: 4, coins: 6),
+            )],
+            availablePalaceIds: [PalaceAbility::Palace16->value],
+        )]);
+
+        $this->actingAs($user)->post(route('games.building-upgrade', $game), [
+            'hex_id' => '0:0',
+            'target' => BuildingType::Palace->value,
+        ]);
+        $this->post(route('games.palace-choice', $game), [
+            'palace_id' => PalaceAbility::Palace16->value,
+        ]);
+
+        $game->refresh();
+        $this->assertSame(PendingInteractionType::PlacePalaceGuild, $game->state->pendingInteraction?->type);
+        $this->assertSame(['5:5'], $game->state->pendingInteraction?->optionIds);
+
+        $this->post(route('games.palace-guild.store', $game), ['hex_id' => '1:0'])
+            ->assertSessionHasErrors('hex_id');
+        $this->post(route('games.palace-guild.store', $game), ['hex_id' => '5:5'])
+            ->assertRedirect(route('games.show', $game));
+
+        $game->refresh();
+        $this->assertSame('5:5', $game->state->pendingInteraction?->context['selectedHexId']);
+        $this->assertSame(BuildingType::Guild, collect($game->state->board->hexes)->firstWhere('id', '5:5')?->building?->type);
+
+        $this->delete(route('games.palace-guild.destroy', $game))
+            ->assertRedirect(route('games.show', $game));
+        $game->refresh();
+        $this->assertNull(collect($game->state->board->hexes)->firstWhere('id', '5:5')?->building);
+        $this->assertNull($game->state->pendingInteraction?->context['selectedHexId']);
+
+        $this->post(route('games.palace-guild.store', $game), ['hex_id' => '5:5']);
+        $this->post(route('games.palace-guild.confirm', $game))
+            ->assertRedirect(route('games.show', $game));
+
+        $game->refresh();
+        $this->assertNull($game->state->pendingInteraction);
+        $this->assertSame(BuildingType::Guild, collect($game->state->board->hexes)->firstWhere('id', '5:5')?->building?->type);
+        $this->assertSame(GameActionType::PlacePalaceGuild, $game->actions()->latest('sequence')->firstOrFail()->type);
+    }
+
     public function test_neutral_university_does_not_grant_a_competency(): void
     {
         $playerState = new GamePlayerStateData(
@@ -1103,6 +1276,11 @@ class GameManagementTest extends TestCase
         $this->assertSame($user->id, $game->active_player_id);
         $this->assertSame(GameActionType::ExchangeResources, $game->actions()->sole()->type);
         $this->assertSame(1, $game->actions()->sole()->payload['exchanges']['power_to_book']['law']);
+        $this->get(route('games.show', $game))
+            ->assertInertia(
+                fn (Assert $page) => $page->where('game.data.canFinishCurrentTurn', false),
+            );
+        $this->post(route('games.current-turn.finish', $game))->assertForbidden();
     }
 
     public function test_all_resource_exchange_rates_are_applied(): void
@@ -1764,6 +1942,7 @@ class GameManagementTest extends TestCase
                     ->has('game.data.competencyDescriptions', 12)
                     ->has('game.data.innovationDescriptions', 18)
                     ->has('game.data.roundBonusDescriptions', 10)
+                    ->has('game.data.palaceDescriptions', 17)
                     ->where(
                         'game.data.competencyDescriptions.'.Competency::Competency01->value,
                         Competency::Competency01->description(),
@@ -1775,6 +1954,10 @@ class GameManagementTest extends TestCase
                     ->where(
                         'game.data.roundBonusDescriptions.'.RoundBonus::Coins->value,
                         RoundBonus::Coins->description(),
+                    )
+                    ->where(
+                        'game.data.palaceDescriptions.'.PalaceAbility::Palace01->value,
+                        PalaceAbility::Palace01->description(),
                     )
                     ->where(
                         'game.data.planningBundleDescriptions.homelands.desert',
@@ -1829,6 +2012,10 @@ class GameManagementTest extends TestCase
                     ->where(
                         'game.data.playerBoardStates.0.competencyIds',
                         $game->state->players[0]->competencyIds,
+                    )
+                    ->where(
+                        'game.data.playerBoardStates.0.palaceId',
+                        $game->state->players[0]->palaceId,
                     )
                     ->where('game.data.playerBoardStates.0.activeTownKeys', 0)
                     ->where('game.data.playerBoardStates.0.activeAnnexes', 0)
@@ -2600,8 +2787,11 @@ class GameManagementTest extends TestCase
         $this->assertSame($bowlThreeAtTurnStart + 2, $game->state->players[0]->resources->power->bowlThree);
         $this->get(route('games.show', $game))
             ->assertInertia(
-                fn (Assert $page) => $page->where('game.data.canRestartCurrentTurn', true),
+                fn (Assert $page) => $page
+                    ->where('game.data.canRestartCurrentTurn', true)
+                    ->where('game.data.canFinishCurrentTurn', false),
             );
+        $this->post(route('games.current-turn.finish', $game))->assertForbidden();
 
         $this->actingAs($users[1])
             ->post(route('games.current-turn.restart', $game))

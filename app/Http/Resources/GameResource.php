@@ -18,6 +18,7 @@ use App\Domain\Game\Enums\Faction;
 use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\GameStatus;
 use App\Domain\Game\Enums\Innovation;
+use App\Domain\Game\Enums\PalaceAbility;
 use App\Domain\Game\Enums\PowerAction;
 use App\Domain\Game\Enums\RoundBonus;
 use App\Domain\Game\Enums\TerrainType;
@@ -124,6 +125,7 @@ class GameResource extends JsonResource
                         )),
                     ),
                     'competencyIds' => $player->competencyIds,
+                    'palaceId' => $player->palaceId,
                     'activeTownKeys' => max(
                         0,
                         count($player->townTileIds)
@@ -203,6 +205,10 @@ class GameResource extends JsonResource
             'roundBonusDescriptions' => $this->enumDescriptions(
                 RoundBonus::cases(),
                 static fn (RoundBonus $roundBonus): string => $roundBonus->description(),
+            ),
+            'palaceDescriptions' => $this->enumDescriptions(
+                PalaceAbility::cases(),
+                static fn (PalaceAbility $palace): string => $palace->description(),
             ),
             'roundScoringTiles' => $this->enumValues(
                 $this->state->setupPool?->roundScoringTiles ?? [],

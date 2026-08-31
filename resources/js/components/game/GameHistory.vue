@@ -45,7 +45,8 @@ const actionDescriptions: Record<GameActionType, string> = {
     accept_power: 'принял силу',
     decline_power: 'отказался от силы',
     choose_town: 'выбрал жетон города',
-    choose_palace: 'выбрал дворец',
+    choose_palace: 'выбрал жетон Дворца',
+    place_palace_guild: 'разместил бесплатный рынок',
     choose_competency: 'выбрал компетенцию',
 };
 
