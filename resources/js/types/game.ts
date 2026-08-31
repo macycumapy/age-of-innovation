@@ -126,6 +126,7 @@ export type GamePlayerBoardState = {
     availableBridges: number;
     competencyIds: Competency[];
     palaceId: PalaceAbility | null;
+    canUsePalaceAction: boolean;
     activeTownKeys: number;
     activeAnnexes: number;
     buildingsOnMap: Record<'workshop' | 'guild' | 'school' | 'university' | 'palace', number>;

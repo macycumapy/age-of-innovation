@@ -51,6 +51,7 @@ const props = defineProps<{
     canExchangeResources: boolean;
     canUseRoundBonusAction: boolean;
     canUseFactionAction: boolean;
+    canUsePalaceAction: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -58,6 +59,7 @@ const emit = defineEmits<{
     exchangeResources: [];
     useRoundBonusAction: [];
     useFactionAction: [];
+    usePalaceAction: [];
 }>();
 
 const boardImages = import.meta.glob('../../../images/terrain_boards/*.webp', {
@@ -302,6 +304,25 @@ function palaceTileStyle(): CSSProperties {
     };
 }
 
+function isPalaceActionAvailable(player: GamePlayerSummary): boolean {
+    return props.canUsePalaceAction && player.user.id === props.currentUserId
+        && (playerState(player.id)?.canUsePalaceAction ?? false);
+}
+
+function isPalaceActionUsed(playerId: number): boolean {
+    const state = playerState(playerId);
+
+    return state?.palaceId !== null && state?.palaceId !== undefined
+        && ['palace_01', 'palace_02', 'palace_03', 'palace_04', 'palace_06', 'palace_13'].includes(state.palaceId)
+        && !state.canUsePalaceAction;
+}
+
+function palaceActionCrossStyle(palace: PalaceAbility | null | undefined): CSSProperties {
+    const left = palace === 'palace_13' ? 25 : ['palace_02', 'palace_03'].includes(palace ?? '') ? 50 : 72;
+
+    return { left: `${left}%`, top: '50%', width: '35%' };
+}
+
 function playerState(playerId: number): GamePlayerBoardState | undefined {
     return props.playerStates.find((state) => state.playerId === playerId);
 }
@@ -515,13 +536,19 @@ function canSacrificeFromBowl(player: GamePlayerSummary, bowl: PowerBowl): boole
                     <TooltipProvider v-if="playerState(player.id)?.palaceId" :delay-duration="150">
                         <Tooltip>
                             <TooltipTrigger as-child>
-                                <img
-                                    :src="palaceImage(playerState(player.id)?.palaceId)"
-                                    :alt="`Жетон Дворца игрока ${player.user.name}`"
+                                <span
                                     :style="palaceTileStyle()"
                                     tabindex="0"
-                                    class="absolute z-10 h-auto cursor-help rounded-sm shadow-md"
-                                />
+                                    class="absolute block h-auto rounded-sm shadow-md"
+                                    :class="isPalaceActionAvailable(player) ? 'cursor-pointer' : 'cursor-help'"
+                                    :role="isPalaceActionAvailable(player) ? 'button' : undefined"
+                                    @click="isPalaceActionAvailable(player) && emit('usePalaceAction')"
+                                    @keydown.enter="isPalaceActionAvailable(player) && emit('usePalaceAction')"
+                                    @keydown.space.prevent="isPalaceActionAvailable(player) && emit('usePalaceAction')"
+                                >
+                                    <img :src="palaceImage(playerState(player.id)?.palaceId)" :alt="`Жетон Дворца игрока ${player.user.name}`" class="block h-auto w-full rounded-sm" />
+                                    <img v-if="isPalaceActionUsed(player.id)" :src="goldCrossUrl" alt="Действие Дворца использовано" :style="palaceActionCrossStyle(playerState(player.id)?.palaceId)" class="pointer-events-none absolute -translate-x-1/2 -translate-y-1/2 drop-shadow-md" />
+                                </span>
                             </TooltipTrigger>
                             <TooltipContent class="max-w-xs">
                                 <p class="font-semibold">

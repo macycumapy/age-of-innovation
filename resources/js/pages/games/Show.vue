@@ -23,6 +23,7 @@ import FactionActionDialog from '@/components/game/FactionActionDialog.vue';
 import CultBoard from '@/components/game/CultBoard.vue';
 import InnovationBoard from '@/components/game/InnovationBoard.vue';
 import PalaceBoard from '@/components/game/PalaceBoard.vue';
+import PalaceActionDialog from '@/components/game/PalaceActionDialog.vue';
 import PalaceSelector from '@/components/game/PalaceSelector.vue';
 import PlayerBoards from '@/components/game/PlayerBoards.vue';
 import PlayerStatsPanel from '@/components/game/PlayerStatsPanel.vue';
@@ -373,6 +374,7 @@ const isBuildingUpgradeDialogOpen = ref(false);
 const isScholarActionDialogOpen = ref(false);
 const isRoundBonusActionDialogOpen = ref(false);
 const isFactionActionDialogOpen = ref(false);
+const isPalaceActionDialogOpen = ref(false);
 const selectedBuildingUpgradeHexId = ref<string | null>(null);
 const selectedPowerAction = ref<PowerActionState | null>(null);
 const selectedBookAction = ref<BookActionState | null>(null);
@@ -1251,10 +1253,12 @@ function updateStartingKnowledgeCount(discipline: KnowledgeDiscipline, event: Ev
                             :can-exchange-resources="canExchangeResources"
                             :can-use-round-bonus-action="canExchangeResources"
                             :can-use-faction-action="canExchangeResources"
+                            :can-use-palace-action="canExchangeResources"
                             @sacrifice-power="isPowerSacrificeDialogOpen = true"
                             @exchange-resources="isResourceExchangeDialogOpen = true"
                             @use-round-bonus-action="isRoundBonusActionDialogOpen = true"
                             @use-faction-action="isFactionActionDialogOpen = true"
+                            @use-palace-action="isPalaceActionDialogOpen = true"
                         />
                     </div>
 
@@ -1325,6 +1329,16 @@ function updateStartingKnowledgeCount(discipline: KnowledgeDiscipline, event: Ev
                 v-model:open="isFactionActionDialogOpen"
                 :game-id="game.data.id"
                 :faction="currentPlayer?.faction ?? null"
+                :discipline-names="game.data.knowledgeDisciplineNames"
+            />
+
+            <PalaceActionDialog
+                v-model:open="isPalaceActionDialogOpen"
+                :game-id="game.data.id"
+                :palace="currentPlayerState?.palaceId ?? null"
+                :board="game.data.board"
+                :player-id="currentPlayer?.id ?? null"
+                :player-color="currentPlayer?.color ?? null"
                 :discipline-names="game.data.knowledgeDisciplineNames"
             />
 

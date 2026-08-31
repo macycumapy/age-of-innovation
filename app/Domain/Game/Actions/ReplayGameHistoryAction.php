@@ -79,6 +79,7 @@ final class ReplayGameHistoryAction
         private ResolveCompletedStartingSetupAction $resolveCompletedStartingSetup,
         private ApplyRoundBonusAction $applyRoundBonusAction,
         private ApplyFactionAction $applyFactionAction,
+        private ApplyPalaceAction $applyPalaceAction,
     ) {
     }
 
@@ -162,7 +163,15 @@ final class ReplayGameHistoryAction
         $discipline = is_string($disciplineValue) ? KnowledgeDiscipline::from($disciplineValue) : null;
         $playerState = $this->playerState($state, $player->id);
 
-        if (isset($action->payload['faction'])) {
+        if (isset($action->payload['palace'])) {
+            $result = $this->applyPalaceAction->execute(
+                $state,
+                $playerState,
+                $discipline,
+                is_string($action->payload['hex_id'] ?? null) ? $action->payload['hex_id'] : null,
+            );
+            $game->active_player_id = $result['nextActiveUserId'];
+        } elseif (isset($action->payload['faction'])) {
             $this->applyFactionAction->execute($state, $playerState, $discipline);
         } else {
             $this->applyRoundBonusAction->execute($state, $playerState, $discipline);

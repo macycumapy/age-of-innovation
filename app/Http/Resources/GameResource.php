@@ -148,6 +148,7 @@ class GameResource extends JsonResource
                     ),
                     'competencyIds' => $player->competencyIds,
                     'palaceId' => $player->palaceId,
+                    'canUsePalaceAction' => $this->canUsePalaceAction($player),
                     'activeTownKeys' => max(
                         0,
                         count($player->townTileIds)
@@ -342,6 +343,14 @@ class GameResource extends JsonResource
                 && $hex->building->type === $type
                 && ! $hex->building->isNeutral,
         ));
+    }
+
+    private function canUsePalaceAction(GamePlayerStateData $player): bool
+    {
+        $palace = PalaceAbility::tryFrom((string) $player->palaceId);
+
+        return $palace?->hasSpecialAction() === true
+            && ! in_array($palace->specialActionId(), $player->usedSpecialActionIds, true);
     }
 
     /** @return list<array{hexId: string, source: string, target: string, tools: int, coins: int}> */

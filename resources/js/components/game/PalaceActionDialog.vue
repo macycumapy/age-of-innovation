@@ -1,0 +1,106 @@
+<script setup lang="ts">
+import { Form } from '@inertiajs/vue3';
+import { computed, ref, watch } from 'vue';
+import PalaceActionController from '@/actions/App/Http/Controllers/PalaceActionController';
+import InputError from '@/components/InputError.vue';
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import type { BoardState, KnowledgeDiscipline, PalaceAbility, PlayerColor } from '@/types';
+import bankingBookUrl from '../../../images/token_parts/coin_book.png';
+import bankingRoundUrl from '../../../images/token_parts/coin_round.png';
+import engineeringBookUrl from '../../../images/token_parts/engineering_book.png';
+import engineeringRoundUrl from '../../../images/token_parts/engineering_round.png';
+import lawBookUrl from '../../../images/token_parts/law_book.png';
+import lawRoundUrl from '../../../images/token_parts/law_round.png';
+import medicineBookUrl from '../../../images/token_parts/medicine_book.png';
+import medicineRoundUrl from '../../../images/token_parts/medicine_round.png';
+
+const props = defineProps<{
+    gameId: number;
+    palace: PalaceAbility | null;
+    board: BoardState;
+    playerId: number | null;
+    playerColor: PlayerColor | null;
+    disciplineNames: Record<KnowledgeDiscipline, string>;
+}>();
+const isOpen = defineModel<boolean>('open', { required: true });
+const discipline = ref<KnowledgeDiscipline | null>(null);
+const hexId = ref<string | null>(null);
+const disciplines: KnowledgeDiscipline[] = ['banking', 'law', 'engineering', 'medicine'];
+const bookImages: Record<KnowledgeDiscipline, string> = {
+    banking: bankingBookUrl,
+    law: lawBookUrl,
+    engineering: engineeringBookUrl,
+    medicine: medicineBookUrl,
+};
+const roundImages: Record<KnowledgeDiscipline, string> = {
+    banking: bankingRoundUrl,
+    law: lawRoundUrl,
+    engineering: engineeringRoundUrl,
+    medicine: medicineRoundUrl,
+};
+const actionQuestions: Partial<Record<PalaceAbility, string>> = {
+    palace_01: 'Получить 2 инструмента?',
+    palace_02: 'Получить 2 лопаты для преобразования и строительства?',
+    palace_03: 'Заменить выбранную школу рынком и получить 3 ПО и инструмент?',
+    palace_04: 'Бесплатно улучшить выбранный дом до рынка?',
+    palace_06: 'Получить 2 шага в выбранной дисциплине?',
+    palace_13: 'Получить 3 золота и выбранную книгу?',
+};
+const buildingImages = import.meta.glob<string>('../../../images/buildings/*/{workshop,school}.png', { eager: true, import: 'default', query: '?url' });
+const needsDiscipline = computed(() => props.palace === 'palace_06' || props.palace === 'palace_13');
+const sourceBuilding = computed(() => props.palace === 'palace_03' ? 'school' : props.palace === 'palace_04' ? 'workshop' : null);
+const buildingOptions = computed(() => props.board.hexes.filter((hex) => hex.building?.ownerPlayerId === props.playerId
+    && !hex.building.isNeutral && hex.building.type === sourceBuilding.value));
+const canSubmit = computed(() => (!needsDiscipline.value || discipline.value !== null)
+    && (sourceBuilding.value === null || hexId.value !== null));
+const question = computed(() => actionQuestions[props.palace ?? 'palace_01'] ?? 'Выполнить действие жетона Дворца?');
+
+watch(isOpen, (open) => {
+    if (open) {
+        discipline.value = null;
+        hexId.value = null;
+    }
+});
+
+function image(disciplineId: KnowledgeDiscipline): string {
+    return props.palace === 'palace_13' ? bookImages[disciplineId] : roundImages[disciplineId];
+}
+
+function buildingImage(): string {
+    return buildingImages[`../../../images/buildings/${props.playerColor ?? 'white'}/${sourceBuilding.value}.png`] ?? '';
+}
+</script>
+
+<template>
+    <Dialog v-model:open="isOpen">
+        <DialogContent class="sm:max-w-2xl">
+            <Form v-bind="PalaceActionController.form(gameId)" class="contents" #default="{ errors, processing }" @success="isOpen = false">
+                <input type="hidden" name="discipline" :value="discipline ?? ''" />
+                <input type="hidden" name="hex_id" :value="hexId ?? ''" />
+                <DialogHeader>
+                    <DialogTitle>Выполнить действие Дворца?</DialogTitle>
+                    <DialogDescription>{{ question }}</DialogDescription>
+                </DialogHeader>
+                <div v-if="needsDiscipline" class="grid grid-cols-4 gap-2">
+                    <button v-for="item in disciplines" :key="item" type="button" class="grid gap-1 rounded-lg border-2 p-2 text-xs" :class="discipline === item ? 'border-primary ring-2 ring-primary' : 'border-muted'" :aria-pressed="discipline === item" @click="discipline = item">
+                        <img :src="image(item)" :alt="disciplineNames[item]" class="mx-auto size-14 object-contain" /><span>{{ disciplineNames[item] }}</span>
+                    </button>
+                </div>
+                <div v-if="sourceBuilding" class="grid gap-2 sm:grid-cols-2">
+                    <button v-for="hex in buildingOptions" :key="hex.id" type="button" class="flex items-center gap-3 rounded-lg border-2 p-3" :class="hexId === hex.id ? 'border-primary ring-2 ring-primary' : 'border-muted'" :aria-pressed="hexId === hex.id" @click="hexId = hex.id">
+                        <img :src="buildingImage()" alt="" class="size-14 object-contain" /><span>Ячейка {{ hex.id }}</span>
+                    </button>
+                    <p v-if="buildingOptions.length === 0" class="text-sm text-destructive">Нет подходящих зданий.</p>
+                </div>
+                <InputError :message="errors.discipline ?? errors.hex_id ?? errors.palace ?? errors.game" />
+                <DialogFooter>
+                    <DialogClose as-child>
+                        <Button type="button" variant="outline">Отмена</Button>
+                    </DialogClose>
+                    <Button type="submit" :disabled="processing || !canSubmit">Подтвердить действие</Button>
+                </DialogFooter>
+            </Form>
+        </DialogContent>
+    </Dialog>
+</template>

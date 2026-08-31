@@ -73,4 +73,17 @@ enum PalaceAbility: string
             default => 0,
         };
     }
+
+    public function hasSpecialAction(): bool
+    {
+        return in_array($this, [
+            self::Palace01, self::Palace02, self::Palace03,
+            self::Palace04, self::Palace06, self::Palace13,
+        ], true);
+    }
+
+    public function specialActionId(): string
+    {
+        return "palace:{$this->value}";
+    }
 }

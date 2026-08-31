@@ -15,6 +15,7 @@ use App\Http\Controllers\GameHistoryUndoController;
 use App\Http\Controllers\GamePlayerController;
 use App\Http\Controllers\GamePlayerReadinessController;
 use App\Http\Controllers\GameStartController;
+use App\Http\Controllers\PalaceActionController;
 use App\Http\Controllers\PalaceChoiceController;
 use App\Http\Controllers\PalaceGuildConfirmationController;
 use App\Http\Controllers\PalaceGuildController;
@@ -75,6 +76,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('games.round-bonus-action');
     Route::post('games/{game}/faction-action', FactionActionController::class)
         ->name('games.faction-action');
+    Route::post('games/{game}/palace-action', PalaceActionController::class)
+        ->name('games.palace-action');
     Route::post('games/{game}/bridge', [BridgeController::class, 'store'])
         ->name('games.bridge.store');
     Route::delete('games/{game}/bridge', [BridgeController::class, 'destroy'])
