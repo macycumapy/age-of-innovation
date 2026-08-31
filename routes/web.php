@@ -20,6 +20,7 @@ use App\Http\Controllers\PowerActionController;
 use App\Http\Controllers\PowerOfferController;
 use App\Http\Controllers\PowerSacrificeController;
 use App\Http\Controllers\ResourceExchangeController;
+use App\Http\Controllers\RoundBonusActionController;
 use App\Http\Controllers\ScholarController;
 use App\Http\Controllers\StartingBuildingController;
 use App\Http\Controllers\StartingBuildingTurnController;
@@ -67,6 +68,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('games.power-action');
     Route::post('games/{game}/book-action', BookActionController::class)
         ->name('games.book-action');
+    Route::post('games/{game}/round-bonus-action', RoundBonusActionController::class)
+        ->name('games.round-bonus-action');
     Route::post('games/{game}/power-offer', PowerOfferController::class)
         ->name('games.power-offer');
     Route::post('games/{game}/building-upgrade', BuildingUpgradeController::class)

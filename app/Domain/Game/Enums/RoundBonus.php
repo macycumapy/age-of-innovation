@@ -51,4 +51,12 @@ enum RoundBonus: string
             default => 0,
         };
     }
+
+    public function hasAvailableSpecialAction(): bool
+    {
+        return match ($this) {
+            self::Spade, self::Knowledge => true,
+            default => false,
+        };
+    }
 }

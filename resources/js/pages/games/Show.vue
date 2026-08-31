@@ -27,6 +27,7 @@ import PlayerStatsPanel from '@/components/game/PlayerStatsPanel.vue';
 import PowerActionDialog from '@/components/game/PowerActionDialog.vue';
 import PowerSacrificeDialog from '@/components/game/PowerSacrificeDialog.vue';
 import ResourceExchangeDialog from '@/components/game/ResourceExchangeDialog.vue';
+import RoundBonusActionDialog from '@/components/game/RoundBonusActionDialog.vue';
 import ScholarActionDialog from '@/components/game/ScholarActionDialog.vue';
 import TerraformWorkshopDialog from '@/components/game/TerraformWorkshopDialog.vue';
 import RoundBonusBoard from '@/components/game/RoundBonusBoard.vue';
@@ -261,6 +262,7 @@ const isResourceExchangeDialogOpen = ref(false);
 const isCurrentTurnFinishDialogOpen = ref(false);
 const isBuildingUpgradeDialogOpen = ref(false);
 const isScholarActionDialogOpen = ref(false);
+const isRoundBonusActionDialogOpen = ref(false);
 const selectedBuildingUpgradeHexId = ref<string | null>(null);
 const selectedPowerAction = ref<PowerActionState | null>(null);
 const selectedBookAction = ref<BookActionState | null>(null);
@@ -269,6 +271,9 @@ const selectedScholarDiscipline = ref<KnowledgeDiscipline | null>(null);
 const currentPlayerState = computed(() =>
     props.game.data.playerBoardStates.find((state) => state.playerId === currentPlayer.value?.id),
 );
+const currentRoundBonusDescription = computed(() => currentPlayerState.value
+    ? props.game.data.roundBonusDescriptions[currentPlayerState.value.roundBonus]
+    : '');
 
 const maximumPowerSacrifice = computed(() =>
     Math.floor((currentPlayerState.value?.power.bowlTwo ?? 0) / 2),
@@ -1131,8 +1136,10 @@ function updateStartingKnowledgeCount(discipline: KnowledgeDiscipline, event: Ev
                             :palace-descriptions="game.data.palaceDescriptions"
                             :can-sacrifice-power="canSacrificePower"
                             :can-exchange-resources="canExchangeResources"
+                            :can-use-round-bonus-action="canExchangeResources"
                             @sacrifice-power="isPowerSacrificeDialogOpen = true"
                             @exchange-resources="isResourceExchangeDialogOpen = true"
+                            @use-round-bonus-action="isRoundBonusActionDialogOpen = true"
                         />
                     </div>
 
@@ -1188,6 +1195,14 @@ function updateStartingKnowledgeCount(discipline: KnowledgeDiscipline, event: Ev
                 :discipline="selectedScholarDiscipline"
                 :player-state="currentPlayerState"
                 :occupied-slots="selectedScholarDisciplineOccupiedSlots"
+                :discipline-names="game.data.knowledgeDisciplineNames"
+            />
+
+            <RoundBonusActionDialog
+                v-model:open="isRoundBonusActionDialogOpen"
+                :game-id="game.data.id"
+                :round-bonus="currentPlayerState?.roundBonus ?? null"
+                :description="currentRoundBonusDescription"
                 :discipline-names="game.data.knowledgeDisciplineNames"
             />
 

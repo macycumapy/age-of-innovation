@@ -335,6 +335,92 @@ class GameManagementTest extends TestCase
         $this->assertSame(1, $game->actions()->count());
     }
 
+    public function test_player_can_activate_round_bonus_action_only_once_and_restart_the_turn(): void
+    {
+        $user = User::factory()->create();
+        $game = Game::factory()->create([
+            'status' => GameStatus::Active,
+            'phase' => GamePhase::Actions,
+            'active_player_id' => $user->id,
+        ]);
+        $player = GamePlayer::factory()->create([
+            'game_id' => $game->id,
+            'user_id' => $user->id,
+            'seat' => 1,
+        ]);
+        $game->update([
+            'state' => new GameStateData(
+                turnOrder: [$player->id],
+                round: new RoundStateData(phase: GamePhase::Actions),
+                players: [new GamePlayerStateData(
+                    playerId: $player->id,
+                    userId: $user->id,
+                    color: PlayerColor::Green,
+                    faction: Faction::Blessed,
+                    homeland: TerrainType::Forest,
+                    roundBonus: RoundBonus::Knowledge,
+                )],
+            ),
+        ]);
+
+        $this->actingAs($user)->post(route('games.round-bonus-action', $game), [
+            'discipline' => KnowledgeDiscipline::Law->value,
+        ])->assertRedirect(route('games.show', $game));
+
+        $game->refresh();
+        $this->assertSame(1, $game->state->players[0]->knowledge->law);
+        $this->assertSame([RoundBonus::Knowledge->value], $game->state->players[0]->usedSpecialActionIds);
+        $this->assertTrue($game->state->round->hasTakenMainAction);
+        $this->assertSame(GameActionType::SpecialAction, $game->actions()->sole()->type);
+
+        $this->post(route('games.round-bonus-action', $game), [
+            'discipline' => KnowledgeDiscipline::Law->value,
+        ])->assertSessionHasErrors('round_bonus');
+
+        $this->post(route('games.current-turn.restart', $game))
+            ->assertRedirect(route('games.show', $game));
+
+        $game->refresh();
+        $this->assertSame(0, $game->state->players[0]->knowledge->law);
+        $this->assertSame([], $game->state->players[0]->usedSpecialActionIds);
+    }
+
+    public function test_round_bonus_knowledge_action_requires_a_discipline(): void
+    {
+        $user = User::factory()->create();
+        $game = Game::factory()->create([
+            'status' => GameStatus::Active,
+            'phase' => GamePhase::Actions,
+            'active_player_id' => $user->id,
+        ]);
+        $player = GamePlayer::factory()->create([
+            'game_id' => $game->id,
+            'user_id' => $user->id,
+            'seat' => 1,
+        ]);
+        $game->update([
+            'state' => new GameStateData(
+                turnOrder: [$player->id],
+                round: new RoundStateData(phase: GamePhase::Actions),
+                players: [new GamePlayerStateData(
+                    playerId: $player->id,
+                    userId: $user->id,
+                    color: PlayerColor::Green,
+                    faction: Faction::Blessed,
+                    homeland: TerrainType::Forest,
+                    roundBonus: RoundBonus::Knowledge,
+                )],
+            ),
+        ]);
+
+        $this->actingAs($user)->post(route('games.round-bonus-action', $game))
+            ->assertSessionHasErrors('discipline');
+
+        $game->refresh();
+        $this->assertSame(0, $game->state->players[0]->knowledge->law);
+        $this->assertCount(0, $game->actions);
+    }
+
     public function test_player_can_activate_a_book_action_only_once_per_round(): void
     {
         $user = User::factory()->create();

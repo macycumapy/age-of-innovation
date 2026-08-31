@@ -17,6 +17,7 @@ import coinUrl from '../../../images/token_parts/gold_medallion.png';
 import engineeringBookUrl from '../../../images/token_parts/engineering_book.png';
 import unassignedBookUrl from '../../../images/token_parts/gray_book.png';
 import handUrl from '../../../images/token_parts/cube.png';
+import goldCrossUrl from '../../../images/token_parts/gold_cross.png';
 import lawBookUrl from '../../../images/token_parts/law_book.png';
 import manaUrl from '../../../images/token_parts/mana.png';
 import medicineBookUrl from '../../../images/token_parts/medicine_book.png';
@@ -48,9 +49,14 @@ const props = defineProps<{
     palaceDescriptions: Record<PalaceAbility, string>;
     canSacrificePower: boolean;
     canExchangeResources: boolean;
+    canUseRoundBonusAction: boolean;
 }>();
 
-const emit = defineEmits<{ sacrificePower: []; exchangeResources: [] }>();
+const emit = defineEmits<{
+    sacrificePower: [];
+    exchangeResources: [];
+    useRoundBonusAction: [];
+}>();
 
 const boardImages = import.meta.glob('../../../images/terrain_boards/*.webp', {
     eager: true,
@@ -304,6 +310,20 @@ function roundBonusForPlayer(playerId: number): RoundBonus | undefined {
     return playerState(playerId)?.roundBonus;
 }
 
+function isRoundBonusActionAvailable(player: GamePlayerSummary): boolean {
+    return props.canUseRoundBonusAction
+        && player.user.id === props.currentUserId
+        && (playerState(player.id)?.canUseRoundBonusAction ?? false);
+}
+
+function isRoundBonusActionUsed(playerId: number): boolean {
+    const state = playerState(playerId);
+
+    return state !== undefined
+        && ['spade', 'knowledge'].includes(state.roundBonus)
+        && !state.canUseRoundBonusAction;
+}
+
 function booksForPlayer(playerId: number): string[] {
     const books = playerState(playerId)?.books;
 
@@ -514,12 +534,27 @@ function canSacrificeFromBowl(player: GamePlayerSummary, bowl: PowerBowl): boole
                     <TooltipProvider :delay-duration="150">
                         <Tooltip>
                             <TooltipTrigger as-child>
-                                <img
-                                    :src="roundBonusImage(roundBonusForPlayer(player.id))"
-                                    :alt="`Выбранный бонус раунда игрока ${player.user.name}`"
+                                <span
                                     tabindex="0"
-                                    class="h-auto w-24 cursor-help rounded-md shadow-sm"
-                                />
+                                    class="relative block w-24 rounded-md shadow-sm"
+                                    :class="isRoundBonusActionAvailable(player) ? 'cursor-pointer' : 'cursor-help'"
+                                    :role="isRoundBonusActionAvailable(player) ? 'button' : undefined"
+                                    @click="isRoundBonusActionAvailable(player) && emit('useRoundBonusAction')"
+                                    @keydown.enter="isRoundBonusActionAvailable(player) && emit('useRoundBonusAction')"
+                                    @keydown.space.prevent="isRoundBonusActionAvailable(player) && emit('useRoundBonusAction')"
+                                >
+                                    <img
+                                        :src="roundBonusImage(roundBonusForPlayer(player.id))"
+                                        :alt="`Выбранный бонус раунда игрока ${player.user.name}`"
+                                        class="block h-auto w-full rounded-md"
+                                    />
+                                    <img
+                                        v-if="isRoundBonusActionUsed(player.id)"
+                                        :src="goldCrossUrl"
+                                        alt="Действие использовано"
+                                        class="pointer-events-none absolute left-1/2 top-[26%] w-16 -translate-x-1/2 -translate-y-1/2 object-contain drop-shadow-md"
+                                    />
+                                </span>
                             </TooltipTrigger>
                             <TooltipContent class="max-w-xs">
                                 <p class="font-semibold">Бонус раунда</p>

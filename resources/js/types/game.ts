@@ -109,6 +109,7 @@ export type GamePlayerBoardState = {
     playerId: number;
     victoryPoints: number;
     roundBonus: RoundBonus;
+    canUseRoundBonusAction: boolean;
     scholars: number;
     scholarPoolSize: number;
     scholarDisciplineIds: KnowledgeDiscipline[];

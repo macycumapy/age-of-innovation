@@ -59,6 +59,7 @@ final class ReplayGameHistoryAction
         GameActionType::ChoosePalace,
         GameActionType::PlacePalaceGuild,
         GameActionType::SendScholar,
+        GameActionType::SpecialAction,
     ];
 
     public function __construct(
@@ -75,6 +76,7 @@ final class ReplayGameHistoryAction
         private ApplyPowerOfferDecisionAction $applyPowerOfferDecision,
         private AdvanceKnowledgeAction $advanceKnowledge,
         private ResolveCompletedStartingSetupAction $resolveCompletedStartingSetup,
+        private ApplyRoundBonusAction $applyRoundBonusAction,
     ) {
     }
 
@@ -133,6 +135,7 @@ final class ReplayGameHistoryAction
                 GameActionType::ChoosePalace => $this->replayChoosePalace($game, $players, $action),
                 GameActionType::PlacePalaceGuild => $this->replayPlacePalaceGuild($game, $players, $action),
                 GameActionType::SendScholar => $this->replaySendScholar($game, $players, $action),
+                GameActionType::SpecialAction => $this->replayRoundBonusAction($game, $players, $action),
                 default => null,
             };
 
@@ -141,6 +144,25 @@ final class ReplayGameHistoryAction
         }
 
         return $game->refresh();
+    }
+
+    /** @param Collection<int, GamePlayer> $players */
+    private function replayRoundBonusAction(Game $game, Collection $players, GameAction $action): void
+    {
+        $player = $players->firstWhere('user_id', $action->player_id);
+
+        if (! $player instanceof GamePlayer) {
+            $this->invalidHistory();
+        }
+
+        $state = $game->state;
+        $disciplineValue = $action->payload['discipline'] ?? null;
+        $this->applyRoundBonusAction->execute(
+            $state,
+            $this->playerState($state, $player->id),
+            is_string($disciplineValue) ? KnowledgeDiscipline::from($disciplineValue) : null,
+        );
+        $game->state = $state;
     }
 
     /** @param Collection<int, GamePlayer> $players */
