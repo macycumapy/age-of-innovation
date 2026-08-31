@@ -339,7 +339,11 @@ export type PendingInteraction =
         type: 'choose_competency';
         playerId: number;
         optionIds: Competency[];
-        context: Record<string, never>;
+        context: {
+            reason?: 'building';
+            builtHexId?: string;
+            buildingType?: 'school' | 'university';
+        };
     }
     | {
         type: 'spend_spades';

@@ -6,6 +6,7 @@ namespace Tests\Feature;
 
 use App\Domain\Game\Actions\ApplyIncomeAction;
 use App\Domain\Game\Actions\ApplyResourceExchangeAction;
+use App\Domain\Game\Actions\CreateBuildingFollowUpInteractionAction;
 use App\Domain\Game\Actions\DetermineStartingBuildingOrderAction;
 use App\Domain\Game\Actions\ResolveCompletedStartingSetupAction;
 use App\Domain\Game\Actions\ResolveIncomePhaseAction;
@@ -823,6 +824,160 @@ class GameManagementTest extends TestCase
         $this->assertSame(GameActionType::UpgradeBuilding, $game->actions()->sole()->type);
         $this->assertSame(9, $game->actions()->sole()->payload['victory_points']);
         $this->assertCount(3, $game->actions()->sole()->payload['scoring_sources']);
+    }
+
+    #[DataProvider('competencyBuildingUpgradeProvider')]
+    public function test_player_chooses_a_competency_after_building_a_school_or_university(
+        BuildingType $sourceBuilding,
+        BuildingType $targetBuilding,
+        int $toolCost,
+        int $coinCost,
+    ): void {
+        $user = User::factory()->create();
+        $neighborUser = User::factory()->create();
+        $game = Game::factory()->create([
+            'status' => GameStatus::Active,
+            'phase' => GamePhase::Actions,
+            'active_player_id' => $user->id,
+        ]);
+        $player = GamePlayer::factory()->create([
+            'game_id' => $game->id,
+            'user_id' => $user->id,
+            'seat' => 1,
+        ]);
+        $neighbor = GamePlayer::factory()->create([
+            'game_id' => $game->id,
+            'user_id' => $neighborUser->id,
+            'seat' => 2,
+        ]);
+        $game->update(['state' => new GameStateData(
+            turnOrder: [$player->id, $neighbor->id],
+            board: new BoardStateData(hexes: [
+                new BoardHexStateData(
+                    id: '0:0',
+                    q: 0,
+                    r: 0,
+                    initialTerrain: TerrainType::Forest,
+                    terrain: TerrainType::Forest,
+                    adjacentHexIds: ['1:0'],
+                    building: new BuildingStateData($sourceBuilding, $player->id),
+                ),
+                new BoardHexStateData(
+                    id: '1:0',
+                    q: 1,
+                    r: 0,
+                    initialTerrain: TerrainType::Mountain,
+                    terrain: TerrainType::Mountain,
+                    adjacentHexIds: ['0:0'],
+                    building: new BuildingStateData(BuildingType::Workshop, $neighbor->id),
+                ),
+            ]),
+            round: new RoundStateData(phase: GamePhase::Actions),
+            players: [
+                new GamePlayerStateData(
+                    playerId: $player->id,
+                    userId: $user->id,
+                    color: PlayerColor::Green,
+                    faction: Faction::Blessed,
+                    homeland: TerrainType::Forest,
+                    roundBonus: RoundBonus::Coins,
+                    resources: new PlayerResourcesData(coins: $coinCost, tools: $toolCost),
+                ),
+                new GamePlayerStateData(
+                    playerId: $neighbor->id,
+                    userId: $neighborUser->id,
+                    color: PlayerColor::Red,
+                    faction: Faction::Blessed,
+                    homeland: TerrainType::Mountain,
+                    roundBonus: RoundBonus::Coins,
+                    resources: new PlayerResourcesData(
+                        power: new PowerBowlsStateData(bowlTwo: 2),
+                    ),
+                ),
+            ],
+            availableCompetencyIds: [Competency::Competency04->value],
+        )]);
+
+        $this->actingAs($user)->post(route('games.building-upgrade', $game), [
+            'hex_id' => '0:0',
+            'target' => $targetBuilding->value,
+        ])->assertRedirect(route('games.show', $game));
+
+        $game->refresh();
+        $this->assertSame(PendingInteractionType::ChooseCompetency, $game->state->pendingInteraction?->type);
+        $this->assertSame([
+            'reason' => 'building',
+            'builtHexId' => '0:0',
+            'buildingType' => $targetBuilding->value,
+        ], $game->state->pendingInteraction?->context);
+        $this->assertSame([Competency::Competency04->value], $game->state->pendingInteraction?->optionIds);
+        $this->assertSame($user->id, $game->active_player_id);
+
+        $this->post(route('games.starting-competency.store', $game), [
+            'competency_id' => Competency::Competency04->value,
+        ])->assertRedirect(route('games.show', $game));
+
+        $game->refresh();
+        $this->assertContains(Competency::Competency04->value, $game->state->players[0]->competencyIds);
+        $this->assertSame(1, $game->state->players[0]->resources->tools);
+        $this->assertSame(2, $game->state->players[0]->resources->coins);
+        $this->assertSame(25, $game->state->players[0]->victoryPoints);
+        $this->assertSame(PendingInteractionType::PowerOffer, $game->state->pendingInteraction?->type);
+        $this->assertSame($neighborUser->id, $game->active_player_id);
+        $this->assertSame([
+            GameActionType::UpgradeBuilding,
+            GameActionType::ChooseCompetency,
+        ], $game->actions()->orderBy('sequence')->pluck('type')->all());
+    }
+
+    /** @return array<string, array{BuildingType, BuildingType, int, int}> */
+    public static function competencyBuildingUpgradeProvider(): array
+    {
+        return [
+            'school' => [BuildingType::Guild, BuildingType::School, 3, 5],
+            'university' => [BuildingType::School, BuildingType::University, 5, 8],
+        ];
+    }
+
+    public function test_neutral_university_does_not_grant_a_competency(): void
+    {
+        $playerState = new GamePlayerStateData(
+            playerId: 10,
+            userId: 20,
+            color: PlayerColor::Green,
+            faction: Faction::Blessed,
+            homeland: TerrainType::Forest,
+            roundBonus: RoundBonus::Coins,
+        );
+        $state = new GameStateData(
+            board: new BoardStateData(hexes: [
+                new BoardHexStateData(
+                    id: '0:0',
+                    q: 0,
+                    r: 0,
+                    initialTerrain: TerrainType::Forest,
+                    terrain: TerrainType::Forest,
+                    building: new BuildingStateData(
+                        BuildingType::University,
+                        $playerState->playerId,
+                        isNeutral: true,
+                    ),
+                ),
+            ]),
+            players: [$playerState],
+            availableCompetencyIds: [Competency::Competency04->value],
+        );
+
+        $nextActiveUserId = app(CreateBuildingFollowUpInteractionAction::class)->execute(
+            $state,
+            $playerState,
+            '0:0',
+            BuildingType::University,
+        );
+
+        $this->assertNull($state->pendingInteraction);
+        $this->assertSame($playerState->userId, $nextActiveUserId);
+        $this->assertSame([], $playerState->competencyIds);
     }
 
     public function test_active_player_can_exchange_multiple_resources_without_ending_the_turn(): void

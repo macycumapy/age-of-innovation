@@ -19,8 +19,8 @@ final class UpgradeBuildingAction
 {
     public function __construct(
         private AppendGameHistoryAction $appendGameHistory,
-        private CreatePowerOffersAfterBuildingAction $createPowerOffersAfterBuilding,
         private ApplyBuildingBonusesAction $applyBuildingBonuses,
+        private CreateBuildingFollowUpInteractionAction $createBuildingFollowUpInteraction,
     ) {
     }
 
@@ -81,9 +81,14 @@ final class UpgradeBuildingAction
             $playerState->resources->coins -= $cost['coins'];
             $hex->building->type = $target;
             $bonuses = $this->applyBuildingBonuses->execute($state, $playerState, $hex, $target);
-            $nextActiveUserId = $this->createPowerOffersAfterBuilding->execute($state, $player->id, $hexId);
+            $nextActiveUserId = $this->createBuildingFollowUpInteraction->execute(
+                $state,
+                $playerState,
+                $hexId,
+                $target,
+            );
             $lockedGame->update([
-                'active_player_id' => $nextActiveUserId ?? $player->user_id,
+                'active_player_id' => $nextActiveUserId,
                 'state' => $state,
                 'version' => $lockedGame->version + 1,
             ]);

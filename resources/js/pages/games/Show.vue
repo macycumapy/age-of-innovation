@@ -148,6 +148,11 @@ const canChooseStartingCompetency = computed(
         && props.game.data.activePlayerId === page.props.auth.user.id,
 );
 
+const isBuildingCompetencyChoice = computed(
+    () => props.game.data.pendingInteraction?.type === 'choose_competency'
+        && props.game.data.pendingInteraction.context.reason === 'building',
+);
+
 const canSpendStartingSpade = computed(
     () => props.game.data.pendingInteraction?.type === 'spend_spades'
         && props.game.data.pendingInteraction.playerId === currentPlayer.value?.id
@@ -951,9 +956,13 @@ function updateStartingKnowledgeCount(discipline: KnowledgeDiscipline, event: Ev
                 class="mx-auto w-full max-w-3xl border-primary/40"
             >
                 <CardHeader>
-                    <CardTitle>Стартовая компетенция монахов</CardTitle>
+                    <CardTitle>
+                        {{ isBuildingCompetencyChoice ? 'Компетенция нового здания' : 'Стартовая компетенция монахов' }}
+                    </CardTitle>
                     <CardDescription>
-                        Выберите компетенцию. Вы сразу получите её книги, продвижение по дисциплине и ресурсы.
+                        {{ isBuildingCompetencyChoice
+                            ? 'Выберите компетенцию для построенной школы или университета.'
+                            : 'Выберите компетенцию. Вы сразу получите её книги, продвижение по дисциплине и ресурсы.' }}
                     </CardDescription>
                 </CardHeader>
                 <CardContent>

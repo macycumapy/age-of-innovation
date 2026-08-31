@@ -64,6 +64,7 @@ final class ReplayGameHistoryAction
         private ApplyPowerActionAction $applyPowerAction,
         private FindEligibleTerraformHexesAction $findEligibleTerraformHexes,
         private CreatePowerOffersAfterBuildingAction $createPowerOffersAfterBuilding,
+        private CreateBuildingFollowUpInteractionAction $createBuildingFollowUpInteraction,
         private ApplyPowerOfferDecisionAction $applyPowerOfferDecision,
         private ResolveCompletedStartingSetupAction $resolveCompletedStartingSetup,
     ) {
@@ -367,12 +368,28 @@ final class ReplayGameHistoryAction
         }
 
         $state = $game->state;
+        $isBuildingChoice = ($action->payload['reason'] ?? null) === 'building';
         $this->grantCompetency->execute(
             $this->playerState($state, $player->id),
             Competency::from((string) $action->payload['competency_id']),
-            $state->setupPool?->competencies ?? [],
+            $isBuildingChoice
+                ? $state->availableCompetencyIds
+                : ($state->setupPool?->competencies ?? []),
         );
         $state->pendingInteraction = null;
+
+        if ($isBuildingChoice) {
+            $nextActiveUserId = $this->createPowerOffersAfterBuilding->execute(
+                $state,
+                $player->id,
+                (string) ($action->payload['built_hex_id'] ?? ''),
+            );
+            $game->active_player_id = $nextActiveUserId ?? $player->user_id;
+            $game->state = $state;
+
+            return;
+        }
+
         $placementOrder = $this->startingBuildingOrder($state, $players);
 
         if ($state->startingBuildingTurnIndex >= count($placementOrder)) {
@@ -547,12 +564,13 @@ final class ReplayGameHistoryAction
         $playerState->resources->coins += (int) ($action->payload['bonus_coins'] ?? 0);
         $playerState->victoryPoints += (int) ($action->payload['victory_points'] ?? 0);
         $hex->building->type = BuildingType::from((string) $action->payload['target']);
-        $nextActiveUserId = $this->createPowerOffersAfterBuilding->execute(
+        $nextActiveUserId = $this->createBuildingFollowUpInteraction->execute(
             $state,
-            $player->id,
+            $playerState,
             $hex->id,
+            $hex->building->type,
         );
-        $game->active_player_id = $nextActiveUserId ?? $player->user_id;
+        $game->active_player_id = $nextActiveUserId;
         $game->state = $state;
     }
 

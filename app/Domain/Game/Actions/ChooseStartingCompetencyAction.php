@@ -19,6 +19,7 @@ final class ChooseStartingCompetencyAction
 {
     public function __construct(
         private AppendGameHistoryAction $appendGameHistory,
+        private CreatePowerOffersAfterBuildingAction $createPowerOffersAfterBuilding,
         private DetermineStartingBuildingOrderAction $determineStartingBuildingOrder,
         private GrantCompetencyAction $grantCompetency,
         private ResolveCompletedStartingSetupAction $resolveCompletedStartingSetup,
@@ -36,15 +37,18 @@ final class ChooseStartingCompetencyAction
                 ->whereKey($interaction?->playerId)
                 ->whereBelongsTo($user)
                 ->first();
+            $isBuildingChoice = $lockedGame->phase === GamePhase::Actions
+                && ($interaction?->context['reason'] ?? null) === 'building';
+            $isStartingChoice = $lockedGame->phase === GamePhase::Setup
+                && $player?->faction === Faction::Monks;
 
-            if ($lockedGame->phase !== GamePhase::Setup
-                || $lockedGame->active_player_id !== $user->id
+            if ($lockedGame->active_player_id !== $user->id
                 || $interaction?->type !== PendingInteractionType::ChooseCompetency
                 || ! $player instanceof GamePlayer
-                || $player->faction !== Faction::Monks
+                || (! $isStartingChoice && ! $isBuildingChoice)
                 || ! in_array($competency->value, $interaction->optionIds, true)) {
                 throw ValidationException::withMessages([
-                    'competency_id' => 'Эта стартовая компетенция недоступна.',
+                    'competency_id' => 'Эта компетенция недоступна.',
                 ]);
             }
 
@@ -65,10 +69,47 @@ final class ChooseStartingCompetencyAction
             $this->grantCompetency->execute(
                 $playerState,
                 $competency,
-                $state->setupPool?->competencies ?? [],
+                $isBuildingChoice
+                    ? $state->availableCompetencyIds
+                    : ($state->setupPool?->competencies ?? []),
             );
             $state->players[$playerStateIndex] = $playerState;
             $state->pendingInteraction = null;
+
+            if ($isBuildingChoice) {
+                $builtHexId = (string) ($interaction->context['builtHexId'] ?? '');
+                $nextActiveUserId = $this->createPowerOffersAfterBuilding->execute(
+                    $state,
+                    $player->id,
+                    $builtHexId,
+                ) ?? $player->user_id;
+                $lockedGame->update([
+                    'active_player_id' => $nextActiveUserId,
+                    'state' => $state,
+                    'version' => $lockedGame->version + 1,
+                ]);
+                $this->appendGameHistory->execute(
+                    $lockedGame,
+                    $user,
+                    GameActionType::ChooseCompetency,
+                    [
+                        'competency_id' => $competency->value,
+                        'reason' => 'building',
+                        'built_hex_id' => $builtHexId,
+                    ],
+                    [[
+                        'type' => 'building_competency_chosen',
+                        'player_id' => $player->id,
+                        'competency_id' => $competency->value,
+                        'built_hex_id' => $builtHexId,
+                    ]],
+                    $stateVersionBefore,
+                    $lockedGame->version,
+                );
+
+                return $lockedGame->refresh();
+            }
+
             $placementOrder = $this->determineStartingBuildingOrder->execute($lockedGame);
 
             if ($state->startingBuildingTurnIndex >= count($placementOrder)) {
