@@ -98,6 +98,9 @@ This project has domain-specific skills available in `**/skills/**`. You MUST ac
 # Laravel Sail
 
 - This project runs inside Laravel Sail's Docker containers. You MUST execute all commands through Sail.
+- The Docker daemon is available on the host, but the agent sandbox cannot access `/var/run/docker.sock`. Run Sail commands outside the sandbox with escalated permissions instead of attempting them in the sandbox first.
+- Request reusable, narrowly scoped command approvals for `vendor/bin/sail npm`, `vendor/bin/sail artisan`, `vendor/bin/sail composer`, and `vendor/bin/sail bin pint` when needed.
+- An `operation not permitted` error for `/var/run/docker.sock`, or Sail reporting that Docker is not running from inside the sandbox, indicates sandbox isolation. Do not report Docker or Sail as unavailable unless the same command also fails outside the sandbox.
 - Start services using `vendor/bin/sail up -d` and stop them with `vendor/bin/sail stop`.
 - Open the application in the browser by running `vendor/bin/sail open`.
 - Always prefix PHP, Artisan, Composer, and Node commands with `vendor/bin/sail`. Examples:
