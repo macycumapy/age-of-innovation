@@ -44,6 +44,7 @@ final class ReplayGameHistoryAction
         GameActionType::StartGame,
         GameActionType::ChoosePlanningBundle,
         GameActionType::ChooseStartingResources,
+        GameActionType::ChooseIncomeResources,
         GameActionType::PlaceStartingBuilding,
         GameActionType::UndoStartingBuilding,
         GameActionType::FinishStartingBuildingTurn,
@@ -85,6 +86,7 @@ final class ReplayGameHistoryAction
         private ApplyPalaceAction $applyPalaceAction,
         private ApplyPassAction $applyPassAction,
         private ResolveScienceBonusPhaseAction $resolveScienceBonusPhase,
+        private ResolveIncomePhaseAction $resolveIncomePhase,
     ) {
     }
 
@@ -122,7 +124,8 @@ final class ReplayGameHistoryAction
             match ($action->type) {
                 GameActionType::StartGame => $this->replayStartGame($game, $players, $action),
                 GameActionType::ChoosePlanningBundle => $this->replayPlanningBundle($game, $players, $action),
-                GameActionType::ChooseStartingResources => $this->replayStartingResources($game, $players, $action),
+                GameActionType::ChooseStartingResources,
+                GameActionType::ChooseIncomeResources => $this->replayStartingResources($game, $players, $action),
                 GameActionType::PlaceStartingBuilding => $this->replayPlaceStartingBuilding($game, $players, $action),
                 GameActionType::UndoStartingBuilding => $this->replayUndoStartingBuilding($game, $action),
                 GameActionType::FinishStartingBuildingTurn => $this->replayFinishStartingBuildingTurn($game, $players, $action),
@@ -318,6 +321,15 @@ final class ReplayGameHistoryAction
 
         $state->pendingInteraction = null;
         $game->state = $state;
+
+        if (($action->payload['phase'] ?? GamePhase::Setup->value) === GamePhase::Income->value) {
+            [$nextPlayer, $nextPhase] = $this->resolveIncomePhase->execute($state, $players);
+            $game->phase = $nextPhase;
+            $game->active_player_id = $nextPlayer->user_id;
+
+            return;
+        }
+
         $game->active_player_id = $this->nextPlanningPlayer($game, $players, $player)->user_id;
     }
 

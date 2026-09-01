@@ -63,6 +63,7 @@ export type GameActionType =
     | 'start_game'
     | 'choose_planning_bundle'
     | 'choose_starting_resources'
+    | 'choose_income_resources'
     | 'place_starting_building'
     | 'undo_starting_building'
     | 'finish_starting_building_turn'

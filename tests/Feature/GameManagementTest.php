@@ -114,7 +114,7 @@ class GameManagementTest extends TestCase
             ),
         );
 
-        $this->assertSame([
+        $this->assertEquals([
             'tools' => 8,
             'coins' => 21,
             'scholars' => 1,
@@ -196,9 +196,15 @@ class GameManagementTest extends TestCase
         $this->assertSame($secondPlayer->id, $activePlayer->id);
         $this->assertSame(GamePhase::Income, $phase);
         $this->assertSame(GamePhase::Income, $state->round->phase);
-        $this->assertSame(2, $state->round->incomeTurnIndex);
-        $this->assertSame(1, $firstPlayerState->resources->tools);
-        $this->assertSame(6, $firstPlayerState->resources->coins);
+        $this->assertSame(1, $state->round->incomeTurnIndex);
+        $this->assertSame([$secondPlayer->id, $firstPlayer->id], $state->round->incomeOrder);
+        $this->assertSame(PendingInteractionType::ChooseStartingResources, $state->pendingInteraction?->type);
+        $this->assertSame($secondPlayer->id, $state->pendingInteraction?->playerId);
+        $this->assertSame(1, $state->pendingInteraction?->context['bookCount']);
+        $this->assertCount(1, $state->round->incomeReceipts);
+        $this->assertSame($secondPlayer->id, $state->round->incomeReceipts[0]['player_id']);
+        $this->assertSame(0, $firstPlayerState->resources->tools);
+        $this->assertSame(0, $firstPlayerState->resources->coins);
         $this->assertSame(1, $secondPlayerState->resources->books->unassigned);
 
         $secondPlayerState->resources->books->unassigned = 0;
@@ -208,7 +214,123 @@ class GameManagementTest extends TestCase
         $this->assertSame($firstPlayer->id, $activePlayer->id);
         $this->assertSame(GamePhase::Actions, $phase);
         $this->assertSame(GamePhase::Actions, $state->round->phase);
+        $this->assertSame(1, $firstPlayerState->resources->tools);
+        $this->assertSame(6, $firstPlayerState->resources->coins);
         $this->assertSame($secondPlayerTools, $secondPlayerState->resources->tools);
+        $this->assertSame([], $state->round->incomeOrder);
+        $this->assertSame([], $state->round->incomeReceipts);
+    }
+
+    public function test_income_continues_automatically_after_required_resources_are_distributed(): void
+    {
+        $users = User::factory()->count(2)->create();
+        $game = Game::factory()->create([
+            'status' => GameStatus::Active,
+            'phase' => GamePhase::Income,
+            'active_player_id' => $users[0]->id,
+        ]);
+        $firstPlayer = GamePlayer::factory()->create([
+            'game_id' => $game->id,
+            'user_id' => $users[0]->id,
+            'seat' => 1,
+        ]);
+        $secondPlayer = GamePlayer::factory()->create([
+            'game_id' => $game->id,
+            'user_id' => $users[1]->id,
+            'seat' => 2,
+        ]);
+        $firstPlayerState = new GamePlayerStateData(
+            $firstPlayer->id,
+            $users[0]->id,
+            PlayerColor::Green,
+            Faction::Blessed,
+            TerrainType::Forest,
+            RoundBonus::Coins,
+        );
+        $firstPlayerState->resources->books->unassigned = 1;
+        $secondPlayerState = new GamePlayerStateData(
+            $secondPlayer->id,
+            $users[1]->id,
+            PlayerColor::Grey,
+            Faction::Felines,
+            TerrainType::Mountain,
+            RoundBonus::Coins,
+        );
+        $state = new GameStateData(
+            turnOrder: [$firstPlayer->id, $secondPlayer->id],
+            board: new BoardStateData(),
+            players: [$firstPlayerState, $secondPlayerState],
+            pendingInteraction: new PendingInteractionData(
+                PendingInteractionType::ChooseStartingResources,
+                $firstPlayer->id,
+                array_column(KnowledgeDiscipline::cases(), 'value'),
+                [
+                    'bookCount' => 1,
+                    'knowledgeStepCount' => 0,
+                    'competencyIds' => [],
+                    'phase' => GamePhase::Income->value,
+                ],
+            ),
+        );
+        $state->round->phase = GamePhase::Income;
+        $state->round->incomeTurnIndex = 1;
+        $state->round->incomeOrder = [$firstPlayer->id, $secondPlayer->id];
+        $state->round->incomeReceipts = [[
+            'player_id' => $firstPlayer->id,
+            'tools' => 0,
+            'coins' => 0,
+            'scholars' => 0,
+            'power' => 0,
+            'books' => 1,
+            'knowledge_steps' => 0,
+        ]];
+        $game->update(['state' => $state]);
+
+        $this->actingAs($users[0])->post(route('games.starting-resources.store', $game), [
+            'book_counts' => [
+                'banking' => 1,
+                'law' => 0,
+                'engineering' => 0,
+                'medicine' => 0,
+            ],
+        ])->assertRedirect(route('games.show', $game));
+
+        $game->refresh();
+        $updatedFirstPlayer = collect($game->state->players)->firstWhere('playerId', $firstPlayer->id);
+        $updatedSecondPlayer = collect($game->state->players)->firstWhere('playerId', $secondPlayer->id);
+
+        $this->assertSame(GamePhase::Actions, $game->phase);
+        $this->assertSame(GamePhase::Actions, $game->state->round->phase);
+        $this->assertSame($users[0]->id, $game->active_player_id);
+        $this->assertNull($game->state->pendingInteraction);
+        $this->assertSame(0, $updatedFirstPlayer?->resources->books->unassigned);
+        $this->assertSame(1, $updatedFirstPlayer?->resources->books->banking);
+        $this->assertSame(1, $updatedSecondPlayer?->resources->tools);
+        $this->assertSame(8, $updatedSecondPlayer?->resources->coins);
+        $this->assertSame(
+            GameActionType::ChooseIncomeResources,
+            $game->actions()->latest('sequence')->firstOrFail()->type,
+        );
+        $this->assertEquals([
+            [
+                'player_id' => $firstPlayer->id,
+                'tools' => 0,
+                'coins' => 0,
+                'scholars' => 0,
+                'power' => 0,
+                'books' => 1,
+                'knowledge_steps' => 0,
+            ],
+            [
+                'player_id' => $secondPlayer->id,
+                'tools' => 1,
+                'coins' => 8,
+                'scholars' => 0,
+                'power' => 0,
+                'books' => 0,
+                'knowledge_steps' => 0,
+            ],
+        ], $game->actions()->latest('sequence')->firstOrFail()->payload['income_receipts']);
     }
 
     public function test_active_player_can_sacrifice_power_without_ending_the_turn(): void
@@ -3590,6 +3712,11 @@ class GameManagementTest extends TestCase
         $this->assertSame(1, $incomeStartingAction->payload['round']);
         $this->assertSame('income_phase_started', $incomeStartingAction->events[1]['type']);
         $this->assertSame(1, $incomeStartingAction->events[1]['round']);
+        $this->assertCount(2, $incomeStartingAction->payload['income_receipts']);
+        $this->assertEqualsCanonicalizing(
+            [$firstPlayer->id, $secondPlayer->id],
+            array_column($incomeStartingAction->payload['income_receipts'], 'player_id'),
+        );
 
         foreach ($game->state->players as $playerState) {
             $income = PlayerIncomeCalculator::calculate($playerState, $game->state->board);
@@ -3926,7 +4053,9 @@ class GameManagementTest extends TestCase
 
         $game->refresh();
         $monkState = collect($game->state->players)->firstWhere('playerId', $monkPlayer->id);
-        $this->assertNull($game->state->pendingInteraction);
+        $this->assertSame(PendingInteractionType::ChooseStartingResources, $game->state->pendingInteraction?->type);
+        $this->assertSame($monkPlayer->id, $game->state->pendingInteraction?->playerId);
+        $this->assertSame(1, $game->state->pendingInteraction?->context['knowledgeStepCount']);
         $this->assertSame(GamePhase::Income, $game->phase);
         $this->assertContains(Competency::Competency04->value, $monkState->competencyIds);
         $this->assertContains(Competency::Competency04->value, $game->state->availableCompetencyIds);

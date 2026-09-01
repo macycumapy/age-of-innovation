@@ -72,6 +72,7 @@ final class FinishStartingSpadeAction
             $interaction->context['remainingSpades'] = $remainingSpades;
             $interaction->context['buildableHexIds'] = array_values(array_unique($buildableHexIds));
             $buildOffered = false;
+            $incomeReceipts = [];
 
             if ($remainingSpades > 0) {
                 $targetTerrain = TerrainType::from(
@@ -97,13 +98,13 @@ final class FinishStartingSpadeAction
                     $nextPhase = GamePhase::Actions;
                 } elseif ($interactionPhase === GamePhase::ScienceBonus) {
                     $state->pendingInteraction = null;
-                    [$nextPlayer, $nextPhase] = $this->resolveScienceBonusPhase->execute(
+                    [$nextPlayer, $nextPhase, $incomeReceipts] = $this->resolveScienceBonusPhase->execute(
                         $state,
                         $lockedGame->players()->get(),
                     );
                 } else {
                     $state->pendingInteraction = null;
-                    [$nextPlayer, $nextPhase] = $this->resolveCompletedStartingSetup->execute(
+                    [$nextPlayer, $nextPhase, $incomeReceipts] = $this->resolveCompletedStartingSetup->execute(
                         $state,
                         $lockedGame->players()->get(),
                     );
@@ -118,13 +119,13 @@ final class FinishStartingSpadeAction
                 $nextPhase = GamePhase::Actions;
             } elseif ($interactionPhase === GamePhase::ScienceBonus) {
                 $state->pendingInteraction = null;
-                [$nextPlayer, $nextPhase] = $this->resolveScienceBonusPhase->execute(
+                [$nextPlayer, $nextPhase, $incomeReceipts] = $this->resolveScienceBonusPhase->execute(
                     $state,
                     $lockedGame->players()->get(),
                 );
             } else {
                 $state->pendingInteraction = null;
-                [$nextPlayer, $nextPhase] = $this->resolveCompletedStartingSetup->execute(
+                [$nextPlayer, $nextPhase, $incomeReceipts] = $this->resolveCompletedStartingSetup->execute(
                     $state,
                     $lockedGame->players()->get(),
                 );
@@ -152,6 +153,7 @@ final class FinishStartingSpadeAction
                     'round' => $state->round->number,
                     'buildable_hex_ids' => $buildableHexIds,
                     'build_offered' => $buildOffered,
+                    'income_receipts' => $incomeReceipts,
                 ],
                 [
                     [

@@ -111,9 +111,10 @@ final class ChooseStartingCompetencyAction
             }
 
             $placementOrder = $this->determineStartingBuildingOrder->execute($lockedGame);
+            $incomeReceipts = [];
 
             if ($state->startingBuildingTurnIndex >= count($placementOrder)) {
-                [$nextPlayer, $nextPhase] = $this->resolveCompletedStartingSetup->execute(
+                [$nextPlayer, $nextPhase, $incomeReceipts] = $this->resolveCompletedStartingSetup->execute(
                     $state,
                     $lockedGame->players()->get(),
                 );
@@ -136,6 +137,7 @@ final class ChooseStartingCompetencyAction
                     'competency_id' => $competency->value,
                     'income_started' => $nextPhase !== GamePhase::Setup,
                     'round' => $state->round->number,
+                    'income_receipts' => $incomeReceipts,
                 ],
                 [
                     [

@@ -25,7 +25,7 @@ final class ResolveScienceBonusPhaseAction
 
     /**
      * @param Collection<int, GamePlayer> $players
-     * @return array{GamePlayer|null, GamePhase}
+     * @return array{GamePlayer|null, GamePhase, list<array{player_id: int, tools: int, coins: int, scholars: int, power: int, books: int, knowledge_steps: int}>}
      */
     public function execute(GameStateData $state, Collection $players): array
     {
@@ -63,7 +63,7 @@ final class ResolveScienceBonusPhaseAction
                     ['bookCount' => $reward['books']],
                 );
 
-                return [$player, GamePhase::ScienceBonus];
+                return [$player, GamePhase::ScienceBonus, []];
             }
 
             if ($reward['spades'] > 0) {
@@ -82,7 +82,7 @@ final class ResolveScienceBonusPhaseAction
                         ],
                     );
 
-                    return [$player, GamePhase::ScienceBonus];
+                    return [$player, GamePhase::ScienceBonus, []];
                 }
             }
         }
@@ -92,7 +92,7 @@ final class ResolveScienceBonusPhaseAction
         if ($state->round->number >= 6) {
             $state->round->phase = GamePhase::Finished;
 
-            return [null, GamePhase::Finished];
+            return [null, GamePhase::Finished, []];
         }
 
         return $this->startNextRound->execute($state, $players);

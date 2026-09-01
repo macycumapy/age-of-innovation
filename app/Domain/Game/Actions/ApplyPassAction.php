@@ -23,7 +23,7 @@ final class ApplyPassAction
 
     /**
      * @param Collection<int, GamePlayer> $players
-     * @return array{nextActiveUserId: int|null, phase: GamePhase, bonusCoins: int, victoryPoints: int, scoringSources: list<array{source: string, id: string, points: int}>, passOrder: int, nextRoundStarted: bool}
+     * @return array{nextActiveUserId: int|null, phase: GamePhase, bonusCoins: int, victoryPoints: int, scoringSources: list<array{source: string, id: string, points: int}>, passOrder: int, nextRoundStarted: bool, incomeReceipts: list<array{player_id: int, tools: int, coins: int, scholars: int, power: int, books: int, knowledge_steps: int}>}
      */
     public function execute(
         GameStateData $state,
@@ -72,6 +72,7 @@ final class ApplyPassAction
                 'scoringSources' => $bonuses['sources'],
                 'passOrder' => $passOrder,
                 'nextRoundStarted' => false,
+                'incomeReceipts' => [],
             ];
         }
 
@@ -80,7 +81,7 @@ final class ApplyPassAction
 
         $state->round->phase = GamePhase::ScienceBonus;
         $state->round->scienceBonusTurnIndex = 0;
-        [$nextPlayer, $phase] = $this->resolveScienceBonusPhase->execute($state, $players);
+        [$nextPlayer, $phase, $incomeReceipts] = $this->resolveScienceBonusPhase->execute($state, $players);
 
         return [
             'nextActiveUserId' => $nextPlayer?->user_id,
@@ -90,6 +91,7 @@ final class ApplyPassAction
             'scoringSources' => $bonuses['sources'],
             'passOrder' => $passOrder,
             'nextRoundStarted' => $phase !== GamePhase::ScienceBonus,
+            'incomeReceipts' => $incomeReceipts,
         ];
     }
 

@@ -19,6 +19,7 @@ const actionDescriptions: Record<GameActionType, string> = {
     start_game: 'начал партию',
     choose_planning_bundle: 'выбрал стартовый комплект',
     choose_starting_resources: 'распределил стартовые ресурсы',
+    choose_income_resources: 'завершил фазу дохода',
     place_starting_building: 'установил стартовый дом',
     undo_starting_building: 'отменил установку стартового дома',
     finish_starting_building_turn: 'завершил ход выставления дома',
@@ -114,15 +115,57 @@ function handleScroll(event: Event): void {
 }
 
 function playerColor(entry: GameHistoryEntry): string {
+    if (isSharedIncomeEntry(entry)) {
+        return '#a1a1aa';
+    }
+
     const color = props.players.find((player) => player.user.id === entry.player?.id)?.color;
 
     return color === null || color === undefined ? '#a1a1aa' : playerColorValues[color];
+}
+
+function isSharedIncomeEntry(entry: GameHistoryEntry): boolean {
+    return entry.type === 'choose_income_resources';
 }
 
 function payloadString(entry: GameHistoryEntry, key: string): string | null {
     const value = entry.payload[key];
 
     return typeof value === 'string' ? value : null;
+}
+
+function incomeDetails(entry: GameHistoryEntry): string[] {
+    const receipts = entry.payload.income_receipts;
+
+    if (!Array.isArray(receipts)) {
+        return [];
+    }
+
+    return receipts.flatMap((receipt) => {
+        if (typeof receipt !== 'object' || receipt === null || !('player_id' in receipt)) {
+            return [];
+        }
+
+        const incomeReceipt = receipt as Record<string, unknown>;
+        const playerId = Number(incomeReceipt.player_id);
+        const playerName = props.players.find((player) => player.id === playerId)?.user.name ?? `Игрок ${playerId}`;
+        const resources = [
+            ['tools', 'инстр.'],
+            ['coins', 'золота'],
+            ['power', 'Силы'],
+            ['scholars', 'учёных'],
+            ['books', 'книг'],
+            ['knowledge_steps', 'шагов знаний'],
+        ]
+            .map(([key, label]) => {
+                const amount = Number(incomeReceipt[key] ?? 0);
+
+                return Number.isFinite(amount) && amount > 0 ? `${amount} ${label}` : null;
+            })
+            .filter((resource): resource is string => resource !== null);
+
+        return resources.length > 0 ? [`${playerName}: ${resources.join(', ')}`] : [];
+    });
 }
 
 function actionDescription(entry: GameHistoryEntry): string {
@@ -158,6 +201,8 @@ function actionDetails(entry: GameHistoryEntry): string | null {
             round === 1 ? 'началась фаза дохода первого раунда' : `началась фаза дохода раунда ${String(round)}`,
         );
     }
+
+    details.push(...incomeDetails(entry));
 
     if (entry.payload.science_bonus_started === true) {
         details.push('началась фаза научного бонуса');
@@ -242,8 +287,13 @@ function actionTime(createdAt: string | null): string {
                         aria-hidden="true"
                     />
                     <p class="min-w-0 leading-snug">
-                        <span class="font-bold">{{ entry.player?.name ?? 'Система' }}</span>
-                        {{ actionDescription(entry) }}
+                        <template v-if="isSharedIncomeEntry(entry)">
+                            <span class="font-bold">Фаза дохода завершена</span>
+                        </template>
+                        <template v-else>
+                            <span class="font-bold">{{ entry.player?.name ?? 'Система' }}</span>
+                            {{ actionDescription(entry) }}
+                        </template>
                         <span v-if="actionDetails(entry)" class="text-muted-foreground">
                             — {{ actionDetails(entry) }}
                         </span>

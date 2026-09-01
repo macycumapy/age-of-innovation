@@ -39,6 +39,7 @@ import RoundBonusBoard from '@/components/game/RoundBonusBoard.vue';
 import TownTileBoard from '@/components/game/TownTileBoard.vue';
 import InputError from '@/components/InputError.vue';
 import { Input } from '@/components/ui/input';
+import { NumberStepper } from '@/components/ui/number-stepper';
 import { factionNames, roundBonusNames, terrainNames } from '@/lib/gameDisplay';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -130,11 +131,23 @@ const canChooseStartingResources = computed(
         props.game.data.activePlayerId === page.props.auth.user.id,
 );
 
+const isIncomeResourceDistribution = computed(
+    () => props.game.data.phase === 'income'
+        && props.game.data.pendingInteraction?.type === 'choose_starting_resources',
+);
+
 const allPlanningBundlesChosen = computed(() => props.game.data.players.every((player) => player.faction !== null));
 
 const planningChoicesCompleted = computed(
     () => allPlanningBundlesChosen.value
         && props.game.data.pendingInteraction?.type !== 'choose_starting_resources',
+);
+
+const shouldShowPlanningBundleGroup = computed(
+    () => props.game.data.status === 'active'
+        && (isIncomeResourceDistribution.value
+            ? canChooseStartingResources.value
+            : !planningChoicesCompleted.value),
 );
 
 const isStartingBuildingStage = computed(
@@ -640,33 +653,6 @@ function selectedCompetencyForHomeland(homeland: TerrainType): Competency | unde
     return playerState?.competencyIds[0];
 }
 
-function updateStartingBookCount(discipline: KnowledgeDiscipline, event: Event): void {
-    if (!(event.target instanceof HTMLInputElement)) {
-        return;
-    }
-
-    const requestedCount = Number.parseInt(event.target.value, 10);
-    const otherBookCount = assignedStartingBookCount.value - startingBookCounts[discipline];
-    const maximumCount = Math.max(0, availableStartingBookCount.value - otherBookCount);
-    const normalizedCount = Math.max(0, Math.min(Number.isNaN(requestedCount) ? 0 : requestedCount, maximumCount));
-
-    startingBookCounts[discipline] = normalizedCount;
-    event.target.value = String(normalizedCount);
-}
-
-function updateStartingKnowledgeCount(discipline: KnowledgeDiscipline, event: Event): void {
-    if (!(event.target instanceof HTMLInputElement)) {
-        return;
-    }
-
-    const requestedCount = Number.parseInt(event.target.value, 10);
-    const otherStepCount = assignedStartingKnowledgeStepCount.value - startingKnowledgeCounts[discipline];
-    const maximumCount = Math.max(0, availableStartingKnowledgeStepCount.value - otherStepCount);
-    const normalizedCount = Math.max(0, Math.min(Number.isNaN(requestedCount) ? 0 : requestedCount, maximumCount));
-
-    startingKnowledgeCounts[discipline] = normalizedCount;
-    event.target.value = String(normalizedCount);
-}
 </script>
 
 <template>
@@ -762,14 +748,32 @@ function updateStartingKnowledgeCount(discipline: KnowledgeDiscipline, event: Ev
                 </CardContent>
             </Card>
 
+            <CurrentTurnPanel
+                :game="game"
+                :active-player="activePlayer"
+                :current-player="currentPlayer"
+                :current-user-id="page.props.auth.user.id"
+                :is-starting-building-stage="isStartingBuildingStage"
+                :is-omar-starting-tower-turn="isOmarStartingTowerTurn"
+                :can-spend-starting-spade="canSpendStartingSpade"
+                :pending-starting-spade-hex-id="pendingStartingSpadeHexId"
+                :pending-palace-guild-hex-id="pendingPalaceGuildHexId"
+                :selected-bridge-from-hex-id="selectedBridgeFromHexId"
+                @reset-bridge-selection="selectedBridgeFromHexId = null"
+                @finish-turn="isCurrentTurnFinishDialogOpen = true"
+                @pass="isPassDialogOpen = true"
+            />
+
             <Collapsible
-                v-if="game.data.status === 'active' && !planningChoicesCompleted"
+                v-if="shouldShowPlanningBundleGroup"
                 v-model:open="isPlanningBundleGroupOpen"
             >
                 <Card>
                     <CardHeader>
                         <div class="flex items-center justify-between gap-4">
-                            <CardTitle>Выбор стартового комплекта</CardTitle>
+                            <CardTitle>
+                                {{ isIncomeResourceDistribution ? 'Распределение дохода' : 'Выбор стартового комплекта' }}
+                            </CardTitle>
                             <CollapsibleTrigger as-child>
                                 <Button
                                     type="button"
@@ -788,7 +792,7 @@ function updateStartingKnowledgeCount(discipline: KnowledgeDiscipline, event: Ev
                                 </Button>
                             </CollapsibleTrigger>
                         </div>
-                        <ol class="flex flex-wrap items-center gap-2 text-sm font-medium">
+                        <ol v-if="!isIncomeResourceDistribution" class="flex flex-wrap items-center gap-2 text-sm font-medium">
                             <template v-for="(player, index) in orderedPlayers" :key="player.id">
                                 <li :class="player.user.id === game.data.activePlayerId ? 'text-primary' : ''">
                                     {{ player.user.name }}
@@ -803,7 +807,7 @@ function updateStartingKnowledgeCount(discipline: KnowledgeDiscipline, event: Ev
                             </template>
                         </ol>
                         <CardDescription v-if="game.data.pendingInteraction?.type === 'choose_starting_resources'">
-                            Сейчас стартовые ресурсы распределяет
+                            Сейчас ресурсы распределяет
                             {{ pendingInteractionPlayer?.user.name ?? 'игрок' }}.
                         </CardDescription>
                         <CardDescription v-else-if="canChoosePlanningBundle">
@@ -831,9 +835,13 @@ function updateStartingKnowledgeCount(discipline: KnowledgeDiscipline, event: Ev
                                 class="mb-6 grid w-xl gap-5 rounded-xl border border-primary/40 bg-primary/5 p-5"
                             >
                                 <div class="grid gap-1">
-                                    <h3 class="font-semibold">Распределите стартовые ресурсы</h3>
+                                    <h3 class="font-semibold">
+                                        {{ isIncomeResourceDistribution ? 'Распределите полученный доход' : 'Распределите стартовые ресурсы' }}
+                                    </h3>
                                     <p class="text-sm text-muted-foreground">
-                                        Этот выбор завершает получение вашего стартового комплекта.
+                                        {{ isIncomeResourceDistribution
+                                            ? 'После распределения доход автоматически перейдёт к следующему игроку.'
+                                            : 'Этот выбор завершает получение вашего стартового комплекта.' }}
                                     </p>
                                 </div>
 
@@ -842,7 +850,7 @@ function updateStartingKnowledgeCount(discipline: KnowledgeDiscipline, event: Ev
                                     class="grid gap-3"
                                 >
                                     <div class="flex flex-wrap items-center justify-between gap-2 text-sm">
-                                        <p class="font-medium">Распределение стартовых книг</p>
+                                        <p class="font-medium">Распределение книг</p>
                                         <p class="rounded-md bg-background/75 px-3 py-1.5 font-medium">
                                             Доступно: {{ availableStartingBookCount }}
                                         </p>
@@ -859,15 +867,13 @@ function updateStartingKnowledgeCount(discipline: KnowledgeDiscipline, event: Ev
                                                 class="h-16 w-auto object-contain drop-shadow-md"
                                             />
                                             <span>{{ knowledgeDisciplineNames[discipline] }}</span>
-                                            <input
-                                                type="number"
+                                            <NumberStepper
+                                                v-model="startingBookCounts[discipline]"
                                                 :name="`book_counts[${discipline}]`"
-                                                :value="startingBookCounts[discipline]"
-                                                min="0"
+                                                :min="0"
                                                 :max="startingBookCounts[discipline] + remainingStartingBookCount"
                                                 required
-                                                class="h-9 w-20 self-end rounded-md border border-input bg-background px-3 text-center text-sm shadow-xs"
-                                                @input="updateStartingBookCount(discipline, $event)"
+                                                class="w-28 self-end"
                                             />
                                             <InputError :message="errors[`book_counts.${discipline}`]" />
                                         </label>
@@ -915,18 +921,16 @@ function updateStartingKnowledgeCount(discipline: KnowledgeDiscipline, event: Ev
                                                 class="h-16 w-auto object-contain drop-shadow-md"
                                             />
                                             <span>{{ knowledgeDisciplineNames[discipline] }}</span>
-                                            <input
-                                                type="number"
+                                            <NumberStepper
+                                                v-model="startingKnowledgeCounts[discipline]"
                                                 :name="`knowledge_counts[${discipline}]`"
-                                                :value="startingKnowledgeCounts[discipline]"
-                                                min="0"
+                                                :min="0"
                                                 :max="
                                                     startingKnowledgeCounts[discipline] +
                                                     remainingStartingKnowledgeStepCount
                                                 "
                                                 required
-                                                class="h-9 w-20 self-end rounded-md border border-input bg-background px-3 text-center text-sm shadow-xs"
-                                                @input="updateStartingKnowledgeCount(discipline, $event)"
+                                                class="w-28 self-end"
                                             />
                                             <InputError :message="errors[`knowledge_counts.${discipline}`]" />
                                         </label>
@@ -1009,7 +1013,7 @@ function updateStartingKnowledgeCount(discipline: KnowledgeDiscipline, event: Ev
                                 </Dialog>
                             </Form>
 
-                            <div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+                            <div v-if="!isIncomeResourceDistribution" class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
                                 <Form
                                     v-for="bundle in game.data.planningBundles"
                                     :key="bundle.homeland"
@@ -1167,21 +1171,6 @@ function updateStartingKnowledgeCount(discipline: KnowledgeDiscipline, event: Ev
                 </Card>
             </Collapsible>
 
-            <CurrentTurnPanel
-                :game="game"
-                :active-player="activePlayer"
-                :current-player="currentPlayer"
-                :current-user-id="page.props.auth.user.id"
-                :is-starting-building-stage="isStartingBuildingStage"
-                :is-omar-starting-tower-turn="isOmarStartingTowerTurn"
-                :can-spend-starting-spade="canSpendStartingSpade"
-                :pending-starting-spade-hex-id="pendingStartingSpadeHexId"
-                :pending-palace-guild-hex-id="pendingPalaceGuildHexId"
-                :selected-bridge-from-hex-id="selectedBridgeFromHexId"
-                @reset-bridge-selection="selectedBridgeFromHexId = null"
-                @finish-turn="isCurrentTurnFinishDialogOpen = true"
-                @pass="isPassDialogOpen = true"
-            />
             <Card
                 v-if="canChooseStartingCompetency && game.data.pendingInteraction?.type === 'choose_competency'"
                 class="mx-auto w-full max-w-3xl border-primary/40"

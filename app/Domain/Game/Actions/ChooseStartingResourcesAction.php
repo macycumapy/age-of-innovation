@@ -24,6 +24,7 @@ final class ChooseStartingResourcesAction
         private DetermineNextPlanningPlayerAction $determineNextPlanningPlayer,
         private AppendGameHistoryAction $appendGameHistory,
         private GrantCompetencyAction $grantCompetency,
+        private ResolveIncomePhaseAction $resolveIncomePhase,
     ) {
     }
 
@@ -42,9 +43,10 @@ final class ChooseStartingResourcesAction
             $lockedGame = Game::query()->lockForUpdate()->findOrFail($game->id);
             $stateVersionBefore = $lockedGame->version;
             $interaction = $lockedGame->state->pendingInteraction;
+            $interactionPhase = $lockedGame->phase;
 
             if ($lockedGame->status !== GameStatus::Active
-                || $lockedGame->phase !== GamePhase::Setup
+                || ! in_array($interactionPhase, [GamePhase::Setup, GamePhase::Income], true)
                 || $interaction?->type !== PendingInteractionType::ChooseStartingResources) {
                 throw ValidationException::withMessages([
                     'game' => 'Выбор стартовых ресурсов сейчас недоступен.',
@@ -82,25 +84,40 @@ final class ChooseStartingResourcesAction
             $playerState = $state->players[$playerStateIndex];
             $this->assignBooks($playerState, $bookDisciplines);
             $this->assignKnowledge($playerState, $knowledgeDisciplines);
-            $this->assignCompetency(
-                $playerState,
-                $competency,
-                $state->setupPool?->competencies ?? [],
-            );
+            if ($interactionPhase === GamePhase::Setup) {
+                $this->assignCompetency(
+                    $playerState,
+                    $competency,
+                    $state->setupPool?->competencies ?? [],
+                );
+            }
 
             $state->players[$playerStateIndex] = $playerState;
             $state->pendingInteraction = null;
-            $nextPlayer = $this->determineNextPlanningPlayer->execute($lockedGame, $player);
+            $nextPhase = $interactionPhase;
+            $incomeReceipts = [];
+
+            if ($interactionPhase === GamePhase::Income) {
+                [$nextPlayer, $nextPhase, $incomeReceipts] = $this->resolveIncomePhase->execute(
+                    $state,
+                    $lockedGame->players()->get(),
+                );
+            } else {
+                $nextPlayer = $this->determineNextPlanningPlayer->execute($lockedGame, $player);
+            }
 
             $lockedGame->update([
                 'active_player_id' => $nextPlayer->user_id,
+                'phase' => $nextPhase,
                 'version' => $lockedGame->version + 1,
                 'state' => $state,
             ]);
             $this->appendGameHistory->execute(
                 $lockedGame,
                 $user,
-                GameActionType::ChooseStartingResources,
+                $interactionPhase === GamePhase::Income
+                    ? GameActionType::ChooseIncomeResources
+                    : GameActionType::ChooseStartingResources,
                 [
                     'book_disciplines' => array_map(
                         static fn (KnowledgeDiscipline $discipline): string => $discipline->value,
@@ -111,9 +128,13 @@ final class ChooseStartingResourcesAction
                         $knowledgeDisciplines,
                     ),
                     'competency' => $competency?->value,
+                    'phase' => $interactionPhase->value,
+                    'income_receipts' => $incomeReceipts,
                 ],
                 [[
-                    'type' => 'starting_resources_chosen',
+                    'type' => $interactionPhase === GamePhase::Income
+                        ? 'income_resources_chosen'
+                        : 'starting_resources_chosen',
                     'player_id' => $player->id,
                 ]],
                 $stateVersionBefore,

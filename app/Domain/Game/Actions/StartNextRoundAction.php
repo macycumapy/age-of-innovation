@@ -18,7 +18,7 @@ final class StartNextRoundAction
 
     /**
      * @param Collection<int, GamePlayer> $players
-     * @return array{GamePlayer, GamePhase}
+     * @return array{GamePlayer, GamePhase, list<array{player_id: int, tools: int, coins: int, scholars: int, power: int, books: int, knowledge_steps: int}>}
      */
     public function execute(GameStateData $state, Collection $players): array
     {
@@ -36,6 +36,8 @@ final class StartNextRoundAction
         $state->round->usedSharedActionIds = [];
         $state->round->usedBookActionIds = [];
         $state->round->incomeTurnIndex = 0;
+        $state->round->incomeOrder = [];
+        $state->round->incomeReceipts = [];
         $state->round->scienceBonusTurnIndex = 0;
         $state->round->phase = GamePhase::Income;
 

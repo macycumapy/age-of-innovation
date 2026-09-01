@@ -15,6 +15,8 @@ use Spatie\LaravelData\Data;
  * @property list<string> $usedSharedActionIds Общие действия, уже использованные в текущем раунде.
  * @property list<string> $usedBookActionIds Книжные действия, использованные в текущем раунде.
  * @property int $incomeTurnIndex Индекс следующего игрока в порядке начисления дохода.
+ * @property list<int> $incomeOrder Порядок начисления дохода: сначала игроки с обязательным выбором.
+ * @property list<array{player_id: int, tools: int, coins: int, scholars: int, power: int, books: int, knowledge_steps: int}> $incomeReceipts Накопленные квитанции текущей фазы дохода.
  * @property int|null $turnStartVersion Версия состояния в начале текущего хода.
  * @property bool $hasTakenMainAction Выполнил ли активный игрок основное действие текущего хода.
  * @property bool $isCurrentTurnIrrevocable Нельзя ли перезапустить текущий ход из-за принятой другим игроком Силы.
@@ -26,6 +28,8 @@ class RoundStateData extends Data
     /**
      * @param list<string> $usedSharedActionIds
      * @param list<string> $usedBookActionIds
+     * @param list<int> $incomeOrder
+     * @param list<array{player_id: int, tools: int, coins: int, scholars: int, power: int, books: int, knowledge_steps: int}> $incomeReceipts
      * @param list<int> $passOrder
      */
     public function __construct(
@@ -36,6 +40,8 @@ class RoundStateData extends Data
         public array $usedSharedActionIds = [],
         public array $usedBookActionIds = [],
         public int $incomeTurnIndex = 0,
+        public array $incomeOrder = [],
+        public array $incomeReceipts = [],
         public ?int $turnStartVersion = null,
         public bool $hasTakenMainAction = false,
         public bool $isCurrentTurnIrrevocable = false,

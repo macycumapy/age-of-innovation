@@ -64,6 +64,7 @@ final class PassAction
                 'next_round_started' => $result['nextRoundStarted'],
                 'science_bonus_started' => $result['passOrder'] === count($state->turnOrder),
                 'round' => $roundNumber,
+                'income_receipts' => $result['incomeReceipts'],
             ], [[
                 'type' => 'player_passed',
                 'player_id' => $player->id,

@@ -50,6 +50,7 @@ final class FinishStartingBuildingTurnAction
             $state->pendingStartingBuildingHexId = null;
             $state->startingBuildingTurnIndex++;
             $placementOrder = $this->determineStartingBuildingOrder->execute($lockedGame);
+            $incomeReceipts = [];
 
             if ($player->faction === Faction::Monks) {
                 $playerState = collect($state->players)->firstWhere('playerId', $player->id);
@@ -79,7 +80,7 @@ final class FinishStartingBuildingTurnAction
                 $nextPlayer = $player;
                 $nextPhase = GamePhase::Setup;
             } elseif ($state->startingBuildingTurnIndex >= count($placementOrder)) {
-                [$nextPlayer, $nextPhase] = $this->resolveCompletedStartingSetup->execute(
+                [$nextPlayer, $nextPhase, $incomeReceipts] = $this->resolveCompletedStartingSetup->execute(
                     $state,
                     $lockedGame->players()->get(),
                 );
@@ -108,6 +109,7 @@ final class FinishStartingBuildingTurnAction
                     'confirmed' => true,
                     'income_started' => $nextPhase !== GamePhase::Setup,
                     'round' => $state->round->number,
+                    'income_receipts' => $incomeReceipts,
                 ],
                 [
                     [

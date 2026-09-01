@@ -23,7 +23,7 @@ final class ResolveCompletedStartingSetupAction
 
     /**
      * @param Collection<int, GamePlayer> $players
-     * @return array{GamePlayer, GamePhase}
+     * @return array{GamePlayer, GamePhase, list<array{player_id: int, tools: int, coins: int, scholars: int, power: int, books: int, knowledge_steps: int}>}
      */
     public function execute(GameStateData $state, Collection $players): array
     {
@@ -50,7 +50,7 @@ final class ResolveCompletedStartingSetupAction
                         ],
                     );
 
-                    return [$competencyPlayer, GamePhase::Setup];
+                    return [$competencyPlayer, GamePhase::Setup, []];
                 }
             }
         }
@@ -73,11 +73,13 @@ final class ResolveCompletedStartingSetupAction
                 ['spadeCount' => 1, 'targetTerrain' => TerrainType::Desert->value],
             );
 
-            return [$desertPlayer, GamePhase::Setup];
+            return [$desertPlayer, GamePhase::Setup, []];
         }
 
         $state->round->phase = GamePhase::Income;
         $state->round->incomeTurnIndex = 0;
+        $state->round->incomeOrder = [];
+        $state->round->incomeReceipts = [];
 
         return $this->resolveIncomePhase->execute($state, $players);
     }

@@ -9,6 +9,7 @@ enum GameActionType: string
     case StartGame = 'start_game';
     case ChoosePlanningBundle = 'choose_planning_bundle';
     case ChooseStartingResources = 'choose_starting_resources';
+    case ChooseIncomeResources = 'choose_income_resources';
     case PlaceStartingBuilding = 'place_starting_building';
     case UndoStartingBuilding = 'undo_starting_building';
     case FinishStartingBuildingTurn = 'finish_starting_building_turn';
