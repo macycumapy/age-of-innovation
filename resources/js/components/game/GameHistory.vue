@@ -6,13 +6,7 @@ import GameHistoryController from '@/actions/App/Http/Controllers/GameHistoryCon
 import GameHistoryUndoController from '@/actions/App/Http/Controllers/GameHistoryUndoController';
 import { Button } from '@/components/ui/button';
 import { playerColorValues, terrainNames } from '@/lib/gameDisplay';
-import type {
-    GameActionType,
-    GameHistoryEntry,
-    GameHistoryPage,
-    GamePlayerSummary,
-    TerrainType,
-} from '@/types';
+import type { GameActionType, GameHistoryEntry, GameHistoryPage, GamePlayerSummary, TerrainType } from '@/types';
 
 const props = defineProps<{
     gameId: number;
@@ -65,12 +59,8 @@ watch(
         }
 
         const oldestLatestSequence = latestEntries.at(-1)?.sequence ?? 0;
-        const retainedOlderEntries = entries.value.filter(
-            (entry) => entry.sequence < oldestLatestSequence,
-        );
-        const entriesById = new Map(
-            [...latestEntries, ...retainedOlderEntries].map((entry) => [entry.id, entry]),
-        );
+        const retainedOlderEntries = entries.value.filter((entry) => entry.sequence < oldestLatestSequence);
+        const entriesById = new Map([...latestEntries, ...retainedOlderEntries].map((entry) => [entry.id, entry]));
 
         entries.value = [...entriesById.values()].sort((first, second) => second.sequence - first.sequence);
     },
@@ -114,9 +104,8 @@ function handleScroll(event: Event): void {
         return;
     }
 
-    const distanceToEnd = event.currentTarget.scrollHeight
-        - event.currentTarget.scrollTop
-        - event.currentTarget.clientHeight;
+    const distanceToEnd =
+        event.currentTarget.scrollHeight - event.currentTarget.scrollTop - event.currentTarget.clientHeight;
 
     if (distanceToEnd < 48) {
         void loadMore();
@@ -147,12 +136,12 @@ function actionDetails(entry: GameHistoryEntry): string | null {
     const details: string[] = [];
     const hexId = payloadString(entry, 'hex_id');
 
-    if (hexId !== null && [
-        'place_starting_building',
-        'undo_starting_building',
-        'spend_starting_spade',
-        'terraform_and_build',
-    ].includes(entry.type)) {
+    if (
+        hexId !== null &&
+        ['place_starting_building', 'undo_starting_building', 'spend_starting_spade', 'terraform_and_build'].includes(
+            entry.type,
+        )
+    ) {
         details.push(`ячейка ${hexId}`);
     }
 
@@ -165,9 +154,7 @@ function actionDetails(entry: GameHistoryEntry): string | null {
     if (entry.payload.income_started === true) {
         const round = entry.payload.round;
         details.push(
-            round === 1
-                ? 'началась фаза дохода первого раунда'
-                : `началась фаза дохода раунда ${String(round)}`,
+            round === 1 ? 'началась фаза дохода первого раунда' : `началась фаза дохода раунда ${String(round)}`,
         );
     }
 
@@ -259,6 +246,7 @@ function actionTime(createdAt: string | null): string {
                     <time
                         v-if="entry.createdAt"
                         :datetime="entry.createdAt"
+                        data-allow-mismatch="text"
                         class="text-xs text-muted-foreground"
                     >
                         {{ actionTime(entry.createdAt) }}

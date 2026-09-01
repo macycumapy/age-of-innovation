@@ -3,13 +3,7 @@ import { Form, Head, Link } from '@inertiajs/vue3';
 import GameController from '@/actions/App/Http/Controllers/GameController';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
-import {
-    Card,
-    CardContent,
-    CardDescription,
-    CardHeader,
-    CardTitle,
-} from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { index, show } from '@/routes/games';
 import type { GameCollection, GameStatus, GameSummary, MapVariant } from '@/types';
 
@@ -71,17 +65,13 @@ function gameButtonLabel(game: GameSummary): string {
     <div class="flex h-full flex-1 flex-col gap-6 p-4">
         <div>
             <h1 class="text-2xl font-semibold">Игры</h1>
-            <p class="text-sm text-muted-foreground">
-                Создайте новую партию или вернитесь к существующей.
-            </p>
+            <p class="text-sm text-muted-foreground">Создайте новую партию или вернитесь к существующей.</p>
         </div>
 
         <Card>
             <CardHeader>
                 <CardTitle>Новая игра</CardTitle>
-                <CardDescription>
-                    Выберите сторону игрового поля.
-                </CardDescription>
+                <CardDescription> Выберите сторону игрового поля. </CardDescription>
             </CardHeader>
             <CardContent>
                 <Form
@@ -91,29 +81,19 @@ function gameButtonLabel(game: GameSummary): string {
                     #default="{ errors, processing }"
                 >
                     <div class="grid flex-1 gap-2">
-                        <label for="map_variant" class="text-sm font-medium">
-                            Количество игроков
-                        </label>
+                        <label for="map_variant" class="text-sm font-medium"> Количество игроков </label>
                         <select
                             id="map_variant"
                             name="map_variant"
                             class="h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
                         >
-                            <option value="three_to_five_players">
-                                3–5 игроков
-                            </option>
-                            <option value="one_to_three_players">
-                                1–3 игрока
-                            </option>
+                            <option value="three_to_five_players">3–5 игроков</option>
+                            <option value="one_to_three_players">1–3 игрока</option>
                         </select>
                         <InputError :message="errors.map_variant" />
                     </div>
 
-                    <Button
-                        type="submit"
-                        class="sm:mt-7"
-                        :disabled="processing"
-                    >
+                    <Button type="submit" class="sm:mt-7" :disabled="processing">
                         {{ processing ? 'Создание…' : 'Создать игру' }}
                     </Button>
                 </Form>
@@ -131,11 +111,7 @@ function gameButtonLabel(game: GameSummary): string {
             </div>
 
             <div v-else class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                <Card
-                    v-for="game in games.data"
-                    :key="game.id"
-                    class="gap-3"
-                >
+                <Card v-for="game in games.data" :key="game.id" class="gap-3">
                     <CardHeader>
                         <CardTitle>Игра №{{ game.id }}</CardTitle>
                         <CardDescription>
@@ -161,7 +137,7 @@ function gameButtonLabel(game: GameSummary): string {
                                 {{ game.currentRound }}
                             </span>
                         </p>
-                        <p class="text-muted-foreground">
+                        <p class="text-muted-foreground" data-allow-mismatch="text">
                             Создана {{ formatDate(game.createdAt) }}
                         </p>
 
