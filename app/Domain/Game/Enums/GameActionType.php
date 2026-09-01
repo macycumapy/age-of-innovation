@@ -26,6 +26,7 @@ enum GameActionType: string
     case SpecialAction = 'special_action';
     case ExchangeResources = 'exchange_resources';
     case Pass = 'pass';
+    case ChooseScienceBonusBooks = 'choose_science_bonus_books';
     case AcceptPower = 'accept_power';
     case DeclinePower = 'decline_power';
     case ChooseTown = 'choose_town';

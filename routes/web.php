@@ -27,6 +27,7 @@ use App\Http\Controllers\PowerSacrificeController;
 use App\Http\Controllers\ResourceExchangeController;
 use App\Http\Controllers\RoundBonusActionController;
 use App\Http\Controllers\ScholarController;
+use App\Http\Controllers\ScienceBonusBooksController;
 use App\Http\Controllers\StartingBuildingController;
 use App\Http\Controllers\StartingBuildingTurnController;
 use App\Http\Controllers\StartingCompetencyController;
@@ -81,6 +82,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('games.palace-action');
     Route::post('games/{game}/pass', PassController::class)
         ->name('games.pass');
+    Route::post('games/{game}/science-bonus/books', ScienceBonusBooksController::class)
+        ->name('games.science-bonus.books');
     Route::post('games/{game}/bridge', [BridgeController::class, 'store'])
         ->name('games.bridge.store');
     Route::delete('games/{game}/bridge', [BridgeController::class, 'destroy'])

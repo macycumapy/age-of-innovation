@@ -25,6 +25,7 @@ import InnovationBoard from '@/components/game/InnovationBoard.vue';
 import PalaceBoard from '@/components/game/PalaceBoard.vue';
 import PalaceActionDialog from '@/components/game/PalaceActionDialog.vue';
 import PassDialog from '@/components/game/PassDialog.vue';
+import ScienceBonusBooksDialog from '@/components/game/ScienceBonusBooksDialog.vue';
 import PalaceSelector from '@/components/game/PalaceSelector.vue';
 import PlayerBoards from '@/components/game/PlayerBoards.vue';
 import PlayerStatsPanel from '@/components/game/PlayerStatsPanel.vue';
@@ -1272,6 +1273,7 @@ function updateStartingKnowledgeCount(discipline: KnowledgeDiscipline, event: Ev
                             :selectable-hex-ids="selectableStartingHexIds"
                             :pending-hex-id="game.data.pendingStartingBuildingHexId ?? pendingStartingSpadeHexId ?? pendingPalaceGuildHexId ?? selectedBridgeFromHexId"
                             :pending-bridge="pendingBridge"
+                            :current-round="game.data.currentRound"
                             :round-scoring-tiles="game.data.roundScoringTiles"
                             :final-round-scoring-tile="game.data.finalRoundScoringTile"
                             :book-actions="game.data.bookActions"
@@ -1394,6 +1396,14 @@ function updateStartingKnowledgeCount(discipline: KnowledgeDiscipline, event: Ev
                 :offers="game.data.roundBonusOffers"
                 :descriptions="game.data.roundBonusDescriptions"
                 :available-actions="availableActionsBeforePass"
+            />
+
+            <ScienceBonusBooksDialog
+                v-if="game.data.pendingInteraction?.type === 'choose_science_bonus_books'
+                    && game.data.pendingInteraction.playerId === currentPlayer?.id"
+                :game-id="game.data.id"
+                :book-count="game.data.pendingInteraction.context.bookCount"
+                :discipline-names="game.data.knowledgeDisciplineNames"
             />
 
             <ResourceExchangeDialog

@@ -63,6 +63,7 @@ final class ReplayGameHistoryAction
         GameActionType::SendScholar,
         GameActionType::SpecialAction,
         GameActionType::Pass,
+        GameActionType::ChooseScienceBonusBooks,
     ];
 
     public function __construct(
@@ -83,6 +84,7 @@ final class ReplayGameHistoryAction
         private ApplyFactionAction $applyFactionAction,
         private ApplyPalaceAction $applyPalaceAction,
         private ApplyPassAction $applyPassAction,
+        private ResolveScienceBonusPhaseAction $resolveScienceBonusPhase,
     ) {
     }
 
@@ -143,6 +145,7 @@ final class ReplayGameHistoryAction
                 GameActionType::SendScholar => $this->replaySendScholar($game, $players, $action),
                 GameActionType::SpecialAction => $this->replayRoundBonusAction($game, $players, $action),
                 GameActionType::Pass => $this->replayPass($game, $players, $action),
+                GameActionType::ChooseScienceBonusBooks => $this->replayScienceBonusBooks($game, $players, $action),
                 default => null,
             };
 
@@ -511,6 +514,11 @@ final class ReplayGameHistoryAction
                 $game->active_player_id = $player->user_id;
             } elseif ($interactionPhase === GamePhase::Actions) {
                 $state->pendingInteraction = null;
+            } elseif ($interactionPhase === GamePhase::ScienceBonus) {
+                $state->pendingInteraction = null;
+                [$nextPlayer, $nextPhase] = $this->resolveScienceBonusPhase->execute($state, $players);
+                $game->phase = $nextPhase;
+                $game->active_player_id = $nextPlayer?->user_id;
             } else {
                 $this->completeStartingInteraction($game, $state, $players);
             }
@@ -534,6 +542,11 @@ final class ReplayGameHistoryAction
                         $availableHexIds,
                         ['toolCost' => 1, 'coinCost' => 2],
                     );
+        } elseif ($interactionPhase === GamePhase::ScienceBonus) {
+            $state->pendingInteraction = null;
+            [$nextPlayer, $nextPhase] = $this->resolveScienceBonusPhase->execute($state, $players);
+            $game->phase = $nextPhase;
+            $game->active_player_id = $nextPlayer?->user_id;
         } else {
             $this->completeStartingInteraction($game, $state, $players);
         }
@@ -777,6 +790,32 @@ final class ReplayGameHistoryAction
         $game->phase = $result['phase'];
         $game->status = $result['phase'] === GamePhase::Finished ? GameStatus::Finished : GameStatus::Active;
         $game->active_player_id = $result['nextActiveUserId'];
+        $game->state = $state;
+    }
+
+    /** @param Collection<int, GamePlayer> $players */
+    private function replayScienceBonusBooks(Game $game, Collection $players, GameAction $action): void
+    {
+        $player = $players->firstWhere('user_id', $action->player_id);
+        $state = $game->state;
+
+        if (! $player instanceof GamePlayer
+            || $state->pendingInteraction?->type !== PendingInteractionType::ChooseScienceBonusBooks
+            || $state->pendingInteraction->playerId !== $player->id) {
+            $this->invalidHistory();
+        }
+
+        $playerState = $this->playerState($state, $player->id);
+
+        foreach ($action->payload['disciplines'] ?? [] as $disciplineValue) {
+            $discipline = KnowledgeDiscipline::from((string) $disciplineValue);
+            $playerState->resources->books->{$discipline->value}++;
+        }
+
+        $state->pendingInteraction = null;
+        [$nextPlayer, $nextPhase] = $this->resolveScienceBonusPhase->execute($state, $players);
+        $game->phase = $nextPhase;
+        $game->active_player_id = $nextPlayer?->user_id;
         $game->state = $state;
     }
 

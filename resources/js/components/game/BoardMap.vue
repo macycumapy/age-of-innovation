@@ -15,10 +15,12 @@ import type {
 } from '@/types';
 import gameBoardUrl from '../../../images/game_board.webp';
 import gameBoardTwoPlayerUrl from '../../../images/game_board_2p.webp';
+import finishedRoundScoringTileUrl from '../../../images/round_scoring_tiles/finished.png';
 import goldCrossUrl from '../../../images/token_parts/gold_cross.png';
 
 type Props = {
     board: BoardState;
+    currentRound?: number | null;
     roundScoringTiles?: RoundScoringTile[];
     finalRoundScoringTile?: FinalRoundScoringTile | null;
     bookActions?: BookAction[];
@@ -57,6 +59,7 @@ type BoardLayout = {
 };
 
 const props = withDefaults(defineProps<Props>(), {
+    currentRound: null,
     roundScoringTiles: () => [],
     finalRoundScoringTile: null,
     bookActions: () => [],
@@ -234,7 +237,11 @@ const visibleHexes = computed(() =>
         })),
 );
 
-function roundScoringTileImage(tile: RoundScoringTile): string {
+function roundScoringTileImage(tile: RoundScoringTile, index: number): string {
+    if (props.currentRound !== null && index + 1 < props.currentRound) {
+        return finishedRoundScoringTileUrl;
+    }
+
     return roundScoringTileImages[`../../../images/round_scoring_tiles/${tile}.png`] ?? '';
 }
 
@@ -303,7 +310,7 @@ function closedActionTokenX(actionX: number, actionWidth: number): number {
             <g v-for="(tile, index) in roundScoringTiles" :key="`round-${index}-${tile}`">
                 <title>Раунд {{ index + 1 }}: {{ roundScoringTileNames[tile] }}</title>
                 <image
-                    :href="roundScoringTileImage(tile)"
+                    :href="roundScoringTileImage(tile, index)"
                     :x="boardLayout.roundScoringTileX"
                     :y="roundScoringTileY(index)"
                     :width="boardLayout.roundScoringTileWidth"

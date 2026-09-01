@@ -77,4 +77,24 @@ enum RoundScoringTile: string
             self::TrackEngineering => KnowledgeDiscipline::Engineering,
         };
     }
+
+    /** @return array{scholars: int, power: int, books: int, spades: int, coins: int, tools: int} */
+    public function scienceBonus(int $knowledgeLevel): array
+    {
+        $reward = ['scholars' => 0, 'power' => 0, 'books' => 0, 'spades' => 0, 'coins' => 0, 'tools' => 0];
+
+        match ($this) {
+            self::WorkshopLaw => $reward['scholars'] = intdiv($knowledgeLevel, 3),
+            self::WorkshopBanking => $reward['power'] = intdiv($knowledgeLevel, 3) * 4,
+            self::GuildLaw, self::KnowledgeMedicine => $reward['books'] = intdiv($knowledgeLevel, 3),
+            self::GuildMedicine, self::TownEngineering => $reward['spades'] = intdiv($knowledgeLevel, 4),
+            self::SchoolBanking, self::SpadeEngineering => $reward['coins'] = $knowledgeLevel,
+            self::PalaceUniversityMedicine,
+            self::PalaceUniversityBanking => $reward['tools'] = intdiv($knowledgeLevel, 2),
+            self::TrackEngineering => $reward['scholars'] = intdiv($knowledgeLevel, 3),
+            self::InnovationLaw => $reward['power'] = intdiv($knowledgeLevel, 2) * 3,
+        };
+
+        return $reward;
+    }
 }

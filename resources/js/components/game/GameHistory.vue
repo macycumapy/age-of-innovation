@@ -36,6 +36,7 @@ const actionDescriptions: Record<GameActionType, string> = {
     special_action: 'выполнил особое действие',
     exchange_resources: 'обменял ресурсы',
     pass: 'спасовал',
+    choose_science_bonus_books: 'выбрал книги научного бонуса',
     accept_power: 'принял силу',
     decline_power: 'отказался от силы',
     choose_town: 'выбрал жетон города',
@@ -156,6 +157,10 @@ function actionDetails(entry: GameHistoryEntry): string | null {
         details.push(
             round === 1 ? 'началась фаза дохода первого раунда' : `началась фаза дохода раунда ${String(round)}`,
         );
+    }
+
+    if (entry.payload.science_bonus_started === true) {
+        details.push('началась фаза научного бонуса');
     }
 
     if (entry.type === 'sacrifice_power' && typeof entry.payload.amount === 'number') {

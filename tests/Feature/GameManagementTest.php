@@ -660,6 +660,111 @@ class GameManagementTest extends TestCase
 
     }
 
+    public function test_players_choose_science_bonus_books_in_pass_order_before_the_next_round(): void
+    {
+        [$game, $firstUser, $secondUser] = $this->gameForPassing();
+        $state = $game->state;
+        $state->round->scoringTileId = RoundScoringTile::GuildLaw->value;
+        $state->setupPool->roundScoringTiles[0] = RoundScoringTile::GuildLaw;
+        $state->players[0]->knowledge->law = 6;
+        $game->update(['state' => $state]);
+
+        $this->actingAs($firstUser)->post(route('games.pass', $game), [
+            'round_bonus' => RoundBonus::RiverWorkshop->value,
+        ]);
+        $this->actingAs($secondUser)->post(route('games.pass', $game), [
+            'round_bonus' => RoundBonus::BuildGuild->value,
+        ]);
+
+        $game->refresh();
+        $this->assertSame(GamePhase::ScienceBonus, $game->phase);
+        $this->assertSame($firstUser->id, $game->active_player_id);
+        $this->assertSame(PendingInteractionType::ChooseScienceBonusBooks, $game->state->pendingInteraction?->type);
+        $this->assertSame(2, $game->state->pendingInteraction?->context['bookCount']);
+
+        $this->actingAs($firstUser)->post(route('games.science-bonus.books', $game), [
+            'book_counts' => ['banking' => 3, 'law' => 0, 'engineering' => 0, 'medicine' => 0],
+        ])->assertSessionHasErrors('book_counts.banking');
+
+        $this->actingAs($firstUser)->post(route('games.science-bonus.books', $game), [
+            'book_counts' => ['banking' => 1, 'law' => 0, 'engineering' => 0, 'medicine' => 1],
+        ])->assertRedirect(route('games.show', $game))->assertSessionHasNoErrors();
+
+        $game->refresh();
+        $this->assertSame(1, $game->state->players[0]->resources->books->banking);
+        $this->assertSame(1, $game->state->players[0]->resources->books->medicine);
+        $this->assertSame(2, $game->state->round->number);
+        $this->assertSame(GamePhase::Actions, $game->phase);
+        $this->assertSame($firstUser->id, $game->active_player_id);
+    }
+
+    public function test_automatic_science_bonuses_are_applied_before_the_next_round(): void
+    {
+        [$game, $firstUser, $secondUser] = $this->gameForPassing();
+        $state = $game->state;
+        $state->round->scoringTileId = RoundScoringTile::PalaceUniversityBanking->value;
+        $state->setupPool->roundScoringTiles[0] = RoundScoringTile::PalaceUniversityBanking;
+        $state->players[0]->knowledge->banking = 4;
+        $state->players[1]->knowledge->banking = 6;
+        $game->update(['state' => $state]);
+
+        $this->actingAs($firstUser)->post(route('games.pass', $game), ['round_bonus' => RoundBonus::RiverWorkshop->value]);
+        $this->actingAs($secondUser)->post(route('games.pass', $game), ['round_bonus' => RoundBonus::BuildGuild->value]);
+
+        $game->refresh();
+        $this->assertSame(3, $game->state->players[0]->resources->tools);
+        $this->assertSame(4, $game->state->players[1]->resources->tools);
+        $this->assertSame(2, $game->state->round->number);
+        $this->assertSame(GamePhase::Actions, $game->phase);
+    }
+
+    public function test_player_can_confirm_or_rollback_a_science_bonus_spade(): void
+    {
+        [$game, $firstUser, $secondUser] = $this->gameForPassing();
+        $state = $game->state;
+        $state->round->scoringTileId = RoundScoringTile::GuildMedicine->value;
+        $state->setupPool->roundScoringTiles[0] = RoundScoringTile::GuildMedicine;
+        $state->players[0]->knowledge->medicine = 4;
+        $state->board = new BoardStateData(hexes: [
+            new BoardHexStateData(
+                id: '0:0',
+                q: 0,
+                r: 0,
+                initialTerrain: TerrainType::Forest,
+                terrain: TerrainType::Forest,
+                adjacentHexIds: ['1:0'],
+                building: new BuildingStateData(BuildingType::Workshop, $state->players[0]->playerId),
+            ),
+            new BoardHexStateData(
+                id: '1:0',
+                q: 1,
+                r: 0,
+                initialTerrain: TerrainType::Mountain,
+                terrain: TerrainType::Mountain,
+                adjacentHexIds: ['0:0'],
+            ),
+        ]);
+        $game->update(['state' => $state]);
+
+        $this->actingAs($firstUser)->post(route('games.pass', $game), ['round_bonus' => RoundBonus::RiverWorkshop->value]);
+        $this->actingAs($secondUser)->post(route('games.pass', $game), ['round_bonus' => RoundBonus::BuildGuild->value]);
+        $game->refresh();
+        $this->assertSame(GamePhase::ScienceBonus, $game->phase);
+        $this->assertSame(PendingInteractionType::SpendSpades, $game->state->pendingInteraction?->type);
+
+        $this->actingAs($firstUser)->post(route('games.starting-spade.store', $game), ['hex_id' => '1:0']);
+        $this->delete(route('games.starting-spade.destroy', $game));
+        $game->refresh();
+        $this->assertSame(TerrainType::Mountain, $game->state->board->hexes[1]->terrain);
+
+        $this->post(route('games.starting-spade.store', $game), ['hex_id' => '1:0']);
+        $this->post(route('games.starting-spade.finish', $game))->assertRedirect(route('games.show', $game));
+        $game->refresh();
+        $this->assertSame(TerrainType::Forest, $game->state->board->hexes[1]->terrain);
+        $this->assertSame(0, $game->state->players[0]->unassignedSpades);
+        $this->assertSame(2, $game->state->round->number);
+    }
+
     public function test_psychics_gain_power_without_spending_the_main_action(): void
     {
         [$game, $user] = $this->gameForFactionAction(Faction::Psychics);
@@ -1938,6 +2043,7 @@ class GameManagementTest extends TestCase
             'seat' => 2,
         ]);
         $setupPool = (new GameSetupPoolFactory())->createFromSeed(2, 'pass-test');
+        $setupPool->roundScoringTiles[0] = RoundScoringTile::WorkshopLaw;
         $setupPool->availableRoundBonuses = [
             new RoundBonusOfferData(RoundBonus::RiverWorkshop, 2),
             new RoundBonusOfferData(RoundBonus::BuildGuild),

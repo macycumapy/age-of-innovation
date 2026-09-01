@@ -80,6 +80,7 @@ export type GameActionType =
     | 'special_action'
     | 'exchange_resources'
     | 'pass'
+    | 'choose_science_bonus_books'
     | 'accept_power'
     | 'decline_power'
     | 'choose_town'
@@ -353,6 +354,14 @@ export type PendingInteraction =
             bookCount: number;
             knowledgeStepCount: number;
             competencyIds?: Competency[];
+        };
+    }
+    | {
+        type: 'choose_science_bonus_books';
+        playerId: number;
+        optionIds: never[];
+        context: {
+            bookCount: number;
         };
     }
     | {

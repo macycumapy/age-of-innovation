@@ -26,7 +26,7 @@ final class SpendStartingSpadeAction
                 ->whereBelongsTo($user)
                 ->first();
 
-            if (! in_array($lockedGame->phase, [GamePhase::Setup, GamePhase::Actions], true)
+            if (! in_array($lockedGame->phase, [GamePhase::Setup, GamePhase::Actions, GamePhase::ScienceBonus], true)
                 || $lockedGame->active_player_id !== $user->id
                 || $interaction?->type !== PendingInteractionType::SpendSpades
                 || isset($interaction->context['selectedHexId'])

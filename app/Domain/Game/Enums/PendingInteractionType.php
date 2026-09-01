@@ -16,4 +16,5 @@ enum PendingInteractionType: string
     case SpendSpades = 'spend_spades';
     case BuildWorkshopAfterTerraforming = 'build_workshop_after_terraforming';
     case PlaceBridge = 'place_bridge';
+    case ChooseScienceBonusBooks = 'choose_science_bonus_books';
 }

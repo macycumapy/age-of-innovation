@@ -19,6 +19,7 @@ use Spatie\LaravelData\Data;
  * @property bool $hasTakenMainAction Выполнил ли активный игрок основное действие текущего хода.
  * @property bool $isCurrentTurnIrrevocable Нельзя ли перезапустить текущий ход из-за принятой другим игроком Силы.
  * @property list<int> $passOrder Порядок, в котором игроки пасовали.
+ * @property int $scienceBonusTurnIndex Индекс игрока, следующего за научным бонусом.
  */
 class RoundStateData extends Data
 {
@@ -39,6 +40,7 @@ class RoundStateData extends Data
         public bool $hasTakenMainAction = false,
         public bool $isCurrentTurnIrrevocable = false,
         public array $passOrder = [],
+        public int $scienceBonusTurnIndex = 0,
     ) {
     }
 }

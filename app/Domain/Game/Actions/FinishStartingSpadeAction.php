@@ -6,6 +6,7 @@ namespace App\Domain\Game\Actions;
 
 use App\Domain\Game\Enums\GameActionType;
 use App\Domain\Game\Enums\GamePhase;
+use App\Domain\Game\Enums\GameStatus;
 use App\Domain\Game\Enums\PendingInteractionType;
 use App\Domain\Game\Enums\TerrainType;
 use App\Models\Game;
@@ -21,6 +22,7 @@ final class FinishStartingSpadeAction
         private FindEligibleTerraformHexesAction $findEligibleTerraformHexes,
         private OfferWorkshopAfterTerraformingAction $offerWorkshopAfterTerraforming,
         private ResolveCompletedStartingSetupAction $resolveCompletedStartingSetup,
+        private ResolveScienceBonusPhaseAction $resolveScienceBonusPhase,
     ) {
     }
 
@@ -38,7 +40,7 @@ final class FinishStartingSpadeAction
                 ->whereBelongsTo($user)
                 ->first();
 
-            if (! in_array($lockedGame->phase, [GamePhase::Setup, GamePhase::Actions], true)
+            if (! in_array($lockedGame->phase, [GamePhase::Setup, GamePhase::Actions, GamePhase::ScienceBonus], true)
                 || $lockedGame->active_player_id !== $user->id
                 || $interaction?->type !== PendingInteractionType::SpendSpades
                 || ! is_string($hexId)
@@ -93,6 +95,12 @@ final class FinishStartingSpadeAction
                     );
                     $nextPlayer = $player;
                     $nextPhase = GamePhase::Actions;
+                } elseif ($interactionPhase === GamePhase::ScienceBonus) {
+                    $state->pendingInteraction = null;
+                    [$nextPlayer, $nextPhase] = $this->resolveScienceBonusPhase->execute(
+                        $state,
+                        $lockedGame->players()->get(),
+                    );
                 } else {
                     $state->pendingInteraction = null;
                     [$nextPlayer, $nextPhase] = $this->resolveCompletedStartingSetup->execute(
@@ -108,6 +116,12 @@ final class FinishStartingSpadeAction
                 );
                 $nextPlayer = $player;
                 $nextPhase = GamePhase::Actions;
+            } elseif ($interactionPhase === GamePhase::ScienceBonus) {
+                $state->pendingInteraction = null;
+                [$nextPlayer, $nextPhase] = $this->resolveScienceBonusPhase->execute(
+                    $state,
+                    $lockedGame->players()->get(),
+                );
             } else {
                 $state->pendingInteraction = null;
                 [$nextPlayer, $nextPhase] = $this->resolveCompletedStartingSetup->execute(
@@ -117,8 +131,9 @@ final class FinishStartingSpadeAction
             }
 
             $lockedGame->update([
+                'status' => $nextPhase === GamePhase::Finished ? GameStatus::Finished : GameStatus::Active,
                 'phase' => $nextPhase,
-                'active_player_id' => $nextPlayer->user_id,
+                'active_player_id' => $nextPlayer?->user_id,
                 'state' => $state,
                 'version' => $lockedGame->version + 1,
             ]);

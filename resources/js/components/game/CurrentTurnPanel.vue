@@ -68,6 +68,13 @@ function confirmRestartCurrentTurn(event: SubmitEvent): void {
         </span>
 
         <span
+            v-if="game.data.phase === 'science_bonus'"
+            class="shrink-0 rounded-full border border-primary/40 bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary"
+        >
+            Фаза 3 · Научный бонус
+        </span>
+
+        <span
             v-if="isCurrentUsersTurn"
             class="shrink-0 rounded-full bg-primary px-2.5 py-1 text-xs font-semibold text-primary-foreground"
         >
@@ -75,13 +82,16 @@ function confirmRestartCurrentTurn(event: SubmitEvent): void {
         </span>
 
         <p
-            v-if="isCurrentUsersTurn && (isStartingBuildingStage || canSpendStartingSpade || canResolvePowerOffer || game.data.pendingInteraction?.type === 'place_palace_guild' || game.data.pendingInteraction?.type === 'place_bridge')"
+            v-if="isCurrentUsersTurn && (isStartingBuildingStage || canSpendStartingSpade || canResolvePowerOffer || game.data.pendingInteraction?.type === 'place_palace_guild' || game.data.pendingInteraction?.type === 'place_bridge' || game.data.pendingInteraction?.type === 'choose_science_bonus_books')"
             class="truncate text-sm font-medium"
             role="status"
             aria-live="polite"
         >
             <template v-if="game.data.pendingInteraction?.type === 'power_offer'">
                 Получить {{ powerOfferAmount }} Силы за {{ powerOfferVictoryPointCost }} ПО?
+            </template>
+            <template v-else-if="game.data.pendingInteraction?.type === 'choose_science_bonus_books'">
+                Выберите книги, полученные за научную цель раунда.
             </template>
             <template v-else-if="game.data.pendingInteraction?.type === 'choose_competency'">
                 Выберите стартовую компетенцию.

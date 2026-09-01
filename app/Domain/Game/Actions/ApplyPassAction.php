@@ -10,7 +10,6 @@ use App\Domain\Game\Data\RoundBonusOfferData;
 use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\RoundBonus;
 use App\Models\GamePlayer;
-use BackedEnum;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Validation\ValidationException;
 
@@ -18,7 +17,7 @@ final class ApplyPassAction
 {
     public function __construct(
         private ApplyPassBonusesAction $applyPassBonuses,
-        private ResolveIncomePhaseAction $resolveIncomePhase,
+        private ResolveScienceBonusPhaseAction $resolveScienceBonusPhase,
     ) {
     }
 
@@ -79,47 +78,18 @@ final class ApplyPassAction
         $state->turnOrder = $state->passedPlayerIds;
         $state->passedPlayerIds = [];
 
-        if ($state->round->number >= 6) {
-            $state->round->phase = GamePhase::Finished;
-
-            return [
-                'nextActiveUserId' => null,
-                'phase' => GamePhase::Finished,
-                'bonusCoins' => $offer->coins,
-                'victoryPoints' => $bonuses['victoryPoints'],
-                'scoringSources' => $bonuses['sources'],
-                'passOrder' => $passOrder,
-                'nextRoundStarted' => false,
-            ];
-        }
-
-        foreach ($state->setupPool->availableRoundBonuses as $availableRoundBonus) {
-            $availableRoundBonus->coins++;
-        }
-
-        foreach ($state->players as $playerState) {
-            $playerState->usedSpecialActionIds = [];
-        }
-
-        $state->round->number++;
-        $state->round->phase = GamePhase::Income;
-        $scoringTile = $state->setupPool->roundScoringTiles[$state->round->number - 1];
-        $state->round->scoringTileId = $scoringTile instanceof BackedEnum
-            ? (string) $scoringTile->value
-            : $scoringTile;
-        $state->round->usedSharedActionIds = [];
-        $state->round->usedBookActionIds = [];
-        $state->round->incomeTurnIndex = 0;
-        [$nextPlayer, $phase] = $this->resolveIncomePhase->execute($state, $players);
+        $state->round->phase = GamePhase::ScienceBonus;
+        $state->round->scienceBonusTurnIndex = 0;
+        [$nextPlayer, $phase] = $this->resolveScienceBonusPhase->execute($state, $players);
 
         return [
-            'nextActiveUserId' => $nextPlayer->user_id,
+            'nextActiveUserId' => $nextPlayer?->user_id,
             'phase' => $phase,
             'bonusCoins' => $offer->coins,
             'victoryPoints' => $bonuses['victoryPoints'],
             'scoringSources' => $bonuses['sources'],
             'passOrder' => $passOrder,
-            'nextRoundStarted' => true,
+            'nextRoundStarted' => $phase !== GamePhase::ScienceBonus,
         ];
     }
 
