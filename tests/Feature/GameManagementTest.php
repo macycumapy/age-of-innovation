@@ -16,11 +16,13 @@ use App\Domain\Game\Data\BookSupplyData;
 use App\Domain\Game\Data\BuildingStateData;
 use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Data\GameStateData;
+use App\Domain\Game\Data\KnowledgeStateData;
 use App\Domain\Game\Data\PendingInteractionData;
 use App\Domain\Game\Data\PlanningBundleData;
 use App\Domain\Game\Data\PlayerPlanningSelectionData;
 use App\Domain\Game\Data\PlayerResourcesData;
 use App\Domain\Game\Data\PowerBowlsStateData;
+use App\Domain\Game\Data\RoundBonusOfferData;
 use App\Domain\Game\Data\RoundStateData;
 use App\Domain\Game\Enums\BookAction;
 use App\Domain\Game\Enums\BuildingType;
@@ -541,6 +543,121 @@ class GameManagementTest extends TestCase
         $game->refresh();
         $this->assertSame(3, $game->state->players[0]->resources->coins);
         $this->assertSame(1, $game->state->players[0]->resources->books->law);
+    }
+
+    public function test_player_can_pass_only_on_their_turn_and_choose_an_available_round_bonus(): void
+    {
+        [$game, $firstUser, $secondUser] = $this->gameForPassing();
+        $state = $game->state;
+        $state->round->hasTakenMainAction = true;
+        $game->update(['state' => $state]);
+
+        $this->actingAs($firstUser)->post(route('games.pass', $game), [
+            'round_bonus' => RoundBonus::RiverWorkshop->value,
+        ])->assertForbidden();
+
+        $state->round->hasTakenMainAction = false;
+        $game->update(['state' => $state]);
+
+        $this->actingAs($secondUser)->post(route('games.pass', $game), [
+            'round_bonus' => RoundBonus::RiverWorkshop->value,
+        ])->assertForbidden();
+
+        $this->actingAs($firstUser)->post(route('games.pass', $game), [
+            'round_bonus' => RoundBonus::Spade->value,
+        ])->assertSessionHasErrors('round_bonus');
+
+        $this->post(route('games.pass', $game), [
+            'round_bonus' => RoundBonus::RiverWorkshop->value,
+        ])->assertRedirect(route('games.show', $game));
+
+        $game->refresh();
+        $this->assertSame($secondUser->id, $game->active_player_id);
+        $this->assertSame(RoundBonus::RiverWorkshop, $game->state->players[0]->roundBonus);
+        $this->assertSame([$game->state->players[0]->playerId], $game->state->passedPlayerIds);
+        $this->assertSame([$game->state->players[0]->playerId], $game->state->round->passOrder);
+        $this->assertSame(2, $game->state->players[0]->resources->coins);
+        $this->assertContains(
+            RoundBonus::Knowledge,
+            array_column($game->state->setupPool?->availableRoundBonuses ?? [], 'roundBonus'),
+        );
+        $this->assertSame(GameActionType::Pass, $game->actions()->sole()->type);
+
+        $this->get(route('games.show', $game))->assertInertia(
+            fn (Assert $page) => $page
+                ->where('game.data.playerBoardStates.0.passOrder', 1)
+                ->where('game.data.canPass', false),
+        );
+    }
+
+    public function test_last_pass_sets_the_next_round_turn_order_and_starts_the_next_round(): void
+    {
+        [$game, $firstUser, $secondUser] = $this->gameForPassing();
+        $firstPlayerId = $game->state->players[0]->playerId;
+        $secondPlayerId = $game->state->players[1]->playerId;
+
+        $this->actingAs($firstUser)->post(route('games.pass', $game), [
+            'round_bonus' => RoundBonus::RiverWorkshop->value,
+        ])->assertRedirect(route('games.show', $game))->assertSessionHasNoErrors();
+        $this->actingAs($secondUser)->post(route('games.pass', $game), [
+            'round_bonus' => RoundBonus::BuildGuild->value,
+        ])->assertRedirect(route('games.show', $game))->assertSessionHasNoErrors();
+
+        $game->refresh();
+        $this->assertSame(2, $game->state->round->number);
+        $this->assertSame([$firstPlayerId, $secondPlayerId], $game->state->turnOrder);
+        $this->assertSame([$firstPlayerId, $secondPlayerId], $game->state->round->passOrder);
+        $this->assertSame([], $game->state->passedPlayerIds);
+        $this->assertSame(GamePhase::Actions, $game->phase);
+        $this->assertSame($firstUser->id, $game->active_player_id);
+        $this->assertSame(2, $game->actions()->count());
+    }
+
+    public function test_pass_awards_victory_points_from_all_pass_bonus_sources(): void
+    {
+        [$game, $firstUser] = $this->gameForPassing();
+        $state = $game->state;
+        $player = $state->players[0];
+        $player->roundBonus = RoundBonus::PassPalaceUniversity;
+        $player->competencyIds = [Competency::Competency08->value, Competency::Competency12->value];
+        $player->palaceId = PalaceAbility::Palace07->value;
+        $player->inventionIds = [Innovation::TradeRoutes->value];
+        $player->townTileIds = ['town_01', 'town_02'];
+        $player->knowledge = new KnowledgeStateData(banking: 5, law: 2, engineering: 4, medicine: 3);
+        $buildingTypes = [
+            BuildingType::Palace,
+            BuildingType::University,
+            BuildingType::School,
+            BuildingType::School,
+            BuildingType::Guild,
+            BuildingType::Guild,
+            BuildingType::Guild,
+        ];
+        $state->board = new BoardStateData(hexes: array_map(
+            static fn (BuildingType $buildingType, int $index): BoardHexStateData => new BoardHexStateData(
+                id: "{$index}:0",
+                q: $index,
+                r: 0,
+                initialTerrain: TerrainType::Forest,
+                terrain: TerrainType::Forest,
+                building: new BuildingStateData($buildingType, $player->playerId),
+            ),
+            $buildingTypes,
+            array_keys($buildingTypes),
+        ));
+        $game->update(['state' => $state]);
+
+        $this->actingAs($firstUser)->post(route('games.pass', $game), [
+            'round_bonus' => RoundBonus::RiverWorkshop->value,
+        ])->assertRedirect(route('games.show', $game))->assertSessionHasNoErrors();
+
+        $game->refresh();
+        $this->assertSame(46, $game->state->players[0]->victoryPoints);
+        $action = $game->actions()->sole();
+        $this->assertSame(26, $action->payload['victory_points']);
+        $this->assertCount(5, $action->payload['scoring_sources']);
+        $this->assertSame([8, 4, 2, 6, 6], array_column($action->payload['scoring_sources'], 'points'));
+
     }
 
     public function test_psychics_gain_power_without_spending_the_main_action(): void
@@ -1798,6 +1915,62 @@ class GameManagementTest extends TestCase
         )]);
 
         return [$game, $user];
+    }
+
+    /** @return array{Game, User, User} */
+    private function gameForPassing(): array
+    {
+        $firstUser = User::factory()->create();
+        $secondUser = User::factory()->create();
+        $game = Game::factory()->create([
+            'status' => GameStatus::Active,
+            'phase' => GamePhase::Actions,
+            'active_player_id' => $firstUser->id,
+        ]);
+        $firstPlayer = GamePlayer::factory()->create([
+            'game_id' => $game->id,
+            'user_id' => $firstUser->id,
+            'seat' => 1,
+        ]);
+        $secondPlayer = GamePlayer::factory()->create([
+            'game_id' => $game->id,
+            'user_id' => $secondUser->id,
+            'seat' => 2,
+        ]);
+        $setupPool = (new GameSetupPoolFactory())->createFromSeed(2, 'pass-test');
+        $setupPool->availableRoundBonuses = [
+            new RoundBonusOfferData(RoundBonus::RiverWorkshop, 2),
+            new RoundBonusOfferData(RoundBonus::BuildGuild),
+            new RoundBonusOfferData(RoundBonus::Coins),
+        ];
+        $game->update(['state' => new GameStateData(
+            turnOrder: [$firstPlayer->id, $secondPlayer->id],
+            round: new RoundStateData(
+                phase: GamePhase::Actions,
+                scoringTileId: $setupPool->roundScoringTiles[0]->value,
+            ),
+            players: [
+                new GamePlayerStateData(
+                    playerId: $firstPlayer->id,
+                    userId: $firstUser->id,
+                    color: PlayerColor::Green,
+                    faction: Faction::Blessed,
+                    homeland: TerrainType::Forest,
+                    roundBonus: RoundBonus::Knowledge,
+                ),
+                new GamePlayerStateData(
+                    playerId: $secondPlayer->id,
+                    userId: $secondUser->id,
+                    color: PlayerColor::Blue,
+                    faction: Faction::Blessed,
+                    homeland: TerrainType::Swamp,
+                    roundBonus: RoundBonus::PowerCoins,
+                ),
+            ],
+            setupPool: $setupPool,
+        )]);
+
+        return [$game, $firstUser, $secondUser];
     }
 
     /** @return array{Game, User} */

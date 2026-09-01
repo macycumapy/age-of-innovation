@@ -18,12 +18,14 @@ use Spatie\LaravelData\Data;
  * @property int|null $turnStartVersion Версия состояния в начале текущего хода.
  * @property bool $hasTakenMainAction Выполнил ли активный игрок основное действие текущего хода.
  * @property bool $isCurrentTurnIrrevocable Нельзя ли перезапустить текущий ход из-за принятой другим игроком Силы.
+ * @property list<int> $passOrder Порядок, в котором игроки пасовали.
  */
 class RoundStateData extends Data
 {
     /**
      * @param list<string> $usedSharedActionIds
      * @param list<string> $usedBookActionIds
+     * @param list<int> $passOrder
      */
     public function __construct(
         public int $number = 1,
@@ -36,6 +38,7 @@ class RoundStateData extends Data
         public ?int $turnStartVersion = null,
         public bool $hasTakenMainAction = false,
         public bool $isCurrentTurnIrrevocable = false,
+        public array $passOrder = [],
     ) {
     }
 }

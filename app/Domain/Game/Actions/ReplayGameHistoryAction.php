@@ -26,6 +26,7 @@ use App\Domain\Game\Enums\PalaceAbility;
 use App\Domain\Game\Enums\PendingInteractionType;
 use App\Domain\Game\Enums\PowerAction;
 use App\Domain\Game\Enums\ResourceExchange;
+use App\Domain\Game\Enums\RoundBonus;
 use App\Domain\Game\Enums\TerrainType;
 use App\Domain\Game\Factories\BoardStateFactory;
 use App\Domain\Game\Factories\GamePlayerStateFactory;
@@ -61,6 +62,7 @@ final class ReplayGameHistoryAction
         GameActionType::PlacePalaceGuild,
         GameActionType::SendScholar,
         GameActionType::SpecialAction,
+        GameActionType::Pass,
     ];
 
     public function __construct(
@@ -80,6 +82,7 @@ final class ReplayGameHistoryAction
         private ApplyRoundBonusAction $applyRoundBonusAction,
         private ApplyFactionAction $applyFactionAction,
         private ApplyPalaceAction $applyPalaceAction,
+        private ApplyPassAction $applyPassAction,
     ) {
     }
 
@@ -139,6 +142,7 @@ final class ReplayGameHistoryAction
                 GameActionType::PlacePalaceGuild => $this->replayPlacePalaceGuild($game, $players, $action),
                 GameActionType::SendScholar => $this->replaySendScholar($game, $players, $action),
                 GameActionType::SpecialAction => $this->replayRoundBonusAction($game, $players, $action),
+                GameActionType::Pass => $this->replayPass($game, $players, $action),
                 default => null,
             };
 
@@ -751,6 +755,28 @@ final class ReplayGameHistoryAction
         $state->round->hasTakenMainAction = false;
         $state->round->isCurrentTurnIrrevocable = false;
         $game->active_player_id = $nextPlayer->user_id;
+        $game->state = $state;
+    }
+
+    /** @param Collection<int, GamePlayer> $players */
+    private function replayPass(Game $game, Collection $players, GameAction $action): void
+    {
+        $player = $players->firstWhere('user_id', $action->player_id);
+
+        if (! $player instanceof GamePlayer) {
+            $this->invalidHistory();
+        }
+
+        $state = $game->state;
+        $result = $this->applyPassAction->execute(
+            $state,
+            $this->playerState($state, $player->id),
+            RoundBonus::from((string) $action->payload['round_bonus']),
+            $players,
+        );
+        $game->phase = $result['phase'];
+        $game->status = $result['phase'] === GamePhase::Finished ? GameStatus::Finished : GameStatus::Active;
+        $game->active_player_id = $result['nextActiveUserId'];
         $game->state = $state;
     }
 

@@ -19,6 +19,7 @@ use App\Http\Controllers\PalaceActionController;
 use App\Http\Controllers\PalaceChoiceController;
 use App\Http\Controllers\PalaceGuildConfirmationController;
 use App\Http\Controllers\PalaceGuildController;
+use App\Http\Controllers\PassController;
 use App\Http\Controllers\PlanningBundleController;
 use App\Http\Controllers\PowerActionController;
 use App\Http\Controllers\PowerOfferController;
@@ -78,6 +79,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('games.faction-action');
     Route::post('games/{game}/palace-action', PalaceActionController::class)
         ->name('games.palace-action');
+    Route::post('games/{game}/pass', PassController::class)
+        ->name('games.pass');
     Route::post('games/{game}/bridge', [BridgeController::class, 'store'])
         ->name('games.bridge.store');
     Route::delete('games/{game}/bridge', [BridgeController::class, 'destroy'])

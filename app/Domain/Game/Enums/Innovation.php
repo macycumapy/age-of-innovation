@@ -66,4 +66,9 @@ enum Innovation: string
             self::Monument => 'Поставить монумент силы 4 и получить 7 ПО.',
         };
     }
+
+    public function passVictoryPoints(int $guildCount): int
+    {
+        return $this === self::TradeRoutes ? $guildCount * 2 : 0;
+    }
 }

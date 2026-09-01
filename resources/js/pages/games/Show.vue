@@ -24,6 +24,7 @@ import CultBoard from '@/components/game/CultBoard.vue';
 import InnovationBoard from '@/components/game/InnovationBoard.vue';
 import PalaceBoard from '@/components/game/PalaceBoard.vue';
 import PalaceActionDialog from '@/components/game/PalaceActionDialog.vue';
+import PassDialog from '@/components/game/PassDialog.vue';
 import PalaceSelector from '@/components/game/PalaceSelector.vue';
 import PlayerBoards from '@/components/game/PlayerBoards.vue';
 import PlayerStatsPanel from '@/components/game/PlayerStatsPanel.vue';
@@ -375,6 +376,7 @@ const isScholarActionDialogOpen = ref(false);
 const isRoundBonusActionDialogOpen = ref(false);
 const isFactionActionDialogOpen = ref(false);
 const isPalaceActionDialogOpen = ref(false);
+const isPassDialogOpen = ref(false);
 const selectedBuildingUpgradeHexId = ref<string | null>(null);
 const selectedPowerAction = ref<PowerActionState | null>(null);
 const selectedBookAction = ref<BookActionState | null>(null);
@@ -422,6 +424,49 @@ const canExchangeResources = computed(
         && props.game.data.activePlayerId === page.props.auth.user.id
         && props.game.data.pendingInteraction === null,
 );
+
+const availableActionsBeforePass = computed(() => {
+    const state = currentPlayerState.value;
+
+    if (state === undefined) {
+        return [];
+    }
+
+    const actions: string[] = [];
+    const availablePower = state.power.bowlThree + Math.floor(state.power.bowlTwo / 2);
+
+    if (props.game.data.powerActions.some((action) => !action.isUsed && action.cost <= availablePower)) {
+        actions.push('действие за Силу');
+    }
+
+    const maximumBooks = Math.max(state.books.banking, state.books.law, state.books.engineering, state.books.medicine);
+
+    if (props.game.data.bookActionStates.some((action) => !action.isUsed && action.cost <= maximumBooks)) {
+        actions.push('действие за книги');
+    }
+
+    if (props.game.data.buildingUpgrades.length > 0) {
+        actions.push('улучшение здания');
+    }
+
+    if (props.game.data.canSendScholar) {
+        actions.push('отправка учёного');
+    }
+
+    if (state.canUseFactionAction) {
+        actions.push('действие расы');
+    }
+
+    if (state.canUseRoundBonusAction) {
+        actions.push('действие бонуса раунда');
+    }
+
+    if (state.canUsePalaceAction) {
+        actions.push('действие жетона Дворца');
+    }
+
+    return actions;
+});
 
 function selectPowerAction(action: PowerActionState): void {
     selectedPowerAction.value = action;
@@ -1134,6 +1179,7 @@ function updateStartingKnowledgeCount(discipline: KnowledgeDiscipline, event: Ev
                 :selected-bridge-from-hex-id="selectedBridgeFromHexId"
                 @reset-bridge-selection="selectedBridgeFromHexId = null"
                 @finish-turn="isCurrentTurnFinishDialogOpen = true"
+                @pass="isPassDialogOpen = true"
             />
             <Card
                 v-if="canChooseStartingCompetency && game.data.pendingInteraction?.type === 'choose_competency'"
@@ -1340,6 +1386,14 @@ function updateStartingKnowledgeCount(discipline: KnowledgeDiscipline, event: Ev
                 :player-id="currentPlayer?.id ?? null"
                 :player-color="currentPlayer?.color ?? null"
                 :discipline-names="game.data.knowledgeDisciplineNames"
+            />
+
+            <PassDialog
+                v-model:open="isPassDialogOpen"
+                :game-id="game.data.id"
+                :offers="game.data.roundBonusOffers"
+                :descriptions="game.data.roundBonusDescriptions"
+                :available-actions="availableActionsBeforePass"
             />
 
             <ResourceExchangeDialog

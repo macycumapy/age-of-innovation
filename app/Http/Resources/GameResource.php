@@ -73,6 +73,10 @@ class GameResource extends JsonResource
                 && $this->state->pendingInteraction === null
                 && $this->state->round->turnStartVersion !== null
                 && $this->state->round->hasTakenMainAction,
+            'canPass' => $this->phase === GamePhase::Actions
+                && $this->active_player_id === $request->user()?->id
+                && $this->state->pendingInteraction === null
+                && ! $this->state->round->hasTakenMainAction,
             'canSendScholar' => $this->phase === GamePhase::Actions
                 && $this->active_player_id === $request->user()?->id
                 && $this->state->pendingInteraction === null
@@ -122,6 +126,9 @@ class GameResource extends JsonResource
                 fn (GamePlayerStateData $player): array => [
                     'playerId' => $player->playerId,
                     'victoryPoints' => $player->victoryPoints,
+                    'passOrder' => ($passIndex = array_search($player->playerId, $this->state->round->passOrder, true)) === false
+                        ? null
+                        : $passIndex + 1,
                     'roundBonus' => $player->roundBonus->value,
                     'canUseFactionAction' => $player->faction->hasSpecialAction()
                         && ! in_array($player->faction->specialActionId(), $player->usedSpecialActionIds, true),

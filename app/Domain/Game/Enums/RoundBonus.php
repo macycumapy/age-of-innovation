@@ -59,4 +59,11 @@ enum RoundBonus: string
             default => false,
         };
     }
+
+    public function passVictoryPoints(int $palaceAndUniversityCount): int
+    {
+        return $this === self::PassPalaceUniversity
+            ? $palaceAndUniversityCount * 4
+            : 0;
+    }
 }

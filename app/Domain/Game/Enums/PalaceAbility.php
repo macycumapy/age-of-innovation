@@ -86,4 +86,9 @@ enum PalaceAbility: string
     {
         return "palace:{$this->value}";
     }
+
+    public function passVictoryPoints(int $schoolCount): int
+    {
+        return $this === self::Palace07 ? $schoolCount * 3 : 0;
+    }
 }

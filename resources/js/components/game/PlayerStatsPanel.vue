@@ -21,6 +21,7 @@ import knowledgeUrl from '../../../images/token_parts/gear.png';
 import scholarUrl from '../../../images/token_parts/scholar.png';
 import shovelUrl from '../../../images/token_parts/shovel.png';
 import victoryPointsUrl from '../../../images/token_parts/sunflower.png';
+import endOfTurnUrl from '../../../images/token_parts/end_of_turn.png';
 import shippingUrl from '../../../images/token_parts/ship.png';
 
 type StatCounter = {
@@ -186,6 +187,17 @@ function levelCounters(state: GamePlayerBoardState): StatCounter[] {
                             />
                             <span class="relative z-10 text-xs font-bold">
                                 {{ entry.state.victoryPoints }}
+                            </span>
+                        </span>
+                        <span
+                            v-if="entry.state.passOrder !== null"
+                            class="relative grid size-8 place-items-center"
+                            :title="`Порядок паса: ${entry.state.passOrder}`"
+                            :aria-label="`Порядок паса: ${entry.state.passOrder}`"
+                        >
+                            <img :src="endOfTurnUrl" alt="" class="absolute size-full object-contain drop-shadow-md" />
+                            <span class="relative z-10 text-xs font-bold text-amber-950">
+                                {{ entry.state.passOrder }}
                             </span>
                         </span>
                     </h3>

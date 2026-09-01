@@ -25,6 +25,7 @@ export type GameResource = {
         canUndoLastAction: boolean;
         canRestartCurrentTurn: boolean;
         canFinishCurrentTurn: boolean;
+        canPass: boolean;
         activePlayerId: number | null;
         turnOrder: number[];
         board: BoardState;
@@ -108,6 +109,7 @@ export type GameHistoryPage = {
 export type GamePlayerBoardState = {
     playerId: number;
     victoryPoints: number;
+    passOrder: number | null;
     roundBonus: RoundBonus;
     canUseFactionAction: boolean;
     canUseRoundBonusAction: boolean;

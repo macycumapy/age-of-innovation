@@ -57,4 +57,13 @@ enum Competency: string
                 ? 3
                 : 0;
     }
+
+    public function passVictoryPoints(int $townTileCount, int $weakestKnowledgeLevel): int
+    {
+        return match ($this) {
+            self::Competency08 => $townTileCount * 2,
+            self::Competency12 => $weakestKnowledgeLevel,
+            default => 0,
+        };
+    }
 }

@@ -31,6 +31,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
     finishTurn: [];
+    pass: [];
     resetBridgeSelection: [];
 }>();
 
@@ -317,6 +318,9 @@ function confirmRestartCurrentTurn(event: SubmitEvent): void {
             </Form>
             <Button v-if="game.data.canFinishCurrentTurn" type="button" @click="emit('finishTurn')">
                 Завершить ход
+            </Button>
+            <Button v-if="game.data.canPass" type="button" variant="secondary" @click="emit('pass')">
+                Пас
             </Button>
         </div>
 
