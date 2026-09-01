@@ -1954,7 +1954,10 @@ class GameManagementTest extends TestCase
         ]);
         $game->update(['state' => new GameStateData(
             turnOrder: [$firstPlayer->id, $secondPlayer->id],
-            round: new RoundStateData(phase: GamePhase::Actions),
+            round: new RoundStateData(
+                phase: GamePhase::Actions,
+                scoringTileId: RoundScoringTile::KnowledgeMedicine->value,
+            ),
             players: [
                 new GamePlayerStateData(
                     playerId: $firstPlayer->id,
@@ -1979,6 +1982,8 @@ class GameManagementTest extends TestCase
 
         $this->assertSame(7, $game->state->players[0]->scholarPoolSize);
         $this->assertSame(7, $game->state->players[1]->scholarPoolSize);
+        $firstPlayerVictoryPoints = $game->state->players[0]->victoryPoints;
+        $secondPlayerVictoryPoints = $game->state->players[1]->victoryPoints;
 
         $this->actingAs($firstUser)->post(route('games.scholar', $game), [
             'discipline' => 'law',
@@ -1990,6 +1995,8 @@ class GameManagementTest extends TestCase
         $this->assertSame(1, $game->state->players[0]->resources->scholars);
         $this->assertSame(6, $game->state->players[0]->scholarPoolSize);
         $this->assertSame(['law'], $game->state->players[0]->scholarDisciplineIds);
+        $this->assertSame($firstPlayerVictoryPoints + 3, $game->state->players[0]->victoryPoints);
+        $this->assertSame(3, $game->actions()->latest('sequence')->firstOrFail()->payload['victory_points']);
 
         $state = $game->state;
         $state->round->hasTakenMainAction = false;
@@ -2006,6 +2013,7 @@ class GameManagementTest extends TestCase
         $this->assertSame(2, $game->state->players[1]->knowledge->law);
         $this->assertSame(0, $game->state->players[1]->resources->scholars);
         $this->assertSame(6, $game->state->players[1]->scholarPoolSize);
+        $this->assertSame($secondPlayerVictoryPoints + 2, $game->state->players[1]->victoryPoints);
 
         $state = $game->state;
         $state->round->hasTakenMainAction = false;
@@ -2023,6 +2031,7 @@ class GameManagementTest extends TestCase
         $this->assertSame(0, $game->state->players[0]->resources->scholars);
         $this->assertSame(6, $game->state->players[0]->scholarPoolSize);
         $this->assertSame(['law'], $game->state->players[0]->scholarDisciplineIds);
+        $this->assertSame($firstPlayerVictoryPoints + 4, $game->state->players[0]->victoryPoints);
         $this->assertTrue($game->state->round->hasTakenMainAction);
         $this->assertSame([
             GameActionType::SendScholar,

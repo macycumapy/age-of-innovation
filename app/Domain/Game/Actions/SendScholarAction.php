@@ -10,6 +10,8 @@ use App\Domain\Game\Enums\GameActionType;
 use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\KnowledgeDiscipline;
 use App\Domain\Game\Enums\RoundBonus;
+use App\Domain\Game\Enums\RoundScoringGoal;
+use App\Domain\Game\Enums\RoundScoringTile;
 use App\Models\Game;
 use App\Models\GamePlayer;
 use App\Models\User;
@@ -68,9 +70,13 @@ final class SendScholarAction
                 $playerState->scholarDisciplineIds[] = $discipline->value;
             }
 
-            $victoryPoints = ($playerState->roundBonus === RoundBonus::SendScholar ? 2 : 0)
-                + (in_array(Competency::Competency09->value, $playerState->competencyIds, true) ? 2 : 0);
+            $knowledgeLevelBefore = $playerState->knowledge->{$discipline->value};
             $this->advanceKnowledge->execute($playerState, $discipline, $steps);
+            $advancedSteps = $playerState->knowledge->{$discipline->value} - $knowledgeLevelBefore;
+            $roundScoringTile = RoundScoringTile::tryFrom((string) $state->round->scoringTileId);
+            $victoryPoints = ($playerState->roundBonus === RoundBonus::SendScholar ? 2 : 0)
+                + (in_array(Competency::Competency09->value, $playerState->competencyIds, true) ? 2 : 0)
+                + ($roundScoringTile?->goal() === RoundScoringGoal::Knowledge ? $advancedSteps : 0);
             $playerState->victoryPoints += $victoryPoints;
             $state->round->hasTakenMainAction = true;
             $lockedGame->update([
@@ -84,7 +90,7 @@ final class SendScholarAction
                 [
                     'discipline' => $discipline->value,
                     'placed' => $place,
-                    'steps' => $steps,
+                    'steps' => $advancedSteps,
                     'victory_points' => $victoryPoints,
                 ],
                 [[
@@ -92,7 +98,7 @@ final class SendScholarAction
                     'player_id' => $player->id,
                     'discipline' => $discipline->value,
                     'placed' => $place,
-                    'steps' => $steps,
+                    'steps' => $advancedSteps,
                 ]],
                 $stateVersionBefore,
                 $lockedGame->version,
