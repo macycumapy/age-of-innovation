@@ -104,6 +104,7 @@ class GameResource extends JsonResource
                         'r' => $hex->r,
                         'initialTerrain' => $hex->initialTerrain->value,
                         'terrain' => $hex->terrain->value,
+                        'adjacentHexIds' => $hex->adjacentHexIds,
                         'riverConnectedHexIds' => $hex->riverConnectedHexIds,
                         'building' => $hex->building === null ? null : [
                             'type' => $hex->building->type->value,

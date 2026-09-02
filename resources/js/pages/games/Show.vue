@@ -12,7 +12,6 @@ import PlanningBundleController from '@/actions/App/Http/Controllers/PlanningBun
 import StartingBuildingController from '@/actions/App/Http/Controllers/StartingBuildingController';
 import StartingCompetencyController from '@/actions/App/Http/Controllers/StartingCompetencyController';
 import StartingResourcesController from '@/actions/App/Http/Controllers/StartingResourcesController';
-import StartingSpadeController from '@/actions/App/Http/Controllers/StartingSpadeController';
 import BoardMap from '@/components/game/BoardMap.vue';
 import BookActionDialog from '@/components/game/BookActionDialog.vue';
 import BuildingUpgradeDialog from '@/components/game/BuildingUpgradeDialog.vue';
@@ -24,6 +23,7 @@ import CultBoard from '@/components/game/CultBoard.vue';
 import InnovationBoard from '@/components/game/InnovationBoard.vue';
 import PalaceBoard from '@/components/game/PalaceBoard.vue';
 import PalaceActionDialog from '@/components/game/PalaceActionDialog.vue';
+import PaidTerraformingDialog from '@/components/game/PaidTerraformingDialog.vue';
 import PassDialog from '@/components/game/PassDialog.vue';
 import ScienceBonusBooksDialog from '@/components/game/ScienceBonusBooksDialog.vue';
 import PalaceSelector from '@/components/game/PalaceSelector.vue';
@@ -309,6 +309,10 @@ const selectableStartingHexIds = computed(() => {
             : [];
     }
 
+    if (canStartPaidTerraforming.value) {
+        return paidTerraformHexIds.value;
+    }
+
     if (!canPlaceStartingBuilding.value || !currentPlayer.value?.homeland) {
         return [];
     }
@@ -348,9 +352,15 @@ function placeStartingBuilding(hexId: string): void {
     }
 
     if (canSpendStartingSpade.value) {
-        router.post(StartingSpadeController.store.url(props.game.data.id), { hex_id: hexId }, {
-            preserveScroll: true,
-        });
+        selectedPaidTerraformHexId.value = hexId;
+        isPaidTerraformingDialogOpen.value = true;
+
+        return;
+    }
+
+    if (paidTerraformHexIds.value.includes(hexId)) {
+        selectedPaidTerraformHexId.value = hexId;
+        isPaidTerraformingDialogOpen.value = true;
 
         return;
     }
@@ -391,6 +401,8 @@ const isRoundBonusActionDialogOpen = ref(false);
 const isFactionActionDialogOpen = ref(false);
 const isPalaceActionDialogOpen = ref(false);
 const isPassDialogOpen = ref(false);
+const isPaidTerraformingDialogOpen = ref(false);
+const selectedPaidTerraformHexId = ref<string | null>(null);
 const selectedBuildingUpgradeHexId = ref<string | null>(null);
 const selectedPowerAction = ref<PowerActionState | null>(null);
 const selectedBookAction = ref<BookActionState | null>(null);
@@ -438,6 +450,75 @@ const canExchangeResources = computed(
         && props.game.data.activePlayerId === page.props.auth.user.id
         && props.game.data.pendingInteraction === null,
 );
+
+const canStartPaidTerraforming = computed(() => {
+    const state = currentPlayerState.value;
+
+    return props.game.data.canPass
+        && state !== undefined;
+});
+const paidTerraformHexIds = computed(() => {
+    const player = currentPlayer.value;
+    const playerState = currentPlayerState.value;
+
+    if (!canStartPaidTerraforming.value || player === undefined || playerState === undefined) {
+        return [];
+    }
+
+    const hexesById = new Map(props.game.data.board.hexes.map((hex) => [hex.id, hex]));
+    const reachableHexIds = new Set<string>();
+    let waterFrontier: string[] = [];
+
+    props.game.data.board.hexes.forEach((hex) => {
+        if (hex.building?.ownerPlayerId === player.id) {
+            hex.adjacentHexIds.forEach((hexId) => {
+                if (hexesById.get(hexId)?.terrain === 'water') {
+                    waterFrontier.push(hexId);
+                } else {
+                    reachableHexIds.add(hexId);
+                }
+            });
+        }
+    });
+
+    const visitedWaterHexIds = new Set<string>();
+
+    const navigationRange = playerState.shippingLevel
+        + (playerState.roundBonus === 'river_workshop' ? 1 : 0);
+
+    for (let distance = 1; distance <= navigationRange && waterFrontier.length > 0; distance++) {
+        const nextWaterFrontier: string[] = [];
+
+        [...new Set(waterFrontier)].forEach((hexId) => {
+            if (visitedWaterHexIds.has(hexId)) {
+                return;
+            }
+
+            visitedWaterHexIds.add(hexId);
+            hexesById.get(hexId)?.adjacentHexIds.forEach((adjacentHexId) => {
+                if (hexesById.get(adjacentHexId)?.terrain === 'water') {
+                    nextWaterFrontier.push(adjacentHexId);
+                } else {
+                    reachableHexIds.add(adjacentHexId);
+                }
+            });
+        });
+
+        waterFrontier = nextWaterFrontier;
+    }
+
+    return [...reachableHexIds].filter((hexId) => {
+        const hex = hexesById.get(hexId);
+
+        return hex !== undefined
+            && hex.building === null
+            && hex.terrain !== 'water'
+            && hex.terrain !== currentPlayer.value?.homeland;
+    });
+});
+const selectedPaidTerraformHex = computed(() => props.game.data.board.hexes.find(
+    (hex) => hex.id === selectedPaidTerraformHexId.value,
+));
 
 const availableActionsBeforePass = computed(() => {
     const state = currentPlayerState.value;
@@ -1385,6 +1466,16 @@ function selectedCompetencyForHomeland(homeland: TerrainType): Competency | unde
                 :offers="game.data.roundBonusOffers"
                 :descriptions="game.data.roundBonusDescriptions"
                 :available-actions="availableActionsBeforePass"
+            />
+
+            <PaidTerraformingDialog
+                v-if="currentPlayerState !== undefined && selectedPaidTerraformHex !== undefined && currentPlayer?.homeland"
+                v-model:open="isPaidTerraformingDialogOpen"
+                :game-id="game.data.id"
+                :player-state="currentPlayerState"
+                :target-hex="selectedPaidTerraformHex"
+                :homeland="currentPlayer.homeland"
+                :has-spade-interaction="canSpendStartingSpade"
             />
 
             <ScienceBonusBooksDialog

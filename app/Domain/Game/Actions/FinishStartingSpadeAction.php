@@ -58,6 +58,8 @@ final class FinishStartingSpadeAction
             $terrainBefore = $interaction->context['terrainBefore'] ?? null;
             $terrainAfter = $interaction->context['terrainAfter'] ?? null;
             $remainingSpades = max(0, (int) ($interaction->context['remainingSpades'] ?? 1) - 1);
+            $paidTools = (int) ($interaction->context['paidTools'] ?? 0);
+            $paidSpadeCount = (int) ($interaction->context['paidSpadeCount'] ?? 0);
             $buildableHexIds = $interaction->context['buildableHexIds'] ?? [];
 
             if ($interactionPhase === GamePhase::Actions
@@ -68,6 +70,8 @@ final class FinishStartingSpadeAction
                 $interaction->context['selectedHexId'],
                 $interaction->context['terrainBefore'],
                 $interaction->context['terrainAfter'],
+                $interaction->context['paidTools'],
+                $interaction->context['paidSpadeCount'],
             );
             $interaction->context['remainingSpades'] = $remainingSpades;
             $interaction->context['buildableHexIds'] = array_values(array_unique($buildableHexIds));
@@ -80,7 +84,7 @@ final class FinishStartingSpadeAction
                 );
                 $interaction->optionIds = $this->findEligibleTerraformHexes->execute(
                     $state,
-                    $player->id,
+                    $playerState,
                     $targetTerrain,
                 );
 
@@ -153,6 +157,8 @@ final class FinishStartingSpadeAction
                     'round' => $state->round->number,
                     'buildable_hex_ids' => $buildableHexIds,
                     'build_offered' => $buildOffered,
+                    'paid_tools' => $paidTools,
+                    'paid_spade_count' => $paidSpadeCount,
                     'income_receipts' => $incomeReceipts,
                 ],
                 [

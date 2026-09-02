@@ -47,6 +47,17 @@ const powerOfferAmount = computed(() =>
         : 0,
 );
 const powerOfferVictoryPointCost = computed(() => Math.max(0, powerOfferAmount.value - 1));
+const remainingSpades = computed(() => {
+    const interaction = props.game.data.pendingInteraction;
+
+    if (interaction?.type !== 'spend_spades') {
+        return 0;
+    }
+
+    const availableSpades = interaction.context.remainingSpades ?? interaction.context.spadeCount;
+
+    return Math.max(0, availableSpades - (props.pendingStartingSpadeHexId === null ? 0 : 1));
+});
 
 function confirmRestartCurrentTurn(event: SubmitEvent): void {
     if (!window.confirm('Отменить все действия текущего хода и начать его заново?')) {
@@ -134,7 +145,7 @@ function confirmRestartCurrentTurn(event: SubmitEvent): void {
             class="shrink-0 rounded-full border border-border bg-muted px-2.5 py-1 text-xs font-medium"
         >
             Лопат осталось:
-            {{ game.data.pendingInteraction.context.remainingSpades ?? game.data.pendingInteraction.context.spadeCount }}
+            {{ remainingSpades }}
         </span>
 
         <div v-if="canResolvePowerOffer" class="flex shrink-0 items-center gap-2">
@@ -303,6 +314,18 @@ function confirmRestartCurrentTurn(event: SubmitEvent): void {
                 </Form>
             </div>
         </TooltipProvider>
+
+        <Form
+            v-else-if="canSpendStartingSpade && game.data.canRestartCurrentTurn"
+            v-bind="CurrentTurnRestartController.form(game.data.id)"
+            #default="{ processing }"
+            @submit="confirmRestartCurrentTurn"
+        >
+            <Button type="submit" variant="outline" :disabled="processing">
+                <RotateCcw class="size-4" :class="processing ? 'animate-spin' : ''" />
+                Перезапустить ход
+            </Button>
+        </Form>
 
         <div
             v-else-if="game.data.phase === 'actions' && isCurrentUsersTurn && game.data.pendingInteraction === null"

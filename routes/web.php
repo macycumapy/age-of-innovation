@@ -15,6 +15,7 @@ use App\Http\Controllers\GameHistoryUndoController;
 use App\Http\Controllers\GamePlayerController;
 use App\Http\Controllers\GamePlayerReadinessController;
 use App\Http\Controllers\GameStartController;
+use App\Http\Controllers\PaidTerraformingController;
 use App\Http\Controllers\PalaceActionController;
 use App\Http\Controllers\PalaceChoiceController;
 use App\Http\Controllers\PalaceGuildConfirmationController;
@@ -68,6 +69,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('games.starting-spade.finish');
     Route::post('games/{game}/terraform-workshop', TerraformWorkshopController::class)
         ->name('games.terraform-workshop');
+    Route::post('games/{game}/paid-terraforming', PaidTerraformingController::class)
+        ->name('games.paid-terraforming');
     Route::post('games/{game}/power-sacrifice', [PowerSacrificeController::class, 'store'])
         ->name('games.power-sacrifice.store');
     Route::post('games/{game}/power-action', PowerActionController::class)

@@ -52,6 +52,11 @@ enum RoundBonus: string
         };
     }
 
+    public function shippingBonus(): int
+    {
+        return $this === self::RiverWorkshop ? 1 : 0;
+    }
+
     public function hasAvailableSpecialAction(): bool
     {
         return match ($this) {

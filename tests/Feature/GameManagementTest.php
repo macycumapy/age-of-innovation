@@ -8,6 +8,7 @@ use App\Domain\Game\Actions\ApplyIncomeAction;
 use App\Domain\Game\Actions\ApplyResourceExchangeAction;
 use App\Domain\Game\Actions\CreateBuildingFollowUpInteractionAction;
 use App\Domain\Game\Actions\DetermineStartingBuildingOrderAction;
+use App\Domain\Game\Actions\FindEligibleTerraformHexesAction;
 use App\Domain\Game\Actions\ResolveCompletedStartingSetupAction;
 use App\Domain\Game\Actions\ResolveIncomePhaseAction;
 use App\Domain\Game\Data\BoardHexStateData;
@@ -63,6 +64,202 @@ class GameManagementTest extends TestCase
     public function test_game_uses_custom_builder(): void
     {
         $this->assertInstanceOf(GameBuilder::class, Game::query());
+    }
+
+    public function test_terraforming_reaches_adjacent_hexes_and_hexes_within_shipping_range(): void
+    {
+        $player = new GamePlayerStateData(
+            playerId: 15,
+            userId: 25,
+            color: PlayerColor::Grey,
+            faction: Faction::Omar,
+            homeland: TerrainType::Mountain,
+            roundBonus: RoundBonus::PowerCoins,
+        );
+        $state = new GameStateData(board: new BoardStateData(hexes: [
+            new BoardHexStateData(
+                id: '0:0',
+                q: 0,
+                r: 0,
+                initialTerrain: TerrainType::Mountain,
+                terrain: TerrainType::Mountain,
+                building: new BuildingStateData(BuildingType::Workshop, $player->playerId),
+                adjacentHexIds: ['1:0', '0:1'],
+            ),
+            new BoardHexStateData(
+                id: '1:0',
+                q: 1,
+                r: 0,
+                initialTerrain: TerrainType::Forest,
+                terrain: TerrainType::Forest,
+            ),
+            new BoardHexStateData(
+                id: '0:1',
+                q: 0,
+                r: 1,
+                initialTerrain: TerrainType::Water,
+                terrain: TerrainType::Water,
+                adjacentHexIds: ['0:0', '0:2', '0:3'],
+            ),
+            new BoardHexStateData(
+                id: '0:2',
+                q: 0,
+                r: 2,
+                initialTerrain: TerrainType::Desert,
+                terrain: TerrainType::Desert,
+                adjacentHexIds: ['0:1'],
+            ),
+            new BoardHexStateData(
+                id: '0:3',
+                q: 0,
+                r: 3,
+                initialTerrain: TerrainType::Water,
+                terrain: TerrainType::Water,
+                adjacentHexIds: ['0:1', '0:4'],
+            ),
+            new BoardHexStateData(
+                id: '0:4',
+                q: 0,
+                r: 4,
+                initialTerrain: TerrainType::Plains,
+                terrain: TerrainType::Plains,
+                adjacentHexIds: ['0:3'],
+            ),
+        ]));
+        $findEligibleHexes = app(FindEligibleTerraformHexesAction::class);
+
+        $this->assertSame(
+            ['1:0'],
+            $findEligibleHexes->execute($state, $player, TerrainType::Mountain),
+        );
+
+        $player->shippingLevel = 1;
+
+        $this->assertSame(
+            ['1:0', '0:2'],
+            $findEligibleHexes->execute($state, $player, TerrainType::Mountain),
+        );
+
+        $player->roundBonus = RoundBonus::RiverWorkshop;
+
+        $this->assertSame(
+            ['1:0', '0:2', '0:4'],
+            $findEligibleHexes->execute($state, $player, TerrainType::Mountain),
+        );
+    }
+
+    #[DataProvider('terraformingToolCosts')]
+    public function test_player_can_buy_spades_for_tools_at_the_current_terraforming_cost(
+        int $terraformingLevel,
+        int $toolCost,
+    ): void {
+        $user = User::factory()->create();
+        $game = Game::factory()->create([
+            'status' => GameStatus::Active,
+            'phase' => GamePhase::Actions,
+            'active_player_id' => $user->id,
+        ]);
+        $player = GamePlayer::factory()->create([
+            'game_id' => $game->id,
+            'user_id' => $user->id,
+        ]);
+        $game->update(['state' => new GameStateData(
+            turnOrder: [$player->id],
+            board: new BoardStateData(hexes: [
+                new BoardHexStateData(
+                    id: '0:0',
+                    q: 0,
+                    r: 0,
+                    initialTerrain: TerrainType::Mountain,
+                    terrain: TerrainType::Mountain,
+                    building: new BuildingStateData(BuildingType::Workshop, $player->id),
+                    adjacentHexIds: ['1:0'],
+                ),
+                new BoardHexStateData(
+                    id: '1:0',
+                    q: 1,
+                    r: 0,
+                    initialTerrain: TerrainType::Lake,
+                    terrain: TerrainType::Lake,
+                    adjacentHexIds: ['0:0'],
+                ),
+            ]),
+            round: new RoundStateData(phase: GamePhase::Actions),
+            players: [new GamePlayerStateData(
+                playerId: $player->id,
+                userId: $user->id,
+                color: PlayerColor::Grey,
+                faction: Faction::Omar,
+                homeland: TerrainType::Mountain,
+                roundBonus: RoundBonus::PowerCoins,
+                resources: new PlayerResourcesData(tools: 6),
+                terraformingLevel: $terraformingLevel,
+            )],
+        )]);
+
+        $state = $game->state;
+        $state->players[0]->resources->tools = $toolCost * 2 - 1;
+        $game->update(['state' => $state]);
+
+        $this->actingAs($user)->post(route('games.paid-terraforming', $game), [
+            'hex_id' => '1:0',
+        ])->assertSessionHasErrors('hex_id');
+        $game->refresh();
+
+        $this->assertSame($toolCost * 2 - 1, $game->state->players[0]->resources->tools);
+        $this->assertNull($game->state->pendingInteraction);
+
+        $state = $game->state;
+        $state->players[0]->resources->tools = 6;
+        $game->update(['state' => $state]);
+
+        $this->post(route('games.paid-terraforming', $game), [
+            'hex_id' => '1:0',
+        ])->assertRedirect(route('games.show', $game));
+        $game->refresh();
+
+        $this->assertSame(6 - $toolCost * 2, $game->state->players[0]->resources->tools);
+        $this->assertSame(2, $game->state->players[0]->unassignedSpades);
+        $this->assertSame(PendingInteractionType::SpendSpades, $game->state->pendingInteraction?->type);
+        $this->assertSame($toolCost * 2, $game->state->pendingInteraction?->context['paidTools']);
+        $this->assertSame('1:0', $game->state->pendingInteraction?->context['selectedHexId']);
+        $this->assertSame(TerrainType::Forest, $game->state->board->hexes[1]->terrain);
+
+        $this->post(route('games.current-turn.restart', $game));
+        $game->refresh();
+
+        $this->assertSame(6, $game->state->players[0]->resources->tools);
+        $this->assertSame(0, $game->state->players[0]->unassignedSpades);
+        $this->assertNull($game->state->pendingInteraction);
+
+        $this->post(route('games.paid-terraforming', $game), ['hex_id' => '1:0']);
+        $this->delete(route('games.starting-spade.destroy', $game));
+        $game->refresh();
+
+        $this->assertSame(TerrainType::Lake, $game->state->board->hexes[1]->terrain);
+
+        $this->post(route('games.paid-terraforming', $game), ['hex_id' => '1:0']);
+        $this->post(route('games.starting-spade.finish', $game));
+        $this->post(route('games.paid-terraforming', $game), ['hex_id' => '1:0']);
+        $this->post(route('games.starting-spade.finish', $game));
+        $game->refresh();
+
+        $paidTerraformingAction = $game->actions()->oldest('sequence')->firstOrFail();
+
+        $this->assertSame(6 - $toolCost * 2, $game->state->players[0]->resources->tools);
+        $this->assertSame(0, $game->state->players[0]->unassignedSpades);
+        $this->assertSame($toolCost * 2, $paidTerraformingAction->payload['paid_tools']);
+        $this->assertSame(2, $paidTerraformingAction->payload['paid_spade_count']);
+    }
+
+    /** @return array<string, array{int, int}> */
+    public static function terraformingToolCosts(): array
+    {
+        return [
+            'no upgrades' => [0, 3],
+            'one upgrade' => [1, 2],
+            'two upgrades' => [2, 1],
+        ];
     }
 
     public function test_player_income_is_calculated_from_buildings_and_owned_tiles(): void
@@ -1161,23 +1358,36 @@ class GameManagementTest extends TestCase
         $this->assertSame(GamePhase::Actions->value, $game->state->pendingInteraction?->context['phase']);
         $this->assertSame(2, $game->state->players[0]->unassignedSpades);
 
-        $this->post(route('games.starting-spade.store', $game), ['hex_id' => '1:0'])
+        $this->post(route('games.paid-terraforming', $game), ['hex_id' => '1:0'])
+            ->assertSessionHasErrors('hex_id');
+
+        $this->post(route('games.paid-terraforming', $game), [
+            'hex_id' => '1:0',
+            'use_available' => true,
+        ])
             ->assertRedirect(route('games.show', $game));
         $game->refresh();
         $this->assertSame(TerrainType::Wasteland, $game->state->board->hexes[1]->terrain);
+        $this->assertSame(0, $game->state->players[0]->resources->tools);
 
         $this->delete(route('games.starting-spade.destroy', $game))
             ->assertRedirect(route('games.show', $game));
         $game->refresh();
         $this->assertSame(TerrainType::Desert, $game->state->board->hexes[1]->terrain);
 
-        $this->post(route('games.starting-spade.store', $game), ['hex_id' => '1:0']);
+        $this->post(route('games.paid-terraforming', $game), [
+            'hex_id' => '1:0',
+            'use_available' => true,
+        ]);
         $this->post(route('games.starting-spade.finish', $game));
         $game->refresh();
         $this->assertSame(1, $game->state->pendingInteraction?->context['remainingSpades']);
         $this->assertSame(1, $game->state->players[0]->unassignedSpades);
 
-        $this->post(route('games.starting-spade.store', $game), ['hex_id' => '1:0']);
+        $this->post(route('games.paid-terraforming', $game), [
+            'hex_id' => '1:0',
+            'use_available' => true,
+        ]);
         $this->post(route('games.starting-spade.finish', $game));
         $game->refresh();
         $this->assertNull($game->state->pendingInteraction);

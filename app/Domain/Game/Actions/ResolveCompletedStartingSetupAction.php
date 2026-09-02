@@ -34,7 +34,7 @@ final class ResolveCompletedStartingSetupAction
                 && in_array(Competency::Competency05->value, $competencyPlayerState->competencyIds, true)) {
                 $eligibleHexIds = $this->findEligibleTerraformHexes->execute(
                     $state,
-                    $competencyPlayer->id,
+                    $competencyPlayerState,
                     $competencyPlayerState->homeland,
                 );
 
@@ -59,8 +59,8 @@ final class ResolveCompletedStartingSetupAction
         $desertPlayerState = $desertPlayer instanceof GamePlayer
             ? collect($state->players)->firstWhere('playerId', $desertPlayer->id)
             : null;
-        $eligibleHexIds = $desertPlayer instanceof GamePlayer
-            ? $this->findEligibleTerraformHexes->execute($state, $desertPlayer->id, TerrainType::Desert)
+        $eligibleHexIds = $desertPlayerState !== null
+            ? $this->findEligibleTerraformHexes->execute($state, $desertPlayerState, TerrainType::Desert)
             : [];
 
         if ($desertPlayer instanceof GamePlayer

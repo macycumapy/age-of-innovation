@@ -5,34 +5,82 @@ declare(strict_types=1);
 namespace App\Domain\Game\Actions;
 
 use App\Domain\Game\Data\BoardHexStateData;
+use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Data\GameStateData;
 use App\Domain\Game\Enums\TerrainType;
 
 final class FindEligibleTerraformHexesAction
 {
     /** @return list<string> */
-    public function execute(GameStateData $state, int $playerId, TerrainType $targetTerrain): array
-    {
+    public function execute(
+        GameStateData $state,
+        GamePlayerStateData $player,
+        TerrainType $targetTerrain,
+    ): array {
         $hexesById = collect($state->board->hexes)->keyBy('id');
-        $eligibleHexIds = [];
+        $reachableHexIds = [];
+        $waterFrontier = [];
 
         foreach ($state->board->hexes as $hex) {
-            if ($hex->building?->ownerPlayerId !== $playerId) {
+            if ($hex->building?->ownerPlayerId !== $player->playerId) {
                 continue;
             }
 
             foreach ($hex->adjacentHexIds as $adjacentHexId) {
                 $adjacentHex = $hexesById->get($adjacentHexId);
 
-                if ($adjacentHex instanceof BoardHexStateData
-                    && $adjacentHex->building === null
-                    && $adjacentHex->terrain->isHomeland()
-                    && $adjacentHex->terrain !== $targetTerrain) {
-                    $eligibleHexIds[] = $adjacentHexId;
+                if ($adjacentHex?->terrain === TerrainType::Water) {
+                    $waterFrontier[] = $adjacentHexId;
+                } else {
+                    $reachableHexIds[] = $adjacentHexId;
                 }
             }
         }
 
-        return array_values(array_unique($eligibleHexIds));
+        $visitedWaterHexIds = [];
+
+        $navigationRange = $player->shippingLevel + $player->roundBonus->shippingBonus();
+
+        for ($distance = 1; $distance <= $navigationRange && $waterFrontier !== []; $distance++) {
+            $nextWaterFrontier = [];
+
+            foreach (array_unique($waterFrontier) as $waterHexId) {
+                if (in_array($waterHexId, $visitedWaterHexIds, true)) {
+                    continue;
+                }
+
+                $visitedWaterHexIds[] = $waterHexId;
+                $waterHex = $hexesById->get($waterHexId);
+
+                if (! $waterHex instanceof BoardHexStateData) {
+                    continue;
+                }
+
+                foreach ($waterHex->adjacentHexIds as $adjacentHexId) {
+                    $adjacentHex = $hexesById->get($adjacentHexId);
+
+                    if ($adjacentHex?->terrain === TerrainType::Water) {
+                        $nextWaterFrontier[] = $adjacentHexId;
+                    } else {
+                        $reachableHexIds[] = $adjacentHexId;
+                    }
+                }
+            }
+
+            $waterFrontier = $nextWaterFrontier;
+        }
+
+        return collect($reachableHexIds)
+            ->unique()
+            ->filter(function (string $hexId) use ($hexesById, $targetTerrain): bool {
+                $hex = $hexesById->get($hexId);
+
+                return $hex instanceof BoardHexStateData
+                    && $hex->building === null
+                    && $hex->terrain->isHomeland()
+                    && $hex->terrain !== $targetTerrain;
+            })
+            ->values()
+            ->all();
     }
 }

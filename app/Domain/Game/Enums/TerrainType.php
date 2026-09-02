@@ -58,6 +58,19 @@ enum TerrainType: string
             : $terrainCycle[($currentIndex - 1 + count($terrainCycle)) % count($terrainCycle)];
     }
 
+    public function spadesTo(self $target): int
+    {
+        $terrain = $this;
+        $spades = 0;
+
+        while ($terrain !== $target && $terrain->isHomeland() && $target->isHomeland()) {
+            $terrain = $terrain->stepTowards($target);
+            $spades++;
+        }
+
+        return $spades;
+    }
+
     public function description(): string
     {
         return match ($this) {

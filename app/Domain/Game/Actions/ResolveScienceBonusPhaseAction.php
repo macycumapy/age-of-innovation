@@ -67,7 +67,7 @@ final class ResolveScienceBonusPhaseAction
             }
 
             if ($reward['spades'] > 0) {
-                $options = $this->findEligibleTerraformHexes->execute($state, $playerId, $playerState->homeland);
+                $options = $this->findEligibleTerraformHexes->execute($state, $playerState, $playerState->homeland);
 
                 if ($options !== []) {
                     $playerState->unassignedSpades += $reward['spades'];

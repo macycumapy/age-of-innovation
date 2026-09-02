@@ -53,7 +53,7 @@ final class ApplyPalaceAction
 
     private function grantSpades(GameStateData $state, GamePlayerStateData $player): void
     {
-        $options = $this->findEligibleTerraformHexes->execute($state, $player->playerId, $player->homeland);
+        $options = $this->findEligibleTerraformHexes->execute($state, $player, $player->homeland);
 
         if ($options === []) {
             throw ValidationException::withMessages(['palace' => 'Нет доступной местности для преобразования.']);

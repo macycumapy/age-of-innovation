@@ -46,7 +46,7 @@ final class ApplyRoundBonusAction
             $playerState->unassignedSpades++;
             $eligibleHexIds = $this->findEligibleTerraformHexes->execute(
                 $state,
-                $playerState->playerId,
+                $playerState,
                 $playerState->homeland,
             );
 

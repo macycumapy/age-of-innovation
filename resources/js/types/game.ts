@@ -405,6 +405,8 @@ export type PendingInteraction =
             terrainAfter?: TerrainType;
             remainingSpades?: number;
             buildableHexIds?: string[];
+            paidTools?: number;
+            paidSpadeCount?: number;
         };
     }
     | {
@@ -459,6 +461,7 @@ export type BoardHexState = {
     r: number;
     initialTerrain: TerrainType;
     terrain: TerrainType;
+    adjacentHexIds: string[];
     riverConnectedHexIds?: string[];
     building: BuildingState | null;
 };

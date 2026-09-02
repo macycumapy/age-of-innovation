@@ -67,7 +67,7 @@ final class ApplyPowerActionAction
         if ($spadeCount > 0) {
             $eligibleHexIds = $this->findEligibleTerraformHexes->execute(
                 $state,
-                $playerState->playerId,
+                $playerState,
                 $playerState->homeland,
             );
 
