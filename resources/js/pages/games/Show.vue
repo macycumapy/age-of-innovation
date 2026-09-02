@@ -35,7 +35,6 @@ import PowerSacrificeDialog from '@/components/game/PowerSacrificeDialog.vue';
 import ResourceExchangeDialog from '@/components/game/ResourceExchangeDialog.vue';
 import RoundBonusActionDialog from '@/components/game/RoundBonusActionDialog.vue';
 import ScholarActionDialog from '@/components/game/ScholarActionDialog.vue';
-import TerraformWorkshopDialog from '@/components/game/TerraformWorkshopDialog.vue';
 import RoundBonusBoard from '@/components/game/RoundBonusBoard.vue';
 import TownTileBoard from '@/components/game/TownTileBoard.vue';
 import InputError from '@/components/InputError.vue';
@@ -1530,7 +1529,7 @@ function selectedCompetencyForHomeland(homeland: TerrainType): Competency | unde
                 :knowledge-discipline-names="game.data.knowledgeDisciplineNames"
             />
 
-            <TerraformWorkshopDialog
+            <BuildWorkshopDialog
                 v-if="
                     game.data.pendingInteraction?.type === 'build_workshop_after_terraforming' &&
                     game.data.pendingInteraction.playerId === currentPlayer?.id
@@ -1538,6 +1537,8 @@ function selectedCompetencyForHomeland(homeland: TerrainType): Competency | unde
                 :game-id="game.data.id"
                 :hex-ids="game.data.pendingInteraction.optionIds"
                 :hexes="game.data.board.hexes"
+                :player-color="currentPlayer?.color ?? null"
+                after-terraforming
             />
 
             <CurrentTurnFinishDialog

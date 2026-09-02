@@ -145,7 +145,7 @@ function confirmRestartCurrentTurn(event: SubmitEvent): void {
         </p>
 
         <span
-            v-if="game.data.pendingInteraction?.type === 'spend_spades'"
+            v-if="canSpendStartingSpade"
             class="shrink-0 rounded-full border border-border bg-muted px-2.5 py-1 text-xs font-medium"
         >
             Лопат осталось:
