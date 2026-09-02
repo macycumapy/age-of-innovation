@@ -23,6 +23,7 @@ export type GameResource = {
         playerBoardStates: GamePlayerBoardState[];
         isOwner: boolean;
         canUndoLastAction: boolean;
+        canUndoTownChoice: boolean;
         canRestartCurrentTurn: boolean;
         canFinishCurrentTurn: boolean;
         canPass: boolean;
@@ -50,6 +51,7 @@ export type GameResource = {
         competencies: Competency[];
         availablePalaceIds: PalaceAbility[];
         availableTownTileIds: TownTile[];
+        townTileDescriptions: Record<TownTile, string>;
         roundBonusOffers: RoundBonusOffer[];
         pendingInteraction: PendingInteraction | null;
         startingBuildingTurnIndex: number;
@@ -86,6 +88,9 @@ export type GameActionType =
     | 'accept_power'
     | 'decline_power'
     | 'choose_town'
+    | 'choose_town_books'
+    | 'accept_palace_water_town'
+    | 'decline_palace_water_town'
     | 'choose_palace'
     | 'place_palace_guild'
     | 'choose_competency';
@@ -133,6 +138,7 @@ export type GamePlayerBoardState = {
     palaceId: PalaceAbility | null;
     canUsePalaceAction: boolean;
     activeTownKeys: number;
+    townTileIds: TownTile[];
     activeAnnexes: number;
     buildingsOnMap: Record<'workshop' | 'guild' | 'school' | 'university' | 'palace', number>;
     income: {
@@ -172,14 +178,7 @@ export type GamePlayerSummary = {
     };
 };
 
-export type PlayerColor =
-    | 'yellow'
-    | 'red'
-    | 'black'
-    | 'blue'
-    | 'green'
-    | 'brown'
-    | 'grey';
+export type PlayerColor = 'yellow' | 'red' | 'black' | 'blue' | 'green' | 'brown' | 'grey';
 
 export type Faction =
     | 'blessed'
@@ -226,19 +225,10 @@ export type RoundScoringTile =
     | 'track_engineering'
     | 'innovation_law';
 
-export type FinalRoundScoringTile =
-    | 'workshop'
-    | 'guild'
-    | 'school'
-    | 'edge_workshop';
+export type FinalRoundScoringTile = 'workshop' | 'guild' | 'school' | 'edge_workshop';
 
 export type BookAction =
-    | 'gain_power'
-    | 'advance_knowledge'
-    | 'gain_coins'
-    | 'upgrade_to_guild'
-    | 'score_guilds'
-    | 'terraform_three_spades';
+    'gain_power' | 'advance_knowledge' | 'gain_coins' | 'upgrade_to_guild' | 'score_guilds' | 'terraform_three_spades';
 
 export type BookActionState = {
     id: BookAction;
@@ -248,12 +238,7 @@ export type BookActionState = {
 };
 
 export type PowerAction =
-    | 'build_bridge'
-    | 'gain_scholar'
-    | 'gain_tools'
-    | 'gain_coins'
-    | 'terraform_one_spade'
-    | 'terraform_two_spades';
+    'build_bridge' | 'gain_scholar' | 'gain_tools' | 'gain_coins' | 'terraform_one_spade' | 'terraform_two_spades';
 
 export type PowerActionState = {
     id: PowerAction;
@@ -315,14 +300,7 @@ export type PalaceAbility =
     | 'palace_16'
     | 'palace_17';
 
-export type TownTile =
-    | 'tools'
-    | 'terraform'
-    | 'books'
-    | 'coins'
-    | 'knowledge'
-    | 'power'
-    | 'scholar';
+export type TownTile = 'tools' | 'terraform' | 'books' | 'coins' | 'knowledge' | 'power' | 'scholar';
 
 export type PlanningBundle = {
     homeland: TerrainType;
@@ -341,120 +319,137 @@ export type PlanningBundleDescriptions = {
     roundBonuses: Record<RoundBonus, string>;
 };
 
-export type KnowledgeDiscipline =
-    | 'banking'
-    | 'law'
-    | 'engineering'
-    | 'medicine';
+export type KnowledgeDiscipline = 'banking' | 'law' | 'engineering' | 'medicine';
 
 export type PendingInteraction =
     | {
-        type: 'choose_starting_resources';
-        playerId: number;
-        optionIds: KnowledgeDiscipline[];
-        context: {
-            bookCount: number;
-            knowledgeStepCount: number;
-            competencyIds?: Competency[];
-        };
-    }
+          type: 'choose_starting_resources';
+          playerId: number;
+          optionIds: KnowledgeDiscipline[];
+          context: {
+              bookCount: number;
+              knowledgeStepCount: number;
+              competencyIds?: Competency[];
+          };
+      }
     | {
-        type: 'choose_science_bonus_books';
-        playerId: number;
-        optionIds: never[];
-        context: {
-            bookCount: number;
-        };
-    }
+          type: 'choose_science_bonus_books';
+          playerId: number;
+          optionIds: never[];
+          context: {
+              bookCount: number;
+          };
+      }
     | {
-        type: 'choose_competency';
-        playerId: number;
-        optionIds: Competency[];
-        context: {
-            reason?: 'building';
-            builtHexId?: string;
-            buildingType?: 'school' | 'university';
-        };
-    }
+          type: 'choose_competency';
+          playerId: number;
+          optionIds: Competency[];
+          context: {
+              reason?: 'building';
+              builtHexId?: string;
+              buildingType?: 'school' | 'university';
+          };
+      }
     | {
-        type: 'choose_palace';
-        playerId: number;
-        optionIds: PalaceAbility[];
-        context: {
-            reason: 'building';
-            builtHexId: string;
-        };
-    }
+          type: 'choose_palace';
+          playerId: number;
+          optionIds: PalaceAbility[];
+          context: {
+              reason: 'building';
+              builtHexId: string;
+          };
+      }
     | {
-        type: 'place_palace_guild';
-        playerId: number;
-        optionIds: string[];
-        context: {
-            palaceBuiltHexId: string;
-            selectedHexId: string | null;
-        };
-    }
+          type: 'place_palace_guild';
+          playerId: number;
+          optionIds: string[];
+          context: {
+              palaceBuiltHexId: string;
+              selectedHexId: string | null;
+          };
+      }
     | {
-        type: 'spend_spades';
-        playerId: number;
-        optionIds: string[];
-        context: {
-            spadeCount: number;
-            targetTerrain: TerrainType;
-            selectedHexId?: string;
-            terrainBefore?: TerrainType;
-            terrainAfter?: TerrainType;
-            remainingSpades?: number;
-            buildableHexIds?: string[];
-            paidTools?: number;
-            paidSpadeCount?: number;
-        };
-    }
+          type: 'spend_spades';
+          playerId: number;
+          optionIds: string[];
+          context: {
+              spadeCount: number;
+              targetTerrain: TerrainType;
+              selectedHexId?: string;
+              terrainBefore?: TerrainType;
+              terrainAfter?: TerrainType;
+              remainingSpades?: number;
+              buildableHexIds?: string[];
+              paidTools?: number;
+              paidSpadeCount?: number;
+              spentSpades?: number;
+          };
+      }
     | {
-        type: 'place_bridge';
-        playerId: number;
-        optionIds: string[];
-        context: {
-            pairs: Array<{ fromHexId: string; toHexId: string }>;
-            selectedFromHexId?: string;
-            selectedToHexId?: string;
-        };
-    }
+          type: 'choose_town';
+          playerId: number;
+          optionIds: TownTile[];
+          context: {
+              townHexIds: string[];
+              builtHexId: string;
+          };
+      }
     | {
-        type: 'build_workshop_after_terraforming';
-        playerId: number;
-        optionIds: string[];
-        context: {
-            toolCost: number;
-            coinCost: number;
-        };
-    }
+          type: 'choose_town_books';
+          playerId: number;
+          optionIds: never[];
+          context: {
+              bookCount: number;
+              builtHexId: string;
+          };
+      }
     | {
-        type: 'power_offer';
-        playerId: number;
-        optionIds: never[];
-        context: {
-            buildingPlayerId: number;
-            builtHexId: string;
-            powerAmount: number;
-            remainingOffers: Array<{
-                playerId: number;
-                userId: number;
-                powerAmount: number;
-            }>;
-            queuedBuiltHexIds?: string[];
-        };
-    };
+          type: 'offer_palace_water_town';
+          playerId: number;
+          optionIds: string[];
+          context: {
+              townsByWaterHexId: Record<string, string[]>;
+              builtHexId: string;
+              queuedBuiltHexIds?: string[];
+          };
+      }
+    | {
+          type: 'place_bridge';
+          playerId: number;
+          optionIds: string[];
+          context: {
+              pairs: Array<{ fromHexId: string; toHexId: string }>;
+              selectedFromHexId?: string;
+              selectedToHexId?: string;
+          };
+      }
+    | {
+          type: 'build_workshop_after_terraforming';
+          playerId: number;
+          optionIds: string[];
+          context: {
+              toolCost: number;
+              coinCost: number;
+          };
+      }
+    | {
+          type: 'power_offer';
+          playerId: number;
+          optionIds: never[];
+          context: {
+              buildingPlayerId: number;
+              builtHexId: string;
+              powerAmount: number;
+              remainingOffers: Array<{
+                  playerId: number;
+                  userId: number;
+                  powerAmount: number;
+              }>;
+              queuedBuiltHexIds?: string[];
+          };
+      };
 
-export type TerrainType =
-    | 'desert'
-    | 'plains'
-    | 'swamp'
-    | 'lake'
-    | 'forest'
-    | 'mountain'
-    | 'wasteland'
-    | 'water';
+export type TerrainType = 'desert' | 'plains' | 'swamp' | 'lake' | 'forest' | 'mountain' | 'wasteland' | 'water';
 
 export type BoardHexState = {
     id: string;
@@ -465,6 +460,8 @@ export type BoardHexState = {
     adjacentHexIds: string[];
     riverConnectedHexIds?: string[];
     building: BuildingState | null;
+    townId: string | null;
+    townTileId: TownTile | null;
 };
 
 export type BuildingState = {

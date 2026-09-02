@@ -9,11 +9,13 @@ use App\Domain\Game\Actions\ApplyResourceExchangeAction;
 use App\Domain\Game\Actions\CreateBuildingFollowUpInteractionAction;
 use App\Domain\Game\Actions\DetermineStartingBuildingOrderAction;
 use App\Domain\Game\Actions\FindEligibleTerraformHexesAction;
+use App\Domain\Game\Actions\FindEligibleTownHexesAction;
 use App\Domain\Game\Actions\ResolveCompletedStartingSetupAction;
 use App\Domain\Game\Actions\ResolveIncomePhaseAction;
 use App\Domain\Game\Data\BoardHexStateData;
 use App\Domain\Game\Data\BoardStateData;
 use App\Domain\Game\Data\BookSupplyData;
+use App\Domain\Game\Data\BridgeStateData;
 use App\Domain\Game\Data\BuildingStateData;
 use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Data\GameStateData;
@@ -43,6 +45,7 @@ use App\Domain\Game\Enums\PowerAction;
 use App\Domain\Game\Enums\RoundBonus;
 use App\Domain\Game\Enums\RoundScoringTile;
 use App\Domain\Game\Enums\TerrainType;
+use App\Domain\Game\Enums\TownTile;
 use App\Domain\Game\Factories\BoardStateFactory;
 use App\Domain\Game\Factories\GamePlayerStateFactory;
 use App\Domain\Game\Factories\GameSetupPoolFactory;
@@ -1453,6 +1456,412 @@ class GameManagementTest extends TestCase
         $this->assertNull($game->state->board->hexes[2]->building);
         $this->assertSame(1, $game->state->players[0]->resources->tools);
         $this->assertSame(2, $game->state->players[0]->resources->coins);
+    }
+
+    public function test_building_an_eligible_group_founds_a_town_and_player_chooses_its_tile(): void
+    {
+        $user = User::factory()->create();
+        $neighborUser = User::factory()->create();
+        $game = Game::factory()->create([
+            'status' => GameStatus::Active,
+            'phase' => GamePhase::Actions,
+            'active_player_id' => $user->id,
+        ]);
+        $player = GamePlayer::factory()->create(['game_id' => $game->id, 'user_id' => $user->id, 'seat' => 1]);
+        $neighbor = GamePlayer::factory()->create(['game_id' => $game->id, 'user_id' => $neighborUser->id, 'seat' => 2]);
+        $hexes = [];
+
+        foreach ([BuildingType::Guild, BuildingType::University, BuildingType::Workshop] as $index => $buildingType) {
+            $hexes[] = new BoardHexStateData(
+                id: "{$index}:0",
+                q: $index,
+                r: 0,
+                initialTerrain: TerrainType::Forest,
+                terrain: TerrainType::Forest,
+                adjacentHexIds: array_values(array_filter([($index - 1).':0', ($index + 1).':0'])),
+                building: new BuildingStateData($buildingType, $player->id),
+            );
+        }
+
+        $hexes[] = new BoardHexStateData(
+            id: '3:0',
+            q: 3,
+            r: 0,
+            initialTerrain: TerrainType::Forest,
+            terrain: TerrainType::Forest,
+            adjacentHexIds: ['2:0', '3:1'],
+        );
+        $hexes[] = new BoardHexStateData(
+            id: '3:1',
+            q: 3,
+            r: 1,
+            initialTerrain: TerrainType::Desert,
+            terrain: TerrainType::Desert,
+            adjacentHexIds: ['3:0'],
+            building: new BuildingStateData(BuildingType::Guild, $neighbor->id),
+        );
+        $game->update(['state' => new GameStateData(
+            turnOrder: [$player->id, $neighbor->id],
+            board: new BoardStateData(hexes: $hexes),
+            round: new RoundStateData(phase: GamePhase::Actions),
+            players: [
+                new GamePlayerStateData(
+                    playerId: $player->id,
+                    userId: $user->id,
+                    color: PlayerColor::Green,
+                    faction: Faction::Blessed,
+                    homeland: TerrainType::Forest,
+                    roundBonus: RoundBonus::Coins,
+                    resources: new PlayerResourcesData(tools: 1, coins: 2),
+                ),
+                new GamePlayerStateData(
+                    playerId: $neighbor->id,
+                    userId: $neighborUser->id,
+                    color: PlayerColor::Red,
+                    faction: Faction::Blessed,
+                    homeland: TerrainType::Desert,
+                    roundBonus: RoundBonus::Coins,
+                    resources: new PlayerResourcesData(
+                        power: new PowerBowlsStateData(bowlTwo: 2),
+                    ),
+                ),
+            ],
+            availableTownTileIds: array_merge(...array_fill(0, 3, array_column(TownTile::cases(), 'value'))),
+        )]);
+
+        $this->actingAs($user)->post(route('games.workshop', $game), ['hex_id' => '3:0']);
+        $game->refresh();
+
+        $this->assertSame(PendingInteractionType::PowerOffer, $game->state->pendingInteraction?->type);
+        $this->assertSame($neighborUser->id, $game->active_player_id);
+
+        $this->actingAs($neighborUser)->post(route('games.power-offer', $game), ['accept' => false]);
+        $game->refresh();
+
+        $this->assertSame(PendingInteractionType::ChooseTown, $game->state->pendingInteraction?->type);
+        $this->assertSame($user->id, $game->active_player_id);
+        $this->assertCount(7, $game->state->pendingInteraction?->optionIds);
+        $this->actingAs($user)
+            ->get(route('games.show', $game))
+            ->assertInertia(fn (Assert $page) => $page->where('game.data.canRestartCurrentTurn', true));
+
+        $this->actingAs($user)->post(route('games.town', $game), ['town_tile' => TownTile::Tools->value])
+            ->assertRedirect(route('games.show', $game));
+        $game->refresh();
+
+        $this->assertSame([TownTile::Tools->value], $game->state->players[0]->townTileIds);
+        $this->assertSame(3, $game->state->players[0]->resources->tools);
+        $this->assertSame(24, $game->state->players[0]->victoryPoints);
+        $this->assertCount(20, $game->state->availableTownTileIds);
+        $this->assertCount(1, array_unique(array_filter(array_column($game->state->board->hexes, 'townId'))));
+        $this->assertSame(TownTile::Tools->value, $game->state->board->hexes[3]->townTileId);
+        $this->assertSame([
+            GameActionType::BuildWorkshop,
+            GameActionType::DeclinePower,
+            GameActionType::ChooseTown,
+        ], $game->actions()->orderBy('sequence')->pluck('type')->all());
+        $this->get(route('games.show', $game))
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('game.data.canUndoTownChoice', true)
+                ->where('game.data.canFinishCurrentTurn', true));
+
+        $this->delete(route('games.town-choice.destroy', $game))
+            ->assertRedirect(route('games.show', $game));
+        $game->refresh();
+
+        $this->assertSame(PendingInteractionType::ChooseTown, $game->state->pendingInteraction?->type);
+        $this->assertSame([], $game->state->players[0]->townTileIds);
+        $this->assertSame(0, $game->state->players[0]->resources->tools);
+        $this->assertSame(20, $game->state->players[0]->victoryPoints);
+        $this->assertCount(21, $game->state->availableTownTileIds);
+        $this->assertCount(0, array_filter(array_column($game->state->board->hexes, 'townId')));
+        $this->assertSame([
+            GameActionType::BuildWorkshop,
+            GameActionType::DeclinePower,
+        ], $game->actions()->orderBy('sequence')->pluck('type')->all());
+
+        $this->post(route('games.town', $game), ['town_tile' => TownTile::Coins->value]);
+        $game->refresh();
+
+        $this->assertSame([TownTile::Coins->value], $game->state->players[0]->townTileIds);
+        $this->assertSame(6, $game->state->players[0]->resources->coins);
+        $this->assertSame(TownTile::Coins->value, $game->state->board->hexes[3]->townTileId);
+    }
+
+    public function test_town_requirements_account_for_special_buildings_annexes_bridges_and_palace(): void
+    {
+        $findEligibleTownHexes = $this->app->make(FindEligibleTownHexesAction::class);
+        $player = new GamePlayerStateData(
+            playerId: 1,
+            userId: 1,
+            color: PlayerColor::Green,
+            faction: Faction::Blessed,
+            homeland: TerrainType::Forest,
+            roundBonus: RoundBonus::Coins,
+        );
+        $stateFor = static function (array $buildings, array $bridges = []) use ($player): GameStateData {
+            $hexes = array_map(
+                static fn (BuildingStateData $building, int $index): BoardHexStateData => new BoardHexStateData(
+                    id: "{$index}:0",
+                    q: $index,
+                    r: 0,
+                    initialTerrain: TerrainType::Forest,
+                    terrain: TerrainType::Forest,
+                    adjacentHexIds: $index === 0 ? ['1:0'] : ($index === count($buildings) - 1 ? [($index - 1).':0'] : [($index - 1).':0', ($index + 1).':0']),
+                    building: $building,
+                ),
+                $buildings,
+                array_keys($buildings),
+            );
+
+            return new GameStateData(
+                board: new BoardStateData(hexes: $hexes, bridges: $bridges),
+                players: [$player],
+            );
+        };
+
+        $universityState = $stateFor([
+            new BuildingStateData(BuildingType::University, 1),
+            new BuildingStateData(BuildingType::Guild, 1),
+            new BuildingStateData(BuildingType::Guild, 1),
+        ]);
+        $this->assertCount(3, $findEligibleTownHexes->execute($universityState, $player, '2:0'));
+
+        $monumentState = $stateFor([
+            new BuildingStateData(BuildingType::Monument, 1),
+            new BuildingStateData(BuildingType::Palace, 1),
+        ]);
+        $this->assertCount(2, $findEligibleTownHexes->execute($monumentState, $player, '1:0'));
+
+        $annexState = $stateFor([
+            new BuildingStateData(BuildingType::Guild, 1, hasAnnex: true),
+            new BuildingStateData(BuildingType::Guild, 1),
+            new BuildingStateData(BuildingType::Guild, 1),
+        ]);
+        $this->assertCount(3, $findEligibleTownHexes->execute($annexState, $player, '2:0'));
+
+        $player->palaceId = PalaceAbility::Palace08->value;
+        $palaceState = $stateFor([
+            new BuildingStateData(BuildingType::Palace, 1),
+            new BuildingStateData(BuildingType::Workshop, 1),
+            new BuildingStateData(BuildingType::Workshop, 1),
+            new BuildingStateData(BuildingType::Workshop, 1),
+        ]);
+        $this->assertCount(4, $findEligibleTownHexes->execute($palaceState, $player, '3:0'));
+
+        $bridgeState = $stateFor([
+            new BuildingStateData(BuildingType::Palace, 1),
+            new BuildingStateData(BuildingType::Guild, 1),
+            new BuildingStateData(BuildingType::Workshop, 2),
+            new BuildingStateData(BuildingType::Workshop, 1),
+            new BuildingStateData(BuildingType::Workshop, 1),
+        ], [new BridgeStateData('1:0', '3:0', 1)]);
+        $bridgeState->board->hexes[1]->adjacentHexIds = ['0:0'];
+        $bridgeState->board->hexes[3]->adjacentHexIds = ['4:0'];
+        $this->assertCount(4, $findEligibleTownHexes->execute($bridgeState, $player, '4:0'));
+    }
+
+    public function test_knowledge_town_tile_scores_each_actual_knowledge_step_for_the_round_goal(): void
+    {
+        $user = User::factory()->create();
+        $game = Game::factory()->create([
+            'status' => GameStatus::Active,
+            'phase' => GamePhase::Actions,
+            'active_player_id' => $user->id,
+        ]);
+        $player = GamePlayer::factory()->create(['game_id' => $game->id, 'user_id' => $user->id]);
+        $game->update(['state' => new GameStateData(
+            board: new BoardStateData(hexes: [new BoardHexStateData(
+                id: '0:0',
+                q: 0,
+                r: 0,
+                initialTerrain: TerrainType::Forest,
+                terrain: TerrainType::Forest,
+                building: new BuildingStateData(BuildingType::Workshop, $player->id),
+            )]),
+            round: new RoundStateData(
+                phase: GamePhase::Actions,
+                scoringTileId: RoundScoringTile::KnowledgeMedicine->value,
+            ),
+            players: [new GamePlayerStateData(
+                playerId: $player->id,
+                userId: $user->id,
+                color: PlayerColor::Green,
+                faction: Faction::Blessed,
+                homeland: TerrainType::Forest,
+                roundBonus: RoundBonus::Coins,
+                knowledge: new KnowledgeStateData(medicine: 12),
+            )],
+            availableTownTileIds: [TownTile::Knowledge->value],
+            pendingInteraction: new PendingInteractionData(
+                PendingInteractionType::ChooseTown,
+                $player->id,
+                [TownTile::Knowledge->value],
+                ['townHexIds' => ['0:0'], 'builtHexId' => '0:0'],
+            ),
+        )]);
+
+        $this->actingAs($user)->post(route('games.town', $game), [
+            'town_tile' => TownTile::Knowledge->value,
+        ])->assertRedirect(route('games.show', $game));
+        $game->refresh();
+
+        $this->assertSame(30, $game->state->players[0]->victoryPoints);
+        $this->assertSame(1, $game->state->players[0]->knowledge->banking);
+        $this->assertSame(1, $game->state->players[0]->knowledge->law);
+        $this->assertSame(1, $game->state->players[0]->knowledge->engineering);
+        $this->assertSame(12, $game->state->players[0]->knowledge->medicine);
+        $this->assertSame(10, $game->actions()->sole()->payload['victory_points']);
+    }
+
+    public function test_player_must_distribute_exactly_two_books_from_a_town_tile(): void
+    {
+        $user = User::factory()->create();
+        $game = Game::factory()->create([
+            'status' => GameStatus::Active,
+            'phase' => GamePhase::Actions,
+            'active_player_id' => $user->id,
+        ]);
+        $player = GamePlayer::factory()->create(['game_id' => $game->id, 'user_id' => $user->id]);
+        $game->update(['state' => new GameStateData(
+            board: new BoardStateData(hexes: [new BoardHexStateData(
+                id: '0:0',
+                q: 0,
+                r: 0,
+                initialTerrain: TerrainType::Forest,
+                terrain: TerrainType::Forest,
+                building: new BuildingStateData(BuildingType::Workshop, $player->id),
+            )]),
+            players: [new GamePlayerStateData(
+                playerId: $player->id,
+                userId: $user->id,
+                color: PlayerColor::Green,
+                faction: Faction::Blessed,
+                homeland: TerrainType::Forest,
+                roundBonus: RoundBonus::Coins,
+                resources: new PlayerResourcesData(books: new BookSupplyData(unassigned: 2)),
+            )],
+            pendingInteraction: new PendingInteractionData(
+                PendingInteractionType::ChooseTownBooks,
+                $player->id,
+                context: ['bookCount' => 2, 'builtHexId' => '0:0'],
+            ),
+        )]);
+
+        $this->actingAs($user)->post(route('games.town.books', $game), [
+            'book_counts' => ['banking' => 1, 'law' => 0, 'engineering' => 0, 'medicine' => 0],
+        ])->assertSessionHasErrors('book_counts');
+
+        $this->post(route('games.town.books', $game), [
+            'book_counts' => ['banking' => 1, 'law' => 0, 'engineering' => 0, 'medicine' => 1],
+        ])->assertRedirect(route('games.show', $game));
+        $game->refresh();
+
+        $this->assertSame(0, $game->state->players[0]->resources->books->unassigned);
+        $this->assertSame(1, $game->state->players[0]->resources->books->banking);
+        $this->assertSame(1, $game->state->players[0]->resources->books->medicine);
+        $this->assertSame(GameActionType::ChooseTownBooks, $game->actions()->sole()->type);
+    }
+
+    public function test_palace_fourteen_player_may_accept_or_decline_a_town_through_water(): void
+    {
+        $createGame = function (): array {
+            $user = User::factory()->create();
+            $game = Game::factory()->create([
+                'status' => GameStatus::Active,
+                'phase' => GamePhase::Actions,
+                'active_player_id' => $user->id,
+            ]);
+            $player = GamePlayer::factory()->create(['game_id' => $game->id, 'user_id' => $user->id]);
+            $game->update(['state' => new GameStateData(
+                turnOrder: [$player->id],
+                board: new BoardStateData(hexes: [
+                    new BoardHexStateData(
+                        id: '0:0',
+                        q: 0,
+                        r: 0,
+                        initialTerrain: TerrainType::Forest,
+                        terrain: TerrainType::Forest,
+                        adjacentHexIds: ['1:0'],
+                        building: new BuildingStateData(BuildingType::Palace, $player->id),
+                    ),
+                    new BoardHexStateData(
+                        id: '1:0',
+                        q: 1,
+                        r: 0,
+                        initialTerrain: TerrainType::Water,
+                        terrain: TerrainType::Water,
+                        adjacentHexIds: ['0:0', '2:0'],
+                    ),
+                    new BoardHexStateData(
+                        id: '2:0',
+                        q: 2,
+                        r: 0,
+                        initialTerrain: TerrainType::Forest,
+                        terrain: TerrainType::Forest,
+                        adjacentHexIds: ['1:0', '3:0'],
+                        building: new BuildingStateData(BuildingType::Guild, $player->id),
+                    ),
+                    new BoardHexStateData(
+                        id: '3:0',
+                        q: 3,
+                        r: 0,
+                        initialTerrain: TerrainType::Forest,
+                        terrain: TerrainType::Forest,
+                        adjacentHexIds: ['2:0', '4:0'],
+                        building: new BuildingStateData(BuildingType::Workshop, $player->id),
+                    ),
+                    new BoardHexStateData(
+                        id: '4:0',
+                        q: 4,
+                        r: 0,
+                        initialTerrain: TerrainType::Forest,
+                        terrain: TerrainType::Forest,
+                        adjacentHexIds: ['3:0'],
+                    ),
+                ]),
+                round: new RoundStateData(phase: GamePhase::Actions),
+                players: [new GamePlayerStateData(
+                    playerId: $player->id,
+                    userId: $user->id,
+                    color: PlayerColor::Green,
+                    faction: Faction::Blessed,
+                    homeland: TerrainType::Forest,
+                    roundBonus: RoundBonus::Coins,
+                    resources: new PlayerResourcesData(tools: 2, coins: 4),
+                    palaceId: PalaceAbility::Palace14->value,
+                )],
+                availableTownTileIds: array_merge(...array_fill(0, 3, array_column(TownTile::cases(), 'value'))),
+            )]);
+
+            return [$user, $game];
+        };
+
+        [$decliningUser, $decliningGame] = $createGame();
+        $this->actingAs($decliningUser)->post(route('games.workshop', $decliningGame), ['hex_id' => '4:0']);
+        $decliningGame->refresh();
+        $this->assertSame(PendingInteractionType::OfferPalaceWaterTown, $decliningGame->state->pendingInteraction?->type);
+        $this->assertSame(['1:0'], $decliningGame->state->pendingInteraction?->optionIds);
+
+        $this->post(route('games.town.palace-water', $decliningGame), ['accept' => false]);
+        $decliningGame->refresh();
+        $this->assertNull($decliningGame->state->pendingInteraction);
+        $this->assertSame(GameActionType::DeclinePalaceWaterTown, $decliningGame->actions()->latest('sequence')->first()?->type);
+
+        [$acceptingUser, $acceptingGame] = $createGame();
+        $this->actingAs($acceptingUser)->post(route('games.workshop', $acceptingGame), ['hex_id' => '4:0']);
+        $this->post(route('games.town.palace-water', $acceptingGame), [
+            'accept' => true,
+            'water_hex_id' => '1:0',
+        ]);
+        $acceptingGame->refresh();
+        $this->assertSame(PendingInteractionType::ChooseTown, $acceptingGame->state->pendingInteraction?->type);
+
+        $this->post(route('games.town', $acceptingGame), ['town_tile' => TownTile::Coins->value]);
+        $acceptingGame->refresh();
+        $waterHex = collect($acceptingGame->state->board->hexes)->firstWhere('id', '1:0');
+        $this->assertSame(TownTile::Coins->value, $waterHex?->townTileId);
+        $this->assertNotNull($waterHex?->townId);
     }
 
     public function test_power_terraforming_offers_a_workshop_and_turn_can_be_finished_after_building(): void
@@ -2883,7 +3292,7 @@ class GameManagementTest extends TestCase
             $game->state->setupPool->roundScoringTiles[0],
             $game->state->round->scoringTileId,
         );
-        $this->assertCount(7, $game->state->availableTownTileIds);
+        $this->assertCount(21, $game->state->availableTownTileIds);
         $this->assertCount(4, $game->state->availablePalaceIds);
         $this->assertCount(6, $game->state->availableInventionIds);
         $this->assertCount(12, $game->state->availableCompetencyIds);

@@ -88,7 +88,11 @@ final class StartGameAction
                         scoringTileId: $setupPool->roundScoringTiles[0]->value,
                         additionalScoringTileId: $setupPool->additionalFinalRoundGoal->value,
                     ),
-                    availableTownTileIds: $this->enumValues($setupPool->townTiles),
+                    availableTownTileIds: array_merge(...array_fill(
+                        0,
+                        3,
+                        $this->enumValues($setupPool->townTiles),
+                    )),
                     availablePalaceIds: $this->enumValues($setupPool->palaces),
                     availableInventionIds: $this->enumValues($setupPool->innovations),
                     availableCompetencyIds: $this->enumValues($setupPool->competencies),

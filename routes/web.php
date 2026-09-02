@@ -20,6 +20,7 @@ use App\Http\Controllers\PalaceActionController;
 use App\Http\Controllers\PalaceChoiceController;
 use App\Http\Controllers\PalaceGuildConfirmationController;
 use App\Http\Controllers\PalaceGuildController;
+use App\Http\Controllers\PalaceWaterTownController;
 use App\Http\Controllers\PassController;
 use App\Http\Controllers\PlanningBundleController;
 use App\Http\Controllers\PowerActionController;
@@ -36,6 +37,9 @@ use App\Http\Controllers\StartingResourcesController;
 use App\Http\Controllers\StartingSpadeController;
 use App\Http\Controllers\StartingSpadeTurnController;
 use App\Http\Controllers\TerraformWorkshopController;
+use App\Http\Controllers\TownBooksController;
+use App\Http\Controllers\TownChoiceUndoController;
+use App\Http\Controllers\TownController;
 use App\Http\Controllers\WorkshopController;
 use Illuminate\Support\Facades\Route;
 
@@ -72,6 +76,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('games.terraform-workshop');
     Route::post('games/{game}/workshop', WorkshopController::class)
         ->name('games.workshop');
+    Route::post('games/{game}/town', TownController::class)
+        ->name('games.town');
+    Route::delete('games/{game}/town-choice', TownChoiceUndoController::class)
+        ->name('games.town-choice.destroy');
+    Route::post('games/{game}/town/books', TownBooksController::class)
+        ->name('games.town.books');
+    Route::post('games/{game}/town/palace-water', PalaceWaterTownController::class)
+        ->name('games.town.palace-water');
     Route::post('games/{game}/paid-terraforming', PaidTerraformingController::class)
         ->name('games.paid-terraforming');
     Route::post('games/{game}/power-sacrifice', [PowerSacrificeController::class, 'store'])

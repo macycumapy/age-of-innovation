@@ -10,6 +10,8 @@ enum PendingInteractionType: string
     case ChooseStartingResources = 'choose_starting_resources';
     case PowerOffer = 'power_offer';
     case ChooseTown = 'choose_town';
+    case ChooseTownBooks = 'choose_town_books';
+    case OfferPalaceWaterTown = 'offer_palace_water_town';
     case ChoosePalace = 'choose_palace';
     case PlacePalaceGuild = 'place_palace_guild';
     case ChooseCompetency = 'choose_competency';

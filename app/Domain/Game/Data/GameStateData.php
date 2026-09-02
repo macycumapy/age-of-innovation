@@ -24,6 +24,7 @@ use Spatie\LaravelData\Data;
  * @property int $startingBuildingTurnIndex Индекс текущего хода стартового выставления.
  * @property string|null $pendingStartingBuildingHexId Гекс дома, который ещё можно отменить.
  * @property array<string, mixed>|null $turnStartSnapshot Состояние игры до первого действия текущего хода.
+ * @property array<string, mixed>|null $townChoiceCheckpoint Состояние игры перед последним выбором жетона города.
  */
 class GameStateData extends Data
 {
@@ -56,6 +57,7 @@ class GameStateData extends Data
         public int $startingBuildingTurnIndex = 0,
         public ?string $pendingStartingBuildingHexId = null,
         public ?array $turnStartSnapshot = null,
+        public ?array $townChoiceCheckpoint = null,
     ) {
     }
 }

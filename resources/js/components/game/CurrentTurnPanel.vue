@@ -12,6 +12,8 @@ import StartingBuildingController from '@/actions/App/Http/Controllers/StartingB
 import StartingBuildingTurnController from '@/actions/App/Http/Controllers/StartingBuildingTurnController';
 import StartingSpadeController from '@/actions/App/Http/Controllers/StartingSpadeController';
 import StartingSpadeTurnController from '@/actions/App/Http/Controllers/StartingSpadeTurnController';
+import TownChoiceUndoController from '@/actions/App/Http/Controllers/TownChoiceUndoController';
+import TownInteractionPanel from '@/components/game/TownInteractionPanel.vue';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import type { GamePlayerSummary, GameResource } from '@/types';
@@ -37,9 +39,10 @@ const emit = defineEmits<{
 
 const isCurrentUsersTurn = computed(() => props.activePlayer?.user.id === props.currentUserId);
 const canResolvePowerOffer = computed(
-    () => props.game.data.pendingInteraction?.type === 'power_offer'
-        && props.game.data.pendingInteraction.playerId === props.currentPlayer?.id
-        && isCurrentUsersTurn.value,
+    () =>
+        props.game.data.pendingInteraction?.type === 'power_offer' &&
+        props.game.data.pendingInteraction.playerId === props.currentPlayer?.id &&
+        isCurrentUsersTurn.value,
 );
 const powerOfferAmount = computed(() =>
     props.game.data.pendingInteraction?.type === 'power_offer'
@@ -47,6 +50,12 @@ const powerOfferAmount = computed(() =>
         : 0,
 );
 const powerOfferVictoryPointCost = computed(() => Math.max(0, powerOfferAmount.value - 1));
+const canResolveTownInteraction = computed(
+    () =>
+        ['choose_town', 'choose_town_books'].includes(props.game.data.pendingInteraction?.type ?? '') &&
+        props.game.data.pendingInteraction?.playerId === props.currentPlayer?.id &&
+        isCurrentUsersTurn.value,
+);
 const remainingSpades = computed(() => {
     const interaction = props.game.data.pendingInteraction;
 
@@ -56,9 +65,7 @@ const remainingSpades = computed(() => {
 
     const availableSpades = interaction.context.remainingSpades ?? interaction.context.spadeCount;
 
-    const stagedSpades = props.pendingStartingSpadeHexId === null
-        ? 0
-        : (interaction.context.spentSpades ?? 1);
+    const stagedSpades = props.pendingStartingSpadeHexId === null ? 0 : (interaction.context.spentSpades ?? 1);
 
     return Math.max(0, availableSpades - stagedSpades);
 });
@@ -97,7 +104,15 @@ function confirmRestartCurrentTurn(event: SubmitEvent): void {
         </span>
 
         <p
-            v-if="isCurrentUsersTurn && (isStartingBuildingStage || canSpendStartingSpade || canResolvePowerOffer || game.data.pendingInteraction?.type === 'place_palace_guild' || game.data.pendingInteraction?.type === 'place_bridge' || game.data.pendingInteraction?.type === 'choose_science_bonus_books')"
+            v-if="
+                isCurrentUsersTurn &&
+                (isStartingBuildingStage ||
+                    canSpendStartingSpade ||
+                    canResolvePowerOffer ||
+                    game.data.pendingInteraction?.type === 'place_palace_guild' ||
+                    game.data.pendingInteraction?.type === 'place_bridge' ||
+                    game.data.pendingInteraction?.type === 'choose_science_bonus_books')
+            "
             class="truncate text-sm font-medium"
             role="status"
             aria-live="polite"
@@ -112,26 +127,34 @@ function confirmRestartCurrentTurn(event: SubmitEvent): void {
                 Выберите стартовую компетенцию.
             </template>
             <template v-else-if="game.data.pendingInteraction?.type === 'spend_spades'">
-                {{ pendingStartingSpadeHexId
-                    ? 'Земля преобразована — отмените действие или подтвердите.'
-                    : 'Выберите соседнюю ячейку для преобразования.' }}
+                {{
+                    pendingStartingSpadeHexId
+                        ? 'Земля преобразована — отмените действие или подтвердите.'
+                        : 'Выберите соседнюю ячейку для преобразования.'
+                }}
             </template>
             <template v-else-if="game.data.pendingInteraction?.type === 'place_palace_guild'">
-                {{ pendingPalaceGuildHexId
-                    ? 'Рынок размещён — отмените действие или подтвердите.'
-                    : 'Разместите бесплатный рынок на свободной родной местности.' }}
+                {{
+                    pendingPalaceGuildHexId
+                        ? 'Рынок размещён — отмените действие или подтвердите.'
+                        : 'Разместите бесплатный рынок на свободной родной местности.'
+                }}
             </template>
             <template v-else-if="game.data.pendingInteraction?.type === 'place_bridge'">
-                {{ game.data.pendingInteraction.context.selectedFromHexId
-                    ? 'Мост размещён — отмените действие или подтвердите.'
-                    : selectedBridgeFromHexId
-                        ? 'Выберите противоположный берег.'
-                        : 'Выберите ячейку со своим зданием для начала моста.' }}
+                {{
+                    game.data.pendingInteraction.context.selectedFromHexId
+                        ? 'Мост размещён — отмените действие или подтвердите.'
+                        : selectedBridgeFromHexId
+                          ? 'Выберите противоположный берег.'
+                          : 'Выберите ячейку со своим зданием для начала моста.'
+                }}
             </template>
             <template v-else-if="game.data.pendingStartingBuildingHexId">
-                {{ isOmarStartingTowerTurn
-                    ? 'Стартовая вышка установлена — отмените действие или завершите ход.'
-                    : 'Дом установлен — отмените действие или завершите ход.' }}
+                {{
+                    isOmarStartingTowerTurn
+                        ? 'Стартовая вышка установлена — отмените действие или завершите ход.'
+                        : 'Дом установлен — отмените действие или завершите ход.'
+                }}
             </template>
             <template v-else-if="currentPlayer?.faction === 'monks'">
                 Установите стартовый университет на свободной ячейке родной местности.
@@ -139,9 +162,7 @@ function confirmRestartCurrentTurn(event: SubmitEvent): void {
             <template v-else-if="isOmarStartingTowerTurn">
                 Установите стартовую вышку на свободной ячейке родной местности.
             </template>
-            <template v-else>
-                Установите стартовый дом на свободной ячейке родной местности.
-            </template>
+            <template v-else> Установите стартовый дом на свободной ячейке родной местности. </template>
         </p>
 
         <span
@@ -152,7 +173,9 @@ function confirmRestartCurrentTurn(event: SubmitEvent): void {
             {{ remainingSpades }}
         </span>
 
-        <div v-if="canResolvePowerOffer" class="flex shrink-0 items-center gap-2">
+        <TownInteractionPanel v-if="canResolveTownInteraction" :game="game" />
+
+        <div v-else-if="canResolvePowerOffer" class="flex shrink-0 items-center gap-2">
             <Form v-bind="PowerOfferController.form(game.data.id)" #default="{ processing }">
                 <input type="hidden" name="accept" value="0" />
                 <Button type="submit" variant="outline" :disabled="processing">Отказаться</Button>
@@ -164,7 +187,11 @@ function confirmRestartCurrentTurn(event: SubmitEvent): void {
         </div>
 
         <TooltipProvider
-            v-else-if="isCurrentUsersTurn && game.data.pendingInteraction?.type === 'place_bridge' && game.data.pendingInteraction.context.selectedFromHexId"
+            v-else-if="
+                isCurrentUsersTurn &&
+                game.data.pendingInteraction?.type === 'place_bridge' &&
+                game.data.pendingInteraction.context.selectedFromHexId
+            "
             :delay-duration="150"
         >
             <div class="flex shrink-0 items-center gap-2">
@@ -174,14 +201,18 @@ function confirmRestartCurrentTurn(event: SubmitEvent): void {
                     #default="{ processing }"
                     @submit="confirmRestartCurrentTurn"
                 >
-                    <Button type="submit" variant="outline" :disabled="processing">
-                        Перезапустить ход
-                    </Button>
+                    <Button type="submit" variant="outline" :disabled="processing"> Перезапустить ход </Button>
                 </Form>
                 <Form v-bind="BridgeController.destroy.form(game.data.id)" #default="{ processing }">
                     <Tooltip>
                         <TooltipTrigger as-child>
-                            <Button type="submit" variant="outline" size="icon" :disabled="processing" aria-label="Отменить размещение моста">
+                            <Button
+                                type="submit"
+                                variant="outline"
+                                size="icon"
+                                :disabled="processing"
+                                aria-label="Отменить размещение моста"
+                            >
                                 <RotateCcw class="size-4" :class="processing ? 'animate-spin' : ''" />
                             </Button>
                         </TooltipTrigger>
@@ -191,7 +222,12 @@ function confirmRestartCurrentTurn(event: SubmitEvent): void {
                 <Form v-bind="BridgeConfirmationController.form(game.data.id)" #default="{ processing }">
                     <Tooltip>
                         <TooltipTrigger as-child>
-                            <Button type="submit" size="icon" :disabled="processing" aria-label="Подтвердить строительство моста">
+                            <Button
+                                type="submit"
+                                size="icon"
+                                :disabled="processing"
+                                aria-label="Подтвердить строительство моста"
+                            >
                                 <Check class="size-4" />
                             </Button>
                         </TooltipTrigger>
@@ -202,7 +238,9 @@ function confirmRestartCurrentTurn(event: SubmitEvent): void {
         </TooltipProvider>
 
         <div
-            v-else-if="isCurrentUsersTurn && game.data.pendingInteraction?.type === 'place_bridge' && selectedBridgeFromHexId"
+            v-else-if="
+                isCurrentUsersTurn && game.data.pendingInteraction?.type === 'place_bridge' && selectedBridgeFromHexId
+            "
             class="flex shrink-0 items-center gap-2"
         >
             <Form
@@ -228,14 +266,24 @@ function confirmRestartCurrentTurn(event: SubmitEvent): void {
         </Form>
 
         <TooltipProvider
-            v-else-if="isCurrentUsersTurn && game.data.pendingInteraction?.type === 'place_palace_guild' && pendingPalaceGuildHexId"
+            v-else-if="
+                isCurrentUsersTurn &&
+                game.data.pendingInteraction?.type === 'place_palace_guild' &&
+                pendingPalaceGuildHexId
+            "
             :delay-duration="150"
         >
             <div class="flex shrink-0 items-center gap-2">
                 <Form v-bind="PalaceGuildController.destroy.form(game.data.id)" #default="{ processing }">
                     <Tooltip>
                         <TooltipTrigger as-child>
-                            <Button type="submit" variant="outline" size="icon" :disabled="processing" aria-label="Отменить размещение рынка">
+                            <Button
+                                type="submit"
+                                variant="outline"
+                                size="icon"
+                                :disabled="processing"
+                                aria-label="Отменить размещение рынка"
+                            >
                                 <RotateCcw class="size-4" :class="processing ? 'animate-spin' : ''" />
                             </Button>
                         </TooltipTrigger>
@@ -245,7 +293,12 @@ function confirmRestartCurrentTurn(event: SubmitEvent): void {
                 <Form v-bind="PalaceGuildConfirmationController.form(game.data.id)" #default="{ processing }">
                     <Tooltip>
                         <TooltipTrigger as-child>
-                            <Button type="submit" size="icon" :disabled="processing" aria-label="Подтвердить размещение рынка">
+                            <Button
+                                type="submit"
+                                size="icon"
+                                :disabled="processing"
+                                aria-label="Подтвердить размещение рынка"
+                            >
                                 <Check class="size-4" />
                             </Button>
                         </TooltipTrigger>
@@ -268,20 +321,33 @@ function confirmRestartCurrentTurn(event: SubmitEvent): void {
                                 variant="outline"
                                 size="icon"
                                 :disabled="processing"
-                                :aria-label="isOmarStartingTowerTurn ? 'Отменить установку стартовой вышки' : 'Отменить установку дома'"
+                                :aria-label="
+                                    isOmarStartingTowerTurn
+                                        ? 'Отменить установку стартовой вышки'
+                                        : 'Отменить установку дома'
+                                "
                             >
                                 <RotateCcw class="size-4" :class="processing ? 'animate-spin' : ''" />
                             </Button>
                         </TooltipTrigger>
                         <TooltipContent>
-                            {{ isOmarStartingTowerTurn ? 'Отменить установку стартовой вышки' : 'Отменить установку дома' }}
+                            {{
+                                isOmarStartingTowerTurn
+                                    ? 'Отменить установку стартовой вышки'
+                                    : 'Отменить установку дома'
+                            }}
                         </TooltipContent>
                     </Tooltip>
                 </Form>
                 <Form v-bind="StartingBuildingTurnController.form(game.data.id)" #default="{ processing }">
                     <Tooltip>
                         <TooltipTrigger as-child>
-                            <Button type="submit" size="icon" :disabled="processing" aria-label="Подтвердить и закончить ход">
+                            <Button
+                                type="submit"
+                                size="icon"
+                                :disabled="processing"
+                                aria-label="Подтвердить и закончить ход"
+                            >
                                 <Check class="size-4" />
                             </Button>
                         </TooltipTrigger>
@@ -291,15 +357,18 @@ function confirmRestartCurrentTurn(event: SubmitEvent): void {
             </div>
         </TooltipProvider>
 
-        <TooltipProvider
-            v-else-if="canSpendStartingSpade && pendingStartingSpadeHexId"
-            :delay-duration="150"
-        >
+        <TooltipProvider v-else-if="canSpendStartingSpade && pendingStartingSpadeHexId" :delay-duration="150">
             <div class="flex shrink-0 items-center gap-2">
                 <Form v-bind="StartingSpadeController.destroy.form(game.data.id)" #default="{ processing }">
                     <Tooltip>
                         <TooltipTrigger as-child>
-                            <Button type="submit" variant="outline" size="icon" :disabled="processing" aria-label="Отменить преобразование">
+                            <Button
+                                type="submit"
+                                variant="outline"
+                                size="icon"
+                                :disabled="processing"
+                                aria-label="Отменить преобразование"
+                            >
                                 <RotateCcw class="size-4" :class="processing ? 'animate-spin' : ''" />
                             </Button>
                         </TooltipTrigger>
@@ -309,7 +378,12 @@ function confirmRestartCurrentTurn(event: SubmitEvent): void {
                 <Form v-bind="StartingSpadeTurnController.form(game.data.id)" #default="{ processing }">
                     <Tooltip>
                         <TooltipTrigger as-child>
-                            <Button type="submit" size="icon" :disabled="processing" aria-label="Подтвердить преобразование">
+                            <Button
+                                type="submit"
+                                size="icon"
+                                :disabled="processing"
+                                aria-label="Подтвердить преобразование"
+                            >
                                 <Check class="size-4" />
                             </Button>
                         </TooltipTrigger>
@@ -318,6 +392,17 @@ function confirmRestartCurrentTurn(event: SubmitEvent): void {
                 </Form>
             </div>
         </TooltipProvider>
+
+        <Form
+            v-else-if="game.data.canUndoTownChoice && game.data.pendingInteraction !== null"
+            v-bind="TownChoiceUndoController.form(game.data.id)"
+            #default="{ processing }"
+        >
+            <Button type="submit" variant="outline" :disabled="processing">
+                <RotateCcw class="size-4" :class="processing ? 'animate-spin' : ''" />
+                Изменить жетон города
+            </Button>
+        </Form>
 
         <Form
             v-else-if="canSpendStartingSpade && game.data.canRestartCurrentTurn"
@@ -336,7 +421,17 @@ function confirmRestartCurrentTurn(event: SubmitEvent): void {
             class="flex shrink-0 items-center gap-2"
         >
             <Form
-                v-if="game.data.canRestartCurrentTurn"
+                v-if="game.data.canUndoTownChoice"
+                v-bind="TownChoiceUndoController.form(game.data.id)"
+                #default="{ processing }"
+            >
+                <Button type="submit" variant="outline" :disabled="processing">
+                    <RotateCcw class="size-4" :class="processing ? 'animate-spin' : ''" />
+                    Изменить жетон города
+                </Button>
+            </Form>
+            <Form
+                v-else-if="game.data.canRestartCurrentTurn"
                 v-bind="CurrentTurnRestartController.form(game.data.id)"
                 #default="{ processing }"
                 @submit="confirmRestartCurrentTurn"
@@ -356,27 +451,22 @@ function confirmRestartCurrentTurn(event: SubmitEvent): void {
             <Button v-if="game.data.canFinishCurrentTurn" type="button" @click="emit('finishTurn')">
                 Завершить ход
             </Button>
-            <Button v-if="game.data.canPass" type="button" variant="secondary" @click="emit('pass')">
-                Пас
-            </Button>
+            <Button v-if="game.data.canPass" type="button" variant="secondary" @click="emit('pass')"> Пас </Button>
         </div>
 
-        <div
-            v-else-if="!isCurrentUsersTurn"
-            class="flex min-w-0 items-center gap-3"
-            role="status"
-            aria-live="polite"
-        >
+        <div v-else-if="!isCurrentUsersTurn" class="flex min-w-0 items-center gap-3" role="status" aria-live="polite">
             <span class="size-2.5 shrink-0 rounded-full bg-primary shadow-sm" aria-hidden="true" />
             <p class="truncate text-sm">
                 <span class="mr-2 text-muted-foreground">
-                    {{ isStartingBuildingStage
-                        ? game.data.pendingInteraction?.type === 'spend_spades'
-                            ? 'Стартовую лопату использует:'
-                            : isOmarStartingTowerTurn
-                                ? 'Стартовую вышку устанавливает:'
-                                : 'Стартовый дом устанавливает:'
-                        : 'Сейчас ходит:' }}
+                    {{
+                        isStartingBuildingStage
+                            ? game.data.pendingInteraction?.type === 'spend_spades'
+                                ? 'Стартовую лопату использует:'
+                                : isOmarStartingTowerTurn
+                                  ? 'Стартовую вышку устанавливает:'
+                                  : 'Стартовый дом устанавливает:'
+                            : 'Сейчас ходит:'
+                    }}
                 </span>
                 <span class="font-semibold">{{ activePlayer?.user.name ?? 'ход игрока определяется' }}</span>
             </p>

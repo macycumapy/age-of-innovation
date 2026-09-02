@@ -19,7 +19,7 @@ final class ChooseStartingCompetencyAction
 {
     public function __construct(
         private AppendGameHistoryAction $appendGameHistory,
-        private CreatePowerOffersAfterBuildingAction $createPowerOffersAfterBuilding,
+        private CreateTownChoiceAfterBuildingAction $createTownChoiceAfterBuilding,
         private DetermineStartingBuildingOrderAction $determineStartingBuildingOrder,
         private GrantCompetencyAction $grantCompetency,
         private ResolveCompletedStartingSetupAction $resolveCompletedStartingSetup,
@@ -78,11 +78,11 @@ final class ChooseStartingCompetencyAction
 
             if ($isBuildingChoice) {
                 $builtHexId = (string) ($interaction->context['builtHexId'] ?? '');
-                $nextActiveUserId = $this->createPowerOffersAfterBuilding->execute(
+                $nextActiveUserId = $this->createTownChoiceAfterBuilding->execute(
                     $state,
-                    $player->id,
+                    $playerState,
                     $builtHexId,
-                ) ?? $player->user_id;
+                );
                 $lockedGame->update([
                     'active_player_id' => $nextActiveUserId,
                     'state' => $state,

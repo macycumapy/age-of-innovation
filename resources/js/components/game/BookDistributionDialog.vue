@@ -4,7 +4,14 @@ import { computed, reactive } from 'vue';
 import ScienceBonusBooksController from '@/actions/App/Http/Controllers/ScienceBonusBooksController';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
 import { NumberStepper } from '@/components/ui/number-stepper';
 import type { KnowledgeDiscipline } from '@/types';
 import bankingBookUrl from '../../../images/token_parts/coin_book.png';
@@ -39,11 +46,21 @@ function maximumFor(discipline: KnowledgeDiscipline): number {
             <Form v-bind="ScienceBonusBooksController.form(gameId)" class="contents" #default="{ errors, processing }">
                 <DialogHeader>
                     <DialogTitle>Научный бонус: выберите книги</DialogTitle>
-                    <DialogDescription>Распределите все полученные книги по дисциплинам. Осталось: {{ remainingCount }}</DialogDescription>
+                    <DialogDescription>
+                        Распределите все полученные книги по дисциплинам. Осталось: {{ remainingCount }}
+                    </DialogDescription>
                 </DialogHeader>
                 <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                    <label v-for="discipline in disciplines" :key="discipline" class="grid gap-2 rounded-lg border p-2 text-center text-xs font-medium">
-                        <img :src="images[discipline]" :alt="disciplineNames[discipline]" class="mx-auto size-12 object-contain" />
+                    <label
+                        v-for="discipline in disciplines"
+                        :key="discipline"
+                        class="grid gap-2 rounded-lg border p-2 text-center text-xs font-medium"
+                    >
+                        <img
+                            :src="images[discipline]"
+                            :alt="disciplineNames[discipline]"
+                            class="mx-auto size-12 object-contain"
+                        />
                         <span>{{ disciplineNames[discipline] }}</span>
                         <NumberStepper v-model="counts[discipline]" :min="0" :max="maximumFor(discipline)" />
                         <input type="hidden" :name="`book_counts[${discipline}]`" :value="counts[discipline]" />

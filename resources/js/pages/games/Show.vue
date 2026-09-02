@@ -26,7 +26,7 @@ import PalaceBoard from '@/components/game/PalaceBoard.vue';
 import PalaceActionDialog from '@/components/game/PalaceActionDialog.vue';
 import PaidTerraformingDialog from '@/components/game/PaidTerraformingDialog.vue';
 import PassDialog from '@/components/game/PassDialog.vue';
-import ScienceBonusBooksDialog from '@/components/game/ScienceBonusBooksDialog.vue';
+import BookDistributionDialog from '@/components/game/BookDistributionDialog.vue';
 import PalaceSelector from '@/components/game/PalaceSelector.vue';
 import PlayerBoards from '@/components/game/PlayerBoards.vue';
 import PlayerStatsPanel from '@/components/game/PlayerStatsPanel.vue';
@@ -37,6 +37,7 @@ import RoundBonusActionDialog from '@/components/game/RoundBonusActionDialog.vue
 import ScholarActionDialog from '@/components/game/ScholarActionDialog.vue';
 import RoundBonusBoard from '@/components/game/RoundBonusBoard.vue';
 import TownTileBoard from '@/components/game/TownTileBoard.vue';
+import PalaceWaterTownDialog from '@/components/game/PalaceWaterTownDialog.vue';
 import InputError from '@/components/InputError.vue';
 import { Input } from '@/components/ui/input';
 import { NumberStepper } from '@/components/ui/number-stepper';
@@ -132,58 +133,57 @@ const canChooseStartingResources = computed(
 );
 
 const isIncomeResourceDistribution = computed(
-    () => props.game.data.phase === 'income'
-        && props.game.data.pendingInteraction?.type === 'choose_starting_resources',
+    () =>
+        props.game.data.phase === 'income' && props.game.data.pendingInteraction?.type === 'choose_starting_resources',
 );
 
 const allPlanningBundlesChosen = computed(() => props.game.data.players.every((player) => player.faction !== null));
 
 const planningChoicesCompleted = computed(
-    () => allPlanningBundlesChosen.value
-        && props.game.data.pendingInteraction?.type !== 'choose_starting_resources',
+    () => allPlanningBundlesChosen.value && props.game.data.pendingInteraction?.type !== 'choose_starting_resources',
 );
 
 const shouldShowPlanningBundleGroup = computed(
-    () => props.game.data.status === 'active'
-        && (isIncomeResourceDistribution.value
-            ? canChooseStartingResources.value
-            : !planningChoicesCompleted.value),
+    () =>
+        props.game.data.status === 'active' &&
+        (isIncomeResourceDistribution.value ? canChooseStartingResources.value : !planningChoicesCompleted.value),
 );
 
-const isStartingBuildingStage = computed(
-    () => props.game.data.phase === 'setup' && planningChoicesCompleted.value,
-);
+const isStartingBuildingStage = computed(() => props.game.data.phase === 'setup' && planningChoicesCompleted.value);
 
-const isOmarStartingTowerTurn = computed(() =>
-    activePlayer.value?.faction === 'omar'
-    && props.game.data.board.hexes.filter(
-        (hex) => hex.building?.ownerPlayerId === activePlayer.value?.id,
-    ).length >= 2,
+const isOmarStartingTowerTurn = computed(
+    () =>
+        activePlayer.value?.faction === 'omar' &&
+        props.game.data.board.hexes.filter((hex) => hex.building?.ownerPlayerId === activePlayer.value?.id).length >= 2,
 );
 
 const canPlaceStartingBuilding = computed(
-    () => isStartingBuildingStage.value
-        && props.game.data.activePlayerId === page.props.auth.user.id
-        && props.game.data.pendingInteraction === null
-        && props.game.data.pendingStartingBuildingHexId === null,
+    () =>
+        isStartingBuildingStage.value &&
+        props.game.data.activePlayerId === page.props.auth.user.id &&
+        props.game.data.pendingInteraction === null &&
+        props.game.data.pendingStartingBuildingHexId === null,
 );
 
 const canChooseStartingCompetency = computed(
-    () => props.game.data.pendingInteraction?.type === 'choose_competency'
-        && props.game.data.pendingInteraction.playerId === currentPlayer.value?.id
-        && props.game.data.activePlayerId === page.props.auth.user.id,
+    () =>
+        props.game.data.pendingInteraction?.type === 'choose_competency' &&
+        props.game.data.pendingInteraction.playerId === currentPlayer.value?.id &&
+        props.game.data.activePlayerId === page.props.auth.user.id,
 );
 
 const canChoosePalace = computed(
-    () => props.game.data.pendingInteraction?.type === 'choose_palace'
-        && props.game.data.pendingInteraction.playerId === currentPlayer.value?.id
-        && props.game.data.activePlayerId === page.props.auth.user.id,
+    () =>
+        props.game.data.pendingInteraction?.type === 'choose_palace' &&
+        props.game.data.pendingInteraction.playerId === currentPlayer.value?.id &&
+        props.game.data.activePlayerId === page.props.auth.user.id,
 );
 
 const canPlacePalaceGuild = computed(
-    () => props.game.data.pendingInteraction?.type === 'place_palace_guild'
-        && props.game.data.pendingInteraction.playerId === currentPlayer.value?.id
-        && props.game.data.activePlayerId === page.props.auth.user.id,
+    () =>
+        props.game.data.pendingInteraction?.type === 'place_palace_guild' &&
+        props.game.data.pendingInteraction.playerId === currentPlayer.value?.id &&
+        props.game.data.activePlayerId === page.props.auth.user.id,
 );
 
 const pendingPalaceGuildHexId = computed(() =>
@@ -193,27 +193,43 @@ const pendingPalaceGuildHexId = computed(() =>
 );
 
 const isBuildingCompetencyChoice = computed(
-    () => props.game.data.pendingInteraction?.type === 'choose_competency'
-        && props.game.data.pendingInteraction.context.reason === 'building',
+    () =>
+        props.game.data.pendingInteraction?.type === 'choose_competency' &&
+        props.game.data.pendingInteraction.context.reason === 'building',
 );
 
 const canSpendStartingSpade = computed(
-    () => props.game.data.pendingInteraction?.type === 'spend_spades'
-        && props.game.data.pendingInteraction.playerId === currentPlayer.value?.id
-        && props.game.data.activePlayerId === page.props.auth.user.id,
+    () =>
+        props.game.data.pendingInteraction?.type === 'spend_spades' &&
+        props.game.data.pendingInteraction.playerId === currentPlayer.value?.id &&
+        props.game.data.activePlayerId === page.props.auth.user.id,
 );
 
 const pendingStartingSpadeHexId = computed(() =>
     props.game.data.pendingInteraction?.type === 'spend_spades'
-        ? props.game.data.pendingInteraction.context.selectedHexId ?? null
+        ? (props.game.data.pendingInteraction.context.selectedHexId ?? null)
         : null,
 );
 const selectedBridgeFromHexId = ref<string | null>(null);
-const pendingBridgeInteraction = computed(() => props.game.data.pendingInteraction?.type === 'place_bridge'
-    ? props.game.data.pendingInteraction
-    : null);
-const bridgeOffsets = [[1, 1], [-1, -1], [2, -1], [-2, 1], [1, -2], [-1, 2]] as const;
-const neighbourOffsets = [[1, 0], [1, -1], [0, -1], [-1, 0], [-1, 1], [0, 1]] as const;
+const pendingBridgeInteraction = computed(() =>
+    props.game.data.pendingInteraction?.type === 'place_bridge' ? props.game.data.pendingInteraction : null,
+);
+const bridgeOffsets = [
+    [1, 1],
+    [-1, -1],
+    [2, -1],
+    [-2, 1],
+    [1, -2],
+    [-1, 2],
+] as const;
+const neighbourOffsets = [
+    [1, 0],
+    [1, -1],
+    [0, -1],
+    [-1, 0],
+    [-1, 1],
+    [0, 1],
+] as const;
 const eligibleBridgePairs = computed(() => {
     if (pendingBridgeInteraction.value === null || currentPlayer.value === undefined) {
         return [];
@@ -223,9 +239,11 @@ const eligibleBridgePairs = computed(() => {
     const riverBankHexIds = new Set(props.game.data.board.riverBankHexIds);
 
     return props.game.data.board.hexes.flatMap((fromHex) => {
-        if (fromHex.building?.ownerPlayerId !== currentPlayer.value?.id
-            || fromHex.building.isNeutral
-            || !riverBankHexIds.has(fromHex.id)) {
+        if (
+            fromHex.building?.ownerPlayerId !== currentPlayer.value?.id ||
+            fromHex.building.isNeutral ||
+            !riverBankHexIds.has(fromHex.id)
+        ) {
             return [];
         }
 
@@ -236,32 +254,29 @@ const eligibleBridgePairs = computed(() => {
                 return [];
             }
 
-            const fromNeighbours = neighbourOffsets.map(
-                ([q, r]) => `${fromHex.q + q}:${fromHex.r + r}`,
-            );
-            const toNeighbours = new Set(neighbourOffsets.map(
-                ([q, r]) => `${toHex.q + q}:${toHex.r + r}`,
-            ));
+            const fromNeighbours = neighbourOffsets.map(([q, r]) => `${fromHex.q + q}:${fromHex.r + r}`);
+            const toNeighbours = new Set(neighbourOffsets.map(([q, r]) => `${toHex.q + q}:${toHex.r + r}`));
             const betweenHexIds = fromNeighbours.filter((hexId) => toNeighbours.has(hexId));
-            const hasWaterBetween = betweenHexIds.length === 2
-                && betweenHexIds.every((hexId) => hexesById.get(hexId)?.terrain === 'water');
+            const hasWaterBetween =
+                betweenHexIds.length === 2 && betweenHexIds.every((hexId) => hexesById.get(hexId)?.terrain === 'water');
             const bridgeExists = (props.game.data.board.bridges ?? []).some(
-                (bridge) => (bridge.fromHexId === fromHex.id && bridge.toHexId === toHex.id)
-                    || (bridge.fromHexId === toHex.id && bridge.toHexId === fromHex.id),
+                (bridge) =>
+                    (bridge.fromHexId === fromHex.id && bridge.toHexId === toHex.id) ||
+                    (bridge.fromHexId === toHex.id && bridge.toHexId === fromHex.id),
             );
 
-            return hasWaterBetween && !bridgeExists
-                ? [{ fromHexId: fromHex.id, toHexId: toHex.id }]
-                : [];
+            return hasWaterBetween && !bridgeExists ? [{ fromHexId: fromHex.id, toHexId: toHex.id }] : [];
         });
     });
 });
 const pendingBridge = computed(() => {
     const interaction = pendingBridgeInteraction.value;
 
-    if (interaction?.context.selectedFromHexId === undefined
-        || interaction.context.selectedToHexId === undefined
-        || currentPlayer.value === undefined) {
+    if (
+        interaction?.context.selectedFromHexId === undefined ||
+        interaction.context.selectedToHexId === undefined ||
+        currentPlayer.value === undefined
+    ) {
         return null;
     }
 
@@ -275,8 +290,10 @@ const pendingBridge = computed(() => {
 watch(
     () => pendingBridgeInteraction.value?.context.selectedFromHexId,
     () => {
-        if (pendingBridgeInteraction.value?.context.selectedFromHexId !== undefined
-            || pendingBridgeInteraction.value === null) {
+        if (
+            pendingBridgeInteraction.value?.context.selectedFromHexId !== undefined ||
+            pendingBridgeInteraction.value === null
+        ) {
             selectedBridgeFromHexId.value = null;
         }
     },
@@ -298,15 +315,11 @@ const selectableStartingHexIds = computed(() => {
     }
 
     if (canPlacePalaceGuild.value && props.game.data.pendingInteraction?.type === 'place_palace_guild') {
-        return pendingPalaceGuildHexId.value === null
-            ? props.game.data.pendingInteraction.optionIds
-            : [];
+        return pendingPalaceGuildHexId.value === null ? props.game.data.pendingInteraction.optionIds : [];
     }
 
     if (canSpendStartingSpade.value && props.game.data.pendingInteraction?.type === 'spend_spades') {
-        return pendingStartingSpadeHexId.value === null
-            ? props.game.data.pendingInteraction.optionIds
-            : [];
+        return pendingStartingSpadeHexId.value === null ? props.game.data.pendingInteraction.optionIds : [];
     }
 
     if (canStartPaidTerraforming.value) {
@@ -330,23 +343,31 @@ function placeStartingBuilding(hexId: string): void {
             return;
         }
 
-        router.post(BridgeController.store.url(props.game.data.id), {
-            from_hex_id: selectedBridgeFromHexId.value,
-            to_hex_id: hexId,
-        }, {
-            preserveScroll: true,
-            onSuccess: () => {
-                selectedBridgeFromHexId.value = null;
+        router.post(
+            BridgeController.store.url(props.game.data.id),
+            {
+                from_hex_id: selectedBridgeFromHexId.value,
+                to_hex_id: hexId,
             },
-        });
+            {
+                preserveScroll: true,
+                onSuccess: () => {
+                    selectedBridgeFromHexId.value = null;
+                },
+            },
+        );
 
         return;
     }
 
     if (canPlacePalaceGuild.value) {
-        router.post(PalaceGuildController.store.url(props.game.data.id), { hex_id: hexId }, {
-            preserveScroll: true,
-        });
+        router.post(
+            PalaceGuildController.store.url(props.game.data.id),
+            { hex_id: hexId },
+            {
+                preserveScroll: true,
+            },
+        );
 
         return;
     }
@@ -376,9 +397,13 @@ function placeStartingBuilding(hexId: string): void {
         return;
     }
 
-    router.post(StartingBuildingController.store.url(props.game.data.id), { hex_id: hexId }, {
-        preserveScroll: true,
-    });
+    router.post(
+        StartingBuildingController.store.url(props.game.data.id),
+        { hex_id: hexId },
+        {
+            preserveScroll: true,
+        },
+    );
 }
 
 const startingBookCounts = reactive<Record<KnowledgeDiscipline, number>>({
@@ -420,22 +445,21 @@ const selectedScholarDiscipline = ref<KnowledgeDiscipline | null>(null);
 const currentPlayerState = computed(() =>
     props.game.data.playerBoardStates.find((state) => state.playerId === currentPlayer.value?.id),
 );
-const currentRoundBonusDescription = computed(() => currentPlayerState.value
-    ? props.game.data.roundBonusDescriptions[currentPlayerState.value.roundBonus]
-    : '');
-
-const maximumPowerSacrifice = computed(() =>
-    Math.floor((currentPlayerState.value?.power.bowlTwo ?? 0) / 2),
+const currentRoundBonusDescription = computed(() =>
+    currentPlayerState.value ? props.game.data.roundBonusDescriptions[currentPlayerState.value.roundBonus] : '',
 );
+
+const maximumPowerSacrifice = computed(() => Math.floor((currentPlayerState.value?.power.bowlTwo ?? 0) / 2));
 const selectedScholarDisciplineOccupiedSlots = computed(() =>
     selectedScholarDiscipline.value === null
         ? 0
         : props.game.data.playerBoardStates.reduce(
-            (total, state) => total + state.scholarDisciplineIds.filter(
-                (discipline) => discipline === selectedScholarDiscipline.value,
-            ).length,
-            0,
-        ),
+              (total, state) =>
+                  total +
+                  state.scholarDisciplineIds.filter((discipline) => discipline === selectedScholarDiscipline.value)
+                      .length,
+              0,
+          ),
 );
 
 function selectScholarDiscipline(discipline: KnowledgeDiscipline): void {
@@ -448,23 +472,24 @@ function selectScholarDiscipline(discipline: KnowledgeDiscipline): void {
 }
 
 const canSacrificePower = computed(
-    () => props.game.data.phase === 'actions'
-        && props.game.data.activePlayerId === page.props.auth.user.id
-        && props.game.data.pendingInteraction === null
-        && maximumPowerSacrifice.value > 0,
+    () =>
+        props.game.data.phase === 'actions' &&
+        props.game.data.activePlayerId === page.props.auth.user.id &&
+        props.game.data.pendingInteraction === null &&
+        maximumPowerSacrifice.value > 0,
 );
 
 const canExchangeResources = computed(
-    () => props.game.data.phase === 'actions'
-        && props.game.data.activePlayerId === page.props.auth.user.id
-        && props.game.data.pendingInteraction === null,
+    () =>
+        props.game.data.phase === 'actions' &&
+        props.game.data.activePlayerId === page.props.auth.user.id &&
+        props.game.data.pendingInteraction === null,
 );
 
 const canStartPaidTerraforming = computed(() => {
     const state = currentPlayerState.value;
 
-    return props.game.data.canPass
-        && state !== undefined;
+    return props.game.data.canPass && state !== undefined;
 });
 const reachableEmptyLandHexIds = computed(() => {
     const player = currentPlayer.value;
@@ -492,8 +517,7 @@ const reachableEmptyLandHexIds = computed(() => {
 
     const visitedWaterHexIds = new Set<string>();
 
-    const navigationRange = playerState.shippingLevel
-        + (playerState.roundBonus === 'river_workshop' ? 1 : 0);
+    const navigationRange = playerState.shippingLevel + (playerState.roundBonus === 'river_workshop' ? 1 : 0);
 
     for (let distance = 1; distance <= navigationRange && waterFrontier.length > 0; distance++) {
         const nextWaterFrontier: string[] = [];
@@ -519,31 +543,30 @@ const reachableEmptyLandHexIds = computed(() => {
     return [...reachableHexIds].filter((hexId) => {
         const hex = hexesById.get(hexId);
 
-        return hex !== undefined
-            && hex.building === null
-            && hex.terrain !== 'water';
+        return hex !== undefined && hex.building === null && hex.terrain !== 'water';
     });
 });
-const paidTerraformHexIds = computed(() => reachableEmptyLandHexIds.value.filter((hexId) =>
-    props.game.data.board.hexes.find((hex) => hex.id === hexId)?.terrain !== currentPlayer.value?.homeland,
-));
+const paidTerraformHexIds = computed(() =>
+    reachableEmptyLandHexIds.value.filter(
+        (hexId) =>
+            props.game.data.board.hexes.find((hex) => hex.id === hexId)?.terrain !== currentPlayer.value?.homeland,
+    ),
+);
 const buildableWorkshopHexIds = computed(() => {
     const state = currentPlayerState.value;
 
-    if (state === undefined
-        || state.tools < 1
-        || state.coins < 2
-        || state.buildingsOnMap.workshop >= 9) {
+    if (state === undefined || state.tools < 1 || state.coins < 2 || state.buildingsOnMap.workshop >= 9) {
         return [];
     }
 
-    return reachableEmptyLandHexIds.value.filter((hexId) =>
-        props.game.data.board.hexes.find((hex) => hex.id === hexId)?.terrain === currentPlayer.value?.homeland,
+    return reachableEmptyLandHexIds.value.filter(
+        (hexId) =>
+            props.game.data.board.hexes.find((hex) => hex.id === hexId)?.terrain === currentPlayer.value?.homeland,
     );
 });
-const selectedPaidTerraformHex = computed(() => props.game.data.board.hexes.find(
-    (hex) => hex.id === selectedPaidTerraformHexId.value,
-));
+const selectedPaidTerraformHex = computed(() =>
+    props.game.data.board.hexes.find((hex) => hex.id === selectedPaidTerraformHexId.value),
+);
 
 const availableActionsBeforePass = computed(() => {
     const state = currentPlayerState.value;
@@ -603,9 +626,7 @@ function selectBookAction(action: BookActionState): void {
 }
 
 const selectedBuildingUpgradeOptions = computed(() =>
-    props.game.data.buildingUpgrades.filter(
-        (option) => option.hexId === selectedBuildingUpgradeHexId.value,
-    ),
+    props.game.data.buildingUpgrades.filter((option) => option.hexId === selectedBuildingUpgradeHexId.value),
 );
 
 function selectBuildingUpgrade(hexId: string): void {
@@ -762,7 +783,6 @@ function selectedCompetencyForHomeland(homeland: TerrainType): Competency | unde
 
     return playerState?.competencyIds[0];
 }
-
 </script>
 
 <template>
@@ -874,15 +894,14 @@ function selectedCompetencyForHomeland(homeland: TerrainType): Competency | unde
                 @pass="isPassDialogOpen = true"
             />
 
-            <Collapsible
-                v-if="shouldShowPlanningBundleGroup"
-                v-model:open="isPlanningBundleGroupOpen"
-            >
+            <Collapsible v-if="shouldShowPlanningBundleGroup" v-model:open="isPlanningBundleGroupOpen">
                 <Card>
                     <CardHeader>
                         <div class="flex items-center justify-between gap-4">
                             <CardTitle>
-                                {{ isIncomeResourceDistribution ? 'Распределение дохода' : 'Выбор стартового комплекта' }}
+                                {{
+                                    isIncomeResourceDistribution ? 'Распределение дохода' : 'Выбор стартового комплекта'
+                                }}
                             </CardTitle>
                             <CollapsibleTrigger as-child>
                                 <Button
@@ -902,7 +921,10 @@ function selectedCompetencyForHomeland(homeland: TerrainType): Competency | unde
                                 </Button>
                             </CollapsibleTrigger>
                         </div>
-                        <ol v-if="!isIncomeResourceDistribution" class="flex flex-wrap items-center gap-2 text-sm font-medium">
+                        <ol
+                            v-if="!isIncomeResourceDistribution"
+                            class="flex flex-wrap items-center gap-2 text-sm font-medium"
+                        >
                             <template v-for="(player, index) in orderedPlayers" :key="player.id">
                                 <li :class="player.user.id === game.data.activePlayerId ? 'text-primary' : ''">
                                     {{ player.user.name }}
@@ -946,12 +968,18 @@ function selectedCompetencyForHomeland(homeland: TerrainType): Competency | unde
                             >
                                 <div class="grid gap-1">
                                     <h3 class="font-semibold">
-                                        {{ isIncomeResourceDistribution ? 'Распределите полученный доход' : 'Распределите стартовые ресурсы' }}
+                                        {{
+                                            isIncomeResourceDistribution
+                                                ? 'Распределите полученный доход'
+                                                : 'Распределите стартовые ресурсы'
+                                        }}
                                     </h3>
                                     <p class="text-sm text-muted-foreground">
-                                        {{ isIncomeResourceDistribution
-                                            ? 'После распределения доход автоматически перейдёт к следующему игроку.'
-                                            : 'Этот выбор завершает получение вашего стартового комплекта.' }}
+                                        {{
+                                            isIncomeResourceDistribution
+                                                ? 'После распределения доход автоматически перейдёт к следующему игроку.'
+                                                : 'Этот выбор завершает получение вашего стартового комплекта.'
+                                        }}
                                     </p>
                                 </div>
 
@@ -1123,7 +1151,10 @@ function selectedCompetencyForHomeland(homeland: TerrainType): Competency | unde
                                 </Dialog>
                             </Form>
 
-                            <div v-if="!isIncomeResourceDistribution" class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+                            <div
+                                v-if="!isIncomeResourceDistribution"
+                                class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3"
+                            >
                                 <Form
                                     v-for="bundle in game.data.planningBundles"
                                     :key="bundle.homeland"
@@ -1290,9 +1321,11 @@ function selectedCompetencyForHomeland(homeland: TerrainType): Competency | unde
                         {{ isBuildingCompetencyChoice ? 'Компетенция нового здания' : 'Стартовая компетенция монахов' }}
                     </CardTitle>
                     <CardDescription>
-                        {{ isBuildingCompetencyChoice
-                            ? 'Выберите компетенцию для построенной школы или университета.'
-                            : 'Выберите компетенцию. Вы сразу получите её книги, продвижение по дисциплине и ресурсы.' }}
+                        {{
+                            isBuildingCompetencyChoice
+                                ? 'Выберите компетенцию для построенной школы или университета.'
+                                : 'Выберите компетенцию. Вы сразу получите её книги, продвижение по дисциплине и ресурсы.'
+                        }}
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -1301,11 +1334,7 @@ function selectedCompetencyForHomeland(homeland: TerrainType): Competency | unde
                         #default="{ errors, processing }"
                         class="grid gap-4"
                     >
-                        <input
-                            type="hidden"
-                            name="competency_id"
-                            :value="selectedMonkCompetency ?? ''"
-                        />
+                        <input type="hidden" name="competency_id" :value="selectedMonkCompetency ?? ''" />
                         <CompetencySelector
                             v-model="selectedMonkCompetency"
                             :competencies="game.data.pendingInteraction.optionIds"
@@ -1316,11 +1345,7 @@ function selectedCompetencyForHomeland(homeland: TerrainType): Competency | unde
                         <Button
                             type="submit"
                             class="justify-self-end"
-                            :disabled="
-                                !canChooseStartingCompetency ||
-                                selectedMonkCompetency === null ||
-                                processing
-                            "
+                            :disabled="!canChooseStartingCompetency || selectedMonkCompetency === null || processing"
                         >
                             {{ processing ? 'Подтверждение…' : 'Подтвердить выбор' }}
                         </Button>
@@ -1334,9 +1359,7 @@ function selectedCompetencyForHomeland(homeland: TerrainType): Competency | unde
             >
                 <CardHeader>
                     <CardTitle>Жетон Дворца</CardTitle>
-                    <CardDescription>
-                        Выберите один из доступных жетонов для построенного Дворца.
-                    </CardDescription>
+                    <CardDescription> Выберите один из доступных жетонов для построенного Дворца. </CardDescription>
                 </CardHeader>
                 <CardContent>
                     <Form
@@ -1370,7 +1393,12 @@ function selectedCompetencyForHomeland(homeland: TerrainType): Competency | unde
                             :board="game.data.board"
                             :players="game.data.players"
                             :selectable-hex-ids="selectableStartingHexIds"
-                            :pending-hex-id="game.data.pendingStartingBuildingHexId ?? pendingStartingSpadeHexId ?? pendingPalaceGuildHexId ?? selectedBridgeFromHexId"
+                            :pending-hex-id="
+                                game.data.pendingStartingBuildingHexId ??
+                                pendingStartingSpadeHexId ??
+                                pendingPalaceGuildHexId ??
+                                selectedBridgeFromHexId
+                            "
                             :pending-bridge="pendingBridge"
                             :current-round="game.data.currentRound"
                             :round-scoring-tiles="game.data.roundScoringTiles"
@@ -1498,7 +1526,11 @@ function selectedCompetencyForHomeland(homeland: TerrainType): Competency | unde
             />
 
             <PaidTerraformingDialog
-                v-if="currentPlayerState !== undefined && selectedPaidTerraformHex !== undefined && currentPlayer?.homeland"
+                v-if="
+                    currentPlayerState !== undefined &&
+                    selectedPaidTerraformHex !== undefined &&
+                    currentPlayer?.homeland
+                "
                 v-model:open="isPaidTerraformingDialogOpen"
                 :game-id="game.data.id"
                 :player-state="currentPlayerState"
@@ -1514,9 +1546,11 @@ function selectedCompetencyForHomeland(homeland: TerrainType): Competency | unde
                 :player-color="currentPlayer?.color ?? null"
             />
 
-            <ScienceBonusBooksDialog
-                v-if="game.data.pendingInteraction?.type === 'choose_science_bonus_books'
-                    && game.data.pendingInteraction.playerId === currentPlayer?.id"
+            <BookDistributionDialog
+                v-if="
+                    game.data.pendingInteraction?.type === 'choose_science_bonus_books' &&
+                    game.data.pendingInteraction.playerId === currentPlayer?.id
+                "
                 :game-id="game.data.id"
                 :book-count="game.data.pendingInteraction.context.bookCount"
                 :discipline-names="game.data.knowledgeDisciplineNames"
@@ -1541,10 +1575,16 @@ function selectedCompetencyForHomeland(homeland: TerrainType): Competency | unde
                 after-terraforming
             />
 
-            <CurrentTurnFinishDialog
-                v-model:open="isCurrentTurnFinishDialogOpen"
+            <PalaceWaterTownDialog
+                v-if="
+                    game.data.pendingInteraction?.type === 'offer_palace_water_town' &&
+                    game.data.pendingInteraction.playerId === currentPlayer?.id
+                "
                 :game-id="game.data.id"
+                :water-hex-ids="game.data.pendingInteraction.optionIds"
             />
+
+            <CurrentTurnFinishDialog v-model:open="isCurrentTurnFinishDialogOpen" :game-id="game.data.id" />
 
             <BuildingUpgradeDialog
                 v-model:open="isBuildingUpgradeDialogOpen"

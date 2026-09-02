@@ -21,7 +21,7 @@ final class ConfirmPalaceGuildAction
     public function __construct(
         private AppendGameHistoryAction $appendGameHistory,
         private ApplyBuildingBonusesAction $applyBuildingBonuses,
-        private CreatePowerOffersAfterBuildingAction $createPowerOffersAfterBuilding,
+        private CreateTownChoiceAfterBuildingAction $createTownChoiceAfterBuilding,
     ) {
     }
 
@@ -56,12 +56,12 @@ final class ConfirmPalaceGuildAction
             $bonuses = $this->applyBuildingBonuses->execute($state, $playerState, $hex, BuildingType::Guild);
             $palaceBuiltHexId = (string) ($interaction->context['palaceBuiltHexId'] ?? '');
             $state->pendingInteraction = null;
-            $nextActiveUserId = $this->createPowerOffersAfterBuilding->execute(
+            $nextActiveUserId = $this->createTownChoiceAfterBuilding->execute(
                 $state,
-                $player->id,
+                $playerState,
                 $selectedHexId,
-                [$palaceBuiltHexId],
-            ) ?? $player->user_id;
+                $palaceBuiltHexId === '' ? [] : [$palaceBuiltHexId],
+            );
             $lockedGame->update([
                 'active_player_id' => $nextActiveUserId,
                 'state' => $state,

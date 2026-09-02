@@ -9,6 +9,7 @@ import type {
     PalaceAbility,
     PlayerColor,
     RoundBonus,
+    TownTile,
 } from '@/types';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { factionNames } from '@/lib/gameDisplay';
@@ -189,6 +190,15 @@ const playersWithBoards = computed(() => {
         ...players.slice(currentPlayerIndex + 1),
     ];
 });
+const townTileImages = import.meta.glob('../../../images/cities/*.png', {
+    eager: true,
+    import: 'default',
+    query: '?url',
+}) as Record<string, string>;
+
+function townTileImage(townTile: TownTile): string {
+    return townTileImages[`../../../images/cities/${townTile}.png`] ?? '';
+}
 
 function boardImage(color: PlayerColor): string {
     return boardImages[`../../../images/terrain_boards/${color}.webp`];
@@ -738,6 +748,16 @@ function canSacrificeFromBowl(player: GamePlayerSummary, bowl: PowerBowl): boole
                                 :src="bookImageUrl"
                                 alt=""
                                 class="h-auto w-10 object-contain drop-shadow-md"
+                            />
+                        </span>
+
+                        <span v-if="playerState(player.id)?.townTileIds.length" class="flex flex-wrap gap-1">
+                            <img
+                                v-for="(townTile, townTileIndex) in playerState(player.id)?.townTileIds"
+                                :key="`${townTile}-${townTileIndex}`"
+                                :src="townTileImage(townTile)"
+                                alt="Жетон города"
+                                class="h-auto w-14 object-contain drop-shadow-md"
                             />
                         </span>
                     </span>

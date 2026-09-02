@@ -56,6 +56,7 @@ final class FinishActionTurnAction
 
             $stateVersionBefore = $lockedGame->version;
             $state->turnStartSnapshot = null;
+            $state->townChoiceCheckpoint = null;
             $state->round->turnStartVersion = null;
             $state->round->hasTakenMainAction = false;
             $state->round->isCurrentTurnIrrevocable = false;

@@ -1,13 +1,16 @@
 <script setup lang="ts">
-import type { CSSProperties } from 'vue';
+import { computed, type CSSProperties } from 'vue';
 import type { TownTile } from '@/types';
 
-defineProps<{
+const props = defineProps<{
     townTiles: TownTile[];
 }>();
 
-const townTileStackSize = 3;
 const townTileLayerOffset = 3;
+const townTileStacks = computed(() => [...new Set(props.townTiles)].map((townTile) => ({
+    townTile,
+    count: props.townTiles.filter((candidate) => candidate === townTile).length,
+})));
 
 const townTileImages = import.meta.glob('../../../images/cities/*.png', {
     eager: true,
@@ -34,15 +37,15 @@ function townTileLayerStyle(layer: number): CSSProperties {
         class="grid grid-cols-7 gap-3 rounded-xl bg-card p-3 shadow-sm"
     >
         <span
-            v-for="townTile in townTiles"
-            :key="townTile"
+            v-for="stack in townTileStacks"
+            :key="stack.townTile"
             class="relative aspect-[128/145]"
-            :aria-label="`Стопка из ${townTileStackSize} жетонов города ${townTile}`"
+            :aria-label="`Стопка из ${stack.count} жетонов города ${stack.townTile}`"
         >
             <img
-                v-for="layer in townTileStackSize"
+                v-for="layer in stack.count"
                 :key="layer"
-                :src="townTileImage(townTile)"
+                :src="townTileImage(stack.townTile)"
                 :style="townTileLayerStyle(layer)"
                 alt=""
                 class="absolute inset-0 size-full object-contain drop-shadow-[-2px_2px_2px_rgba(0,0,0,0.45)]"

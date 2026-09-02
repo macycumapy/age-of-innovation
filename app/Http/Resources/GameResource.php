@@ -15,6 +15,7 @@ use App\Domain\Game\Enums\BookAction;
 use App\Domain\Game\Enums\BuildingType;
 use App\Domain\Game\Enums\Competency;
 use App\Domain\Game\Enums\Faction;
+use App\Domain\Game\Enums\GameActionType;
 use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\GameStatus;
 use App\Domain\Game\Enums\Innovation;
@@ -23,6 +24,7 @@ use App\Domain\Game\Enums\PalaceAbility;
 use App\Domain\Game\Enums\PowerAction;
 use App\Domain\Game\Enums\RoundBonus;
 use App\Domain\Game\Enums\TerrainType;
+use App\Domain\Game\Enums\TownTile;
 use App\Domain\Game\Services\PlayerIncomeCalculator;
 use App\Models\Game;
 use App\Models\GameAction;
@@ -51,6 +53,7 @@ class GameResource extends JsonResource
             )
             ->exists();
         $currentPlayerState = collect($this->state->players)->firstWhere('userId', $request->user()?->id);
+        $latestAction = $hasActions ? $this->actions->sortByDesc('sequence')->first() : null;
 
         return [
             'id' => $this->id,
@@ -64,6 +67,11 @@ class GameResource extends JsonResource
             'canUndoLastAction' => $isOwner
                 && $hasActions
                 && ! $hasUnsupportedActions,
+            'canUndoTownChoice' => $this->phase === GamePhase::Actions
+                && $this->active_player_id === $request->user()?->id
+                && $latestAction?->type === GameActionType::ChooseTown
+                && $latestAction->player_id === $request->user()?->id
+                && is_array($this->state->townChoiceCheckpoint),
             'canRestartCurrentTurn' => $this->phase === GamePhase::Actions
                 && $this->active_player_id === $request->user()?->id
                 && $this->state->round->turnStartVersion !== null
@@ -112,6 +120,8 @@ class GameResource extends JsonResource
                             'isNeutral' => $hex->building->isNeutral,
                             'hasAnnex' => $hex->building->hasAnnex,
                         ],
+                        'townId' => $hex->townId,
+                        'townTileId' => $hex->townTileId,
                     ],
                     $this->state->board->hexes,
                 ),
@@ -162,6 +172,7 @@ class GameResource extends JsonResource
                         count($player->townTileIds)
                             - count($player->knowledge->unlockedDisciplines),
                     ),
+                    'townTileIds' => $player->townTileIds,
                     'activeAnnexes' => count(array_filter(
                         $this->state->board->hexes,
                         static fn (BoardHexStateData $hex): bool => $hex->building?->ownerPlayerId === $player->playerId
@@ -298,6 +309,9 @@ class GameResource extends JsonResource
             ),
             'availablePalaceIds' => $this->state->availablePalaceIds,
             'availableTownTileIds' => $this->state->availableTownTileIds,
+            'townTileDescriptions' => collect(TownTile::cases())->mapWithKeys(
+                static fn (TownTile $townTile): array => [$townTile->value => $townTile->description()],
+            )->all(),
             'roundBonusOffers' => array_map(
                 static fn (RoundBonusOfferData $offer): array => [
                     'roundBonus' => $offer->roundBonus->value,

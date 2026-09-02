@@ -21,7 +21,7 @@ final class BuildWorkshopAction
     public function __construct(
         private FindReachableLandHexesAction $findReachableLandHexes,
         private ApplyBuildingBonusesAction $applyBuildingBonuses,
-        private CreatePowerOffersAfterBuildingAction $createPowerOffersAfterBuilding,
+        private CreateBuildingFollowUpInteractionAction $createBuildingFollowUpInteraction,
         private AppendGameHistoryAction $appendGameHistory,
     ) {
     }
@@ -72,9 +72,14 @@ final class BuildWorkshopAction
             $hex->building = new BuildingStateData(BuildingType::Workshop, $player->id);
             $state->round->hasTakenMainAction = true;
             $bonuses = $this->applyBuildingBonuses->execute($state, $playerState, $hex, BuildingType::Workshop);
-            $nextActiveUserId = $this->createPowerOffersAfterBuilding->execute($state, $player->id, $hexId);
+            $nextActiveUserId = $this->createBuildingFollowUpInteraction->execute(
+                $state,
+                $playerState,
+                $hexId,
+                BuildingType::Workshop,
+            );
             $lockedGame->update([
-                'active_player_id' => $nextActiveUserId ?? $player->user_id,
+                'active_player_id' => $nextActiveUserId,
                 'state' => $state,
                 'version' => $lockedGame->version + 1,
             ]);

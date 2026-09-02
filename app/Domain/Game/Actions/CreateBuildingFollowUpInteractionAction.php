@@ -14,7 +14,7 @@ use App\Domain\Game\Enums\PendingInteractionType;
 final class CreateBuildingFollowUpInteractionAction
 {
     public function __construct(
-        private CreatePowerOffersAfterBuildingAction $createPowerOffersAfterBuilding,
+        private CreateTownChoiceAfterBuildingAction $createTownChoiceAfterBuilding,
     ) {
     }
 
@@ -69,10 +69,10 @@ final class CreateBuildingFollowUpInteractionAction
             return $playerState->userId;
         }
 
-        return $this->createPowerOffersAfterBuilding->execute(
+        return $this->createTownChoiceAfterBuilding->execute(
             $state,
-            $playerState->playerId,
+            $playerState,
             $builtHexId,
-        ) ?? $playerState->userId;
+        );
     }
 }

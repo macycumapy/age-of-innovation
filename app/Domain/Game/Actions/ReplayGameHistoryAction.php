@@ -28,6 +28,7 @@ use App\Domain\Game\Enums\PowerAction;
 use App\Domain\Game\Enums\ResourceExchange;
 use App\Domain\Game\Enums\RoundBonus;
 use App\Domain\Game\Enums\TerrainType;
+use App\Domain\Game\Enums\TownTile;
 use App\Domain\Game\Factories\BoardStateFactory;
 use App\Domain\Game\Factories\GamePlayerStateFactory;
 use App\Domain\Game\Factories\GameSetupPoolFactory;
@@ -66,6 +67,10 @@ final class ReplayGameHistoryAction
         GameActionType::SpecialAction,
         GameActionType::Pass,
         GameActionType::ChooseScienceBonusBooks,
+        GameActionType::ChooseTown,
+        GameActionType::ChooseTownBooks,
+        GameActionType::AcceptPalaceWaterTown,
+        GameActionType::DeclinePalaceWaterTown,
     ];
 
     public function __construct(
@@ -77,7 +82,7 @@ final class ReplayGameHistoryAction
         private ApplyPowerActionAction $applyPowerAction,
         private ApplyBookActionAction $applyBookAction,
         private FindEligibleTerraformHexesAction $findEligibleTerraformHexes,
-        private CreatePowerOffersAfterBuildingAction $createPowerOffersAfterBuilding,
+        private CreateTownChoiceAfterBuildingAction $createTownChoiceAfterBuilding,
         private CreateBuildingFollowUpInteractionAction $createBuildingFollowUpInteraction,
         private ApplyPowerOfferDecisionAction $applyPowerOfferDecision,
         private AdvanceKnowledgeAction $advanceKnowledge,
@@ -88,6 +93,7 @@ final class ReplayGameHistoryAction
         private ApplyPassAction $applyPassAction,
         private ResolveScienceBonusPhaseAction $resolveScienceBonusPhase,
         private ResolveIncomePhaseAction $resolveIncomePhase,
+        private GainPowerAction $gainPower,
     ) {
     }
 
@@ -151,6 +157,9 @@ final class ReplayGameHistoryAction
                 GameActionType::SpecialAction => $this->replayRoundBonusAction($game, $players, $action),
                 GameActionType::Pass => $this->replayPass($game, $players, $action),
                 GameActionType::ChooseScienceBonusBooks => $this->replayScienceBonusBooks($game, $players, $action),
+                GameActionType::ChooseTown => $this->replayChooseTown($game, $players, $action),
+                GameActionType::ChooseTownBooks => $this->replayChooseTownBooks($game, $players, $action),
+                GameActionType::AcceptPalaceWaterTown, GameActionType::DeclinePalaceWaterTown => $this->replayPalaceWaterTownDecision($game, $players, $action),
                 default => null,
             };
 
@@ -223,7 +232,11 @@ final class ReplayGameHistoryAction
                     scoringTileId: $setupPool->roundScoringTiles[0]->value,
                     additionalScoringTileId: $setupPool->additionalFinalRoundGoal->value,
                 ),
-                availableTownTileIds: $this->enumValues($setupPool->townTiles),
+                availableTownTileIds: array_merge(...array_fill(
+                    0,
+                    3,
+                    $this->enumValues($setupPool->townTiles),
+                )),
                 availablePalaceIds: $this->enumValues($setupPool->palaces),
                 availableInventionIds: $this->enumValues($setupPool->innovations),
                 availableCompetencyIds: $this->enumValues($setupPool->competencies),
@@ -452,12 +465,12 @@ final class ReplayGameHistoryAction
         $state->pendingInteraction = null;
 
         if ($isBuildingChoice) {
-            $nextActiveUserId = $this->createPowerOffersAfterBuilding->execute(
+            $nextActiveUserId = $this->createTownChoiceAfterBuilding->execute(
                 $state,
-                $player->id,
+                $this->playerState($state, $player->id),
                 (string) ($action->payload['built_hex_id'] ?? ''),
             );
-            $game->active_player_id = $nextActiveUserId ?? $player->user_id;
+            $game->active_player_id = $nextActiveUserId;
             $game->state = $state;
 
             return;
@@ -596,12 +609,12 @@ final class ReplayGameHistoryAction
             $playerState->resources->coins += (int) ($action->payload['bonus_coins'] ?? 0);
             $playerState->victoryPoints += (int) ($action->payload['victory_points'] ?? 0);
             $hex->building = new BuildingStateData(BuildingType::Workshop, $player->id);
-            $nextActiveUserId = $this->createPowerOffersAfterBuilding->execute(
+            $nextActiveUserId = $this->createTownChoiceAfterBuilding->execute(
                 $state,
-                $player->id,
+                $playerState,
                 $hex->id,
             );
-            $game->active_player_id = $nextActiveUserId ?? $player->user_id;
+            $game->active_player_id = $nextActiveUserId;
         } else {
             $state->pendingInteraction = null;
         }
@@ -633,8 +646,161 @@ final class ReplayGameHistoryAction
         $playerState->victoryPoints += (int) ($action->payload['victory_points'] ?? 0);
         $hex->building = new BuildingStateData(BuildingType::Workshop, $player->id);
         $state->round->hasTakenMainAction = true;
-        $nextActiveUserId = $this->createPowerOffersAfterBuilding->execute($state, $player->id, $hex->id);
-        $game->active_player_id = $nextActiveUserId ?? $player->user_id;
+        $game->active_player_id = $this->createBuildingFollowUpInteraction->execute(
+            $state,
+            $playerState,
+            $hex->id,
+            BuildingType::Workshop,
+        );
+        $game->state = $state;
+    }
+
+    /** @param Collection<int, GamePlayer> $players */
+    private function replayChooseTown(Game $game, Collection $players, GameAction $action): void
+    {
+        $player = $players->firstWhere('user_id', $action->player_id);
+        $townTile = TownTile::tryFrom((string) ($action->payload['town_tile'] ?? ''));
+
+        if (! $player instanceof GamePlayer || $townTile === null) {
+            $this->invalidHistory();
+        }
+
+        $state = $game->state;
+        $playerState = $this->playerState($state, $player->id);
+        $townHexIds = $action->payload['town_hex_ids'] ?? [];
+        $markerHexId = (string) ($action->payload['marker_hex_id'] ?? '');
+        $queuedBuiltHexIds = is_array($action->payload['queued_built_hex_ids'] ?? null)
+            ? $action->payload['queued_built_hex_ids']
+            : [];
+
+        foreach ($state->board->hexes as $hex) {
+            if (is_array($townHexIds) && in_array($hex->id, $townHexIds, true)) {
+                $hex->townId = (string) $action->payload['town_id'];
+                $hex->townTileId = $hex->id === $markerHexId ? $townTile->value : null;
+            }
+        }
+
+        $playerState->townTileIds[] = $townTile->value;
+        $playerState->victoryPoints += (int) ($action->payload['victory_points'] ?? 0);
+        $townTileIndex = array_search($townTile->value, $state->availableTownTileIds, true);
+
+        if ($townTileIndex !== false) {
+            array_splice($state->availableTownTileIds, $townTileIndex, 1);
+        }
+
+        match ($townTile) {
+            TownTile::Tools => $playerState->resources->tools += 3,
+            TownTile::Books => $playerState->resources->books->unassigned += 2,
+            TownTile::Coins => $playerState->resources->coins += 6,
+            TownTile::Knowledge => array_map(
+                fn (KnowledgeDiscipline $discipline) => $this->advanceKnowledge->execute($playerState, $discipline, 1),
+                KnowledgeDiscipline::cases(),
+            ),
+            TownTile::Power => $this->gainPower->execute($playerState, 8),
+            TownTile::Scholar => $playerState->resources->scholars++,
+            TownTile::Terraform => $playerState->unassignedSpades += 2,
+        };
+        if ($townTile === TownTile::Terraform) {
+            $state->pendingInteraction = new PendingInteractionData(
+                PendingInteractionType::SpendSpades,
+                $player->id,
+                $this->findEligibleTerraformHexes->execute($state, $playerState, $playerState->homeland),
+                [
+                    'phase' => GamePhase::Actions->value,
+                    'spadeCount' => 2,
+                    'remainingSpades' => 2,
+                    'targetTerrain' => $playerState->homeland->value,
+                ],
+            );
+            $game->active_player_id = $player->user_id;
+        } elseif ($townTile === TownTile::Books) {
+            $state->pendingInteraction = new PendingInteractionData(
+                PendingInteractionType::ChooseTownBooks,
+                $player->id,
+                [],
+                [
+                    'bookCount' => 2,
+                    'builtHexId' => $markerHexId,
+                    'queuedBuiltHexIds' => $queuedBuiltHexIds,
+                ],
+            );
+            $game->active_player_id = $player->user_id;
+        } else {
+            $state->pendingInteraction = null;
+            $game->active_player_id = $player->user_id;
+        }
+
+        $game->state = $state;
+    }
+
+    /** @param Collection<int, GamePlayer> $players */
+    private function replayChooseTownBooks(Game $game, Collection $players, GameAction $action): void
+    {
+        $player = $players->firstWhere('user_id', $action->player_id);
+
+        if (! $player instanceof GamePlayer
+            || $game->state->pendingInteraction?->type !== PendingInteractionType::ChooseTownBooks) {
+            $this->invalidHistory();
+        }
+
+        $state = $game->state;
+        $interaction = $state->pendingInteraction;
+        $playerState = $this->playerState($state, $player->id);
+
+        foreach (($action->payload['disciplines'] ?? []) as $disciplineValue) {
+            $discipline = KnowledgeDiscipline::tryFrom((string) $disciplineValue);
+
+            if ($discipline === null) {
+                $this->invalidHistory();
+            }
+
+            $playerState->resources->books->{$discipline->value}++;
+            $playerState->resources->books->unassigned--;
+        }
+
+        $state->pendingInteraction = null;
+        $game->active_player_id = $player->user_id;
+        $game->state = $state;
+    }
+
+    /** @param Collection<int, GamePlayer> $players */
+    private function replayPalaceWaterTownDecision(Game $game, Collection $players, GameAction $action): void
+    {
+        $player = $players->firstWhere('user_id', $action->player_id);
+
+        if (! $player instanceof GamePlayer
+            || $game->state->pendingInteraction?->type !== PendingInteractionType::OfferPalaceWaterTown) {
+            $this->invalidHistory();
+        }
+
+        $state = $game->state;
+        $builtHexId = (string) ($action->payload['built_hex_id'] ?? '');
+        $queuedBuiltHexIds = is_array($action->payload['queued_built_hex_ids'] ?? null)
+            ? $action->payload['queued_built_hex_ids']
+            : [];
+
+        if ($action->type === GameActionType::AcceptPalaceWaterTown) {
+            $waterHexId = (string) ($action->payload['water_hex_id'] ?? '');
+            $townHexIds = is_array($action->payload['town_hex_ids'] ?? null)
+                ? $action->payload['town_hex_ids']
+                : [];
+            $state->pendingInteraction = new PendingInteractionData(
+                PendingInteractionType::ChooseTown,
+                $player->id,
+                array_values(array_unique($state->availableTownTileIds)),
+                [
+                    'townHexIds' => [...$townHexIds, $waterHexId],
+                    'builtHexId' => $builtHexId,
+                    'markerHexId' => $waterHexId,
+                    'queuedBuiltHexIds' => $queuedBuiltHexIds,
+                ],
+            );
+            $game->active_player_id = $player->user_id;
+        } else {
+            $state->pendingInteraction = null;
+            $game->active_player_id = $player->user_id;
+        }
+
         $game->state = $state;
     }
 
@@ -681,8 +847,11 @@ final class ReplayGameHistoryAction
             );
             $game->active_player_id = $player->user_id;
         } else {
-            $nextActiveUserId = $this->createPowerOffersAfterBuilding->execute($state, $player->id, $builtHexId);
-            $game->active_player_id = $nextActiveUserId ?? $player->user_id;
+            $game->active_player_id = $this->createTownChoiceAfterBuilding->execute(
+                $state,
+                $playerState,
+                $builtHexId,
+            );
         }
         $game->state = $state;
     }
@@ -705,13 +874,13 @@ final class ReplayGameHistoryAction
         $playerState->resources->coins += (int) ($action->payload['bonus_coins'] ?? 0);
         $playerState->victoryPoints += (int) ($action->payload['victory_points'] ?? 0);
         $state->pendingInteraction = null;
-        $nextActiveUserId = $this->createPowerOffersAfterBuilding->execute(
+        $nextActiveUserId = $this->createTownChoiceAfterBuilding->execute(
             $state,
-            $player->id,
+            $playerState,
             $hex->id,
             [(string) ($action->payload['palace_built_hex_id'] ?? '')],
         );
-        $game->active_player_id = $nextActiveUserId ?? $player->user_id;
+        $game->active_player_id = $nextActiveUserId;
         $game->state = $state;
     }
 

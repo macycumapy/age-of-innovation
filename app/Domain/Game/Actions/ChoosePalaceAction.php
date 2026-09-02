@@ -22,7 +22,7 @@ final class ChoosePalaceAction
 {
     public function __construct(
         private AppendGameHistoryAction $appendGameHistory,
-        private CreatePowerOffersAfterBuildingAction $createPowerOffersAfterBuilding,
+        private CreateTownChoiceAfterBuildingAction $createTownChoiceAfterBuilding,
     ) {
     }
 
@@ -86,11 +86,11 @@ final class ChoosePalaceAction
                 );
                 $nextActiveUserId = $player->user_id;
             } else {
-                $nextActiveUserId = $this->createPowerOffersAfterBuilding->execute(
+                $nextActiveUserId = $this->createTownChoiceAfterBuilding->execute(
                     $state,
-                    $player->id,
+                    $playerState,
                     $builtHexId,
-                ) ?? $player->user_id;
+                );
             }
 
             $lockedGame->update([

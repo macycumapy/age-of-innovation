@@ -156,6 +156,11 @@ const buildingImages = import.meta.glob<string>(
         query: '?url',
     },
 );
+const townTileImages = import.meta.glob<string>('../../../images/cities/*.png', {
+    eager: true,
+    import: 'default',
+    query: '?url',
+});
 
 const boardImageUrl = computed(() =>
     props.board.variant === 'one_to_three_players' ? gameBoardTwoPlayerUrl : gameBoardUrl,
@@ -168,6 +173,10 @@ function buildingImage(ownerPlayerId: number, type: string, isNeutral: boolean):
     const color = isNeutral ? 'white' : (playerColors.value.get(ownerPlayerId) ?? 'white');
 
     return buildingImages[`../../../images/buildings/${color}/${type}.png`] ?? '';
+}
+
+function townTileImage(townTileId: string): string {
+    return townTileImages[`../../../images/cities/${townTileId}.png`] ?? '';
 }
 
 const roundScoringTileNames: Record<RoundScoringTile, string> = {
@@ -230,6 +239,16 @@ const roundedHexPath = hexVertices
 const visibleHexes = computed(() =>
     props.board.hexes
         .filter((hex) => hex.terrain !== 'water')
+        .map((hex) => ({
+            ...hex,
+            x: boardLayout.value.hexOriginX + boardLayout.value.columnSpacing * hex.q + rowOffset * hex.r,
+            y: boardLayout.value.boardOriginY + boardLayout.value.rowSpacing * hex.r,
+        })),
+);
+
+const waterTownTokens = computed(() =>
+    props.board.hexes
+        .filter((hex) => hex.terrain === 'water' && hex.townTileId !== null)
         .map((hex) => ({
             ...hex,
             x: boardLayout.value.hexOriginX + boardLayout.value.columnSpacing * hex.q + rowOffset * hex.r,
@@ -379,10 +398,7 @@ function closedActionTokenX(actionX: number, actionWidth: number): number {
                 v-for="(action, index) in powerActions"
                 :key="`power-${action.id}`"
                 class="power-action-group"
-                :class="[
-                    { 'power-action-used': action.isUsed },
-                    canSelectPowerAction(action) ? 'cursor-pointer' : '',
-                ]"
+                :class="[{ 'power-action-used': action.isUsed }, canSelectPowerAction(action) ? 'cursor-pointer' : '']"
                 @click="canSelectPowerAction(action) && emit('powerActionClick', action)"
             >
                 <title>
@@ -421,7 +437,11 @@ function closedActionTokenX(actionX: number, actionWidth: number): number {
                 :key="hex.id"
                 :transform="`translate(${hex.x} ${hex.y})`"
                 class="board-hex-group"
-                :class="selectableHexIds.includes(hex.id) || upgradeableBuildingHexIds.includes(hex.id) ? 'cursor-pointer' : ''"
+                :class="
+                    selectableHexIds.includes(hex.id) || upgradeableBuildingHexIds.includes(hex.id)
+                        ? 'cursor-pointer'
+                        : ''
+                "
                 @click="
                     upgradeableBuildingHexIds.includes(hex.id)
                         ? emit('buildingClick', hex.id)
@@ -440,6 +460,16 @@ function closedActionTokenX(actionX: number, actionWidth: number): number {
                     stroke-opacity="0.8"
                     stroke-width="2"
                     stroke-linejoin="round"
+                />
+                <image
+                    v-if="hex.townTileId"
+                    :href="townTileImage(hex.townTileId)"
+                    x="-64"
+                    y="-72.5"
+                    width="128"
+                    height="145"
+                    class="pointer-events-none drop-shadow-md"
+                    preserveAspectRatio="xMidYMid meet"
                 />
                 <text
                     y="4"
@@ -464,6 +494,18 @@ function closedActionTokenX(actionX: number, actionWidth: number): number {
                     preserveAspectRatio="xMidYMid meet"
                 />
             </g>
+
+            <image
+                v-for="hex in waterTownTokens"
+                :key="`water-town-${hex.id}`"
+                :href="townTileImage(hex.townTileId!)"
+                :x="hex.x - 64"
+                :y="hex.y - 72.5"
+                width="128"
+                height="145"
+                class="pointer-events-none drop-shadow-md"
+                preserveAspectRatio="xMidYMid meet"
+            />
         </svg>
     </div>
 </template>
@@ -512,5 +554,4 @@ function closedActionTokenX(actionX: number, actionWidth: number): number {
         fill 150ms ease-in-out,
         stroke 150ms ease-in-out;
 }
-
 </style>

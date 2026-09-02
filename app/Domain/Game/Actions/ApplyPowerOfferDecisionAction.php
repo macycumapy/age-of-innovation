@@ -14,6 +14,7 @@ final class ApplyPowerOfferDecisionAction
 {
     public function __construct(
         private CreatePowerOffersAfterBuildingAction $createPowerOffersAfterBuilding,
+        private CreateTownChoiceAfterBuildingAction $createTownChoiceAfterBuilding,
         private GainPowerAction $gainPower,
     ) {
     }
@@ -56,6 +57,9 @@ final class ApplyPowerOfferDecisionAction
                     ...(isset($interaction->context['queuedBuiltHexIds'])
                         ? ['queuedBuiltHexIds' => $interaction->context['queuedBuiltHexIds']]
                         : []),
+                    ...(isset($interaction->context['townBuiltHexId'])
+                        ? ['townBuiltHexId' => $interaction->context['townBuiltHexId']]
+                        : []),
                 ],
             );
             $nextActiveUserId = (int) $nextOffer['userId'];
@@ -80,9 +84,22 @@ final class ApplyPowerOfferDecisionAction
                 )
                 : null;
 
+            if ($nextActiveUserId !== null
+                && $state->pendingInteraction?->type === PendingInteractionType::PowerOffer
+                && isset($interaction->context['townBuiltHexId'])) {
+                $state->pendingInteraction->context['townBuiltHexId'] = $interaction->context['townBuiltHexId'];
+            }
+
             if ($nextActiveUserId === null) {
-                $state->pendingInteraction = null;
-                $nextActiveUserId = $buildingPlayer->userId;
+                $townBuiltHexId = $interaction->context['townBuiltHexId'] ?? null;
+                $nextActiveUserId = is_string($townBuiltHexId)
+                    ? $this->createTownChoiceAfterBuilding->execute(
+                        $state,
+                        $buildingPlayer,
+                        $townBuiltHexId,
+                        powerOffersResolved: true,
+                    )
+                    : $buildingPlayer->userId;
             }
         }
 

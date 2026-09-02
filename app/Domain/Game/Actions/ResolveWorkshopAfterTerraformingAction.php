@@ -21,7 +21,7 @@ final class ResolveWorkshopAfterTerraformingAction
 {
     public function __construct(
         private AppendGameHistoryAction $appendGameHistory,
-        private CreatePowerOffersAfterBuildingAction $createPowerOffersAfterBuilding,
+        private CreateBuildingFollowUpInteractionAction $createBuildingFollowUpInteraction,
         private ApplyBuildingBonusesAction $applyBuildingBonuses,
     ) {
     }
@@ -83,7 +83,12 @@ final class ResolveWorkshopAfterTerraformingAction
             $state->pendingInteraction = null;
             $state->round->hasTakenMainAction = true;
             $nextActiveUserId = $build
-                ? $this->createPowerOffersAfterBuilding->execute($state, $player->id, (string) $hexId)
+                ? $this->createBuildingFollowUpInteraction->execute(
+                    $state,
+                    $playerState,
+                    (string) $hexId,
+                    BuildingType::Workshop,
+                )
                 : null;
             $lockedGame->update([
                 'active_player_id' => $nextActiveUserId ?? $player->user_id,

@@ -16,6 +16,8 @@ use Spatie\LaravelData\Data;
  * @property list<string> $adjacentHexIds Идентификаторы непосредственно соседних гексов.
  * @property list<string> $riverConnectedHexIds Идентификаторы гексов, доступных через соседний участок реки.
  * @property BuildingStateData|null $building Здание на гексе или null, если гекс свободен.
+ * @property string|null $townId Идентификатор города, в который входит гекс.
+ * @property string|null $townTileId Жетон города, размещённый на гексе.
  */
 class BoardHexStateData extends Data
 {
@@ -32,6 +34,8 @@ class BoardHexStateData extends Data
         public array $adjacentHexIds = [],
         public array $riverConnectedHexIds = [],
         public ?BuildingStateData $building = null,
+        public ?string $townId = null,
+        public ?string $townTileId = null,
     ) {
     }
 }
