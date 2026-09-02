@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use App\Domain\Game\Actions\AdvanceKnowledgeAction;
 use App\Domain\Game\Actions\ApplyIncomeAction;
 use App\Domain\Game\Actions\ApplyResourceExchangeAction;
 use App\Domain\Game\Actions\CreateBuildingFollowUpInteractionAction;
@@ -320,6 +321,7 @@ class GameManagementTest extends TestCase
             'power' => 17,
             'books' => 1,
             'knowledgeSteps' => 1,
+            'victoryPoints' => 0,
         ], PlayerIncomeCalculator::calculate($playerState, $board));
     }
 
@@ -351,6 +353,84 @@ class GameManagementTest extends TestCase
         $this->assertSame(0, $playerState->resources->power->bowlOne);
         $this->assertSame(2, $playerState->resources->power->bowlTwo);
         $this->assertSame(1, $playerState->resources->power->bowlThree);
+    }
+
+    public function test_knowledge_level_eight_requires_and_spends_a_town_key(): void
+    {
+        $playerState = new GamePlayerStateData(
+            playerId: 15,
+            userId: 25,
+            color: PlayerColor::Green,
+            faction: Faction::Blessed,
+            homeland: TerrainType::Forest,
+            roundBonus: RoundBonus::Coins,
+            knowledge: new KnowledgeStateData(banking: 7),
+        );
+        $state = new GameStateData(players: [$playerState]);
+        $advanceKnowledge = app(AdvanceKnowledgeAction::class);
+
+        $advanceKnowledge->execute($state, $playerState, KnowledgeDiscipline::Banking, 2);
+        $this->assertSame(7, $playerState->knowledge->banking);
+
+        $playerState->townTileIds[] = TownTile::Tools->value;
+        $advanceKnowledge->execute($state, $playerState, KnowledgeDiscipline::Banking, 2);
+
+        $this->assertSame(9, $playerState->knowledge->banking);
+        $this->assertSame([KnowledgeDiscipline::Banking], $playerState->knowledge->unlockedDisciplines);
+    }
+
+    public function test_only_one_player_may_reach_the_top_of_each_knowledge_discipline(): void
+    {
+        $leader = new GamePlayerStateData(
+            playerId: 15,
+            userId: 25,
+            color: PlayerColor::Green,
+            faction: Faction::Blessed,
+            homeland: TerrainType::Forest,
+            roundBonus: RoundBonus::Coins,
+            knowledge: new KnowledgeStateData(banking: 12, unlockedDisciplines: [KnowledgeDiscipline::Banking]),
+            townTileIds: [TownTile::Tools->value],
+        );
+        $challenger = new GamePlayerStateData(
+            playerId: 16,
+            userId: 26,
+            color: PlayerColor::Red,
+            faction: Faction::Blessed,
+            homeland: TerrainType::Desert,
+            roundBonus: RoundBonus::Coins,
+            knowledge: new KnowledgeStateData(banking: 11, unlockedDisciplines: [KnowledgeDiscipline::Banking]),
+            townTileIds: [TownTile::Coins->value],
+        );
+        $state = new GameStateData(players: [$leader, $challenger]);
+
+        app(AdvanceKnowledgeAction::class)->execute(
+            $state,
+            $challenger,
+            KnowledgeDiscipline::Banking,
+            1,
+        );
+
+        $this->assertSame(11, $challenger->knowledge->banking);
+    }
+
+    public function test_knowledge_levels_from_nine_grant_discipline_income(): void
+    {
+        $playerState = new GamePlayerStateData(
+            playerId: 15,
+            userId: 25,
+            color: PlayerColor::Green,
+            faction: Faction::Blessed,
+            homeland: TerrainType::Forest,
+            roundBonus: RoundBonus::Coins,
+            knowledge: new KnowledgeStateData(banking: 9, law: 9, engineering: 9, medicine: 9),
+        );
+
+        $income = PlayerIncomeCalculator::calculate($playerState, new BoardStateData());
+
+        $this->assertSame(9, $income['coins']);
+        $this->assertSame(6, $income['power']);
+        $this->assertSame(2, $income['tools']);
+        $this->assertSame(3, $income['victoryPoints']);
     }
 
     public function test_income_skips_players_without_choices_and_stops_on_a_required_choice(): void
@@ -528,6 +608,7 @@ class GameManagementTest extends TestCase
                 'power' => 0,
                 'books' => 0,
                 'knowledge_steps' => 0,
+                'victory_points' => 0,
             ],
         ], $game->actions()->latest('sequence')->firstOrFail()->payload['income_receipts']);
     }
@@ -790,15 +871,66 @@ class GameManagementTest extends TestCase
         $this->assertSame([], $game->state->players[0]->usedSpecialActionIds);
     }
 
-    public function test_palace_knowledge_action_requires_and_applies_a_discipline(): void
+    public function test_palace_knowledge_action_distributes_two_steps_between_disciplines(): void
+    {
+        [$game, $user] = $this->gameForPalaceAction(PalaceAbility::Palace06);
+        $state = $game->state;
+        $state->round->scoringTileId = RoundScoringTile::KnowledgeMedicine->value;
+        $game->update(['state' => $state]);
+
+        $this->actingAs($user)->post(route('games.palace-action', $game))
+            ->assertSessionHasErrors('knowledge_steps');
+        $this->post(route('games.palace-action', $game), [
+            'knowledge_steps' => [
+                KnowledgeDiscipline::Banking->value => 0,
+                KnowledgeDiscipline::Law->value => 1,
+                KnowledgeDiscipline::Engineering->value => 0,
+                KnowledgeDiscipline::Medicine->value => 1,
+            ],
+        ]);
+        $game->refresh();
+        $this->assertSame(1, $game->state->players[0]->knowledge->law);
+        $this->assertSame(1, $game->state->players[0]->knowledge->medicine);
+        $this->assertSame(22, $game->state->players[0]->victoryPoints);
+        $this->assertSame(2, $game->actions()->sole()->payload['victory_points']);
+        $this->assertSame([
+            KnowledgeDiscipline::Law->value,
+            KnowledgeDiscipline::Medicine->value,
+        ], $game->actions()->sole()->payload['knowledge_disciplines']);
+    }
+
+    public function test_palace_knowledge_action_may_apply_both_steps_to_one_discipline(): void
     {
         [$game, $user] = $this->gameForPalaceAction(PalaceAbility::Palace06);
 
-        $this->actingAs($user)->post(route('games.palace-action', $game))
-            ->assertSessionHasErrors('discipline');
-        $this->post(route('games.palace-action', $game), ['discipline' => KnowledgeDiscipline::Medicine->value]);
+        $this->actingAs($user)->post(route('games.palace-action', $game), [
+            'knowledge_steps' => [KnowledgeDiscipline::Engineering->value => 2],
+        ]);
         $game->refresh();
-        $this->assertSame(2, $game->state->players[0]->knowledge->medicine);
+
+        $this->assertSame(2, $game->state->players[0]->knowledge->engineering);
+    }
+
+    public function test_palace_knowledge_action_scores_only_steps_that_were_actually_advanced(): void
+    {
+        [$game, $user] = $this->gameForPalaceAction(PalaceAbility::Palace06);
+        $state = $game->state;
+        $state->round->scoringTileId = RoundScoringTile::KnowledgeMedicine->value;
+        $state->players[0]->knowledge->banking = 7;
+        $game->update(['state' => $state]);
+
+        $this->actingAs($user)->post(route('games.palace-action', $game), [
+            'knowledge_steps' => [
+                KnowledgeDiscipline::Banking->value => 1,
+                KnowledgeDiscipline::Medicine->value => 1,
+            ],
+        ]);
+        $game->refresh();
+
+        $this->assertSame(7, $game->state->players[0]->knowledge->banking);
+        $this->assertSame(1, $game->state->players[0]->knowledge->medicine);
+        $this->assertSame(21, $game->state->players[0]->victoryPoints);
+        $this->assertSame(1, $game->actions()->sole()->payload['victory_points']);
     }
 
     public function test_palace_spade_action_starts_terraforming_with_two_spades(): void
@@ -3658,6 +3790,7 @@ class GameManagementTest extends TestCase
                         $game->state->players[0]->palaceId,
                     )
                     ->where('game.data.playerBoardStates.0.activeTownKeys', 0)
+                    ->where('game.data.playerBoardStates.0.usedTownKeys', 0)
                     ->where('game.data.playerBoardStates.0.activeAnnexes', 0)
                     ->where('game.data.playerBoardStates.0.availableAnnexes', 0)
                     ->where(

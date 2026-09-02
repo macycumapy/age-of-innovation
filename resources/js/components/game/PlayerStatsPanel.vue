@@ -122,6 +122,11 @@ function incomeCounters(state: GamePlayerBoardState): StatCounter[] {
             image: knowledgeUrl,
             value: state.income.knowledgeSteps,
         },
+        {
+            label: 'Доход победных очков',
+            image: victoryPointsUrl,
+            value: state.income.victoryPoints,
+        },
     ];
 }
 

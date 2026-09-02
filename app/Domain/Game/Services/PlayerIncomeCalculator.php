@@ -9,6 +9,7 @@ use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Enums\BuildingType;
 use App\Domain\Game\Enums\Competency;
 use App\Domain\Game\Enums\Innovation;
+use App\Domain\Game\Enums\KnowledgeDiscipline;
 use App\Domain\Game\Enums\PalaceAbility;
 use App\Domain\Game\Enums\RoundBonus;
 use App\Domain\Game\Enums\TerrainType;
@@ -25,6 +26,7 @@ final class PlayerIncomeCalculator
             'power' => 0,
             'books' => 0,
             'knowledgeSteps' => 0,
+            'victoryPoints' => 0,
         ];
         $buildingCounts = self::buildingCounts($player->playerId, $board);
 
@@ -53,6 +55,16 @@ final class PlayerIncomeCalculator
 
         if ($player->palaceId !== null) {
             self::addPalaceIncome($income, PalaceAbility::from($player->palaceId));
+        }
+
+        foreach (KnowledgeDiscipline::cases() as $discipline) {
+            if ($player->knowledge->{$discipline->value} < 9) {
+                continue;
+            }
+
+            foreach ($discipline->highLevelIncome() as $resource => $amount) {
+                $income[$resource] += $amount;
+            }
         }
 
         return $income;

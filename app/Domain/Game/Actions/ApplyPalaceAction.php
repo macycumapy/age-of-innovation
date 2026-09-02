@@ -13,6 +13,8 @@ use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\KnowledgeDiscipline;
 use App\Domain\Game\Enums\PalaceAbility;
 use App\Domain\Game\Enums\PendingInteractionType;
+use App\Domain\Game\Enums\RoundScoringGoal;
+use App\Domain\Game\Enums\RoundScoringTile;
 use Illuminate\Validation\ValidationException;
 
 final class ApplyPalaceAction
@@ -25,9 +27,17 @@ final class ApplyPalaceAction
     ) {
     }
 
-    /** @return array{nextActiveUserId: int, victoryPoints: int, bonusCoins: int} */
-    public function execute(GameStateData $state, GamePlayerStateData $player, ?KnowledgeDiscipline $discipline, ?string $hexId): array
-    {
+    /**
+     * @param list<KnowledgeDiscipline> $knowledgeDisciplines
+     * @return array{nextActiveUserId: int, victoryPoints: int, bonusCoins: int}
+     */
+    public function execute(
+        GameStateData $state,
+        GamePlayerStateData $player,
+        ?KnowledgeDiscipline $discipline,
+        array $knowledgeDisciplines,
+        ?string $hexId,
+    ): array {
         $palace = PalaceAbility::tryFrom((string) $player->palaceId);
 
         if (! $palace?->hasSpecialAction() || in_array($palace->specialActionId(), $player->usedSpecialActionIds, true)) {
@@ -40,7 +50,11 @@ final class ApplyPalaceAction
             PalaceAbility::Palace01 => $player->resources->tools += 2,
             PalaceAbility::Palace02 => $this->grantSpades($state, $player),
             PalaceAbility::Palace03, PalaceAbility::Palace04 => $result = $this->upgradeToGuild($state, $player, $palace, $hexId),
-            PalaceAbility::Palace06 => $this->gainKnowledge($player, $discipline),
+            PalaceAbility::Palace06 => $result['victoryPoints'] = $this->gainKnowledge(
+                $state,
+                $player,
+                $knowledgeDisciplines,
+            ),
             PalaceAbility::Palace13 => $this->gainCoinsAndBook($player, $discipline),
             default => null,
         };
@@ -68,13 +82,29 @@ final class ApplyPalaceAction
         ]);
     }
 
-    private function gainKnowledge(GamePlayerStateData $player, ?KnowledgeDiscipline $discipline): void
-    {
-        if ($discipline === null) {
-            throw ValidationException::withMessages(['discipline' => 'Выберите дисциплину знаний.']);
+    /** @param list<KnowledgeDiscipline> $disciplines */
+    private function gainKnowledge(
+        GameStateData $state,
+        GamePlayerStateData $player,
+        array $disciplines,
+    ): int {
+        if (count($disciplines) !== 2) {
+            throw ValidationException::withMessages(['knowledge_steps' => 'Распределите ровно 2 шага знаний.']);
         }
 
-        $this->advanceKnowledge->execute($player, $discipline, 2);
+        $advancedSteps = 0;
+
+        foreach ($disciplines as $discipline) {
+            $levelBefore = $player->knowledge->{$discipline->value};
+            $this->advanceKnowledge->execute($state, $player, $discipline, 1);
+            $advancedSteps += $player->knowledge->{$discipline->value} - $levelBefore;
+        }
+
+        $roundScoringTile = RoundScoringTile::tryFrom((string) $state->round->scoringTileId);
+        $victoryPoints = $roundScoringTile?->goal() === RoundScoringGoal::Knowledge ? $advancedSteps : 0;
+        $player->victoryPoints += $victoryPoints;
+
+        return $victoryPoints;
     }
 
     private function gainCoinsAndBook(GamePlayerStateData $player, ?KnowledgeDiscipline $discipline): void

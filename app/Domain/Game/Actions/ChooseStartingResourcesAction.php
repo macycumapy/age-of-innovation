@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Domain\Game\Actions;
 
 use App\Domain\Game\Data\GamePlayerStateData;
+use App\Domain\Game\Data\GameStateData;
 use App\Domain\Game\Enums\Competency;
 use App\Domain\Game\Enums\Faction;
 use App\Domain\Game\Enums\GameActionType;
@@ -86,6 +87,7 @@ final class ChooseStartingResourcesAction
             $this->assignKnowledge($playerState, $knowledgeDisciplines);
             if ($interactionPhase === GamePhase::Setup) {
                 $this->assignCompetency(
+                    $state,
                     $playerState,
                     $competency,
                     $state->setupPool?->competencies ?? [],
@@ -181,6 +183,7 @@ final class ChooseStartingResourcesAction
 
     /** @param list<Competency|string> $availableCompetencies */
     private function assignCompetency(
+        GameStateData $state,
         GamePlayerStateData $playerState,
         ?Competency $competency,
         array $availableCompetencies,
@@ -194,7 +197,7 @@ final class ChooseStartingResourcesAction
         }
 
         if ($competency instanceof Competency) {
-            $this->grantCompetency->execute($playerState, $competency, $availableCompetencies);
+            $this->grantCompetency->execute($state, $playerState, $competency, $availableCompetencies);
         }
     }
 }

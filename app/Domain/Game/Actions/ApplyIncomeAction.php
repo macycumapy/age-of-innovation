@@ -28,6 +28,7 @@ final class ApplyIncomeAction
         );
         $player->resources->books->unassigned += $income['books'];
         $player->knowledge->unassignedSteps += $income['knowledgeSteps'];
+        $player->victoryPoints += $income['victoryPoints'];
         $income['scholars'] = $player->resources->scholars - $scholarsBeforeIncome;
         $income['power'] = $this->gainPower->execute($player, $income['power']);
 

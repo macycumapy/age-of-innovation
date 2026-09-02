@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Domain\Game\Actions;
 
 use App\Domain\Game\Data\GamePlayerStateData;
+use App\Domain\Game\Data\GameStateData;
 use App\Domain\Game\Enums\Competency;
 use App\Domain\Game\Enums\KnowledgeDiscipline;
 use Illuminate\Validation\ValidationException;
@@ -17,6 +18,7 @@ final class GrantCompetencyAction
 
     /** @param list<Competency|string> $availableCompetencies */
     public function execute(
+        GameStateData $state,
         GamePlayerStateData $playerState,
         Competency $competency,
         array $availableCompetencies,
@@ -33,7 +35,7 @@ final class GrantCompetencyAction
         $competencyRow = intdiv($competencyIndex, count($disciplines));
 
         $playerState->competencyIds[] = $competency->value;
-        $this->advanceKnowledge->execute($playerState, $discipline, 3 - $competencyRow);
+        $this->advanceKnowledge->execute($state, $playerState, $discipline, 3 - $competencyRow);
         $playerState->resources->books->{$discipline->value} += $competencyRow;
         $this->applyImmediateEffect($playerState, $competency);
     }

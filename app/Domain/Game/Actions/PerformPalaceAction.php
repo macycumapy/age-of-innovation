@@ -20,9 +20,15 @@ final class PerformPalaceAction
     {
     }
 
-    public function execute(Game $game, User $user, ?KnowledgeDiscipline $discipline, ?string $hexId): Game
-    {
-        return DB::transaction(function () use ($game, $user, $discipline, $hexId): Game {
+    /** @param list<KnowledgeDiscipline> $knowledgeDisciplines */
+    public function execute(
+        Game $game,
+        User $user,
+        ?KnowledgeDiscipline $discipline,
+        array $knowledgeDisciplines,
+        ?string $hexId,
+    ): Game {
+        return DB::transaction(function () use ($game, $user, $discipline, $knowledgeDisciplines, $hexId): Game {
             $lockedGame = Game::query()->lockForUpdate()->findOrFail($game->id);
             $state = $lockedGame->state;
             $player = $lockedGame->players()->whereBelongsTo($user)->first();
@@ -46,11 +52,21 @@ final class PerformPalaceAction
             }
 
             $palaceId = $playerState->palaceId;
-            $result = $this->applyPalaceAction->execute($state, $playerState, $discipline, $hexId);
+            $result = $this->applyPalaceAction->execute(
+                $state,
+                $playerState,
+                $discipline,
+                $knowledgeDisciplines,
+                $hexId,
+            );
             $lockedGame->update(['active_player_id' => $result['nextActiveUserId'], 'state' => $state, 'version' => $before + 1]);
             $this->appendGameHistory->execute($lockedGame, $user, GameActionType::SpecialAction, [
                 'palace' => $palaceId,
                 'discipline' => $discipline?->value,
+                'knowledge_disciplines' => array_map(
+                    static fn (KnowledgeDiscipline $knowledgeDiscipline): string => $knowledgeDiscipline->value,
+                    $knowledgeDisciplines,
+                ),
                 'hex_id' => $hexId,
                 'victory_points' => $result['victoryPoints'],
                 'bonus_coins' => $result['bonusCoins'],

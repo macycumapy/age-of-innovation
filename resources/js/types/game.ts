@@ -138,6 +138,7 @@ export type GamePlayerBoardState = {
     palaceId: PalaceAbility | null;
     canUsePalaceAction: boolean;
     activeTownKeys: number;
+    usedTownKeys: number;
     townTileIds: TownTile[];
     activeAnnexes: number;
     availableAnnexes: number;
@@ -149,6 +150,7 @@ export type GamePlayerBoardState = {
         power: number;
         books: number;
         knowledgeSteps: number;
+        victoryPoints: number;
     };
     shippingLevel: number;
     terraformingLevel: number;

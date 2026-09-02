@@ -154,7 +154,7 @@ final class ChooseTownAction
             TownTile::Books => $player->resources->books->unassigned += 2,
             TownTile::Coins => $player->resources->coins += 6,
             TownTile::Knowledge => array_map(
-                fn (KnowledgeDiscipline $discipline) => $this->advanceKnowledge->execute($player, $discipline, 1),
+                fn (KnowledgeDiscipline $discipline) => $this->advanceKnowledge->execute($state, $player, $discipline, 1),
                 KnowledgeDiscipline::cases(),
             ),
             TownTile::Power => $this->gainPower->execute($player, 8),

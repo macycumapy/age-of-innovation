@@ -172,6 +172,7 @@ class GameResource extends JsonResource
                         count($player->townTileIds)
                             - count($player->knowledge->unlockedDisciplines),
                     ),
+                    'usedTownKeys' => count($player->knowledge->unlockedDisciplines),
                     'townTileIds' => $player->townTileIds,
                     'activeAnnexes' => count(array_filter(
                         $this->state->board->hexes,

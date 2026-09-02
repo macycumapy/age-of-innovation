@@ -182,6 +182,19 @@ final class ReplayGameHistoryAction
         $state = $game->state;
         $disciplineValue = $action->payload['discipline'] ?? null;
         $discipline = is_string($disciplineValue) ? KnowledgeDiscipline::from($disciplineValue) : null;
+        $knowledgeDisciplineValues = $action->payload['knowledge_disciplines'] ?? [];
+        $knowledgeDisciplines = is_array($knowledgeDisciplineValues)
+            ? array_map(
+                static fn (mixed $value): KnowledgeDiscipline => KnowledgeDiscipline::from((string) $value),
+                $knowledgeDisciplineValues,
+            )
+            : [];
+
+        if (($action->payload['palace'] ?? null) === PalaceAbility::Palace06->value
+            && $knowledgeDisciplines === []
+            && $discipline !== null) {
+            $knowledgeDisciplines = [$discipline, $discipline];
+        }
         $playerState = $this->playerState($state, $player->id);
 
         if (isset($action->payload['palace'])) {
@@ -189,6 +202,7 @@ final class ReplayGameHistoryAction
                 $state,
                 $playerState,
                 $discipline,
+                $knowledgeDisciplines,
                 is_string($action->payload['hex_id'] ?? null) ? $action->payload['hex_id'] : null,
             );
             $game->active_player_id = $result['nextActiveUserId'];
@@ -328,6 +342,7 @@ final class ReplayGameHistoryAction
 
         if (is_string($competencyValue)) {
             $this->grantCompetency->execute(
+                $state,
                 $playerState,
                 Competency::from($competencyValue),
                 $state->setupPool?->competencies ?? [],
@@ -456,6 +471,7 @@ final class ReplayGameHistoryAction
         $state = $game->state;
         $isBuildingChoice = ($action->payload['reason'] ?? null) === 'building';
         $this->grantCompetency->execute(
+            $state,
             $this->playerState($state, $player->id),
             Competency::from((string) $action->payload['competency_id']),
             $isBuildingChoice
@@ -693,7 +709,7 @@ final class ReplayGameHistoryAction
             TownTile::Books => $playerState->resources->books->unassigned += 2,
             TownTile::Coins => $playerState->resources->coins += 6,
             TownTile::Knowledge => array_map(
-                fn (KnowledgeDiscipline $discipline) => $this->advanceKnowledge->execute($playerState, $discipline, 1),
+                fn (KnowledgeDiscipline $discipline) => $this->advanceKnowledge->execute($state, $playerState, $discipline, 1),
                 KnowledgeDiscipline::cases(),
             ),
             TownTile::Power => $this->gainPower->execute($playerState, 8),
@@ -909,7 +925,7 @@ final class ReplayGameHistoryAction
             $playerState->scholarDisciplineIds[] = $discipline->value;
         }
 
-        $this->advanceKnowledge->execute($playerState, $discipline, (int) ($action->payload['steps'] ?? 0));
+        $this->advanceKnowledge->execute($state, $playerState, $discipline, (int) ($action->payload['steps'] ?? 0));
         $playerState->victoryPoints += (int) ($action->payload['victory_points'] ?? 0);
         $state->round->hasTakenMainAction = true;
         $game->state = $state;

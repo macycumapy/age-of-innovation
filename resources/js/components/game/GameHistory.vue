@@ -160,6 +160,7 @@ function incomeDetails(entry: GameHistoryEntry): string[] {
             ['scholars', 'учёных'],
             ['books', 'книг'],
             ['knowledge_steps', 'шагов знаний'],
+            ['victory_points', 'ПО'],
         ]
             .map(([key, label]) => {
                 const amount = Number(incomeReceipt[key] ?? 0);

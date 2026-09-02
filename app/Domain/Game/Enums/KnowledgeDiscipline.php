@@ -24,4 +24,19 @@ enum KnowledgeDiscipline: string
             self::Medicine => 'Медицина',
         };
     }
+
+    /** @return array{coins: int, power: int, tools: int, victoryPoints: int} */
+    public function highLevelIncome(): array
+    {
+        $income = ['coins' => 0, 'power' => 0, 'tools' => 0, 'victoryPoints' => 0];
+
+        match ($this) {
+            self::Banking => $income['coins'] = 3,
+            self::Law => $income['power'] = 6,
+            self::Engineering => $income['tools'] = 1,
+            self::Medicine => $income['victoryPoints'] = 3,
+        };
+
+        return $income;
+    }
 }

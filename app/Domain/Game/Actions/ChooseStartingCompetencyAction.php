@@ -67,6 +67,7 @@ final class ChooseStartingCompetencyAction
 
             $playerState = $state->players[$playerStateIndex];
             $this->grantCompetency->execute(
+                $state,
                 $playerState,
                 $competency,
                 $isBuildingChoice

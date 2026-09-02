@@ -49,6 +49,7 @@ final class ResolveIncomePhaseAction
                 'power' => $income['power'],
                 'books' => $income['books'],
                 'knowledge_steps' => $income['knowledgeSteps'],
+                'victory_points' => $income['victoryPoints'],
             ];
             $state->round->incomeTurnIndex++;
 

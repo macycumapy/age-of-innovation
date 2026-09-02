@@ -39,7 +39,7 @@ final class ApplyRoundBonusAction
                 throw ValidationException::withMessages(['discipline' => 'Выберите дисциплину знаний.']);
             }
 
-            $this->advanceKnowledge->execute($playerState, $discipline, 1);
+            $this->advanceKnowledge->execute($state, $playerState, $discipline, 1);
         }
 
         if ($roundBonus === RoundBonus::Spade) {

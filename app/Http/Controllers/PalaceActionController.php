@@ -16,7 +16,13 @@ final class PalaceActionController extends Controller
     {
         /** @var User $user */
         $user = $request->user();
-        $action->execute($game, $user, $request->discipline(), $request->hexId());
+        $action->execute(
+            $game,
+            $user,
+            $request->discipline(),
+            $request->knowledgeDisciplines(),
+            $request->hexId(),
+        );
 
         return to_route('games.show', $game);
     }

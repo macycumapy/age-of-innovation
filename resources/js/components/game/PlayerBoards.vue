@@ -197,7 +197,11 @@ const townTileImages = import.meta.glob('../../../images/cities/*.png', {
     query: '?url',
 }) as Record<string, string>;
 
-function townTileImage(townTile: TownTile): string {
+function townTileImage(townTile: TownTile, isUsed: boolean = false): string {
+    if (isUsed) {
+        return townTileImages['../../../images/cities/used.png'] ?? '';
+    }
+
     return townTileImages[`../../../images/cities/${townTile}.png`] ?? '';
 }
 
@@ -774,7 +778,10 @@ function canSacrificeFromBowl(player: GamePlayerSummary, bowl: PowerBowl): boole
                             <img
                                 v-for="(townTile, townTileIndex) in playerState(player.id)?.townTileIds"
                                 :key="`${townTile}-${townTileIndex}`"
-                                :src="townTileImage(townTile)"
+                                :src="townTileImage(
+                                    townTile,
+                                    townTileIndex < (playerState(player.id)?.usedTownKeys ?? 0),
+                                )"
                                 alt="Жетон города"
                                 class="h-auto w-14 object-contain drop-shadow-md"
                             />

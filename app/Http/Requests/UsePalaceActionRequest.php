@@ -23,10 +23,17 @@ final class UsePalaceActionRequest extends FormRequest
     /** @return array<string, array<int, mixed>> */
     public function rules(): array
     {
-        return [
+        $rules = [
             'discipline' => ['nullable', Rule::enum(KnowledgeDiscipline::class)],
+            'knowledge_steps' => ['nullable', 'array'],
             'hex_id' => ['nullable', 'string'],
         ];
+
+        foreach (KnowledgeDiscipline::cases() as $discipline) {
+            $rules['knowledge_steps.'.$discipline->value] = ['nullable', 'integer', 'min:0', 'max:2'];
+        }
+
+        return $rules;
     }
 
     public function discipline(): ?KnowledgeDiscipline
@@ -41,5 +48,21 @@ final class UsePalaceActionRequest extends FormRequest
         $value = $this->validated('hex_id');
 
         return is_string($value) ? $value : null;
+    }
+
+    /** @return list<KnowledgeDiscipline> */
+    public function knowledgeDisciplines(): array
+    {
+        $disciplines = [];
+
+        foreach (KnowledgeDiscipline::cases() as $discipline) {
+            $stepCount = (int) $this->validated("knowledge_steps.{$discipline->value}", 0);
+
+            for ($step = 0; $step < $stepCount; $step++) {
+                $disciplines[] = $discipline;
+            }
+        }
+
+        return $disciplines;
     }
 }
