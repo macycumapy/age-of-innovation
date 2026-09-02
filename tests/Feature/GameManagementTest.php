@@ -3659,6 +3659,7 @@ class GameManagementTest extends TestCase
                     )
                     ->where('game.data.playerBoardStates.0.activeTownKeys', 0)
                     ->where('game.data.playerBoardStates.0.activeAnnexes', 0)
+                    ->where('game.data.playerBoardStates.0.availableAnnexes', 0)
                     ->where(
                         'game.data.playerBoardStates.0.income',
                         PlayerIncomeCalculator::calculate(
@@ -3938,6 +3939,7 @@ class GameManagementTest extends TestCase
         int $tools,
         int $victoryPoints,
         int $unassignedSpades,
+        int $availableAnnexes,
     ): void {
         $users = User::factory()->count(2)->create();
         $game = Game::factory()->create(['random_seed' => 'immediate-competency-effects-seed']);
@@ -3987,9 +3989,10 @@ class GameManagementTest extends TestCase
         $this->assertSame($playerStateBeforeCompetency->resources->tools + $tools, $playerState->resources->tools);
         $this->assertSame($playerStateBeforeCompetency->victoryPoints + $victoryPoints, $playerState->victoryPoints);
         $this->assertSame($unassignedSpades, $playerState->unassignedSpades);
+        $this->assertSame($availableAnnexes, $playerState->availableAnnexes);
     }
 
-    /** @return iterable<string, array{Competency, int, int, int, int}> */
+    /** @return iterable<string, array{Competency, int, int, int, int, int}> */
     public static function immediateStartingCompetencyEffects(): iterable
     {
         yield 'competency_04 gives coins, a tool, and victory points' => [
@@ -3998,9 +4001,19 @@ class GameManagementTest extends TestCase
             1,
             5,
             0,
+            0,
         ];
         yield 'competency_05 gives two unassigned spades' => [
             Competency::Competency05,
+            0,
+            0,
+            0,
+            2,
+            0,
+        ];
+        yield 'competency_06 gives two available annexes' => [
+            Competency::Competency06,
+            0,
             0,
             0,
             0,

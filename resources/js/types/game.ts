@@ -140,6 +140,7 @@ export type GamePlayerBoardState = {
     activeTownKeys: number;
     townTileIds: TownTile[];
     activeAnnexes: number;
+    availableAnnexes: number;
     buildingsOnMap: Record<'workshop' | 'guild' | 'school' | 'university' | 'palace', number>;
     income: {
         tools: number;

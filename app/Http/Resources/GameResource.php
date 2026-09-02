@@ -178,6 +178,7 @@ class GameResource extends JsonResource
                         static fn (BoardHexStateData $hex): bool => $hex->building?->ownerPlayerId === $player->playerId
                             && $hex->building->hasAnnex,
                     )),
+                    'availableAnnexes' => $player->availableAnnexes,
                     'buildingsOnMap' => [
                         'workshop' => $this->buildingCount($player->playerId, BuildingType::Workshop),
                         'guild' => $this->buildingCount($player->playerId, BuildingType::Guild),

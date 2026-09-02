@@ -13,6 +13,7 @@ import type {
 } from '@/types';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { factionNames } from '@/lib/gameDisplay';
+import annexUrl from '../../../images/buildings/white/annex.png';
 import bankingBookUrl from '../../../images/token_parts/coin_book.png';
 import coinUrl from '../../../images/token_parts/gold_medallion.png';
 import engineeringBookUrl from '../../../images/token_parts/engineering_book.png';
@@ -353,6 +354,10 @@ function scholarPoolSizeForPlayer(playerId: number): number {
 
 function availableBridgesForPlayer(playerId: number): number {
     return playerState(playerId)?.availableBridges ?? 0;
+}
+
+function availableAnnexesForPlayer(playerId: number): number {
+    return playerState(playerId)?.availableAnnexes ?? 0;
 }
 
 function coinsForPlayer(playerId: number): number {
@@ -707,6 +712,20 @@ function canSacrificeFromBowl(player: GamePlayerSummary, bowl: PowerBowl): boole
                                     :src="bridgeImage(player.color)"
                                     alt=""
                                     class="h-auto w-16 object-contain drop-shadow-md"
+                                />
+                            </span>
+
+                            <span
+                                v-if="availableAnnexesForPlayer(player.id)"
+                                class="flex flex-wrap gap-1"
+                                :aria-label="`Доступные пристройки: ${availableAnnexesForPlayer(player.id)}`"
+                            >
+                                <img
+                                    v-for="annexIndex in availableAnnexesForPlayer(player.id)"
+                                    :key="annexIndex"
+                                    :src="annexUrl"
+                                    alt=""
+                                    class="h-auto w-12 object-contain drop-shadow-md"
                                 />
                             </span>
                         </span>

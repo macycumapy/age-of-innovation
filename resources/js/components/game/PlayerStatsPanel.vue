@@ -42,9 +42,7 @@ const isOpen = ref(false);
 
 const playersWithStats = computed(() =>
     props.players.flatMap((player) => {
-        const state = props.playerStates.find(
-            (candidate) => candidate.playerId === player.id,
-        );
+        const state = props.playerStates.find((candidate) => candidate.playerId === player.id);
 
         return state === undefined ? [] : [{ player, state }];
     }),
@@ -76,9 +74,9 @@ function balanceCounters(state: GamePlayerBoardState): StatCounter[] {
         { label: 'Золото', image: coinUrl, value: state.coins },
         { label: 'Учёные', image: scholarUrl, value: state.scholars },
         {
-            label: 'Активные пристройки',
+            label: 'Доступные пристройки',
             image: annexUrl,
-            value: state.activeAnnexes,
+            value: state.availableAnnexes,
         },
     ];
 }
@@ -173,121 +171,121 @@ function levelCounters(state: GamePlayerBoardState): StatCounter[] {
                         :key="entry.player.id"
                         class="grid gap-3 rounded-lg border border-sidebar-border bg-sidebar-accent/50 p-3"
                     >
-                    <h3 class="flex items-center gap-2 font-semibold">
-                        <span>{{ entry.player.user.name }}</span>
-                        <span
-                            class="relative grid size-8 place-items-center"
-                            :title="'Победные очки'"
-                            :aria-label="`Победные очки: ${entry.state.victoryPoints}`"
-                        >
-                            <img
-                                :src="victoryPointsUrl"
-                                alt=""
-                                class="absolute object-contain drop-shadow-md"
-                            />
-                            <span class="relative z-10 text-xs font-bold">
-                                {{ entry.state.victoryPoints }}
-                            </span>
-                        </span>
-                        <span
-                            v-if="entry.state.passOrder !== null"
-                            class="relative grid size-8 place-items-center"
-                            :title="`Порядок паса: ${entry.state.passOrder}`"
-                            :aria-label="`Порядок паса: ${entry.state.passOrder}`"
-                        >
-                            <img :src="endOfTurnUrl" alt="" class="absolute size-full object-contain drop-shadow-md" />
-                            <span class="relative z-10 text-xs font-bold text-amber-950">
-                                {{ entry.state.passOrder }}
-                            </span>
-                        </span>
-                    </h3>
-
-                    <template v-if="entry.state">
-                        <div class="grid grid-cols-4 gap-1">
-                            <div
-                                v-for="counter in balanceCounters(entry.state)"
-                                :key="counter.label"
-                                class="relative grid rounded-lg"
-                                :title="counter.label"
-                                :aria-label="`${counter.label}: ${counter.value}`"
+                        <h3 class="flex items-center gap-2 font-semibold">
+                            <span>{{ entry.player.user.name }}</span>
+                            <span
+                                class="relative grid size-8 place-items-center"
+                                :title="'Победные очки'"
+                                :aria-label="`Победные очки: ${entry.state.victoryPoints}`"
                             >
-                                <img
-                                    :src="counter.image"
-                                    alt=""
-                                    class="object-contain drop-shadow-md"
-                                    :class="
-                                        counter.label === 'Активные пристройки'
-                                            ? 'h-full w-[60%]'
-                                            : 'h-full w-[50%]'
-                                    "
-                                />
-                                <span
-                                    class="absolute top-1/2 right-3 grid min-w-6 -translate-y-1/2 place-items-center rounded-full px-1 text-sm font-bold shadow"
-                                >
-                                    {{ counter.value }}
+                                <img :src="victoryPointsUrl" alt="" class="absolute object-contain drop-shadow-md" />
+                                <span class="relative z-10 text-xs font-bold">
+                                    {{ entry.state.victoryPoints }}
                                 </span>
-                            </div>
-
-                            <div
-                                v-for="counter in bookCounters(entry.state)"
-                                :key="counter.label"
-                                class="relative grid rounded-lg"
-                                :title="counter.label"
-                                :aria-label="`${counter.label}: ${counter.value}`"
+                            </span>
+                            <span
+                                v-if="entry.state.passOrder !== null"
+                                class="relative grid size-8 place-items-center"
+                                :title="`Порядок паса: ${entry.state.passOrder}`"
+                                :aria-label="`Порядок паса: ${entry.state.passOrder}`"
                             >
                                 <img
-                                    :src="counter.image"
+                                    :src="endOfTurnUrl"
                                     alt=""
-                                    class="h-full w-[40%] object-contain drop-shadow-md"
+                                    class="absolute size-full object-contain drop-shadow-md"
                                 />
-                                <span
-                                    class="absolute top-1/2 right-3 grid min-w-6 -translate-y-1/2 place-items-center rounded-full px-1 text-sm font-bold shadow"
-                                    >{{ counter.value }}</span
-                                >
-                            </div>
+                                <span class="relative z-10 text-xs font-bold text-amber-950">
+                                    {{ entry.state.passOrder }}
+                                </span>
+                            </span>
+                        </h3>
 
-                            <div
-                                v-for="counter in incomeCounters(entry.state)"
-                                :key="counter.label"
-                                class="relative grid aspect-square rounded-lg"
-                                :title="counter.label"
-                                :aria-label="`${counter.label}: ${counter.value}`"
-                            >
-                                <img
-                                    :src="handUrl"
-                                    alt=""
-                                    class="absolute bottom-4 w-[50%] object-contain drop-shadow-md"
-                                />
-                                <img
-                                    :src="counter.image"
-                                    alt=""
-                                    class="absolute top-5 left-2 h-[25%] w-[25%] object-contain drop-shadow-md"
-                                />
-                                <span
-                                    class="absolute top-1/2 right-3 grid min-w-6 -translate-y-1/2 place-items-center rounded-full px-1 text-sm font-bold shadow"
-                                    >{{ counter.value }}</span
+                        <template v-if="entry.state">
+                            <div class="grid grid-cols-4 gap-1">
+                                <div
+                                    v-for="counter in balanceCounters(entry.state)"
+                                    :key="counter.label"
+                                    class="relative grid rounded-lg"
+                                    :title="counter.label"
+                                    :aria-label="`${counter.label}: ${counter.value}`"
                                 >
-                            </div>
+                                    <img
+                                        :src="counter.image"
+                                        alt=""
+                                        class="object-contain drop-shadow-md"
+                                        :class="
+                                            counter.label === 'Доступные пристройки'
+                                                ? 'h-full w-[60%]'
+                                                : 'h-full w-[50%]'
+                                        "
+                                    />
+                                    <span
+                                        class="absolute top-1/2 right-3 grid min-w-6 -translate-y-1/2 place-items-center rounded-full px-1 text-sm font-bold shadow"
+                                    >
+                                        {{ counter.value }}
+                                    </span>
+                                </div>
 
-                            <div
-                                v-for="counter in levelCounters(entry.state)"
-                                :key="counter.label"
-                                class="relative grid rounded-lg"
-                                :title="counter.label"
-                                :aria-label="`${counter.label}: ${counter.value}`"
-                            >
-                                <img
-                                    :src="counter.image"
-                                    alt=""
-                                    class="h-full w-[50%] object-contain drop-shadow-md"
-                                />
-                                <span
-                                    class="absolute top-1/2 right-3 grid min-w-6 -translate-y-1/2 place-items-center rounded-full px-1 text-sm font-bold shadow"
-                                    >{{ counter.value }}</span
+                                <div
+                                    v-for="counter in bookCounters(entry.state)"
+                                    :key="counter.label"
+                                    class="relative grid rounded-lg"
+                                    :title="counter.label"
+                                    :aria-label="`${counter.label}: ${counter.value}`"
                                 >
+                                    <img
+                                        :src="counter.image"
+                                        alt=""
+                                        class="h-full w-[40%] object-contain drop-shadow-md"
+                                    />
+                                    <span
+                                        class="absolute top-1/2 right-3 grid min-w-6 -translate-y-1/2 place-items-center rounded-full px-1 text-sm font-bold shadow"
+                                        >{{ counter.value }}</span
+                                    >
+                                </div>
+
+                                <div
+                                    v-for="counter in incomeCounters(entry.state)"
+                                    :key="counter.label"
+                                    class="relative grid aspect-square rounded-lg"
+                                    :title="counter.label"
+                                    :aria-label="`${counter.label}: ${counter.value}`"
+                                >
+                                    <img
+                                        :src="handUrl"
+                                        alt=""
+                                        class="absolute bottom-4 w-[50%] object-contain drop-shadow-md"
+                                    />
+                                    <img
+                                        :src="counter.image"
+                                        alt=""
+                                        class="absolute top-5 left-2 h-[25%] w-[25%] object-contain drop-shadow-md"
+                                    />
+                                    <span
+                                        class="absolute top-1/2 right-3 grid min-w-6 -translate-y-1/2 place-items-center rounded-full px-1 text-sm font-bold shadow"
+                                        >{{ counter.value }}</span
+                                    >
+                                </div>
+
+                                <div
+                                    v-for="counter in levelCounters(entry.state)"
+                                    :key="counter.label"
+                                    class="relative grid rounded-lg"
+                                    :title="counter.label"
+                                    :aria-label="`${counter.label}: ${counter.value}`"
+                                >
+                                    <img
+                                        :src="counter.image"
+                                        alt=""
+                                        class="h-full w-[50%] object-contain drop-shadow-md"
+                                    />
+                                    <span
+                                        class="absolute top-1/2 right-3 grid min-w-6 -translate-y-1/2 place-items-center rounded-full px-1 text-sm font-bold shadow"
+                                        >{{ counter.value }}</span
+                                    >
+                                </div>
                             </div>
-                        </div>
-                    </template>
+                        </template>
                     </article>
                     <GameHistory
                         :game-id="gameId"

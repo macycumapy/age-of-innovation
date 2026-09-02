@@ -61,6 +61,7 @@ final class GrantCompetencyAction
         match ($competency) {
             Competency::Competency04 => $this->grantCompetency04Resources($playerState),
             Competency::Competency05 => $playerState->unassignedSpades += 2,
+            Competency::Competency06 => $playerState->availableAnnexes += 2,
             default => null,
         };
     }
