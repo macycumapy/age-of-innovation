@@ -11,6 +11,10 @@ use App\Domain\Game\Enums\TerrainType;
 
 final class FindEligibleTerraformHexesAction
 {
+    public function __construct(private FindReachableLandHexesAction $findReachableLandHexes)
+    {
+    }
+
     /** @return list<string> */
     public function execute(
         GameStateData $state,
@@ -18,58 +22,7 @@ final class FindEligibleTerraformHexesAction
         TerrainType $targetTerrain,
     ): array {
         $hexesById = collect($state->board->hexes)->keyBy('id');
-        $reachableHexIds = [];
-        $waterFrontier = [];
-
-        foreach ($state->board->hexes as $hex) {
-            if ($hex->building?->ownerPlayerId !== $player->playerId) {
-                continue;
-            }
-
-            foreach ($hex->adjacentHexIds as $adjacentHexId) {
-                $adjacentHex = $hexesById->get($adjacentHexId);
-
-                if ($adjacentHex?->terrain === TerrainType::Water) {
-                    $waterFrontier[] = $adjacentHexId;
-                } else {
-                    $reachableHexIds[] = $adjacentHexId;
-                }
-            }
-        }
-
-        $visitedWaterHexIds = [];
-
-        $navigationRange = $player->shippingLevel + $player->roundBonus->shippingBonus();
-
-        for ($distance = 1; $distance <= $navigationRange && $waterFrontier !== []; $distance++) {
-            $nextWaterFrontier = [];
-
-            foreach (array_unique($waterFrontier) as $waterHexId) {
-                if (in_array($waterHexId, $visitedWaterHexIds, true)) {
-                    continue;
-                }
-
-                $visitedWaterHexIds[] = $waterHexId;
-                $waterHex = $hexesById->get($waterHexId);
-
-                if (! $waterHex instanceof BoardHexStateData) {
-                    continue;
-                }
-
-                foreach ($waterHex->adjacentHexIds as $adjacentHexId) {
-                    $adjacentHex = $hexesById->get($adjacentHexId);
-
-                    if ($adjacentHex?->terrain === TerrainType::Water) {
-                        $nextWaterFrontier[] = $adjacentHexId;
-                    } else {
-                        $reachableHexIds[] = $adjacentHexId;
-                    }
-                }
-            }
-
-            $waterFrontier = $nextWaterFrontier;
-        }
-
+        $reachableHexIds = $this->findReachableLandHexes->execute($state, $player);
         return collect($reachableHexIds)
             ->unique()
             ->filter(function (string $hexId) use ($hexesById, $targetTerrain): bool {

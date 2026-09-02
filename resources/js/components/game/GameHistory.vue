@@ -25,6 +25,7 @@ const actionDescriptions: Record<GameActionType, string> = {
     finish_starting_building_turn: 'завершил ход выставления дома',
     spend_starting_spade: 'использовал стартовую лопату',
     terraform_and_build: 'преобразовал местность и построил здание',
+    build_workshop: 'построил дом',
     finish_turn: 'завершил ход',
     upgrade_building: 'улучшил здание',
     advance_shipping: 'улучшил судоходство',
@@ -182,7 +183,7 @@ function actionDetails(entry: GameHistoryEntry): string | null {
 
     if (
         hexId !== null &&
-        ['place_starting_building', 'undo_starting_building', 'spend_starting_spade', 'terraform_and_build'].includes(
+        ['place_starting_building', 'undo_starting_building', 'spend_starting_spade', 'terraform_and_build', 'build_workshop'].includes(
             entry.type,
         )
     ) {

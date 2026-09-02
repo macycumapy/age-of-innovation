@@ -36,6 +36,7 @@ use App\Http\Controllers\StartingResourcesController;
 use App\Http\Controllers\StartingSpadeController;
 use App\Http\Controllers\StartingSpadeTurnController;
 use App\Http\Controllers\TerraformWorkshopController;
+use App\Http\Controllers\WorkshopController;
 use Illuminate\Support\Facades\Route;
 
 Route::redirect('/', '/games')->name('home');
@@ -69,6 +70,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('games.starting-spade.finish');
     Route::post('games/{game}/terraform-workshop', TerraformWorkshopController::class)
         ->name('games.terraform-workshop');
+    Route::post('games/{game}/workshop', WorkshopController::class)
+        ->name('games.workshop');
     Route::post('games/{game}/paid-terraforming', PaidTerraformingController::class)
         ->name('games.paid-terraforming');
     Route::post('games/{game}/power-sacrifice', [PowerSacrificeController::class, 'store'])

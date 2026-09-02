@@ -15,6 +15,7 @@ import StartingResourcesController from '@/actions/App/Http/Controllers/Starting
 import BoardMap from '@/components/game/BoardMap.vue';
 import BookActionDialog from '@/components/game/BookActionDialog.vue';
 import BuildingUpgradeDialog from '@/components/game/BuildingUpgradeDialog.vue';
+import BuildWorkshopDialog from '@/components/game/BuildWorkshopDialog.vue';
 import CompetencySelector from '@/components/game/CompetencySelector.vue';
 import CurrentTurnFinishDialog from '@/components/game/CurrentTurnFinishDialog.vue';
 import CurrentTurnPanel from '@/components/game/CurrentTurnPanel.vue';
@@ -310,7 +311,7 @@ const selectableStartingHexIds = computed(() => {
     }
 
     if (canStartPaidTerraforming.value) {
-        return paidTerraformHexIds.value;
+        return [...paidTerraformHexIds.value, ...buildableWorkshopHexIds.value];
     }
 
     if (!canPlaceStartingBuilding.value || !currentPlayer.value?.homeland) {
@@ -365,6 +366,13 @@ function placeStartingBuilding(hexId: string): void {
         return;
     }
 
+    if (buildableWorkshopHexIds.value.includes(hexId)) {
+        selectedBuildWorkshopHexId.value = hexId;
+        isBuildWorkshopDialogOpen.value = true;
+
+        return;
+    }
+
     if (!canPlaceStartingBuilding.value) {
         return;
     }
@@ -402,7 +410,9 @@ const isFactionActionDialogOpen = ref(false);
 const isPalaceActionDialogOpen = ref(false);
 const isPassDialogOpen = ref(false);
 const isPaidTerraformingDialogOpen = ref(false);
+const isBuildWorkshopDialogOpen = ref(false);
 const selectedPaidTerraformHexId = ref<string | null>(null);
+const selectedBuildWorkshopHexId = ref<string | null>(null);
 const selectedBuildingUpgradeHexId = ref<string | null>(null);
 const selectedPowerAction = ref<PowerActionState | null>(null);
 const selectedBookAction = ref<BookActionState | null>(null);
@@ -457,7 +467,7 @@ const canStartPaidTerraforming = computed(() => {
     return props.game.data.canPass
         && state !== undefined;
 });
-const paidTerraformHexIds = computed(() => {
+const reachableEmptyLandHexIds = computed(() => {
     const player = currentPlayer.value;
     const playerState = currentPlayerState.value;
 
@@ -512,9 +522,25 @@ const paidTerraformHexIds = computed(() => {
 
         return hex !== undefined
             && hex.building === null
-            && hex.terrain !== 'water'
-            && hex.terrain !== currentPlayer.value?.homeland;
+            && hex.terrain !== 'water';
     });
+});
+const paidTerraformHexIds = computed(() => reachableEmptyLandHexIds.value.filter((hexId) =>
+    props.game.data.board.hexes.find((hex) => hex.id === hexId)?.terrain !== currentPlayer.value?.homeland,
+));
+const buildableWorkshopHexIds = computed(() => {
+    const state = currentPlayerState.value;
+
+    if (state === undefined
+        || state.tools < 1
+        || state.coins < 2
+        || state.buildingsOnMap.workshop >= 9) {
+        return [];
+    }
+
+    return reachableEmptyLandHexIds.value.filter((hexId) =>
+        props.game.data.board.hexes.find((hex) => hex.id === hexId)?.terrain === currentPlayer.value?.homeland,
+    );
 });
 const selectedPaidTerraformHex = computed(() => props.game.data.board.hexes.find(
     (hex) => hex.id === selectedPaidTerraformHexId.value,
@@ -542,6 +568,10 @@ const availableActionsBeforePass = computed(() => {
 
     if (props.game.data.buildingUpgrades.length > 0) {
         actions.push('улучшение здания');
+    }
+
+    if (buildableWorkshopHexIds.value.length > 0) {
+        actions.push('строительство дома');
     }
 
     if (props.game.data.canSendScholar) {
@@ -1476,6 +1506,13 @@ function selectedCompetencyForHomeland(homeland: TerrainType): Competency | unde
                 :target-hex="selectedPaidTerraformHex"
                 :homeland="currentPlayer.homeland"
                 :has-spade-interaction="canSpendStartingSpade"
+            />
+
+            <BuildWorkshopDialog
+                v-model:open="isBuildWorkshopDialogOpen"
+                :game-id="game.data.id"
+                :hex-id="selectedBuildWorkshopHexId"
+                :player-color="currentPlayer?.color ?? null"
             />
 
             <ScienceBonusBooksDialog

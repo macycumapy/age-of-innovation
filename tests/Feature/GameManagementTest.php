@@ -1396,6 +1396,75 @@ class GameManagementTest extends TestCase
         $this->assertSame(TerrainType::Mountain, $game->state->board->hexes[1]->terrain);
     }
 
+    public function test_player_can_build_a_workshop_on_reachable_homeland_using_navigation(): void
+    {
+        $user = User::factory()->create();
+        $game = Game::factory()->create([
+            'status' => GameStatus::Active,
+            'phase' => GamePhase::Actions,
+            'active_player_id' => $user->id,
+        ]);
+        $player = GamePlayer::factory()->create(['game_id' => $game->id, 'user_id' => $user->id]);
+        $game->update(['state' => new GameStateData(
+            turnOrder: [$player->id],
+            board: new BoardStateData(hexes: [
+                new BoardHexStateData(
+                    id: '0:0',
+                    q: 0,
+                    r: 0,
+                    initialTerrain: TerrainType::Forest,
+                    terrain: TerrainType::Forest,
+                    adjacentHexIds: ['0:1'],
+                    building: new BuildingStateData(BuildingType::Workshop, $player->id),
+                ),
+                new BoardHexStateData(
+                    id: '0:1',
+                    q: 0,
+                    r: 1,
+                    initialTerrain: TerrainType::Water,
+                    terrain: TerrainType::Water,
+                    adjacentHexIds: ['0:0', '0:2'],
+                ),
+                new BoardHexStateData(
+                    id: '0:2',
+                    q: 0,
+                    r: 2,
+                    initialTerrain: TerrainType::Forest,
+                    terrain: TerrainType::Forest,
+                    adjacentHexIds: ['0:1'],
+                ),
+            ]),
+            round: new RoundStateData(phase: GamePhase::Actions),
+            players: [new GamePlayerStateData(
+                playerId: $player->id,
+                userId: $user->id,
+                color: PlayerColor::Green,
+                faction: Faction::Blessed,
+                homeland: TerrainType::Forest,
+                roundBonus: RoundBonus::Coins,
+                resources: new PlayerResourcesData(tools: 1, coins: 2),
+                shippingLevel: 1,
+            )],
+        )]);
+
+        $this->actingAs($user)->post(route('games.workshop', $game), ['hex_id' => '0:2'])
+            ->assertRedirect(route('games.show', $game));
+
+        $game->refresh();
+        $this->assertSame(BuildingType::Workshop, $game->state->board->hexes[2]->building?->type);
+        $this->assertSame(0, $game->state->players[0]->resources->tools);
+        $this->assertSame(0, $game->state->players[0]->resources->coins);
+        $this->assertTrue($game->state->round->hasTakenMainAction);
+        $this->assertSame(GameActionType::BuildWorkshop, $game->actions()->sole()->type);
+
+        $this->post(route('games.current-turn.restart', $game));
+        $game->refresh();
+
+        $this->assertNull($game->state->board->hexes[2]->building);
+        $this->assertSame(1, $game->state->players[0]->resources->tools);
+        $this->assertSame(2, $game->state->players[0]->resources->coins);
+    }
+
     public function test_power_terraforming_offers_a_workshop_and_turn_can_be_finished_after_building(): void
     {
         $user = User::factory()->create();

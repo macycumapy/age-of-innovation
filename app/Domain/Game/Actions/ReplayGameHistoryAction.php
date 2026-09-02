@@ -55,6 +55,7 @@ final class ReplayGameHistoryAction
         GameActionType::PowerAction,
         GameActionType::BookAction,
         GameActionType::TerraformAndBuild,
+        GameActionType::BuildWorkshop,
         GameActionType::FinishTurn,
         GameActionType::AcceptPower,
         GameActionType::DeclinePower,
@@ -136,6 +137,7 @@ final class ReplayGameHistoryAction
                 GameActionType::PowerAction => $this->replayPowerAction($game, $players, $action),
                 GameActionType::BookAction => $this->replayBookAction($game, $players, $action),
                 GameActionType::TerraformAndBuild => $this->replayTerraformAndBuild($game, $players, $action),
+                GameActionType::BuildWorkshop => $this->replayBuildWorkshop($game, $players, $action),
                 GameActionType::FinishTurn => $this->replayFinishTurn($game, $players, $action),
                 GameActionType::AcceptPower, GameActionType::DeclinePower => $this->replayPowerOfferDecision(
                     $game,
@@ -604,6 +606,35 @@ final class ReplayGameHistoryAction
             $state->pendingInteraction = null;
         }
 
+        $game->state = $state;
+    }
+
+    /** @param Collection<int, GamePlayer> $players */
+    private function replayBuildWorkshop(Game $game, Collection $players, GameAction $action): void
+    {
+        $player = $players->firstWhere('user_id', $action->player_id);
+        $hex = collect($game->state->board->hexes)->firstWhere('id', $action->payload['hex_id'] ?? null);
+
+        if (! $player instanceof GamePlayer || ! $hex instanceof BoardHexStateData || $hex->building !== null) {
+            $this->invalidHistory();
+        }
+
+        $state = $game->state;
+
+        if ($state->turnStartSnapshot === null) {
+            $state->turnStartSnapshot = $state->toArray();
+            $state->round->turnStartVersion = $game->version;
+        }
+
+        $playerState = $this->playerState($state, $player->id);
+        $playerState->resources->tools -= (int) $action->payload['tools'];
+        $playerState->resources->coins -= (int) $action->payload['coins'];
+        $playerState->resources->coins += (int) ($action->payload['bonus_coins'] ?? 0);
+        $playerState->victoryPoints += (int) ($action->payload['victory_points'] ?? 0);
+        $hex->building = new BuildingStateData(BuildingType::Workshop, $player->id);
+        $state->round->hasTakenMainAction = true;
+        $nextActiveUserId = $this->createPowerOffersAfterBuilding->execute($state, $player->id, $hex->id);
+        $game->active_player_id = $nextActiveUserId ?? $player->user_id;
         $game->state = $state;
     }
 

@@ -69,6 +69,7 @@ export type GameActionType =
     | 'finish_starting_building_turn'
     | 'spend_starting_spade'
     | 'terraform_and_build'
+    | 'build_workshop'
     | 'finish_turn'
     | 'upgrade_building'
     | 'advance_shipping'
