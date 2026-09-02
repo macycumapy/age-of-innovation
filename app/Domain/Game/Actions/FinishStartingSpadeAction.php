@@ -50,14 +50,16 @@ final class FinishStartingSpadeAction
 
             $playerState = collect($state->players)->firstWhere('playerId', $player->id);
 
-            if ($playerState === null || $playerState->unassignedSpades < 1) {
+            $spentSpades = max(1, (int) ($interaction->context['spentSpades'] ?? 1));
+
+            if ($playerState === null || $playerState->unassignedSpades < $spentSpades) {
                 throw ValidationException::withMessages(['game' => 'У игрока нет доступной лопаты.']);
             }
 
-            $playerState->unassignedSpades--;
+            $playerState->unassignedSpades -= $spentSpades;
             $terrainBefore = $interaction->context['terrainBefore'] ?? null;
             $terrainAfter = $interaction->context['terrainAfter'] ?? null;
-            $remainingSpades = max(0, (int) ($interaction->context['remainingSpades'] ?? 1) - 1);
+            $remainingSpades = max(0, (int) ($interaction->context['remainingSpades'] ?? 1) - $spentSpades);
             $paidTools = (int) ($interaction->context['paidTools'] ?? 0);
             $paidSpadeCount = (int) ($interaction->context['paidSpadeCount'] ?? 0);
             $buildableHexIds = $interaction->context['buildableHexIds'] ?? [];
@@ -72,6 +74,8 @@ final class FinishStartingSpadeAction
                 $interaction->context['terrainAfter'],
                 $interaction->context['paidTools'],
                 $interaction->context['paidSpadeCount'],
+                $interaction->context['spadesToSpend'],
+                $interaction->context['spentSpades'],
             );
             $interaction->context['remainingSpades'] = $remainingSpades;
             $interaction->context['buildableHexIds'] = array_values(array_unique($buildableHexIds));
@@ -159,6 +163,7 @@ final class FinishStartingSpadeAction
                     'build_offered' => $buildOffered,
                     'paid_tools' => $paidTools,
                     'paid_spade_count' => $paidSpadeCount,
+                    'spades_spent' => $spentSpades,
                     'income_receipts' => $incomeReceipts,
                 ],
                 [

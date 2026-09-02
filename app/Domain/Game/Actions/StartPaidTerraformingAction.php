@@ -71,6 +71,10 @@ final class StartPaidTerraformingAction
                 $totalToolCost = 0;
             }
 
+            $spadesToSpend = $useAvailable
+                ? min($requiredSpadeCount, $playerState->unassignedSpades)
+                : $requiredSpadeCount;
+
             if ($totalToolCost > $playerState->resources->tools) {
                 throw ValidationException::withMessages(['hex_id' => 'Недостаточно инструментов для преобразования этой клетки.']);
             }
@@ -94,6 +98,7 @@ final class StartPaidTerraformingAction
                     + $totalToolCost;
                 $interaction->context['paidSpadeCount'] = (int) ($interaction->context['paidSpadeCount'] ?? 0)
                     + $purchasedSpadeCount;
+                $interaction->context['spadesToSpend'] = $spadesToSpend;
                 $state->pendingInteraction = $interaction;
             } else {
                 $state->pendingInteraction = new PendingInteractionData(
@@ -107,6 +112,7 @@ final class StartPaidTerraformingAction
                         'targetTerrain' => $playerState->homeland->value,
                         'paidTools' => $totalToolCost,
                         'paidSpadeCount' => $purchasedSpadeCount,
+                        'spadesToSpend' => $spadesToSpend,
                     ],
                 );
             }

@@ -43,6 +43,7 @@ final class UndoStartingSpadeAction
                 $interaction->context['selectedHexId'],
                 $interaction->context['terrainBefore'],
                 $interaction->context['terrainAfter'],
+                $interaction->context['spentSpades'],
             );
             $state->pendingInteraction = $interaction;
             $lockedGame->update(['state' => $state]);

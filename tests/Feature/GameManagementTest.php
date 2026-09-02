@@ -223,7 +223,7 @@ class GameManagementTest extends TestCase
         $this->assertSame(PendingInteractionType::SpendSpades, $game->state->pendingInteraction?->type);
         $this->assertSame($toolCost * 2, $game->state->pendingInteraction?->context['paidTools']);
         $this->assertSame('1:0', $game->state->pendingInteraction?->context['selectedHexId']);
-        $this->assertSame(TerrainType::Forest, $game->state->board->hexes[1]->terrain);
+        $this->assertSame(TerrainType::Mountain, $game->state->board->hexes[1]->terrain);
 
         $this->post(route('games.current-turn.restart', $game));
         $game->refresh();
@@ -240,8 +240,6 @@ class GameManagementTest extends TestCase
 
         $this->post(route('games.paid-terraforming', $game), ['hex_id' => '1:0']);
         $this->post(route('games.starting-spade.finish', $game));
-        $this->post(route('games.paid-terraforming', $game), ['hex_id' => '1:0']);
-        $this->post(route('games.starting-spade.finish', $game));
         $game->refresh();
 
         $paidTerraformingAction = $game->actions()->oldest('sequence')->firstOrFail();
@@ -250,6 +248,7 @@ class GameManagementTest extends TestCase
         $this->assertSame(0, $game->state->players[0]->unassignedSpades);
         $this->assertSame($toolCost * 2, $paidTerraformingAction->payload['paid_tools']);
         $this->assertSame(2, $paidTerraformingAction->payload['paid_spade_count']);
+        $this->assertSame(2, $paidTerraformingAction->payload['spades_spent']);
     }
 
     /** @return array<string, array{int, int}> */
@@ -1367,22 +1366,13 @@ class GameManagementTest extends TestCase
         ])
             ->assertRedirect(route('games.show', $game));
         $game->refresh();
-        $this->assertSame(TerrainType::Wasteland, $game->state->board->hexes[1]->terrain);
+        $this->assertSame(TerrainType::Mountain, $game->state->board->hexes[1]->terrain);
         $this->assertSame(0, $game->state->players[0]->resources->tools);
 
         $this->delete(route('games.starting-spade.destroy', $game))
             ->assertRedirect(route('games.show', $game));
         $game->refresh();
         $this->assertSame(TerrainType::Desert, $game->state->board->hexes[1]->terrain);
-
-        $this->post(route('games.paid-terraforming', $game), [
-            'hex_id' => '1:0',
-            'use_available' => true,
-        ]);
-        $this->post(route('games.starting-spade.finish', $game));
-        $game->refresh();
-        $this->assertSame(1, $game->state->pendingInteraction?->context['remainingSpades']);
-        $this->assertSame(1, $game->state->players[0]->unassignedSpades);
 
         $this->post(route('games.paid-terraforming', $game), [
             'hex_id' => '1:0',

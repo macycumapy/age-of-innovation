@@ -56,7 +56,11 @@ const remainingSpades = computed(() => {
 
     const availableSpades = interaction.context.remainingSpades ?? interaction.context.spadeCount;
 
-    return Math.max(0, availableSpades - (props.pendingStartingSpadeHexId === null ? 0 : 1));
+    const stagedSpades = props.pendingStartingSpadeHexId === null
+        ? 0
+        : (interaction.context.spentSpades ?? 1);
+
+    return Math.max(0, availableSpades - stagedSpades);
 });
 
 function confirmRestartCurrentTurn(event: SubmitEvent): void {

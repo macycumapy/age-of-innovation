@@ -44,7 +44,9 @@ final class SpendStartingSpadeAction
                 }
             }
 
-            if ($playerStateIndex === null || $state->players[$playerStateIndex]->unassignedSpades < 1) {
+            $spadesToSpend = max(1, (int) ($interaction->context['spadesToSpend'] ?? 1));
+
+            if ($playerStateIndex === null || $state->players[$playerStateIndex]->unassignedSpades < $spadesToSpend) {
                 throw ValidationException::withMessages(['game' => 'У игрока нет доступной лопаты.']);
             }
 
@@ -68,7 +70,15 @@ final class SpendStartingSpadeAction
                 }
 
                 $terrainBefore = $hex->terrain;
-                $terrainAfter = $terrainBefore->stepTowards($targetTerrain);
+                $terrainAfter = $terrainBefore;
+
+                for ($step = 0; $step < $spadesToSpend; $step++) {
+                    if ($terrainAfter === $targetTerrain) {
+                        break;
+                    }
+
+                    $terrainAfter = $terrainAfter->stepTowards($targetTerrain);
+                }
                 $hex->terrain = $terrainAfter;
                 $state->board->hexes[$index] = $hex;
                 break;
@@ -81,6 +91,7 @@ final class SpendStartingSpadeAction
             $interaction->context['selectedHexId'] = $hexId;
             $interaction->context['terrainBefore'] = $terrainBefore->value;
             $interaction->context['terrainAfter'] = $terrainAfter->value;
+            $interaction->context['spentSpades'] = $spadesToSpend;
             $state->pendingInteraction = $interaction;
 
             $lockedGame->update(['state' => $state]);

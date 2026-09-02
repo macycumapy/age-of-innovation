@@ -501,7 +501,7 @@ final class ReplayGameHistoryAction
         $playerState = $this->playerState($state, $player->id);
         $playerState->resources->tools -= (int) ($action->payload['paid_tools'] ?? 0);
         $playerState->unassignedSpades += (int) ($action->payload['paid_spade_count'] ?? 0);
-        $playerState->unassignedSpades--;
+        $playerState->unassignedSpades -= (int) ($action->payload['spades_spent'] ?? 1);
         $remainingSpades = (int) ($action->payload['remaining_spades'] ?? 0);
         $interactionPhase = GamePhase::tryFrom((string) ($action->payload['phase'] ?? ''))
             ?? GamePhase::Setup;
