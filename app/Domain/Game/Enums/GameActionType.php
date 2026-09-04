@@ -6,6 +6,7 @@ namespace App\Domain\Game\Enums;
 
 enum GameActionType: string
 {
+    case PhaseCheckpoint = 'phase_checkpoint';
     case StartGame = 'start_game';
     case ChoosePlanningBundle = 'choose_planning_bundle';
     case ChooseStartingResources = 'choose_starting_resources';

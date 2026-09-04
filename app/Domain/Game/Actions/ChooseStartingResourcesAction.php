@@ -141,6 +141,7 @@ final class ChooseStartingResourcesAction
                 ]],
                 $stateVersionBefore,
                 $lockedGame->version,
+                $nextPhase !== $interactionPhase,
             );
 
             return $lockedGame->refresh();

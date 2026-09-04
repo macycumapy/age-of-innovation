@@ -595,7 +595,7 @@ class GameManagementTest extends TestCase
         $this->assertSame(8, $updatedSecondPlayer?->resources->coins);
         $this->assertSame(
             GameActionType::ChooseIncomeResources,
-            $game->actions()->latest('sequence')->firstOrFail()->type,
+            $game->actions()->where('type', '!=', GameActionType::PhaseCheckpoint)->latest('sequence')->firstOrFail()->type,
         );
         $this->assertEquals([
             [
@@ -617,7 +617,7 @@ class GameManagementTest extends TestCase
                 'knowledge_steps' => 0,
                 'victory_points' => 0,
             ],
-        ], $game->actions()->latest('sequence')->firstOrFail()->payload['income_receipts']);
+        ], $game->actions()->where('type', '!=', GameActionType::PhaseCheckpoint)->latest('sequence')->firstOrFail()->payload['income_receipts']);
     }
 
     public function test_active_player_can_sacrifice_power_without_ending_the_turn(): void
@@ -3501,7 +3501,7 @@ class GameManagementTest extends TestCase
         );
         $this->assertContains($game->active_player_id, [$owner->id, $secondUser->id]);
 
-        $startAction = $game->actions()->sole();
+        $startAction = $game->actions()->where('type', GameActionType::StartGame)->sole();
         $this->assertSame(GameActionType::StartGame, $startAction->type);
         $this->assertSame(1, $startAction->sequence);
         $this->assertSame(0, $startAction->state_version_before);
@@ -3515,12 +3515,12 @@ class GameManagementTest extends TestCase
                 fn (Assert $page) => $page
                     ->where('game.data.turnOrder', $game->state->turnOrder)
                     ->where('game.data.activePlayerId', $game->active_player_id)
-                    ->has('game.data.history.data', 1)
+                    ->has('game.data.history.data', 2)
                     ->where('game.data.history.hasMore', false)
-                    ->where('game.data.history.data.0.sequence', 1)
-                    ->where('game.data.history.data.0.type', GameActionType::StartGame->value)
-                    ->where('game.data.history.data.0.player.id', $owner->id)
-                    ->where('game.data.history.data.0.player.name', $owner->name)
+                    ->where('game.data.history.data.0.sequence', 2)
+                    ->where('game.data.history.data.0.type', GameActionType::PhaseCheckpoint->value)
+                    ->where('game.data.history.data.0.player', null)
+                    ->where('game.data.history.data.1.type', GameActionType::StartGame->value)
                     ->where(
                         'game.data.availablePalaceIds',
                         $game->state->availablePalaceIds,
@@ -3590,7 +3590,8 @@ class GameManagementTest extends TestCase
 
         $game->refresh();
         $this->assertSame(GameStatus::Active, $game->status);
-        $this->assertSame(GameActionType::StartGame, $game->actions()->sole()->type);
+        $this->assertSame(GameActionType::StartGame, $game->actions()->where('type', GameActionType::StartGame)->sole()->type);
+        $this->assertSame(GameActionType::PhaseCheckpoint, $game->actions()->latest('sequence')->first()?->type);
         $activePlayerId = $game->active_player_id;
         $activeUser = User::query()->findOrFail($activePlayerId);
         $selectedBundle = $game->state->setupPool->planningBundles[0];
@@ -3600,7 +3601,7 @@ class GameManagementTest extends TestCase
         ]);
 
         $game->refresh();
-        $this->assertSame(2, $game->actions()->count());
+        $this->assertSame(3, $game->actions()->count());
 
         $this->actingAs($secondUser)
             ->delete(route('games.history.latest.destroy', $game))
@@ -3616,7 +3617,7 @@ class GameManagementTest extends TestCase
         $this->assertSame(1, $game->version);
         $this->assertSame($activePlayerId, $game->active_player_id);
         $this->assertCount(0, $game->state->planningSelections);
-        $this->assertSame(1, $game->actions()->count());
+        $this->assertSame(2, $game->actions()->count());
         $this->assertTrue($game->players()->whereNull('faction')->whereNull('homeland')->exists());
 
         $this->delete(route('games.history.latest.destroy', $game))
@@ -4482,8 +4483,11 @@ class GameManagementTest extends TestCase
         $this->assertNull($game->state->pendingInteraction);
         $this->assertSame($targetTerrainAfter, collect($game->state->board->hexes)->firstWhere('id', $targetHexId)?->terrain);
         $this->assertSame(0, $desertPlayerState?->unassignedSpades);
-        $this->assertCount($historyCountBeforeSelection + 1, $game->actions);
-        $this->assertSame(GameActionType::SpendStartingSpade, $game->actions()->latest('sequence')->firstOrFail()->type);
+        $this->assertCount($historyCountBeforeSelection + 2, $game->actions);
+        $this->assertSame(
+            GameActionType::SpendStartingSpade,
+            $game->actions()->where('type', '!=', GameActionType::PhaseCheckpoint)->latest('sequence')->firstOrFail()->type,
+        );
 
         $targetHexIndex = collect($game->state->board->hexes)->search(
             static fn (BoardHexStateData $hex): bool => $hex->id === $targetHexId,
@@ -4602,11 +4606,14 @@ class GameManagementTest extends TestCase
         $this->assertSame($users[0]->id, $game->active_player_id);
         $this->assertNull($game->state->pendingStartingBuildingHexId);
         $this->assertNull($game->state->pendingInteraction);
-        $this->assertCount(4, $game->actions);
-        $this->assertTrue($game->actions->every(
+        $this->assertCount(5, $game->actions);
+        $this->assertTrue($game->actions->where('type', '!=', GameActionType::PhaseCheckpoint)->every(
             static fn (GameAction $action): bool => $action->type === GameActionType::PlaceStartingBuilding,
         ));
-        $incomeStartingAction = $game->actions()->latest('sequence')->firstOrFail();
+        $incomeStartingAction = $game->actions()
+            ->where('type', '!=', GameActionType::PhaseCheckpoint)
+            ->latest('sequence')
+            ->firstOrFail();
         $this->assertTrue($incomeStartingAction->payload['income_started']);
         $this->assertSame(1, $incomeStartingAction->payload['round']);
         $this->assertSame('income_phase_started', $incomeStartingAction->events[1]['type']);
@@ -4638,7 +4645,7 @@ class GameManagementTest extends TestCase
         $this->post(route('games.power-sacrifice.store', $game), ['amount' => 1]);
 
         $game->refresh();
-        $this->assertCount(6, $game->actions);
+        $this->assertCount(7, $game->actions);
         $this->assertSame(4, $game->state->round->turnStartVersion);
         $this->assertSame($bowlTwoAtTurnStart - 4, $game->state->players[0]->resources->power->bowlTwo);
         $this->assertSame($bowlThreeAtTurnStart + 2, $game->state->players[0]->resources->power->bowlThree);
@@ -4965,7 +4972,7 @@ class GameManagementTest extends TestCase
         $this->assertSame($monkStateBefore->victoryPoints + 5, $monkState->victoryPoints);
         $this->assertSame(
             GameActionType::ChooseCompetency,
-            $game->actions()->latest('sequence')->firstOrFail()->type,
+            $game->actions()->where('type', '!=', GameActionType::PhaseCheckpoint)->latest('sequence')->firstOrFail()->type,
         );
     }
 }

@@ -7,6 +7,7 @@ namespace App\Domain\Game\Actions;
 use App\Domain\Game\Enums\GameActionType;
 use App\Models\Game;
 use App\Models\GameAction;
+use App\Models\GamePlayer;
 use App\Models\User;
 
 final class AppendGameHistoryAction
@@ -23,10 +24,11 @@ final class AppendGameHistoryAction
         array $events,
         int $stateVersionBefore,
         int $stateVersionAfter,
+        bool $createPhaseCheckpoint = false,
     ): GameAction {
         $nextSequence = ((int) $lockedGame->actions()->max('sequence')) + 1;
 
-        return $lockedGame->actions()->create([
+        $action = $lockedGame->actions()->create([
             'sequence' => $nextSequence,
             'player_id' => $user->id,
             'type' => $type,
@@ -34,6 +36,52 @@ final class AppendGameHistoryAction
             'events' => $events,
             'state_version_before' => $stateVersionBefore,
             'state_version_after' => $stateVersionAfter,
+        ]);
+
+        if ($createPhaseCheckpoint) {
+            $this->appendPhaseCheckpoint($lockedGame);
+        }
+
+        return $action;
+    }
+
+    private function appendPhaseCheckpoint(Game $game): void
+    {
+        $game->load('players');
+
+        $game->actions()->create([
+            'sequence' => ((int) $game->actions()->max('sequence')) + 1,
+            'player_id' => null,
+            'type' => GameActionType::PhaseCheckpoint,
+            'payload' => [
+                'phase' => $game->phase->value,
+                'game' => [
+                    'status' => $game->status->value,
+                    'round' => $game->round,
+                    'phase' => $game->phase->value,
+                    'active_player_id' => $game->active_player_id,
+                    'version' => $game->version,
+                    'state' => $game->state->toArray(),
+                    'started_at' => $game->started_at?->toISOString(),
+                    'finished_at' => $game->finished_at?->toISOString(),
+                ],
+                'players' => $game->players->map(static fn (GamePlayer $player): array => [
+                    'id' => $player->id,
+                    'color' => $player->color?->value,
+                    'faction' => $player->faction?->value,
+                    'homeland' => $player->homeland?->value,
+                    'is_ready' => $player->is_ready,
+                    'result_place' => $player->result_place,
+                    'final_score' => $player->final_score,
+                ])->values()->all(),
+            ],
+            'events' => [[
+                'type' => 'phase_started',
+                'phase' => $game->phase->value,
+                'round' => $game->round,
+            ]],
+            'state_version_before' => $game->version,
+            'state_version_after' => $game->version,
         ]);
     }
 }

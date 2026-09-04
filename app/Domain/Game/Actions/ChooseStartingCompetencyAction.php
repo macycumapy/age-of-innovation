@@ -155,6 +155,7 @@ final class ChooseStartingCompetencyAction
                 ],
                 $stateVersionBefore,
                 $lockedGame->version,
+                $nextPhase !== GamePhase::Setup,
             );
 
             return $lockedGame->refresh();

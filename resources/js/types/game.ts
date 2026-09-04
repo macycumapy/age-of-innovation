@@ -63,6 +63,7 @@ export type GameResource = {
 };
 
 export type GameActionType =
+    | 'phase_checkpoint'
     | 'start_game'
     | 'choose_planning_bundle'
     | 'choose_starting_resources'

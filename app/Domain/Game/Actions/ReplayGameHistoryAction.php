@@ -42,6 +42,7 @@ final class ReplayGameHistoryAction
 {
     /** @var list<GameActionType> */
     public const array SUPPORTED_ACTION_TYPES = [
+        GameActionType::PhaseCheckpoint,
         GameActionType::StartGame,
         GameActionType::ChoosePlanningBundle,
         GameActionType::ChooseStartingResources,
@@ -101,25 +102,37 @@ final class ReplayGameHistoryAction
     /** @param Collection<int, GameAction> $actions */
     public function execute(Game $game, Collection $actions): Game
     {
-        $mapVariant = $game->state->board->variant;
+        $checkpoint = $actions
+            ->filter(static fn (GameAction $action): bool => $action->type === GameActionType::PhaseCheckpoint)
+            ->last();
 
-        $game->update([
-            'status' => GameStatus::Lobby,
-            'round' => 1,
-            'phase' => GamePhase::Setup,
-            'active_player_id' => null,
-            'version' => 0,
-            'state' => new GameStateData(board: $this->boardStateFactory->create($mapVariant)),
-            'started_at' => null,
-            'finished_at' => null,
-        ]);
-        $game->players()->update([
-            'color' => null,
-            'faction' => null,
-            'homeland' => null,
-            'result_place' => null,
-            'final_score' => null,
-        ]);
+        if ($checkpoint instanceof GameAction) {
+            $this->restorePhaseCheckpoint($game, $checkpoint);
+            $actions = $actions
+                ->filter(static fn (GameAction $action): bool => $action->sequence > $checkpoint->sequence)
+                ->values();
+        } else {
+            $mapVariant = $game->state->board->variant;
+
+            $game->update([
+                'status' => GameStatus::Lobby,
+                'round' => 1,
+                'phase' => GamePhase::Setup,
+                'active_player_id' => null,
+                'version' => 0,
+                'state' => new GameStateData(board: $this->boardStateFactory->create($mapVariant)),
+                'started_at' => null,
+                'finished_at' => null,
+            ]);
+            $game->players()->update([
+                'color' => null,
+                'faction' => null,
+                'homeland' => null,
+                'result_place' => null,
+                'final_score' => null,
+            ]);
+        }
+
         $players = $game->players()->orderBy('seat')->get();
 
         foreach ($actions as $action) {
@@ -170,6 +183,42 @@ final class ReplayGameHistoryAction
         }
 
         return $game->refresh();
+    }
+
+    private function restorePhaseCheckpoint(Game $game, GameAction $checkpoint): void
+    {
+        $gameSnapshot = $checkpoint->payload['game'] ?? null;
+        $playerSnapshots = $checkpoint->payload['players'] ?? null;
+
+        if (! is_array($gameSnapshot) || ! is_array($playerSnapshots) || ! is_array($gameSnapshot['state'] ?? null)) {
+            $this->invalidHistory();
+        }
+
+        $game->update([
+            'status' => GameStatus::from((string) $gameSnapshot['status']),
+            'round' => (int) $gameSnapshot['round'],
+            'phase' => GamePhase::from((string) $gameSnapshot['phase']),
+            'active_player_id' => $gameSnapshot['active_player_id'],
+            'version' => (int) $gameSnapshot['version'],
+            'state' => GameStateData::from($gameSnapshot['state']),
+            'started_at' => $gameSnapshot['started_at'] ?? null,
+            'finished_at' => $gameSnapshot['finished_at'] ?? null,
+        ]);
+
+        foreach ($playerSnapshots as $playerSnapshot) {
+            if (! is_array($playerSnapshot) || ! isset($playerSnapshot['id'])) {
+                $this->invalidHistory();
+            }
+
+            $game->players()->whereKey((int) $playerSnapshot['id'])->update([
+                'color' => $playerSnapshot['color'] ?? null,
+                'faction' => $playerSnapshot['faction'] ?? null,
+                'homeland' => $playerSnapshot['homeland'] ?? null,
+                'is_ready' => (bool) ($playerSnapshot['is_ready'] ?? false),
+                'result_place' => $playerSnapshot['result_place'] ?? null,
+                'final_score' => $playerSnapshot['final_score'] ?? null,
+            ]);
+        }
     }
 
     /** @param Collection<int, GamePlayer> $players */

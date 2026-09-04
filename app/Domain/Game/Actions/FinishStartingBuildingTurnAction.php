@@ -125,6 +125,7 @@ final class FinishStartingBuildingTurnAction
                 ],
                 $stateVersionBefore,
                 $lockedGame->version,
+                $nextPhase !== GamePhase::Setup,
             );
 
             return $lockedGame->refresh();

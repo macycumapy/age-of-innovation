@@ -45,6 +45,7 @@ final class PassAction
             }
 
             $stateVersionBefore = $lockedGame->version;
+            $phaseBefore = $lockedGame->phase;
             $oldRoundBonus = $playerState->roundBonus;
             $roundNumber = $state->round->number;
             $result = $this->applyPass->execute($state, $playerState, $roundBonus, $lockedGame->players);
@@ -69,7 +70,7 @@ final class PassAction
                 'type' => 'player_passed',
                 'player_id' => $player->id,
                 'pass_order' => $result['passOrder'],
-            ]], $stateVersionBefore, $lockedGame->version);
+            ]], $stateVersionBefore, $lockedGame->version, $result['phase'] !== $phaseBefore);
 
             return $lockedGame->refresh();
         });

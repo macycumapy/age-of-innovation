@@ -71,7 +71,7 @@ final class ChooseScienceBonusBooksAction
             ], [[
                 'type' => 'science_bonus_books_chosen',
                 'player_id' => $player->id,
-            ]], $stateVersionBefore, $lockedGame->version);
+            ]], $stateVersionBefore, $lockedGame->version, $nextPhase !== GamePhase::ScienceBonus);
 
             return $lockedGame->refresh();
         });

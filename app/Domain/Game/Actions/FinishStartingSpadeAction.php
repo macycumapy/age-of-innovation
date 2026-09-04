@@ -181,6 +181,7 @@ final class FinishStartingSpadeAction
                 ],
                 $stateVersionBefore,
                 $lockedGame->version,
+                $nextPhase !== $interactionPhase,
             );
 
             return $lockedGame->refresh();

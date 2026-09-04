@@ -125,6 +125,7 @@ final class StartGameAction
                 ]],
                 $stateVersionBefore,
                 $lockedGame->version,
+                true,
             );
 
             return $lockedGame->refresh();

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domain\Game\Actions;
 
+use App\Domain\Game\Enums\GameActionType;
 use App\Models\Game;
 use App\Models\GameAction;
 use Illuminate\Database\Eloquent\Collection;
@@ -34,8 +35,22 @@ final class UndoLastGameAction
                 ]);
             }
 
+            $actionsToDelete = collect([$lastAction]);
+
+            if ($lastAction->type === GameActionType::PhaseCheckpoint) {
+                $phaseStartingAction = $actions->pop();
+
+                if (! $phaseStartingAction instanceof GameAction) {
+                    throw ValidationException::withMessages([
+                        'history' => 'Перед чекпоинтом фазы отсутствует действие перехода.',
+                    ]);
+                }
+
+                $actionsToDelete->push($phaseStartingAction);
+            }
+
             $this->replayGameHistory->execute($lockedGame, $actions);
-            $lastAction->delete();
+            GameAction::query()->whereKey($actionsToDelete->pluck('id'))->delete();
 
             return $lockedGame->refresh();
         });

@@ -16,6 +16,7 @@ const props = defineProps<{
 }>();
 
 const actionDescriptions: Record<GameActionType, string> = {
+    phase_checkpoint: 'начал новую фазу',
     start_game: 'начал партию',
     choose_planning_bundle: 'выбрал стартовый комплект',
     choose_starting_resources: 'распределил стартовые ресурсы',
@@ -182,6 +183,19 @@ function actionDescription(entry: GameHistoryEntry): string {
     return actionDescriptions[entry.type];
 }
 
+function checkpointDescription(entry: GameHistoryEntry): string {
+    const phase = payloadString(entry, 'phase');
+    const phaseNames: Record<string, string> = {
+        setup: 'подготовка',
+        income: 'доход',
+        actions: 'действия',
+        science_bonus: 'научный бонус',
+        finished: 'завершение игры',
+    };
+
+    return `Начало фазы: ${phaseNames[phase ?? ''] ?? phase ?? 'неизвестно'}`;
+}
+
 function actionDetails(entry: GameHistoryEntry): string | null {
     const details: string[] = [];
     const hexId = payloadString(entry, 'hex_id');
@@ -205,18 +219,7 @@ function actionDetails(entry: GameHistoryEntry): string | null {
         details.push(terrainNames[homeland].toLocaleLowerCase('ru-RU'));
     }
 
-    if (entry.payload.income_started === true) {
-        const round = entry.payload.round;
-        details.push(
-            round === 1 ? 'началась фаза дохода первого раунда' : `началась фаза дохода раунда ${String(round)}`,
-        );
-    }
-
     details.push(...incomeDetails(entry));
-
-    if (entry.payload.science_bonus_started === true) {
-        details.push('началась фаза научного бонуса');
-    }
 
     if (entry.type === 'sacrifice_power' && typeof entry.payload.amount === 'number') {
         details.push(`сброшено ${entry.payload.amount} · переведено в чашу III ${entry.payload.amount}`);
@@ -297,7 +300,10 @@ function actionTime(createdAt: string | null): string {
                         aria-hidden="true"
                     />
                     <p class="min-w-0 leading-snug">
-                        <template v-if="isSharedIncomeEntry(entry)">
+                        <template v-if="entry.type === 'phase_checkpoint'">
+                            <span class="font-bold">{{ checkpointDescription(entry) }}</span>
+                        </template>
+                        <template v-else-if="isSharedIncomeEntry(entry)">
                             <span class="font-bold">Фаза дохода завершена</span>
                         </template>
                         <template v-else>
