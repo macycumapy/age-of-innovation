@@ -6,6 +6,7 @@ import type {
     Faction,
     GamePlayerBoardState,
     GamePlayerSummary,
+    Innovation,
     PalaceAbility,
     PlayerColor,
     RoundBonus,
@@ -24,8 +25,7 @@ import lawBookUrl from '../../../images/token_parts/law_book.png';
 import manaUrl from '../../../images/token_parts/mana.png';
 import medicineBookUrl from '../../../images/token_parts/medicine_book.png';
 
-type PlayerBuildingType =
-    'workshop' | 'guild' | 'school' | 'university' | 'palace';
+type PlayerBuildingType = 'workshop' | 'guild' | 'school' | 'university' | 'palace';
 
 type BuildingSlot = {
     type: PlayerBuildingType;
@@ -48,6 +48,7 @@ const props = defineProps<{
     currentUserId: number;
     roundBonusDescriptions: Record<RoundBonus, string>;
     competencyDescriptions: Record<Competency, string>;
+    innovationDescriptions: Record<Innovation, string>;
     palaceDescriptions: Record<PalaceAbility, string>;
     canSacrificePower: boolean;
     canExchangeResources: boolean;
@@ -85,23 +86,23 @@ const factionImages = import.meta.glob('../../../images/factions/*.jpg', {
     query: '?url',
 }) as Record<string, string>;
 
-const roundBonusImages = import.meta.glob(
-    '../../../images/round_bonus_cards/*_top.png',
-    {
-        eager: true,
-        import: 'default',
-        query: '?url',
-    },
-) as Record<string, string>;
+const roundBonusImages = import.meta.glob('../../../images/round_bonus_cards/*_top.png', {
+    eager: true,
+    import: 'default',
+    query: '?url',
+}) as Record<string, string>;
 
-const competencyImages = import.meta.glob(
-    '../../../images/competencies/*.png',
-    {
-        eager: true,
-        import: 'default',
-        query: '?url',
-    },
-) as Record<string, string>;
+const competencyImages = import.meta.glob('../../../images/competencies/*.png', {
+    eager: true,
+    import: 'default',
+    query: '?url',
+}) as Record<string, string>;
+
+const innovationImages = import.meta.glob('../../../images/innovations/*.jpg', {
+    eager: true,
+    import: 'default',
+    query: '?url',
+}) as Record<string, string>;
 
 const palaceImages = import.meta.glob('../../../images/palaces/*.jpg', {
     eager: true,
@@ -119,6 +120,9 @@ const factionCardWidth = 380;
 const palaceTileX = 95;
 const palaceTileY = 320;
 const palaceTileWidth = 215;
+const innovationTileX = 995;
+const innovationTileWidth = 200;
+const innovationTileYFromBottom = [455, 255, 54];
 const shippingLevelY = [160, 110, 60, 10];
 const terraformingLevelY = [150, 100, 50];
 
@@ -174,12 +178,9 @@ const buildingSlots: BuildingSlot[] = [
 
 const playersWithBoards = computed(() => {
     const players = props.players.filter(
-        (player): player is GamePlayerSummary & { color: PlayerColor } =>
-            player.color !== null,
+        (player): player is GamePlayerSummary & { color: PlayerColor } => player.color !== null,
     );
-    const currentPlayerIndex = players.findIndex(
-        (player) => player.user.id === props.currentUserId,
-    );
+    const currentPlayerIndex = players.findIndex((player) => player.user.id === props.currentUserId);
 
     if (currentPlayerIndex <= 0) {
         return players;
@@ -222,10 +223,8 @@ function buildingStyle(slot: BuildingSlot): CSSProperties {
 }
 
 function isBuildingInSupply(playerId: number, slot: BuildingSlot, slotIndex: number): boolean {
-    const typeSlotIndex = buildingSlots
-        .slice(0, slotIndex + 1)
-        .filter((candidate) => candidate.type === slot.type)
-        .length - 1;
+    const typeSlotIndex =
+        buildingSlots.slice(0, slotIndex + 1).filter((candidate) => candidate.type === slot.type).length - 1;
     const buildingsOnMap = playerState(playerId)?.buildingsOnMap[slot.type] ?? 0;
 
     return typeSlotIndex >= buildingsOnMap;
@@ -240,9 +239,7 @@ function roundBonusImage(roundBonus: RoundBonus | undefined): string {
         return '';
     }
 
-    return roundBonusImages[
-        `../../../images/round_bonus_cards/${roundBonus}_top.png`
-    ];
+    return roundBonusImages[`../../../images/round_bonus_cards/${roundBonus}_top.png`];
 }
 
 function factionCardStyle(): CSSProperties {
@@ -254,29 +251,31 @@ function factionCardStyle(): CSSProperties {
 }
 
 function isFactionActionAvailable(player: GamePlayerSummary): boolean {
-    return props.canUseFactionAction
-        && player.user.id === props.currentUserId
-        && (playerState(player.id)?.canUseFactionAction ?? false);
+    return (
+        props.canUseFactionAction &&
+        player.user.id === props.currentUserId &&
+        (playerState(player.id)?.canUseFactionAction ?? false)
+    );
 }
 
 function isFactionActionUsed(player: GamePlayerSummary): boolean {
-    return player.faction !== null
-        && ['philosophers', 'psychics'].includes(player.faction)
-        && !(playerState(player.id)?.canUseFactionAction ?? false);
+    return (
+        player.faction !== null &&
+        ['philosophers', 'psychics'].includes(player.faction) &&
+        !(playerState(player.id)?.canUseFactionAction ?? false)
+    );
 }
 
 function factionActionTokenStyle(faction: Faction): CSSProperties {
     const sourceWidth = 592;
     const sourceHeight = 438;
-    const actionCenter = faction === 'philosophers'
-        ? { x: 76, y: 249 }
-        : { x: 76, y: 154 };
-    const renderedHeight = factionCardWidth * sourceHeight / sourceWidth;
+    const actionCenter = faction === 'philosophers' ? { x: 76, y: 249 } : { x: 76, y: 154 };
+    const renderedHeight = (factionCardWidth * sourceHeight) / sourceWidth;
     const tokenSize = 82;
 
     return {
-        left: `${((factionCardX + actionCenter.x / sourceWidth * factionCardWidth - tokenSize / 2) / boardWidth) * 100}%`,
-        top: `${((factionCardY + actionCenter.y / sourceHeight * renderedHeight - tokenSize / 2) / boardHeight) * 100}%`,
+        left: `${((factionCardX + (actionCenter.x / sourceWidth) * factionCardWidth - tokenSize / 2) / boardWidth) * 100}%`,
+        top: `${((factionCardY + (actionCenter.y / sourceHeight) * renderedHeight - tokenSize / 2) / boardHeight) * 100}%`,
         width: `${(tokenSize / boardWidth) * 100}%`,
     };
 }
@@ -294,9 +293,19 @@ function bridgeImage(color: PlayerColor): string {
 }
 
 function competencyImage(competency: Competency): string {
-    return competencyImages[
-        `../../../images/competencies/${competency}.png`
-    ];
+    return competencyImages[`../../../images/competencies/${competency}.png`];
+}
+
+function innovationImage(innovation: Innovation): string {
+    return innovationImages[`../../../images/innovations/${innovation}.jpg`];
+}
+
+function innovationTileStyle(index: number): CSSProperties {
+    return {
+        left: `${(innovationTileX / boardWidth) * 100}%`,
+        top: `${(innovationTileYFromBottom[index] / boardHeight) * 100}%`,
+        width: `${(innovationTileWidth / boardWidth) * 100}%`,
+    };
 }
 
 function palaceImage(palace: PalaceAbility | null | undefined): string {
@@ -320,16 +329,22 @@ function palaceTileStyle(): CSSProperties {
 }
 
 function isPalaceActionAvailable(player: GamePlayerSummary): boolean {
-    return props.canUsePalaceAction && player.user.id === props.currentUserId
-        && (playerState(player.id)?.canUsePalaceAction ?? false);
+    return (
+        props.canUsePalaceAction &&
+        player.user.id === props.currentUserId &&
+        (playerState(player.id)?.canUsePalaceAction ?? false)
+    );
 }
 
 function isPalaceActionUsed(playerId: number): boolean {
     const state = playerState(playerId);
 
-    return state?.palaceId !== null && state?.palaceId !== undefined
-        && ['palace_01', 'palace_02', 'palace_03', 'palace_04', 'palace_06', 'palace_13'].includes(state.palaceId)
-        && !state.canUsePalaceAction;
+    return (
+        state?.palaceId !== null &&
+        state?.palaceId !== undefined &&
+        ['palace_01', 'palace_02', 'palace_03', 'palace_04', 'palace_06', 'palace_13'].includes(state.palaceId) &&
+        !state.canUsePalaceAction
+    );
 }
 
 function palaceActionCrossStyle(palace: PalaceAbility | null | undefined): CSSProperties {
@@ -343,13 +358,7 @@ function playerState(playerId: number): GamePlayerBoardState | undefined {
 }
 
 function scholarsForPlayer(playerId: number): number {
-    return Math.max(
-        0,
-        Math.min(
-            playerState(playerId)?.scholars ?? 0,
-            playerState(playerId)?.scholarPoolSize ?? 7,
-        ),
-    );
+    return Math.max(0, Math.min(playerState(playerId)?.scholars ?? 0, playerState(playerId)?.scholarPoolSize ?? 7));
 }
 
 function scholarPoolSizeForPlayer(playerId: number): number {
@@ -376,22 +385,30 @@ function competenciesForPlayer(playerId: number): Competency[] {
     return playerState(playerId)?.competencyIds ?? [];
 }
 
+function innovationsForPlayer(playerId: number): Innovation[] {
+    return playerState(playerId)?.inventionIds ?? [];
+}
+
 function roundBonusForPlayer(playerId: number): RoundBonus | undefined {
     return playerState(playerId)?.roundBonus;
 }
 
 function isRoundBonusActionAvailable(player: GamePlayerSummary): boolean {
-    return props.canUseRoundBonusAction
-        && player.user.id === props.currentUserId
-        && (playerState(player.id)?.canUseRoundBonusAction ?? false);
+    return (
+        props.canUseRoundBonusAction &&
+        player.user.id === props.currentUserId &&
+        (playerState(player.id)?.canUseRoundBonusAction ?? false)
+    );
 }
 
 function isRoundBonusActionUsed(playerId: number): boolean {
     const state = playerState(playerId);
 
-    return state !== undefined
-        && ['spade', 'bridge', 'knowledge'].includes(state.roundBonus)
-        && !state.canUseRoundBonusAction;
+    return (
+        state !== undefined &&
+        ['spade', 'bridge', 'knowledge'].includes(state.roundBonus) &&
+        !state.canUseRoundBonusAction
+    );
 }
 
 function booksForPlayer(playerId: number): string[] {
@@ -415,22 +432,13 @@ function tokenStyle(x: number, y: number): CSSProperties {
 }
 
 function levelPosition(positions: number[], level: number | undefined): number {
-    const normalizedLevel = Math.max(
-        0,
-        Math.min(level ?? 0, positions.length - 1),
-    );
+    const normalizedLevel = Math.max(0, Math.min(level ?? 0, positions.length - 1));
 
     return positions[normalizedLevel];
 }
 
-function shippingPosition(
-    color: PlayerColor,
-    level: number | undefined,
-): number {
-    return levelPosition(
-        shippingLevelY,
-        color === 'blue' ? (level ?? 0) - 1 : level,
-    );
+function shippingPosition(color: PlayerColor, level: number | undefined): number {
+    return levelPosition(shippingLevelY, color === 'blue' ? (level ?? 0) - 1 : level);
 }
 
 function powerBowlStyle(bowl: PowerBowl): CSSProperties {
@@ -451,18 +459,17 @@ function manaStyle(index: number): CSSProperties {
     };
 }
 
-function powerInBowl(
-    state: GamePlayerBoardState | undefined,
-    bowl: PowerBowl,
-): number {
+function powerInBowl(state: GamePlayerBoardState | undefined, bowl: PowerBowl): number {
     return state?.power[bowl.key] ?? 0;
 }
 
 function canSacrificeFromBowl(player: GamePlayerSummary, bowl: PowerBowl): boolean {
-    return props.canSacrificePower
-        && player.user.id === props.currentUserId
-        && bowl.key === 'bowlTwo'
-        && powerInBowl(playerState(player.id), bowl) > 1;
+    return (
+        props.canSacrificePower &&
+        player.user.id === props.currentUserId &&
+        bowl.key === 'bowlTwo' &&
+        powerInBowl(playerState(player.id), bowl) > 1
+    );
 }
 </script>
 
@@ -517,10 +524,7 @@ function canSacrificeFromBowl(player: GamePlayerSummary, bowl: PowerBowl): boole
                         @keydown.space.prevent="canSacrificeFromBowl(player, bowl) && emit('sacrificePower')"
                     >
                         <img
-                            v-for="manaIndex in powerInBowl(
-                                playerState(player.id),
-                                bowl,
-                            )"
+                            v-for="manaIndex in powerInBowl(playerState(player.id), bowl)"
                             :key="manaIndex"
                             :src="manaUrl"
                             alt=""
@@ -532,7 +536,7 @@ function canSacrificeFromBowl(player: GamePlayerSummary, bowl: PowerBowl): boole
                     <button
                         v-if="canExchangeResources && player.user.id === currentUserId"
                         type="button"
-                        class="absolute z-20 rounded-md border border-amber-400/70 px-3 py-1.5 shadow-md w-4 cursor-pointer"
+                        class="absolute z-20 w-4 cursor-pointer rounded-md border border-amber-400/70 px-3 py-1.5 shadow-md"
                         :style="{ left: '72.5%', top: '44.5%', width: '7%', height: '15%' }"
                         @click="emit('exchangeResources')"
                         title="Обмен ресурсов"
@@ -565,8 +569,18 @@ function canSacrificeFromBowl(player: GamePlayerSummary, bowl: PowerBowl): boole
                                     @keydown.enter="isPalaceActionAvailable(player) && emit('usePalaceAction')"
                                     @keydown.space.prevent="isPalaceActionAvailable(player) && emit('usePalaceAction')"
                                 >
-                                    <img :src="palaceImage(playerState(player.id)?.palaceId)" :alt="`Жетон Дворца игрока ${player.user.name}`" class="block h-auto w-full rounded-sm" />
-                                    <img v-if="isPalaceActionUsed(player.id)" :src="goldCrossUrl" alt="Действие Дворца использовано" :style="palaceActionCrossStyle(playerState(player.id)?.palaceId)" class="pointer-events-none absolute -translate-x-1/2 -translate-y-1/2 drop-shadow-md" />
+                                    <img
+                                        :src="palaceImage(playerState(player.id)?.palaceId)"
+                                        :alt="`Жетон Дворца игрока ${player.user.name}`"
+                                        class="block h-auto w-full rounded-sm"
+                                    />
+                                    <img
+                                        v-if="isPalaceActionUsed(player.id)"
+                                        :src="goldCrossUrl"
+                                        alt="Действие Дворца использовано"
+                                        :style="palaceActionCrossStyle(playerState(player.id)?.palaceId)"
+                                        class="pointer-events-none absolute -translate-x-1/2 -translate-y-1/2 drop-shadow-md"
+                                    />
                                 </span>
                             </TooltipTrigger>
                             <TooltipContent class="max-w-xs">
@@ -579,15 +593,7 @@ function canSacrificeFromBowl(player: GamePlayerSummary, bowl: PowerBowl): boole
                     </TooltipProvider>
 
                     <span
-                        :style="
-                            tokenStyle(
-                                15,
-                                shippingPosition(
-                                    player.color,
-                                    playerState(player.id)?.shippingLevel,
-                                ),
-                            )
-                        "
+                        :style="tokenStyle(15, shippingPosition(player.color, playerState(player.id)?.shippingLevel))"
                         class="group absolute z-20 aspect-[141/158] cursor-pointer hover:z-30"
                     >
                         <img
@@ -601,10 +607,7 @@ function canSacrificeFromBowl(player: GamePlayerSummary, bowl: PowerBowl): boole
                         :style="
                             tokenStyle(
                                 420,
-                                levelPosition(
-                                    terraformingLevelY,
-                                    playerState(player.id)?.terraformingLevel,
-                                ),
+                                levelPosition(terraformingLevelY, playerState(player.id)?.terraformingLevel),
                             )
                         "
                         class="group absolute z-20 aspect-[141/158] cursor-pointer hover:z-30"
@@ -615,12 +618,30 @@ function canSacrificeFromBowl(player: GamePlayerSummary, bowl: PowerBowl): boole
                             class="h-full w-full object-contain transition-transform duration-500 ease-in-out group-hover:translate-x-[25px] group-hover:-translate-y-[25px]"
                         />
                     </span>
+
+                    <TooltipProvider v-if="innovationsForPlayer(player.id).length" :delay-duration="150">
+                        <Tooltip
+                            v-for="(innovation, innovationIndex) in innovationsForPlayer(player.id)"
+                            :key="innovation"
+                        >
+                            <TooltipTrigger as-child>
+                                <img
+                                    :src="innovationImage(innovation)"
+                                    :alt="`Инновация ${innovation}`"
+                                    :style="innovationTileStyle(innovationIndex)"
+                                    tabindex="0"
+                                    class="absolute z-20 h-auto cursor-help rounded-sm object-contain drop-shadow-md"
+                                />
+                            </TooltipTrigger>
+                            <TooltipContent class="max-w-xs">
+                                <p class="font-semibold">Инновация</p>
+                                <p>{{ innovationDescriptions[innovation] }}</p>
+                            </TooltipContent>
+                        </Tooltip>
+                    </TooltipProvider>
                 </div>
 
-                <figcaption
-                    v-if="playerState(player.id)?.roundBonus"
-                    class="flex items-start gap-3 p-3"
-                >
+                <figcaption v-if="playerState(player.id)?.roundBonus" class="flex items-start gap-3 p-3">
                     <TooltipProvider :delay-duration="150">
                         <Tooltip>
                             <TooltipTrigger as-child>
@@ -631,7 +652,9 @@ function canSacrificeFromBowl(player: GamePlayerSummary, bowl: PowerBowl): boole
                                     :role="isRoundBonusActionAvailable(player) ? 'button' : undefined"
                                     @click="isRoundBonusActionAvailable(player) && emit('useRoundBonusAction')"
                                     @keydown.enter="isRoundBonusActionAvailable(player) && emit('useRoundBonusAction')"
-                                    @keydown.space.prevent="isRoundBonusActionAvailable(player) && emit('useRoundBonusAction')"
+                                    @keydown.space.prevent="
+                                        isRoundBonusActionAvailable(player) && emit('useRoundBonusAction')
+                                    "
                                 >
                                     <img
                                         :src="roundBonusImage(roundBonusForPlayer(player.id))"
@@ -642,7 +665,7 @@ function canSacrificeFromBowl(player: GamePlayerSummary, bowl: PowerBowl): boole
                                         v-if="isRoundBonusActionUsed(player.id)"
                                         :src="goldCrossUrl"
                                         alt="Действие использовано"
-                                        class="pointer-events-none absolute left-1/2 top-[26%] w-16 -translate-x-1/2 -translate-y-1/2 object-contain drop-shadow-md"
+                                        class="pointer-events-none absolute top-[26%] left-1/2 w-16 -translate-x-1/2 -translate-y-1/2 object-contain drop-shadow-md"
                                     />
                                 </span>
                             </TooltipTrigger>
@@ -665,9 +688,7 @@ function canSacrificeFromBowl(player: GamePlayerSummary, bowl: PowerBowl): boole
                                 alt=""
                                 class="h-auto w-16 object-contain drop-shadow-md transition-opacity"
                                 :class="{
-                                    'opacity-35':
-                                        scholarIndex >
-                                        scholarsForPlayer(player.id),
+                                    'opacity-35': scholarIndex > scholarsForPlayer(player.id),
                                 }"
                             />
                         </span>
@@ -677,14 +698,8 @@ function canSacrificeFromBowl(player: GamePlayerSummary, bowl: PowerBowl): boole
                                 class="relative grid size-10 place-items-center"
                                 :aria-label="`Монеты: ${coinsForPlayer(player.id)}`"
                             >
-                                <img
-                                    :src="coinUrl"
-                                    alt=""
-                                    class="absolute inset-0 size-full drop-shadow-md"
-                                />
-                                <span
-                                    class="relative z-10 font-bold text-amber-950"
-                                >
+                                <img :src="coinUrl" alt="" class="absolute inset-0 size-full drop-shadow-md" />
+                                <span class="relative z-10 font-bold text-amber-950">
                                     {{ coinsForPlayer(player.id) }}
                                 </span>
                             </span>
@@ -698,9 +713,7 @@ function canSacrificeFromBowl(player: GamePlayerSummary, bowl: PowerBowl): boole
                                     alt=""
                                     class="absolute inset-0 size-full object-contain drop-shadow-md"
                                 />
-                                <span
-                                    class="relative z-10 font-bold text-amber-950 drop-shadow-md"
-                                >
+                                <span class="relative z-10 font-bold text-amber-950 drop-shadow-md">
                                     {{ toolsForPlayer(player.id) }}
                                 </span>
                             </span>
@@ -740,10 +753,7 @@ function canSacrificeFromBowl(player: GamePlayerSummary, bowl: PowerBowl): boole
                             :aria-label="`Компетенции: ${competenciesForPlayer(player.id).length}`"
                         >
                             <TooltipProvider :delay-duration="150">
-                                <Tooltip
-                                    v-for="competency in competenciesForPlayer(player.id)"
-                                    :key="competency"
-                                >
+                                <Tooltip v-for="competency in competenciesForPlayer(player.id)" :key="competency">
                                     <TooltipTrigger as-child>
                                         <img
                                             :src="competencyImage(competency)"
@@ -778,10 +788,9 @@ function canSacrificeFromBowl(player: GamePlayerSummary, bowl: PowerBowl): boole
                             <img
                                 v-for="(townTile, townTileIndex) in playerState(player.id)?.townTileIds"
                                 :key="`${townTile}-${townTileIndex}`"
-                                :src="townTileImage(
-                                    townTile,
-                                    townTileIndex < (playerState(player.id)?.usedTownKeys ?? 0),
-                                )"
+                                :src="
+                                    townTileImage(townTile, townTileIndex < (playerState(player.id)?.usedTownKeys ?? 0))
+                                "
                                 alt="Жетон города"
                                 class="h-auto w-14 object-contain drop-shadow-md"
                             />

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import type { CSSProperties } from 'vue';
-import type { Competency, Innovation } from '@/types';
+import type { Competency, Innovation, InnovationPurchaseState } from '@/types';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import competencyBoardUrl from '../../../images/competency_board.png';
 import twoPlayerInventionBoardUrl from '../../../images/invention_board_2.jpg';
@@ -20,6 +20,12 @@ const props = defineProps<{
     competencies: Competency[];
     innovationDescriptions: Record<Innovation, string>;
     competencyDescriptions: Record<Competency, string>;
+    innovationStates: InnovationPurchaseState[];
+    canMakeInnovation: boolean;
+}>();
+
+const emit = defineEmits<{
+    innovationClick: [innovation: Innovation];
 }>();
 
 const boardWidth = 850;
@@ -30,24 +36,22 @@ const competencyStackSize = 4;
 const competencyLayerOffset = 2;
 
 const inventionBoardUrl = computed(() =>
-    props.playerCount >= 4
-        ? fourPlayerInventionBoardUrl
-        : twoPlayerInventionBoardUrl,
+    props.playerCount >= 4 ? fourPlayerInventionBoardUrl : twoPlayerInventionBoardUrl,
 );
 
-const inventionBoardHeight = computed(() =>
-    props.playerCount >= 4 ? 564 : 423,
-);
+const inventionBoardHeight = computed(() => (props.playerCount >= 4 ? 564 : 423));
 
-const innovationImages = import.meta.glob<string>(
-    '../../../images/innovations/*.jpg',
-    { eager: true, import: 'default', query: '?url' },
-);
+const innovationImages = import.meta.glob<string>('../../../images/innovations/*.jpg', {
+    eager: true,
+    import: 'default',
+    query: '?url',
+});
 
-const competencyImages = import.meta.glob<string>(
-    '../../../images/competencies/*.png',
-    { eager: true, import: 'default', query: '?url' },
-);
+const competencyImages = import.meta.glob<string>('../../../images/competencies/*.png', {
+    eager: true,
+    import: 'default',
+    query: '?url',
+});
 
 const upperEvenSlots: InnovationSlot[] = [
     { x: 129, y: 55 },
@@ -97,9 +101,7 @@ const innovationSlots = computed(() => [
 ]);
 
 function innovationImage(innovation: Innovation): string {
-    return (
-        innovationImages[`../../../images/innovations/${innovation}.jpg`] ?? ''
-    );
+    return innovationImages[`../../../images/innovations/${innovation}.jpg`] ?? '';
 }
 
 function innovationStyle(slot: InnovationSlot | undefined): CSSProperties {
@@ -115,9 +117,7 @@ function innovationStyle(slot: InnovationSlot | undefined): CSSProperties {
 }
 
 function competencyImage(competency: Competency): string {
-    return (
-        competencyImages[`../../../images/competencies/${competency}.png`] ?? ''
-    );
+    return competencyImages[`../../../images/competencies/${competency}.png`] ?? '';
 }
 
 function competencyStyle(slot: CompetencySlot | undefined): CSSProperties {
@@ -144,37 +144,43 @@ function competencyLayerStyle(layer: number): CSSProperties {
 <template>
     <div class="overflow-hidden rounded-xl border border-border shadow-inner">
         <div class="relative overflow-hidden">
-            <img
-                :src="inventionBoardUrl"
-                alt="Планшет инноваций"
-                class="block h-auto w-full"
-            />
+            <img :src="inventionBoardUrl" alt="Планшет инноваций" class="block h-auto w-full" />
 
             <TooltipProvider :delay-duration="150">
                 <Tooltip v-for="(innovation, index) in innovations" :key="innovation">
                     <TooltipTrigger as-child>
-                        <img
-                            :src="innovationImage(innovation)"
-                            :alt="`Плашка инновации ${innovation}`"
+                        <button
+                            type="button"
                             :style="innovationStyle(innovationSlots[index])"
-                            tabindex="0"
-                            class="absolute cursor-help rounded-xs drop-shadow-[-2px_2px_2px_rgba(0,0,0,0.45)]"
-                        />
+                            class="absolute rounded-xs text-left drop-shadow-[-2px_2px_2px_rgba(0,0,0,0.45)] transition enabled:cursor-pointer enabled:hover:ring-4 enabled:hover:ring-primary/70 disabled:cursor-help"
+                            :class="innovationStates[index]?.isAvailable ? '' : 'opacity-40 grayscale'"
+                            :disabled="!canMakeInnovation || !innovationStates[index]?.isAvailable"
+                            @click="emit('innovationClick', innovation)"
+                        >
+                            <img
+                                :src="innovationImage(innovation)"
+                                :alt="`Плашка инновации ${innovation}`"
+                                class="block h-auto w-full rounded-xs"
+                            />
+                        </button>
                     </TooltipTrigger>
                     <TooltipContent class="max-w-xs">
                         <p class="font-semibold">Инновация</p>
                         <p>{{ innovationDescriptions[innovation] }}</p>
+                        <p v-if="innovationStates[index]" class="mt-1 font-medium">
+                            Цена: {{ innovationStates[index].totalBooks }} книг<span
+                                v-if="innovationStates[index].coins > 0"
+                            >
+                                и {{ innovationStates[index].coins }} монет</span
+                            >.
+                        </p>
                     </TooltipContent>
                 </Tooltip>
             </TooltipProvider>
         </div>
 
         <div class="relative overflow-hidden">
-            <img
-                :src="competencyBoardUrl"
-                alt="Планшет компетенций"
-                class="block h-auto w-full"
-            />
+            <img :src="competencyBoardUrl" alt="Планшет компетенций" class="block h-auto w-full" />
 
             <TooltipProvider :delay-duration="150">
                 <Tooltip v-for="(competency, index) in competencies" :key="competency">

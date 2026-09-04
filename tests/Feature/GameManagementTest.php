@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use App\Domain\Game\Actions\AdvanceDevelopmentTrackAction;
 use App\Domain\Game\Actions\AdvanceKnowledgeAction;
 use App\Domain\Game\Actions\ApplyIncomeAction;
+use App\Domain\Game\Actions\ApplyInnovationRewardAction;
 use App\Domain\Game\Actions\ApplyResourceExchangeAction;
 use App\Domain\Game\Actions\CreateBuildingFollowUpInteractionAction;
 use App\Domain\Game\Actions\DetermineStartingBuildingOrderAction;
@@ -436,6 +438,23 @@ class GameManagementTest extends TestCase
         $this->assertSame(0, $playerState->resources->power->bowlOne);
         $this->assertSame(2, $playerState->resources->power->bowlTwo);
         $this->assertSame(1, $playerState->resources->power->bowlThree);
+    }
+
+    public function test_university_innovation_grants_two_victory_points_during_income(): void
+    {
+        $playerState = new GamePlayerStateData(
+            playerId: 15,
+            userId: 25,
+            color: PlayerColor::Green,
+            faction: Faction::Blessed,
+            homeland: TerrainType::Forest,
+            roundBonus: RoundBonus::Coins,
+            inventionIds: [Innovation::University->value],
+        );
+
+        app(ApplyIncomeAction::class)->execute(new GameStateData(players: [$playerState]), $playerState);
+
+        $this->assertSame(22, $playerState->victoryPoints);
     }
 
     public function test_university_grants_a_scholar_during_income_except_when_it_is_neutral(): void
@@ -1255,11 +1274,11 @@ class GameManagementTest extends TestCase
         $this->assertSame(PendingInteractionType::ChooseScienceBonusBooks, $game->state->pendingInteraction?->type);
         $this->assertSame(2, $game->state->pendingInteraction?->context['bookCount']);
 
-        $this->actingAs($firstUser)->post(route('games.science-bonus.books', $game), [
+        $this->actingAs($firstUser)->post(route('games.books', $game), [
             'book_counts' => ['banking' => 3, 'law' => 0, 'engineering' => 0, 'medicine' => 0],
         ])->assertSessionHasErrors('book_counts.banking');
 
-        $this->actingAs($firstUser)->post(route('games.science-bonus.books', $game), [
+        $this->actingAs($firstUser)->post(route('games.books', $game), [
             'book_counts' => ['banking' => 1, 'law' => 0, 'engineering' => 0, 'medicine' => 1],
         ])->assertRedirect(route('games.show', $game))->assertSessionHasNoErrors();
 
@@ -2000,11 +2019,11 @@ class GameManagementTest extends TestCase
             ),
         )]);
 
-        $this->actingAs($user)->post(route('games.town.books', $game), [
+        $this->actingAs($user)->post(route('games.books', $game), [
             'book_counts' => ['banking' => 1, 'law' => 0, 'engineering' => 0, 'medicine' => 0],
         ])->assertSessionHasErrors('book_counts');
 
-        $this->post(route('games.town.books', $game), [
+        $this->post(route('games.books', $game), [
             'book_counts' => ['banking' => 1, 'law' => 0, 'engineering' => 0, 'medicine' => 1],
         ])->assertRedirect(route('games.show', $game));
         $game->refresh();
@@ -3027,6 +3046,336 @@ class GameManagementTest extends TestCase
             GameActionType::SendScholar,
             GameActionType::SendScholar,
         ], $game->actions()->orderBy('sequence')->pluck('type')->all());
+    }
+
+    public function test_player_can_confirm_an_innovation_purchase_with_books_and_palace_surcharge(): void
+    {
+        $user = User::factory()->create();
+        $game = Game::factory()->create([
+            'status' => GameStatus::Active,
+            'phase' => GamePhase::Actions,
+            'active_player_id' => $user->id,
+        ]);
+        $player = GamePlayer::factory()->create([
+            'game_id' => $game->id,
+            'user_id' => $user->id,
+            'seat' => 1,
+        ]);
+        $setupPool = app(GameSetupPoolFactory::class)->createFromSeed(2, 'innovation-purchase');
+        $setupPool->innovations[0] = Innovation::LeagueOfCities;
+        $playerState = new GamePlayerStateData(
+            playerId: $player->id,
+            userId: $user->id,
+            color: PlayerColor::Green,
+            faction: Faction::Blessed,
+            homeland: TerrainType::Forest,
+            roundBonus: RoundBonus::Coins,
+            townTileIds: [TownTile::Tools->value, TownTile::Coins->value],
+            resources: new PlayerResourcesData(
+                coins: 10,
+                books: new BookSupplyData(banking: 2, law: 2, medicine: 1),
+            ),
+        );
+        $game->update(['state' => new GameStateData(
+            turnOrder: [$player->id],
+            players: [$playerState],
+            round: new RoundStateData(phase: GamePhase::Actions),
+            availableInventionIds: [Innovation::LeagueOfCities->value],
+            setupPool: $setupPool,
+        )]);
+
+        $this->actingAs($user)->post(route('games.innovation', $game), [
+            'innovation' => Innovation::LeagueOfCities->value,
+            'book_counts' => ['banking' => 2, 'law' => 2, 'engineering' => 0, 'medicine' => 1],
+        ])->assertRedirect(route('games.show', $game));
+
+        $game->refresh();
+        $updatedPlayerState = $game->state->players[0];
+        $this->assertSame(5, $updatedPlayerState->resources->coins);
+        $this->assertSame(0, $updatedPlayerState->resources->books->banking);
+        $this->assertSame(0, $updatedPlayerState->resources->books->law);
+        $this->assertSame(0, $updatedPlayerState->resources->books->medicine);
+        $this->assertSame([Innovation::LeagueOfCities->value], $updatedPlayerState->inventionIds);
+        $this->assertSame(30, $updatedPlayerState->victoryPoints);
+        $this->assertSame([], $game->state->availableInventionIds);
+        $this->assertTrue($game->state->round->hasTakenMainAction);
+        $this->assertSame(GameActionType::MakeInnovation, $game->actions()->sole()->type);
+        $this->assertSame(10, $game->actions()->sole()->payload['reward']['victoryPoints']);
+    }
+
+    public function test_invalid_innovation_book_selection_does_not_change_game_state_or_history(): void
+    {
+        $user = User::factory()->create();
+        $game = Game::factory()->create([
+            'status' => GameStatus::Active,
+            'phase' => GamePhase::Actions,
+            'active_player_id' => $user->id,
+        ]);
+        $player = GamePlayer::factory()->create([
+            'game_id' => $game->id,
+            'user_id' => $user->id,
+            'seat' => 1,
+        ]);
+        $setupPool = app(GameSetupPoolFactory::class)->createFromSeed(2, 'innovation-rollback');
+        $setupPool->innovations[0] = Innovation::Professor;
+        $playerState = new GamePlayerStateData(
+            playerId: $player->id,
+            userId: $user->id,
+            color: PlayerColor::Green,
+            faction: Faction::Blessed,
+            homeland: TerrainType::Forest,
+            roundBonus: RoundBonus::Coins,
+            resources: new PlayerResourcesData(
+                coins: 10,
+                books: new BookSupplyData(engineering: 3, medicine: 2),
+            ),
+        );
+        $game->update(['state' => new GameStateData(
+            turnOrder: [$player->id],
+            players: [$playerState],
+            round: new RoundStateData(phase: GamePhase::Actions),
+            availableInventionIds: [Innovation::Professor->value],
+            setupPool: $setupPool,
+        )]);
+        $this->actingAs($user)->post(route('games.innovation', $game), [
+            'innovation' => Innovation::Professor->value,
+            'book_counts' => ['banking' => 0, 'law' => 0, 'engineering' => 3, 'medicine' => 2],
+        ])->assertSessionHasErrors('book_counts');
+
+        $game->refresh();
+        $this->assertSame(10, $game->state->players[0]->resources->coins);
+        $this->assertSame(3, $game->state->players[0]->resources->books->engineering);
+        $this->assertSame(2, $game->state->players[0]->resources->books->medicine);
+        $this->assertSame([], $game->state->players[0]->inventionIds);
+        $this->assertSame([Innovation::Professor->value], $game->state->availableInventionIds);
+        $this->assertFalse($game->state->round->hasTakenMainAction);
+        $this->assertSame(0, $game->actions()->count());
+    }
+
+    public function test_player_distributes_books_received_from_an_innovation_in_the_same_history_action(): void
+    {
+        $user = User::factory()->create();
+        $game = Game::factory()->create([
+            'status' => GameStatus::Active,
+            'phase' => GamePhase::Actions,
+            'active_player_id' => $user->id,
+        ]);
+        $player = GamePlayer::factory()->create([
+            'game_id' => $game->id,
+            'user_id' => $user->id,
+            'seat' => 1,
+        ]);
+        $setupPool = app(GameSetupPoolFactory::class)->createFromSeed(2, 'innovation-reward-books');
+        $setupPool->innovations[0] = Innovation::SteamEngine;
+        $playerState = new GamePlayerStateData(
+            playerId: $player->id,
+            userId: $user->id,
+            color: PlayerColor::Green,
+            faction: Faction::Blessed,
+            homeland: TerrainType::Forest,
+            roundBonus: RoundBonus::Coins,
+            resources: new PlayerResourcesData(
+                coins: 10,
+                books: new BookSupplyData(banking: 2, law: 2, medicine: 1),
+            ),
+        );
+        $game->update(['state' => new GameStateData(
+            turnOrder: [$player->id],
+            players: [$playerState],
+            round: new RoundStateData(phase: GamePhase::Actions),
+            availableInventionIds: [Innovation::SteamEngine->value],
+            setupPool: $setupPool,
+        )]);
+
+        $this->actingAs($user)->post(route('games.innovation', $game), [
+            'innovation' => Innovation::SteamEngine->value,
+            'book_counts' => ['banking' => 2, 'law' => 2, 'engineering' => 0, 'medicine' => 1],
+        ])->assertRedirect(route('games.show', $game));
+
+        $game->refresh();
+        $this->assertSame(PendingInteractionType::ChooseInnovationBooks, $game->state->pendingInteraction?->type);
+        $this->assertSame(2, $game->state->pendingInteraction?->context['bookCount']);
+        $this->assertSame('development_tracks', $game->state->pendingInteraction?->context['source']);
+        $this->assertSame(2, $game->state->players[0]->resources->books->unassigned);
+        $this->assertSame(1, $game->actions()->count());
+
+        $this->actingAs($user)->post(route('games.books', $game), [
+            'book_counts' => ['banking' => 1, 'law' => 0, 'engineering' => 0, 'medicine' => 0],
+        ])->assertSessionHasErrors('book_counts');
+
+        $game->refresh();
+        $this->assertSame(PendingInteractionType::ChooseInnovationBooks, $game->state->pendingInteraction?->type);
+        $this->assertSame(2, $game->state->players[0]->resources->books->unassigned);
+        $this->assertSame(1, $game->actions()->count());
+
+        $this->actingAs($user)->post(route('games.books', $game), [
+            'book_counts' => ['banking' => 1, 'law' => 0, 'engineering' => 1, 'medicine' => 0],
+        ])->assertRedirect(route('games.show', $game));
+
+        $game->refresh();
+        $this->assertNull($game->state->pendingInteraction);
+        $this->assertSame(1, $game->state->players[0]->resources->books->banking);
+        $this->assertSame(1, $game->state->players[0]->resources->books->engineering);
+        $this->assertSame(0, $game->state->players[0]->resources->books->unassigned);
+        $this->assertSame(1, $game->actions()->count());
+        $this->assertEquals(
+            ['banking' => 1, 'law' => 0, 'engineering' => 1, 'medicine' => 0],
+            $game->actions()->sole()->payload['reward_book_counts'],
+        );
+    }
+
+    #[DataProvider('immediateInnovationVictoryPointProvider')]
+    public function test_immediate_innovations_grant_their_victory_points(
+        Innovation $innovation,
+        int $expectedVictoryPoints,
+    ): void {
+        $playerState = new GamePlayerStateData(
+            playerId: 15,
+            userId: 25,
+            color: PlayerColor::Green,
+            faction: Faction::Blessed,
+            homeland: TerrainType::Forest,
+            roundBonus: RoundBonus::Coins,
+            knowledge: new KnowledgeStateData(banking: 4, law: 3, engineering: 2, medicine: 1),
+            townTileIds: [TownTile::Tools->value, TownTile::Coins->value],
+        );
+        $buildingTypes = [
+            BuildingType::Workshop,
+            BuildingType::Workshop,
+            BuildingType::Workshop,
+            BuildingType::Workshop,
+            BuildingType::Workshop,
+            BuildingType::School,
+            BuildingType::School,
+            BuildingType::School,
+            BuildingType::Guild,
+            BuildingType::Guild,
+            BuildingType::Guild,
+        ];
+        $hexes = array_map(
+            static fn (BuildingType $type, int $index): BoardHexStateData => new BoardHexStateData(
+                id: $index.':0',
+                q: $index,
+                r: 0,
+                initialTerrain: TerrainType::Forest,
+                terrain: TerrainType::Forest,
+                building: new BuildingStateData($type, 15),
+            ),
+            $buildingTypes,
+            array_keys($buildingTypes),
+        );
+        $state = new GameStateData(
+            board: new BoardStateData(
+                hexes: $hexes,
+                bridges: [
+                    new BridgeStateData('0:0', '1:0', 15),
+                    new BridgeStateData('2:0', '3:0', 15),
+                    new BridgeStateData('4:0', '5:0', 15),
+                ],
+            ),
+            players: [$playerState],
+        );
+
+        $reward = app(ApplyInnovationRewardAction::class)->execute($state, $playerState, $innovation);
+
+        $this->assertSame($expectedVictoryPoints, $reward['victoryPoints']);
+        $this->assertSame(20 + $expectedVictoryPoints, $playerState->victoryPoints);
+    }
+
+    /** @return array<string, array{Innovation, int}> */
+    public static function immediateInnovationVictoryPointProvider(): array
+    {
+        return [
+            'sewage system' => [Innovation::SewageSystem, 10],
+            'architecture' => [Innovation::Architecture, 10],
+            'library' => [Innovation::Library, 7],
+            'league of cities' => [Innovation::LeagueOfCities, 10],
+            'telecommunication' => [Innovation::Telecommunication, 18],
+            'steel' => [Innovation::Steel, 18],
+            'census' => [Innovation::Census, 18],
+            'science' => [Innovation::Science, 15],
+        ];
+    }
+
+    public function test_immediate_innovations_grant_books_knowledge_scholar_and_advancement(): void
+    {
+        $playerState = new GamePlayerStateData(
+            playerId: 15,
+            userId: 25,
+            color: PlayerColor::Green,
+            faction: Faction::Blessed,
+            homeland: TerrainType::Forest,
+            roundBonus: RoundBonus::Coins,
+        );
+        $state = new GameStateData(players: [$playerState]);
+
+        $deusExMachinaReward = app(ApplyInnovationRewardAction::class)
+            ->execute($state, $playerState, Innovation::DeusExMachina);
+        $steamEngineReward = app(ApplyInnovationRewardAction::class)
+            ->execute($state, $playerState, Innovation::SteamEngine);
+
+        $this->assertSame(3, $playerState->resources->books->unassigned);
+        $this->assertSame(0, $deusExMachinaReward['developmentTrackBooks']);
+        $this->assertSame(2, $steamEngineReward['developmentTrackBooks']);
+        $this->assertSame(1, $playerState->knowledge->banking);
+        $this->assertSame(1, $playerState->knowledge->law);
+        $this->assertSame(1, $playerState->knowledge->engineering);
+        $this->assertSame(1, $playerState->knowledge->medicine);
+        $this->assertSame(1, $playerState->resources->scholars);
+        $this->assertSame(1, $playerState->shippingLevel);
+        $this->assertSame(1, $playerState->terraformingLevel);
+        $this->assertSame(22, $playerState->victoryPoints);
+    }
+
+    public function test_shipping_advancement_grants_rewards_for_each_reached_level(): void
+    {
+        $playerState = new GamePlayerStateData(
+            playerId: 15,
+            userId: 25,
+            color: PlayerColor::Green,
+            faction: Faction::Blessed,
+            homeland: TerrainType::Forest,
+            roundBonus: RoundBonus::Coins,
+        );
+        $advanceDevelopmentTrack = app(AdvanceDevelopmentTrackAction::class);
+
+        $advanceDevelopmentTrack->advanceShipping($playerState);
+        $this->assertSame(1, $playerState->shippingLevel);
+        $this->assertSame(22, $playerState->victoryPoints);
+        $this->assertSame(0, $playerState->resources->books->unassigned);
+
+        $advanceDevelopmentTrack->advanceShipping($playerState);
+        $this->assertSame(2, $playerState->shippingLevel);
+        $this->assertSame(22, $playerState->victoryPoints);
+        $this->assertSame(2, $playerState->resources->books->unassigned);
+
+        $advanceDevelopmentTrack->advanceShipping($playerState);
+        $this->assertSame(3, $playerState->shippingLevel);
+        $this->assertSame(26, $playerState->victoryPoints);
+        $this->assertSame(2, $playerState->resources->books->unassigned);
+    }
+
+    public function test_terraforming_advancement_grants_rewards_for_each_reached_level(): void
+    {
+        $playerState = new GamePlayerStateData(
+            playerId: 15,
+            userId: 25,
+            color: PlayerColor::Green,
+            faction: Faction::Blessed,
+            homeland: TerrainType::Forest,
+            roundBonus: RoundBonus::Coins,
+        );
+        $advanceDevelopmentTrack = app(AdvanceDevelopmentTrackAction::class);
+
+        $advanceDevelopmentTrack->advanceTerraforming($playerState);
+        $this->assertSame(1, $playerState->terraformingLevel);
+        $this->assertSame(2, $playerState->resources->books->unassigned);
+        $this->assertSame(20, $playerState->victoryPoints);
+
+        $advanceDevelopmentTrack->advanceTerraforming($playerState);
+        $this->assertSame(2, $playerState->terraformingLevel);
+        $this->assertSame(2, $playerState->resources->books->unassigned);
+        $this->assertSame(26, $playerState->victoryPoints);
     }
 
     public function test_all_resource_exchange_rates_are_applied(): void

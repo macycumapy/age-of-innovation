@@ -1,17 +1,10 @@
 <script setup lang="ts">
 import { Form } from '@inertiajs/vue3';
 import { computed, reactive } from 'vue';
-import ScienceBonusBooksController from '@/actions/App/Http/Controllers/ScienceBonusBooksController';
+import BookDistributionController from '@/actions/App/Http/Controllers/BookDistributionController';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-} from '@/components/ui/dialog';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { NumberStepper } from '@/components/ui/number-stepper';
 import type { KnowledgeDiscipline } from '@/types';
 import bankingBookUrl from '../../../images/token_parts/coin_book.png';
@@ -19,9 +12,12 @@ import engineeringBookUrl from '../../../images/token_parts/engineering_book.png
 import lawBookUrl from '../../../images/token_parts/law_book.png';
 import medicineBookUrl from '../../../images/token_parts/medicine_book.png';
 
+type BookDistributionType = 'choose_science_bonus_books' | 'choose_innovation_books' | 'choose_town_books';
+
 const props = defineProps<{
     gameId: number;
     bookCount: number;
+    type: BookDistributionType;
     disciplineNames: Record<KnowledgeDiscipline, string>;
 }>();
 const disciplines: KnowledgeDiscipline[] = ['banking', 'law', 'engineering', 'medicine'];
@@ -34,6 +30,7 @@ const images: Record<KnowledgeDiscipline, string> = {
 };
 const assignedCount = computed(() => Object.values(counts).reduce((sum, count) => sum + count, 0));
 const remainingCount = computed(() => props.bookCount - assignedCount.value);
+const title = computed(() => 'Выберите получаемые книги');
 
 function maximumFor(discipline: KnowledgeDiscipline): number {
     return counts[discipline] + remainingCount.value;
@@ -41,36 +38,38 @@ function maximumFor(discipline: KnowledgeDiscipline): number {
 </script>
 
 <template>
-    <Dialog :open="true">
-        <DialogContent class="sm:max-w-lg" :show-close-button="false">
-            <Form v-bind="ScienceBonusBooksController.form(gameId)" class="contents" #default="{ errors, processing }">
-                <DialogHeader>
-                    <DialogTitle>Научный бонус: выберите книги</DialogTitle>
-                    <DialogDescription>
-                        Распределите все полученные книги по дисциплинам. Осталось: {{ remainingCount }}
-                    </DialogDescription>
-                </DialogHeader>
-                <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+    <Card class="mx-auto w-full max-w-3xl border-primary/40">
+        <CardHeader class="gap-0.5 px-4 py-3">
+            <CardTitle class="text-base">{{ title }}</CardTitle>
+            <CardDescription class="text-xs">
+                Распределите все полученные книги по дисциплинам. Осталось: {{ remainingCount }}
+            </CardDescription>
+        </CardHeader>
+        <CardContent class="px-4 pb-3">
+            <Form v-bind="BookDistributionController.form(gameId)" class="grid gap-3" #default="{ errors, processing }">
+                <div class="grid grid-cols-2 gap-2 sm:grid-cols-4">
                     <label
                         v-for="discipline in disciplines"
                         :key="discipline"
-                        class="grid gap-2 rounded-lg border p-2 text-center text-xs font-medium"
+                        class="grid justify-items-center gap-1 rounded-md border px-2 py-1.5 text-xs font-medium"
+                        :title="disciplineNames[discipline]"
                     >
                         <img
                             :src="images[discipline]"
                             :alt="disciplineNames[discipline]"
-                            class="mx-auto size-12 object-contain"
+                            class="size-8 shrink-0 object-contain"
                         />
-                        <span>{{ disciplineNames[discipline] }}</span>
                         <NumberStepper v-model="counts[discipline]" :min="0" :max="maximumFor(discipline)" />
                         <input type="hidden" :name="`book_counts[${discipline}]`" :value="counts[discipline]" />
                     </label>
                 </div>
-                <InputError :message="errors.book_counts ?? errors.game" />
-                <DialogFooter>
-                    <Button type="submit" :disabled="processing || remainingCount !== 0">Подтвердить выбор</Button>
-                </DialogFooter>
+                <div class="grid justify-items-center gap-1.5">
+                    <InputError :message="errors.book_counts ?? errors.game" />
+                    <Button type="submit" size="sm" :disabled="processing || remainingCount !== 0">
+                        {{ processing ? 'Подтверждение…' : 'Подтвердить выбор' }}
+                    </Button>
+                </div>
             </Form>
-        </DialogContent>
-    </Dialog>
+        </CardContent>
+    </Card>
 </template>

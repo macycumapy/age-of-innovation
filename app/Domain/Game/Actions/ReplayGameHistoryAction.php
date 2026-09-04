@@ -21,6 +21,7 @@ use App\Domain\Game\Enums\Faction;
 use App\Domain\Game\Enums\GameActionType;
 use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\GameStatus;
+use App\Domain\Game\Enums\Innovation;
 use App\Domain\Game\Enums\KnowledgeDiscipline;
 use App\Domain\Game\Enums\PalaceAbility;
 use App\Domain\Game\Enums\PendingInteractionType;
@@ -66,6 +67,7 @@ final class ReplayGameHistoryAction
         GameActionType::PlacePalaceGuild,
         GameActionType::PlaceAnnex,
         GameActionType::SendScholar,
+        GameActionType::MakeInnovation,
         GameActionType::SpecialAction,
         GameActionType::Pass,
         GameActionType::ChooseScienceBonusBooks,
@@ -83,6 +85,7 @@ final class ReplayGameHistoryAction
         private ApplyResourceExchangeAction $applyResourceExchange,
         private ApplyPowerActionAction $applyPowerAction,
         private ApplyBookActionAction $applyBookAction,
+        private ApplyMakeInnovationAction $applyMakeInnovation,
         private FindEligibleTerraformHexesAction $findEligibleTerraformHexes,
         private CreateTownChoiceAfterBuildingAction $createTownChoiceAfterBuilding,
         private CreateBuildingFollowUpInteractionAction $createBuildingFollowUpInteraction,
@@ -169,6 +172,7 @@ final class ReplayGameHistoryAction
                 GameActionType::PlacePalaceGuild => $this->replayPlacePalaceGuild($game, $players, $action),
                 GameActionType::PlaceAnnex => $this->replayPlaceAnnex($game, $players, $action),
                 GameActionType::SendScholar => $this->replaySendScholar($game, $players, $action),
+                GameActionType::MakeInnovation => $this->replayMakeInnovation($game, $players, $action),
                 GameActionType::SpecialAction => $this->replayRoundBonusAction($game, $players, $action),
                 GameActionType::Pass => $this->replayPass($game, $players, $action),
                 GameActionType::ChooseScienceBonusBooks => $this->replayScienceBonusBooks($game, $players, $action),
@@ -952,6 +956,45 @@ final class ReplayGameHistoryAction
     }
 
     /** @param Collection<int, GamePlayer> $players */
+    private function replayMakeInnovation(Game $game, Collection $players, GameAction $action): void
+    {
+        $player = $players->firstWhere('user_id', $action->player_id);
+        $innovation = Innovation::tryFrom((string) ($action->payload['innovation'] ?? ''));
+
+        if (! $player instanceof GamePlayer || $innovation === null) {
+            $this->invalidHistory();
+        }
+
+        $state = $game->state;
+
+        if ($state->turnStartSnapshot === null) {
+            $state->turnStartSnapshot = $state->toArray();
+            $state->round->turnStartVersion = $game->version;
+        }
+
+        $playerState = $this->playerState($state, $player->id);
+        $this->applyMakeInnovation->execute(
+            $state,
+            $playerState,
+            $innovation,
+            (array) ($action->payload['book_counts'] ?? []),
+        );
+
+        if ($state->pendingInteraction?->type === PendingInteractionType::ChooseInnovationBooks) {
+            $rewardBookCounts = (array) ($action->payload['reward_book_counts'] ?? []);
+
+            foreach (KnowledgeDiscipline::cases() as $discipline) {
+                $count = (int) ($rewardBookCounts[$discipline->value] ?? 0);
+                $playerState->resources->books->{$discipline->value} += $count;
+                $playerState->resources->books->unassigned -= $count;
+            }
+
+            $state->pendingInteraction = null;
+        }
+
+        $game->state = $state;
+    }
+
     private function replaySendScholar(Game $game, Collection $players, GameAction $action): void
     {
         $player = $players->firstWhere('user_id', $action->player_id);

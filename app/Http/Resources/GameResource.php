@@ -25,6 +25,7 @@ use App\Domain\Game\Enums\PowerAction;
 use App\Domain\Game\Enums\RoundBonus;
 use App\Domain\Game\Enums\TerrainType;
 use App\Domain\Game\Enums\TownTile;
+use App\Domain\Game\Services\InnovationPurchaseCostCalculator;
 use App\Domain\Game\Services\PlayerIncomeCalculator;
 use App\Models\Game;
 use App\Models\GameAction;
@@ -91,6 +92,12 @@ class GameResource extends JsonResource
                 && ! $this->state->round->hasTakenMainAction
                 && $currentPlayerState instanceof GamePlayerStateData
                 && $currentPlayerState->resources->scholars > 0,
+            'canMakeInnovation' => $this->phase === GamePhase::Actions
+                && $this->active_player_id === $request->user()?->id
+                && $this->state->pendingInteraction === null
+                && ! $this->state->round->hasTakenMainAction
+                && $currentPlayerState instanceof GamePlayerStateData
+                && count($currentPlayerState->inventionIds) < InnovationPurchaseCostCalculator::MAX_INVENTIONS,
             'canPlaceAnnex' => $this->phase === GamePhase::Actions
                 && $this->active_player_id === $request->user()?->id
                 && $this->state->pendingInteraction === null
@@ -175,6 +182,7 @@ class GameResource extends JsonResource
                         )),
                     ),
                     'competencyIds' => $player->competencyIds,
+                    'inventionIds' => $player->inventionIds,
                     'palaceId' => $player->palaceId,
                     'canUsePalaceAction' => $this->canUsePalaceAction($player),
                     'activeTownKeys' => max(
@@ -316,6 +324,8 @@ class GameResource extends JsonResource
             'innovations' => $this->enumValues(
                 $this->state->setupPool?->innovations ?? [],
             ),
+            'availableInventionIds' => $this->enumValues($this->state->availableInventionIds),
+            'innovationStates' => $this->innovationStates($currentPlayerState),
             'competencies' => $this->enumValues(
                 $this->state->setupPool?->competencies ?? [],
             ),
@@ -367,6 +377,55 @@ class GameResource extends JsonResource
     private function enumValue(BackedEnum|string|null $value): ?string
     {
         return $value instanceof BackedEnum ? (string) $value->value : $value;
+    }
+
+    /**
+     * @return list<array{
+     *     id: string,
+     *     isAvailable: bool,
+     *     requiredBooks: array{banking: int, law: int, engineering: int, medicine: int},
+     *     extraAnyBooks: int,
+     *     totalBooks: int,
+     *     coins: int
+     * }>
+     */
+    private function innovationStates(?GamePlayerStateData $player): array
+    {
+        $innovations = $this->state->setupPool?->innovations ?? [];
+        $playerCount = $this->state->setupPool?->playerCount ?? count($this->state->players);
+        $calculator = new InnovationPurchaseCostCalculator();
+        $ownedCount = $player instanceof GamePlayerStateData ? count($player->inventionIds) : 0;
+        $skipsSecondInventionSurcharge = $player instanceof GamePlayerStateData
+            && $player->homeland === TerrainType::Wasteland;
+        $hasPalace = $player instanceof GamePlayerStateData
+            && $this->buildingCount($player->playerId, BuildingType::Palace) > 0;
+
+        return array_map(
+            function (int $index, Innovation|string $innovation) use (
+                $calculator,
+                $playerCount,
+                $ownedCount,
+                $skipsSecondInventionSurcharge,
+                $hasPalace,
+            ): array {
+                $innovationId = $innovation instanceof Innovation ? $innovation->value : $innovation;
+                $cost = $calculator->cost(
+                    $playerCount,
+                    $index,
+                    min($ownedCount, InnovationPurchaseCostCalculator::MAX_INVENTIONS - 1),
+                    $skipsSecondInventionSurcharge,
+                    $hasPalace,
+                );
+
+                return [
+                    'id' => $innovationId,
+                    'isAvailable' => in_array($innovationId, $this->state->availableInventionIds, true),
+                    ...$cost,
+                ];
+            },
+            array_keys($innovations),
+            $innovations,
+        );
     }
 
     private function buildingCount(int $playerId, BuildingType $type): int

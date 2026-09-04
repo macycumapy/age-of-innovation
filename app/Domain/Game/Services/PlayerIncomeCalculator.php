@@ -16,7 +16,7 @@ use App\Domain\Game\Enums\TerrainType;
 
 final class PlayerIncomeCalculator
 {
-    /** @return array{tools: int, coins: int, scholars: int, power: int, books: int, knowledgeSteps: int} */
+    /** @return array{tools: int, coins: int, scholars: int, power: int, books: int, knowledgeSteps: int, victoryPoints: int} */
     public static function calculate(GamePlayerStateData $player, BoardStateData $board): array
     {
         $income = [
@@ -129,6 +129,7 @@ final class PlayerIncomeCalculator
             Innovation::Workshop => $income['tools'] += 3,
             Innovation::Guild => $income['coins'] += 5,
             Innovation::Palace => $income['power'] += 4,
+            Innovation::University => $income['victoryPoints'] += 2,
             default => null,
         };
     }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Http\Controllers\AnnexPlacementController;
 use App\Http\Controllers\BookActionController;
+use App\Http\Controllers\BookDistributionController;
 use App\Http\Controllers\BridgeConfirmationController;
 use App\Http\Controllers\BridgeController;
 use App\Http\Controllers\BuildingUpgradeController;
@@ -16,6 +17,7 @@ use App\Http\Controllers\GameHistoryUndoController;
 use App\Http\Controllers\GamePlayerController;
 use App\Http\Controllers\GamePlayerReadinessController;
 use App\Http\Controllers\GameStartController;
+use App\Http\Controllers\InnovationController;
 use App\Http\Controllers\PaidTerraformingController;
 use App\Http\Controllers\PalaceActionController;
 use App\Http\Controllers\PalaceChoiceController;
@@ -30,7 +32,6 @@ use App\Http\Controllers\PowerSacrificeController;
 use App\Http\Controllers\ResourceExchangeController;
 use App\Http\Controllers\RoundBonusActionController;
 use App\Http\Controllers\ScholarController;
-use App\Http\Controllers\ScienceBonusBooksController;
 use App\Http\Controllers\StartingBuildingController;
 use App\Http\Controllers\StartingBuildingTurnController;
 use App\Http\Controllers\StartingCompetencyController;
@@ -38,7 +39,6 @@ use App\Http\Controllers\StartingResourcesController;
 use App\Http\Controllers\StartingSpadeController;
 use App\Http\Controllers\StartingSpadeTurnController;
 use App\Http\Controllers\TerraformWorkshopController;
-use App\Http\Controllers\TownBooksController;
 use App\Http\Controllers\TownChoiceUndoController;
 use App\Http\Controllers\TownController;
 use App\Http\Controllers\WorkshopController;
@@ -81,8 +81,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('games.town');
     Route::delete('games/{game}/town-choice', TownChoiceUndoController::class)
         ->name('games.town-choice.destroy');
-    Route::post('games/{game}/town/books', TownBooksController::class)
-        ->name('games.town.books');
+    Route::post('games/{game}/books', BookDistributionController::class)
+        ->name('games.books');
     Route::post('games/{game}/town/palace-water', PalaceWaterTownController::class)
         ->name('games.town.palace-water');
     Route::post('games/{game}/paid-terraforming', PaidTerraformingController::class)
@@ -101,8 +101,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('games.palace-action');
     Route::post('games/{game}/pass', PassController::class)
         ->name('games.pass');
-    Route::post('games/{game}/science-bonus/books', ScienceBonusBooksController::class)
-        ->name('games.science-bonus.books');
     Route::post('games/{game}/bridge', [BridgeController::class, 'store'])
         ->name('games.bridge.store');
     Route::delete('games/{game}/bridge', [BridgeController::class, 'destroy'])
@@ -131,6 +129,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('games.resource-exchange');
     Route::post('games/{game}/scholar', ScholarController::class)
         ->name('games.scholar');
+    Route::post('games/{game}/innovation', InnovationController::class)
+        ->name('games.innovation');
 });
 
 require __DIR__.'/settings.php';

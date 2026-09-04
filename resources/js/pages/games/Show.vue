@@ -22,11 +22,12 @@ import CurrentTurnPanel from '@/components/game/CurrentTurnPanel.vue';
 import FactionActionDialog from '@/components/game/FactionActionDialog.vue';
 import CultBoard from '@/components/game/CultBoard.vue';
 import InnovationBoard from '@/components/game/InnovationBoard.vue';
+import InnovationPurchaseDialog from '@/components/game/InnovationPurchaseDialog.vue';
 import PalaceBoard from '@/components/game/PalaceBoard.vue';
 import PalaceActionDialog from '@/components/game/PalaceActionDialog.vue';
 import PaidTerraformingDialog from '@/components/game/PaidTerraformingDialog.vue';
 import PassDialog from '@/components/game/PassDialog.vue';
-import BookDistributionDialog from '@/components/game/BookDistributionDialog.vue';
+import BookDistributionPanel from '@/components/game/BookDistributionPanel.vue';
 import PalaceSelector from '@/components/game/PalaceSelector.vue';
 import PlayerBoards from '@/components/game/PlayerBoards.vue';
 import PlayerStatsPanel from '@/components/game/PlayerStatsPanel.vue';
@@ -72,6 +73,8 @@ import type {
     GamePlayerSummary,
     GameResource,
     KnowledgeDiscipline,
+    Innovation,
+    InnovationPurchaseState,
     MapVariant,
     PalaceAbility,
     PowerActionState,
@@ -435,16 +438,34 @@ const isPalaceActionDialogOpen = ref(false);
 const isPassDialogOpen = ref(false);
 const isPaidTerraformingDialogOpen = ref(false);
 const isBuildWorkshopDialogOpen = ref(false);
+const isInnovationPurchaseDialogOpen = ref(false);
 const selectedPaidTerraformHexId = ref<string | null>(null);
 const selectedBuildWorkshopHexId = ref<string | null>(null);
 const selectedBuildingUpgradeHexId = ref<string | null>(null);
 const selectedPowerAction = ref<PowerActionState | null>(null);
 const selectedBookAction = ref<BookActionState | null>(null);
+const selectedInnovation = ref<Innovation | null>(null);
 const selectedScholarDiscipline = ref<KnowledgeDiscipline | null>(null);
 
 const currentPlayerState = computed(() =>
     props.game.data.playerBoardStates.find((state) => state.playerId === currentPlayer.value?.id),
 );
+const pendingBookDistribution = computed(() => {
+    const interaction = props.game.data.pendingInteraction;
+
+    if (
+        interaction?.type !== 'choose_science_bonus_books' &&
+        interaction?.type !== 'choose_innovation_books' &&
+        interaction?.type !== 'choose_town_books'
+    ) {
+        return null;
+    }
+
+    return {
+        type: interaction.type,
+        bookCount: interaction.context.bookCount,
+    };
+});
 const currentRoundBonusDescription = computed(() =>
     currentPlayerState.value ? props.game.data.roundBonusDescriptions[currentPlayerState.value.roundBonus] : '',
 );
@@ -600,6 +621,10 @@ const availableActionsBeforePass = computed(() => {
         actions.push('отправка учёного');
     }
 
+    if (props.game.data.canMakeInnovation) {
+        actions.push('покупка инновации');
+    }
+
     if (state.canUseFactionAction) {
         actions.push('действие расы');
     }
@@ -624,6 +649,19 @@ function selectBookAction(action: BookActionState): void {
     selectedBookAction.value = action;
     isBookActionDialogOpen.value = true;
 }
+
+function selectInnovation(innovation: Innovation): void {
+    if (!props.game.data.canMakeInnovation) {
+        return;
+    }
+
+    selectedInnovation.value = innovation;
+    isInnovationPurchaseDialogOpen.value = true;
+}
+
+const selectedInnovationPurchaseState = computed<InnovationPurchaseState | null>(
+    () => props.game.data.innovationStates.find((state) => state.id === selectedInnovation.value) ?? null,
+);
 
 const selectedBuildingUpgradeOptions = computed(() =>
     props.game.data.buildingUpgrades.filter((option) => option.hexId === selectedBuildingUpgradeHexId.value),
@@ -911,6 +949,14 @@ function selectedCompetencyForHomeland(homeland: TerrainType): Competency | unde
                 @reset-bridge-selection="selectedBridgeFromHexId = null"
                 @finish-turn="isCurrentTurnFinishDialogOpen = true"
                 @pass="isPassDialogOpen = true"
+            />
+
+            <BookDistributionPanel
+                v-if="pendingBookDistribution !== null && game.data.pendingInteraction?.playerId === currentPlayer?.id"
+                :game-id="game.data.id"
+                :book-count="pendingBookDistribution.bookCount"
+                :type="pendingBookDistribution.type"
+                :discipline-names="game.data.knowledgeDisciplineNames"
             />
 
             <Collapsible v-if="shouldShowPlanningBundleGroup" v-model:open="isPlanningBundleGroupOpen">
@@ -1442,6 +1488,7 @@ function selectedCompetencyForHomeland(homeland: TerrainType): Competency | unde
                             :current-user-id="page.props.auth.user.id"
                             :round-bonus-descriptions="game.data.roundBonusDescriptions"
                             :competency-descriptions="game.data.competencyDescriptions"
+                            :innovation-descriptions="game.data.innovationDescriptions"
                             :palace-descriptions="game.data.palaceDescriptions"
                             :can-sacrifice-power="canSacrificePower"
                             :can-exchange-resources="canExchangeResources"
@@ -1473,6 +1520,9 @@ function selectedCompetencyForHomeland(homeland: TerrainType): Competency | unde
                             :competencies="game.data.competencies"
                             :innovation-descriptions="game.data.innovationDescriptions"
                             :competency-descriptions="game.data.competencyDescriptions"
+                            :innovation-states="game.data.innovationStates"
+                            :can-make-innovation="game.data.canMakeInnovation"
+                            @innovation-click="selectInnovation"
                         />
                         <PalaceBoard :palaces="game.data.availablePalaceIds" />
                         <TownTileBoard :town-tiles="game.data.availableTownTileIds" />
@@ -1499,6 +1549,16 @@ function selectedCompetencyForHomeland(homeland: TerrainType): Competency | unde
                 :action="selectedBookAction"
                 :player-state="currentPlayerState"
                 :board="game.data.board"
+                :discipline-names="game.data.knowledgeDisciplineNames"
+            />
+
+            <InnovationPurchaseDialog
+                v-model:open="isInnovationPurchaseDialogOpen"
+                :game-id="game.data.id"
+                :innovation="selectedInnovation"
+                :purchase-state="selectedInnovationPurchaseState"
+                :player-state="currentPlayerState"
+                :description="selectedInnovation ? game.data.innovationDescriptions[selectedInnovation] : ''"
                 :discipline-names="game.data.knowledgeDisciplineNames"
             />
 
@@ -1563,16 +1623,6 @@ function selectedCompetencyForHomeland(homeland: TerrainType): Competency | unde
                 :game-id="game.data.id"
                 :hex-id="selectedBuildWorkshopHexId"
                 :player-color="currentPlayer?.color ?? null"
-            />
-
-            <BookDistributionDialog
-                v-if="
-                    game.data.pendingInteraction?.type === 'choose_science_bonus_books' &&
-                    game.data.pendingInteraction.playerId === currentPlayer?.id
-                "
-                :game-id="game.data.id"
-                :book-count="game.data.pendingInteraction.context.bookCount"
-                :discipline-names="game.data.knowledgeDisciplineNames"
             />
 
             <ResourceExchangeDialog

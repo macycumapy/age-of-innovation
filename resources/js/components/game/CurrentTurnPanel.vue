@@ -52,7 +52,7 @@ const powerOfferAmount = computed(() =>
 const powerOfferVictoryPointCost = computed(() => Math.max(0, powerOfferAmount.value - 1));
 const canResolveTownInteraction = computed(
     () =>
-        ['choose_town', 'choose_town_books'].includes(props.game.data.pendingInteraction?.type ?? '') &&
+        props.game.data.pendingInteraction?.type === 'choose_town' &&
         props.game.data.pendingInteraction?.playerId === props.currentPlayer?.id &&
         isCurrentUsersTurn.value,
 );
@@ -111,7 +111,8 @@ function confirmRestartCurrentTurn(event: SubmitEvent): void {
                     canResolvePowerOffer ||
                     game.data.pendingInteraction?.type === 'place_palace_guild' ||
                     game.data.pendingInteraction?.type === 'place_bridge' ||
-                    game.data.pendingInteraction?.type === 'choose_science_bonus_books')
+                    game.data.pendingInteraction?.type === 'choose_science_bonus_books' ||
+                    game.data.pendingInteraction?.type === 'choose_innovation_books')
             "
             class="truncate text-sm font-medium"
             role="status"
@@ -122,6 +123,9 @@ function confirmRestartCurrentTurn(event: SubmitEvent): void {
             </template>
             <template v-else-if="game.data.pendingInteraction?.type === 'choose_science_bonus_books'">
                 Выберите книги, полученные за научную цель раунда.
+            </template>
+            <template v-else-if="game.data.pendingInteraction?.type === 'choose_innovation_books'">
+                Выберите книги, полученные за продвижение по навигации или лопате.
             </template>
             <template v-else-if="game.data.pendingInteraction?.type === 'choose_competency'">
                 Выберите стартовую компетенцию.

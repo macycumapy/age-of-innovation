@@ -32,6 +32,7 @@ export type GameResource = {
         board: BoardState;
         canStart: boolean;
         canSendScholar: boolean;
+        canMakeInnovation: boolean;
         canPlaceAnnex: boolean;
         planningBundles: PlanningBundle[];
         planningSelections: PlanningSelection[];
@@ -49,6 +50,8 @@ export type GameResource = {
         powerActions: PowerActionState[];
         buildingUpgrades: BuildingUpgradeOption[];
         innovations: Innovation[];
+        availableInventionIds: Innovation[];
+        innovationStates: InnovationPurchaseState[];
         competencies: Competency[];
         availablePalaceIds: PalaceAbility[];
         availableTownTileIds: TownTile[];
@@ -138,6 +141,7 @@ export type GamePlayerBoardState = {
     };
     availableBridges: number;
     competencyIds: Competency[];
+    inventionIds: Innovation[];
     palaceId: PalaceAbility | null;
     canUsePalaceAction: boolean;
     activeTownKeys: number;
@@ -273,6 +277,15 @@ export type Innovation =
     | 'palace'
     | 'monument';
 
+export type InnovationPurchaseState = {
+    id: Innovation;
+    isAvailable: boolean;
+    requiredBooks: Record<KnowledgeDiscipline, number>;
+    extraAnyBooks: number;
+    totalBooks: number;
+    coins: number;
+};
+
 export type Competency =
     | 'competency_01'
     | 'competency_02'
@@ -344,6 +357,16 @@ export type PendingInteraction =
           optionIds: never[];
           context: {
               bookCount: number;
+          };
+      }
+    | {
+          type: 'choose_innovation_books';
+          playerId: number;
+          optionIds: never[];
+          context: {
+              bookCount: number;
+              innovation: Innovation;
+              source: 'development_tracks';
           };
       }
     | {

@@ -4,22 +4,22 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
-use App\Domain\Game\Actions\ChooseScienceBonusBooksAction;
-use App\Http\Requests\ChooseScienceBonusBooksRequest;
+use App\Domain\Game\Actions\MakeInnovationAction;
+use App\Http\Requests\MakeInnovationRequest;
 use App\Models\Game;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 
-final class ScienceBonusBooksController extends Controller
+final class InnovationController extends Controller
 {
     public function __invoke(
-        ChooseScienceBonusBooksRequest $request,
+        MakeInnovationRequest $request,
         Game $game,
-        ChooseScienceBonusBooksAction $action,
+        MakeInnovationAction $makeInnovation,
     ): RedirectResponse {
         /** @var User $user */
         $user = $request->user();
-        $action->execute($game, $user, $request->disciplines());
+        $makeInnovation->execute($game, $user, $request->innovation(), $request->bookCounts());
 
         return to_route('games.show', $game);
     }
