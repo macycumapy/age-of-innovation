@@ -17,6 +17,7 @@ import gameBoardUrl from '../../../images/game_board.webp';
 import gameBoardTwoPlayerUrl from '../../../images/game_board_2p.webp';
 import finishedRoundScoringTileUrl from '../../../images/round_scoring_tiles/finished.png';
 import goldCrossUrl from '../../../images/token_parts/gold_cross.png';
+import annexUrl from '../../../images/buildings/white/annex.png';
 
 type Props = {
     board: BoardState;
@@ -483,6 +484,16 @@ function closedActionTokenX(actionX: number, actionWidth: number): number {
                 >
                     {{ hex.q }}:{{ hex.r }}
                 </text>
+                <image
+                    v-if="hex.building?.hasAnnex"
+                    :href="annexUrl"
+                    x="8"
+                    y="-41"
+                    width="72"
+                    height="81"
+                    class="pointer-events-none drop-shadow-md"
+                    preserveAspectRatio="xMidYMid meet"
+                />
                 <image
                     v-if="hex.building"
                     :href="buildingImage(hex.building.ownerPlayerId, hex.building.type, hex.building.isNeutral)"

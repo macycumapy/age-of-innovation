@@ -629,6 +629,25 @@ const selectedBuildingUpgradeOptions = computed(() =>
     props.game.data.buildingUpgrades.filter((option) => option.hexId === selectedBuildingUpgradeHexId.value),
 );
 
+const annexableBuildingHexIds = computed(() => {
+    if (!props.game.data.canPlaceAnnex || currentPlayer.value === undefined) {
+        return [];
+    }
+
+    return props.game.data.board.hexes
+        .filter(
+            (hex) =>
+                hex.building !== null &&
+                hex.building.ownerPlayerId === currentPlayer.value?.id &&
+                !hex.building.hasAnnex,
+        )
+        .map((hex) => hex.id);
+});
+
+const interactiveBuildingHexIds = computed(() => [
+    ...new Set([...props.game.data.buildingUpgrades.map((option) => option.hexId), ...annexableBuildingHexIds.value]),
+]);
+
 function selectBuildingUpgrade(hexId: string): void {
     selectedBuildingUpgradeHexId.value = hexId;
     isBuildingUpgradeDialogOpen.value = true;
@@ -1409,7 +1428,7 @@ function selectedCompetencyForHomeland(homeland: TerrainType): Competency | unde
                             :power-actions="game.data.powerActions"
                             :can-use-power-actions="canExchangeResources"
                             :can-use-book-actions="canExchangeResources"
-                            :upgradeable-building-hex-ids="game.data.buildingUpgrades.map((option) => option.hexId)"
+                            :upgradeable-building-hex-ids="interactiveBuildingHexIds"
                             @hex-click="placeStartingBuilding"
                             @power-action-click="selectPowerAction"
                             @book-action-click="selectBookAction"
@@ -1592,6 +1611,10 @@ function selectedCompetencyForHomeland(homeland: TerrainType): Competency | unde
                 :hex-id="selectedBuildingUpgradeHexId"
                 :options="selectedBuildingUpgradeOptions"
                 :player-color="currentPlayer?.color ?? null"
+                :can-place-annex="
+                    selectedBuildingUpgradeHexId !== null &&
+                    annexableBuildingHexIds.includes(selectedBuildingUpgradeHexId)
+                "
             />
         </div>
 

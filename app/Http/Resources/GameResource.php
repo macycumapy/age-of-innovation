@@ -91,6 +91,16 @@ class GameResource extends JsonResource
                 && ! $this->state->round->hasTakenMainAction
                 && $currentPlayerState instanceof GamePlayerStateData
                 && $currentPlayerState->resources->scholars > 0,
+            'canPlaceAnnex' => $this->phase === GamePhase::Actions
+                && $this->active_player_id === $request->user()?->id
+                && $this->state->pendingInteraction === null
+                && ! $this->state->round->hasTakenMainAction
+                && $currentPlayerState instanceof GamePlayerStateData
+                && $currentPlayerState->availableAnnexes > 0
+                && collect($this->state->board->hexes)->contains(
+                    static fn (BoardHexStateData $hex): bool => $hex->building?->ownerPlayerId === $currentPlayerState->playerId
+                        && ! $hex->building->hasAnnex,
+                ),
             'activePlayerId' => $this->active_player_id,
             'turnOrder' => $this->state->turnOrder,
             'board' => [

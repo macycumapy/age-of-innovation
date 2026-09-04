@@ -37,5 +37,6 @@ enum GameActionType: string
     case DeclinePalaceWaterTown = 'decline_palace_water_town';
     case ChoosePalace = 'choose_palace';
     case PlacePalaceGuild = 'place_palace_guild';
+    case PlaceAnnex = 'place_annex';
     case ChooseCompetency = 'choose_competency';
 }

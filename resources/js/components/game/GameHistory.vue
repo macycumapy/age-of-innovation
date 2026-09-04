@@ -47,6 +47,7 @@ const actionDescriptions: Record<GameActionType, string> = {
     decline_palace_water_town: 'отказался основывать город через воду',
     choose_palace: 'выбрал жетон Дворца',
     place_palace_guild: 'разместил бесплатный рынок',
+    place_annex: 'поставил пристройку',
     choose_competency: 'выбрал компетенцию',
 };
 
@@ -187,9 +188,13 @@ function actionDetails(entry: GameHistoryEntry): string | null {
 
     if (
         hexId !== null &&
-        ['place_starting_building', 'undo_starting_building', 'spend_starting_spade', 'terraform_and_build', 'build_workshop'].includes(
-            entry.type,
-        )
+        [
+            'place_starting_building',
+            'undo_starting_building',
+            'spend_starting_spade',
+            'terraform_and_build',
+            'build_workshop',
+        ].includes(entry.type)
     ) {
         details.push(`ячейка ${hexId}`);
     }

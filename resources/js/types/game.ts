@@ -32,6 +32,7 @@ export type GameResource = {
         board: BoardState;
         canStart: boolean;
         canSendScholar: boolean;
+        canPlaceAnnex: boolean;
         planningBundles: PlanningBundle[];
         planningSelections: PlanningSelection[];
         planningBundleDescriptions: PlanningBundleDescriptions;
@@ -93,6 +94,7 @@ export type GameActionType =
     | 'decline_palace_water_town'
     | 'choose_palace'
     | 'place_palace_guild'
+    | 'place_annex'
     | 'choose_competency';
 
 export type GameHistoryEntry = {

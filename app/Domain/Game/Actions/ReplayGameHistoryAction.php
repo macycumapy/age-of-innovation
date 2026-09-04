@@ -63,6 +63,7 @@ final class ReplayGameHistoryAction
         GameActionType::UpgradeBuilding,
         GameActionType::ChoosePalace,
         GameActionType::PlacePalaceGuild,
+        GameActionType::PlaceAnnex,
         GameActionType::SendScholar,
         GameActionType::SpecialAction,
         GameActionType::Pass,
@@ -153,6 +154,7 @@ final class ReplayGameHistoryAction
                 GameActionType::UpgradeBuilding => $this->replayUpgradeBuilding($game, $players, $action),
                 GameActionType::ChoosePalace => $this->replayChoosePalace($game, $players, $action),
                 GameActionType::PlacePalaceGuild => $this->replayPlacePalaceGuild($game, $players, $action),
+                GameActionType::PlaceAnnex => $this->replayPlaceAnnex($game, $players, $action),
                 GameActionType::SendScholar => $this->replaySendScholar($game, $players, $action),
                 GameActionType::SpecialAction => $this->replayRoundBonusAction($game, $players, $action),
                 GameActionType::Pass => $this->replayPass($game, $players, $action),
@@ -1137,6 +1139,44 @@ final class ReplayGameHistoryAction
 
         $state->board->bridges[] = new BridgeStateData($fromHexId, $toHexId, $playerId);
         $state->pendingInteraction = null;
+    }
+
+    /** @param Collection<int, GamePlayer> $players */
+    private function replayPlaceAnnex(Game $game, Collection $players, GameAction $action): void
+    {
+        $player = $players->firstWhere('user_id', $action->player_id);
+        $hexId = $action->payload['hex_id'] ?? null;
+
+        if (! $player instanceof GamePlayer || ! is_string($hexId)) {
+            $this->invalidHistory();
+        }
+
+        $state = $game->state;
+        $playerState = $this->playerState($state, $player->id);
+        $hex = collect($state->board->hexes)->firstWhere('id', $hexId);
+
+        if (! $hex instanceof BoardHexStateData
+            || $hex->building?->ownerPlayerId !== $player->id
+            || $hex->building->hasAnnex
+            || $playerState->availableAnnexes < 1) {
+            $this->invalidHistory();
+        }
+
+        if ($state->turnStartSnapshot === null) {
+            $state->turnStartSnapshot = $state->toArray();
+            $state->round->turnStartVersion = $game->version;
+        }
+
+        $playerState->availableAnnexes--;
+        $hex->building->hasAnnex = true;
+        $state->round->hasTakenMainAction = true;
+        $game->active_player_id = $this->createTownChoiceAfterBuilding->execute(
+            $state,
+            $playerState,
+            $hexId,
+            powerOffersResolved: true,
+        );
+        $game->state = $state;
     }
 
     /** @param Collection<int, GamePlayer> $players */
