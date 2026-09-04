@@ -137,6 +137,13 @@ class GameManagementTest extends TestCase
             $findEligibleHexes->execute($state, $player, TerrainType::Mountain),
         );
 
+        $state->board->bridges[] = new BridgeStateData('0:0', '0:2', $player->playerId);
+
+        $this->assertSame(
+            ['1:0', '0:2'],
+            $findEligibleHexes->execute($state, $player, TerrainType::Mountain),
+        );
+
         $player->shippingLevel = 1;
 
         $this->assertSame(

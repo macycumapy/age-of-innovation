@@ -34,6 +34,23 @@ final class FindReachableLandHexesAction
             }
         }
 
+        foreach ($state->board->bridges as $bridge) {
+            if ($bridge->ownerPlayerId !== $player->playerId) {
+                continue;
+            }
+
+            $fromHex = $hexesById->get($bridge->fromHexId);
+            $toHex = $hexesById->get($bridge->toHexId);
+
+            if ($fromHex?->building?->ownerPlayerId === $player->playerId) {
+                $reachableHexIds[] = $bridge->toHexId;
+            }
+
+            if ($toHex?->building?->ownerPlayerId === $player->playerId) {
+                $reachableHexIds[] = $bridge->fromHexId;
+            }
+        }
+
         $visitedWaterHexIds = [];
         $navigationRange = $player->shippingLevel + $player->roundBonus->shippingBonus();
 
