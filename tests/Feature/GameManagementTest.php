@@ -332,6 +332,82 @@ class GameManagementTest extends TestCase
         ], PlayerIncomeCalculator::calculate($playerState, $board));
     }
 
+    #[DataProvider('guildPowerIncomeProvider')]
+    public function test_guilds_grant_power_income_by_their_position(int $guildCount, int $expectedPower): void
+    {
+        $playerState = new GamePlayerStateData(
+            playerId: 15,
+            userId: 25,
+            color: PlayerColor::Green,
+            faction: Faction::Blessed,
+            homeland: TerrainType::Forest,
+            roundBonus: RoundBonus::Coins,
+        );
+        $board = new BoardStateData(hexes: array_map(
+            static fn (int $index): BoardHexStateData => new BoardHexStateData(
+                id: $index.':0',
+                q: $index,
+                r: 0,
+                initialTerrain: TerrainType::Forest,
+                terrain: TerrainType::Forest,
+                building: new BuildingStateData(BuildingType::Guild, 15),
+            ),
+            range(1, $guildCount),
+        ));
+
+        $this->assertSame($expectedPower, PlayerIncomeCalculator::calculate($playerState, $board)['power']);
+    }
+
+    /** @return array<string, array{int, int}> */
+    public static function guildPowerIncomeProvider(): array
+    {
+        return [
+            'first guild' => [1, 1],
+            'second guild' => [2, 2],
+            'third guild' => [3, 4],
+            'fourth guild' => [4, 6],
+        ];
+    }
+
+    #[DataProvider('workshopToolIncomeProvider')]
+    public function test_only_the_fifth_workshop_does_not_grant_tool_income(
+        int $workshopCount,
+        int $expectedTools,
+    ): void {
+        $playerState = new GamePlayerStateData(
+            playerId: 15,
+            userId: 25,
+            color: PlayerColor::Green,
+            faction: Faction::Blessed,
+            homeland: TerrainType::Forest,
+            roundBonus: RoundBonus::Coins,
+        );
+        $board = new BoardStateData(hexes: array_map(
+            static fn (int $index): BoardHexStateData => new BoardHexStateData(
+                id: $index.':0',
+                q: $index,
+                r: 0,
+                initialTerrain: TerrainType::Forest,
+                terrain: TerrainType::Forest,
+                building: new BuildingStateData(BuildingType::Workshop, 15),
+            ),
+            range(1, $workshopCount),
+        ));
+
+        $this->assertSame($expectedTools, PlayerIncomeCalculator::calculate($playerState, $board)['tools']);
+    }
+
+    /** @return array<string, array{int, int}> */
+    public static function workshopToolIncomeProvider(): array
+    {
+        return [
+            'two workshops' => [2, 3],
+            'four workshops' => [4, 5],
+            'five workshops' => [5, 5],
+            'six workshops' => [6, 6],
+        ];
+    }
+
     public function test_income_is_applied_to_resources_power_books_and_knowledge(): void
     {
         $playerState = new GamePlayerStateData(
@@ -360,6 +436,43 @@ class GameManagementTest extends TestCase
         $this->assertSame(0, $playerState->resources->power->bowlOne);
         $this->assertSame(2, $playerState->resources->power->bowlTwo);
         $this->assertSame(1, $playerState->resources->power->bowlThree);
+    }
+
+    public function test_university_grants_a_scholar_during_income_except_when_it_is_neutral(): void
+    {
+        $playerState = new GamePlayerStateData(
+            playerId: 15,
+            userId: 25,
+            color: PlayerColor::Green,
+            faction: Faction::Blessed,
+            homeland: TerrainType::Forest,
+            roundBonus: RoundBonus::Coins,
+        );
+        $state = new GameStateData(
+            board: new BoardStateData(hexes: [
+                new BoardHexStateData(
+                    id: '0:0',
+                    q: 0,
+                    r: 0,
+                    initialTerrain: TerrainType::Forest,
+                    terrain: TerrainType::Forest,
+                    building: new BuildingStateData(BuildingType::University, 15),
+                ),
+                new BoardHexStateData(
+                    id: '1:0',
+                    q: 1,
+                    r: 0,
+                    initialTerrain: TerrainType::Forest,
+                    terrain: TerrainType::Forest,
+                    building: new BuildingStateData(BuildingType::University, 15, isNeutral: true),
+                ),
+            ]),
+            players: [$playerState],
+        );
+
+        app(ApplyIncomeAction::class)->execute($state, $playerState);
+
+        $this->assertSame(1, $playerState->resources->scholars);
     }
 
     public function test_knowledge_level_eight_requires_and_spends_a_town_key(): void

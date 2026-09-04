@@ -30,7 +30,8 @@ final class PlayerIncomeCalculator
         ];
         $buildingCounts = self::buildingCounts($player->playerId, $board);
 
-        $income['tools'] += $buildingCounts[BuildingType::Workshop->value];
+        $workshopCount = $buildingCounts[BuildingType::Workshop->value];
+        $income['tools'] += $workshopCount - ($workshopCount >= 5 ? 1 : 0);
         $income['coins'] += $buildingCounts[BuildingType::Guild->value] * 2;
         $income['power'] += match ($buildingCounts[BuildingType::Guild->value]) {
             0 => 0,
@@ -39,7 +40,8 @@ final class PlayerIncomeCalculator
             3 => 4,
             default => 6,
         };
-        $income['scholars'] += $buildingCounts[BuildingType::School->value];
+        $income['scholars'] += $buildingCounts[BuildingType::School->value]
+            + $buildingCounts[BuildingType::University->value];
         $income['coins'] += $buildingCounts[BuildingType::Tower->value] * 2;
         $income['power'] += $buildingCounts[BuildingType::Tower->value] * 2;
 
