@@ -1619,7 +1619,7 @@ function selectedCompetencyForHomeland(homeland: TerrainType): Competency | unde
         </div>
 
         <PlayerStatsPanel
-            v-if="game.data.status === 'active' && planningChoicesCompleted"
+            v-if="game.data.status === 'active' && (game.data.phase !== 'setup' || planningChoicesCompleted)"
             :players="orderedPlayers"
             :player-states="game.data.playerBoardStates"
             :game-id="game.data.id"
