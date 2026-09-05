@@ -147,43 +147,36 @@ function competencyLayerStyle(layer: number): CSSProperties {
             <img :src="inventionBoardUrl" alt="Планшет инноваций" class="block h-auto w-full" />
 
             <TooltipProvider :delay-duration="150">
-                <Tooltip v-for="(innovation, index) in innovations" :key="innovation">
-                    <TooltipTrigger as-child>
-                        <button
-                            type="button"
-                            :style="innovationStyle(innovationSlots[index])"
-                            class="absolute rounded-xs text-left drop-shadow-[-2px_2px_2px_rgba(0,0,0,0.45)] transition enabled:cursor-pointer enabled:hover:ring-4 enabled:hover:ring-primary/70 disabled:cursor-help"
-                            :class="
-                                innovationStates[index]?.isAvailable && innovationStates[index]?.isAffordable
-                                    ? ''
-                                    : 'opacity-40 grayscale'
-                            "
-                            :disabled="
-                                !canMakeInnovation ||
-                                !innovationStates[index]?.isAvailable ||
-                                !innovationStates[index]?.isAffordable
-                            "
-                            @click="emit('innovationClick', innovation)"
-                        >
-                            <img
-                                :src="innovationImage(innovation)"
-                                :alt="`Плашка инновации ${innovation}`"
-                                class="block h-auto w-full rounded-xs"
-                            />
-                        </button>
-                    </TooltipTrigger>
-                    <TooltipContent class="max-w-xs">
-                        <p class="font-semibold">Инновация</p>
-                        <p>{{ innovationDescriptions[innovation] }}</p>
-                        <p v-if="innovationStates[index]" class="mt-1 font-medium">
-                            Цена: {{ innovationStates[index].totalBooks }} книг<span
-                                v-if="innovationStates[index].coins > 0"
+                <template v-for="(innovation, index) in innovations" :key="innovation">
+                    <Tooltip v-if="innovationStates[index]?.isAvailable">
+                        <TooltipTrigger as-child>
+                            <button
+                                type="button"
+                                :style="innovationStyle(innovationSlots[index])"
+                                class="absolute rounded-xs text-left drop-shadow-[-2px_2px_2px_rgba(0,0,0,0.45)] transition enabled:cursor-pointer enabled:hover:ring-4 enabled:hover:ring-primary/70 disabled:cursor-help"
+                                :disabled="!canMakeInnovation || !innovationStates[index]?.isAffordable"
+                                @click="emit('innovationClick', innovation)"
                             >
-                                и {{ innovationStates[index].coins }} монет</span
-                            >.
-                        </p>
-                    </TooltipContent>
-                </Tooltip>
+                                <img
+                                    :src="innovationImage(innovation)"
+                                    :alt="`Плашка инновации ${innovation}`"
+                                    class="block h-auto w-full rounded-xs"
+                                />
+                            </button>
+                        </TooltipTrigger>
+                        <TooltipContent class="max-w-xs">
+                            <p class="font-semibold">Инновация</p>
+                            <p>{{ innovationDescriptions[innovation] }}</p>
+                            <p v-if="innovationStates[index]" class="mt-1 font-medium">
+                                Цена: {{ innovationStates[index].totalBooks }} книг<span
+                                    v-if="innovationStates[index].coins > 0"
+                                >
+                                    и {{ innovationStates[index].coins }} монет</span
+                                >.
+                            </p>
+                        </TooltipContent>
+                    </Tooltip>
+                </template>
             </TooltipProvider>
         </div>
 
