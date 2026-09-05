@@ -282,6 +282,7 @@ export type Innovation =
 export type InnovationPurchaseState = {
     id: Innovation;
     isAvailable: boolean;
+    isAffordable: boolean;
     requiredBooks: Record<KnowledgeDiscipline, number>;
     extraAnyBooks: number;
     totalBooks: number;

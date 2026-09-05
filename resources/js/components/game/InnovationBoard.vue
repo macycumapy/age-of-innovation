@@ -153,8 +153,16 @@ function competencyLayerStyle(layer: number): CSSProperties {
                             type="button"
                             :style="innovationStyle(innovationSlots[index])"
                             class="absolute rounded-xs text-left drop-shadow-[-2px_2px_2px_rgba(0,0,0,0.45)] transition enabled:cursor-pointer enabled:hover:ring-4 enabled:hover:ring-primary/70 disabled:cursor-help"
-                            :class="innovationStates[index]?.isAvailable ? '' : 'opacity-40 grayscale'"
-                            :disabled="!canMakeInnovation || !innovationStates[index]?.isAvailable"
+                            :class="
+                                innovationStates[index]?.isAvailable && innovationStates[index]?.isAffordable
+                                    ? ''
+                                    : 'opacity-40 grayscale'
+                            "
+                            :disabled="
+                                !canMakeInnovation ||
+                                !innovationStates[index]?.isAvailable ||
+                                !innovationStates[index]?.isAffordable
+                            "
                             @click="emit('innovationClick', innovation)"
                         >
                             <img

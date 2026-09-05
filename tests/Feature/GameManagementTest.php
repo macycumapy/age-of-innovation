@@ -3211,6 +3211,45 @@ class GameManagementTest extends TestCase
         $this->assertSame(10, $game->actions()->sole()->payload['reward']['victoryPoints']);
     }
 
+    public function test_innovation_purchase_is_unavailable_without_required_resources(): void
+    {
+        $user = User::factory()->create();
+        $game = Game::factory()->create([
+            'status' => GameStatus::Active,
+            'phase' => GamePhase::Actions,
+            'active_player_id' => $user->id,
+        ]);
+        $player = GamePlayer::factory()->create([
+            'game_id' => $game->id,
+            'user_id' => $user->id,
+            'seat' => 1,
+        ]);
+        $setupPool = app(GameSetupPoolFactory::class)->createFromSeed(2, 'unaffordable-innovation');
+        $setupPool->innovations[0] = Innovation::LeagueOfCities;
+        $game->update(['state' => new GameStateData(
+            turnOrder: [$player->id],
+            players: [new GamePlayerStateData(
+                playerId: $player->id,
+                userId: $user->id,
+                color: PlayerColor::Green,
+                faction: Faction::Blessed,
+                homeland: TerrainType::Forest,
+                roundBonus: RoundBonus::Coins,
+                resources: new PlayerResourcesData(coins: 10),
+            )],
+            round: new RoundStateData(phase: GamePhase::Actions),
+            availableInventionIds: [Innovation::LeagueOfCities->value],
+            setupPool: $setupPool,
+        )]);
+
+        $this->actingAs($user)->get(route('games.show', $game))->assertInertia(
+            fn (Assert $page) => $page
+                ->where('game.data.canMakeInnovation', false)
+                ->where('game.data.innovationStates.0.isAvailable', true)
+                ->where('game.data.innovationStates.0.isAffordable', false),
+        );
+    }
+
     public function test_invalid_innovation_book_selection_does_not_change_game_state_or_history(): void
     {
         $user = User::factory()->create();

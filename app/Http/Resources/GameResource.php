@@ -56,6 +56,7 @@ class GameResource extends JsonResource
             ->exists();
         $currentPlayerState = collect($this->state->players)->firstWhere('userId', $request->user()?->id);
         $latestAction = $hasActions ? $this->actions->sortByDesc('sequence')->first() : null;
+        $innovationStates = $this->innovationStates($currentPlayerState);
 
         return [
             'id' => $this->id,
@@ -98,7 +99,10 @@ class GameResource extends JsonResource
                 && $this->state->pendingInteraction === null
                 && ! $this->state->round->hasTakenMainAction
                 && $currentPlayerState instanceof GamePlayerStateData
-                && count($currentPlayerState->inventionIds) < InnovationPurchaseCostCalculator::MAX_INVENTIONS,
+                && count($currentPlayerState->inventionIds) < InnovationPurchaseCostCalculator::MAX_INVENTIONS
+                && collect($innovationStates)->contains(
+                    static fn (array $innovation): bool => $innovation['isAvailable'] && $innovation['isAffordable'],
+                ),
             'canPlaceAnnex' => $this->phase === GamePhase::Actions
                 && $this->active_player_id === $request->user()?->id
                 && $this->state->pendingInteraction === null
@@ -328,7 +332,7 @@ class GameResource extends JsonResource
                 $this->state->setupPool?->innovations ?? [],
             ),
             'availableInventionIds' => $this->enumValues($this->state->availableInventionIds),
-            'innovationStates' => $this->innovationStates($currentPlayerState),
+            'innovationStates' => $innovationStates,
             'competencies' => $this->enumValues(
                 $this->state->setupPool?->competencies ?? [],
             ),
@@ -387,6 +391,7 @@ class GameResource extends JsonResource
      * @return list<array{
      *     id: string,
      *     isAvailable: bool,
+     *     isAffordable: bool,
      *     requiredBooks: array{banking: int, law: int, engineering: int, medicine: int},
      *     extraAnyBooks: int,
      *     totalBooks: int,
@@ -411,6 +416,7 @@ class GameResource extends JsonResource
                 $ownedCount,
                 $skipsSecondInventionSurcharge,
                 $hasPalace,
+                $player,
             ): array {
                 $innovationId = $innovation instanceof Innovation ? $innovation->value : $innovation;
                 $cost = $calculator->cost(
@@ -424,6 +430,16 @@ class GameResource extends JsonResource
                 return [
                     'id' => $innovationId,
                     'isAvailable' => in_array($innovationId, $this->state->availableInventionIds, true),
+                    'isAffordable' => $player instanceof GamePlayerStateData
+                        && $player->resources->coins >= $cost['coins']
+                        && $player->resources->books->banking >= $cost['requiredBooks']['banking']
+                        && $player->resources->books->law >= $cost['requiredBooks']['law']
+                        && $player->resources->books->engineering >= $cost['requiredBooks']['engineering']
+                        && $player->resources->books->medicine >= $cost['requiredBooks']['medicine']
+                        && $player->resources->books->banking
+                            + $player->resources->books->law
+                            + $player->resources->books->engineering
+                            + $player->resources->books->medicine >= $cost['totalBooks'],
                     ...$cost,
                 ];
             },
