@@ -9,6 +9,7 @@ use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Data\GameStateData;
 use App\Domain\Game\Data\PendingInteractionData;
 use App\Domain\Game\Enums\PendingInteractionType;
+use App\Domain\Game\Services\BuildingAdjacencyChecker;
 
 final class CreatePowerOffersAfterBuildingAction
 {
@@ -26,11 +27,12 @@ final class CreatePowerOffersAfterBuildingAction
         }
 
         $powerByPlayerId = [];
+        $neighborHexIds = BuildingAdjacencyChecker::neighborHexIds($state->board, $builtHex);
 
         foreach ($state->board->hexes as $hex) {
             $ownerPlayerId = $hex->building?->ownerPlayerId;
 
-            if (! in_array($hex->id, $builtHex->adjacentHexIds, true)
+            if (! in_array($hex->id, $neighborHexIds, true)
                 || $ownerPlayerId === null
                 || $ownerPlayerId === $buildingPlayerId) {
                 continue;

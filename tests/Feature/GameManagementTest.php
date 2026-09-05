@@ -2763,6 +2763,94 @@ class GameManagementTest extends TestCase
         $this->assertCount(3, $game->actions()->sole()->payload['scoring_sources']);
     }
 
+    public function test_bridge_to_an_opponent_building_discounts_a_guild_upgrade(): void
+    {
+        $user = User::factory()->create();
+        $neighborUser = User::factory()->create();
+        $game = Game::factory()->create([
+            'status' => GameStatus::Active,
+            'phase' => GamePhase::Actions,
+            'active_player_id' => $user->id,
+        ]);
+        $player = GamePlayer::factory()->create(['game_id' => $game->id, 'user_id' => $user->id, 'seat' => 1]);
+        $neighbor = GamePlayer::factory()->create(['game_id' => $game->id, 'user_id' => $neighborUser->id, 'seat' => 2]);
+        $game->update(['state' => new GameStateData(
+            turnOrder: [$player->id, $neighbor->id],
+            board: new BoardStateData(
+                hexes: [
+                    new BoardHexStateData(
+                        id: '0:0',
+                        q: 0,
+                        r: 0,
+                        initialTerrain: TerrainType::Forest,
+                        terrain: TerrainType::Forest,
+                        building: new BuildingStateData(BuildingType::Workshop, $player->id),
+                    ),
+                    new BoardHexStateData(
+                        id: '1:0',
+                        q: 1,
+                        r: 0,
+                        initialTerrain: TerrainType::Mountain,
+                        terrain: TerrainType::Mountain,
+                        building: new BuildingStateData(BuildingType::Workshop, $neighbor->id),
+                    ),
+                ],
+                bridges: [
+                    new BridgeStateData(
+                        fromHexId: '0:0',
+                        toHexId: '1:0',
+                        ownerPlayerId: $neighbor->id,
+                    ),
+                ],
+            ),
+            round: new RoundStateData(phase: GamePhase::Actions),
+            players: [
+                new GamePlayerStateData(
+                    playerId: $player->id,
+                    userId: $user->id,
+                    color: PlayerColor::Green,
+                    faction: Faction::Blessed,
+                    homeland: TerrainType::Forest,
+                    roundBonus: RoundBonus::Coins,
+                    resources: new PlayerResourcesData(coins: 3, tools: 2),
+                ),
+                new GamePlayerStateData(
+                    playerId: $neighbor->id,
+                    userId: $neighborUser->id,
+                    color: PlayerColor::Red,
+                    faction: Faction::Blessed,
+                    homeland: TerrainType::Mountain,
+                    roundBonus: RoundBonus::Coins,
+                    resources: new PlayerResourcesData(
+                        power: new PowerBowlsStateData(bowlTwo: 1),
+                    ),
+                ),
+            ],
+        )]);
+
+        $this->actingAs($user)
+            ->get(route('games.show', $game))
+            ->assertInertia(
+                fn (Assert $page) => $page
+                    ->where('game.data.buildingUpgrades.0.hexId', '0:0')
+                    ->where('game.data.buildingUpgrades.0.coins', 3),
+            );
+
+        $this->post(route('games.building-upgrade', $game), [
+            'hex_id' => '0:0',
+            'target' => BuildingType::Guild->value,
+        ])->assertRedirect(route('games.show', $game));
+
+        $game->refresh();
+        $this->assertSame(BuildingType::Guild, $game->state->board->hexes[0]->building?->type);
+        $this->assertSame(0, $game->state->players[0]->resources->coins);
+        $this->assertSame(3, $game->actions()->sole()->payload['coins']);
+        $this->assertSame(PendingInteractionType::PowerOffer, $game->state->pendingInteraction?->type);
+        $this->assertSame($neighbor->id, $game->state->pendingInteraction?->playerId);
+        $this->assertSame(1, $game->state->pendingInteraction?->context['powerAmount']);
+        $this->assertSame($neighborUser->id, $game->active_player_id);
+    }
+
     #[DataProvider('competencyBuildingUpgradeProvider')]
     public function test_player_chooses_a_competency_after_building_a_school_or_university(
         BuildingType $sourceBuilding,

@@ -9,6 +9,7 @@ use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Enums\BuildingType;
 use App\Domain\Game\Enums\GameActionType;
 use App\Domain\Game\Enums\GamePhase;
+use App\Domain\Game\Services\BuildingAdjacencyChecker;
 use App\Models\Game;
 use App\Models\GamePlayer;
 use App\Models\User;
@@ -50,11 +51,7 @@ final class UpgradeBuildingAction
                 throw ValidationException::withMessages(['building' => 'Не найдено состояние игрока.']);
             }
 
-            $hasAdjacentOpponent = collect($state->board->hexes)->contains(
-                static fn (BoardHexStateData $candidate): bool => in_array($candidate->id, $hex->adjacentHexIds, true)
-                    && $candidate->building !== null
-                    && $candidate->building->ownerPlayerId !== $player->id,
-            );
+            $hasAdjacentOpponent = BuildingAdjacencyChecker::hasOpponent($state->board, $hex, $player->id);
             $cost = $hex->building->type->upgradeCostTo($target, $hasAdjacentOpponent);
             $targetBuildingsOnMap = count(array_filter(
                 $state->board->hexes,

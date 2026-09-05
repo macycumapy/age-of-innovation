@@ -26,6 +26,7 @@ use App\Domain\Game\Enums\PowerAction;
 use App\Domain\Game\Enums\RoundBonus;
 use App\Domain\Game\Enums\TerrainType;
 use App\Domain\Game\Enums\TownTile;
+use App\Domain\Game\Services\BuildingAdjacencyChecker;
 use App\Domain\Game\Services\CompetencySupply;
 use App\Domain\Game\Services\InnovationPurchaseCostCalculator;
 use App\Domain\Game\Services\LargestNetworkSizeCalculator;
@@ -488,10 +489,10 @@ class GameResource extends JsonResource
                 continue;
             }
 
-            $hasAdjacentOpponent = collect($this->state->board->hexes)->contains(
-                static fn (BoardHexStateData $candidate): bool => in_array($candidate->id, $hex->adjacentHexIds, true)
-                    && $candidate->building !== null
-                    && $candidate->building->ownerPlayerId !== $player->playerId,
+            $hasAdjacentOpponent = BuildingAdjacencyChecker::hasOpponent(
+                $this->state->board,
+                $hex,
+                $player->playerId,
             );
 
             foreach ($hex->building->type->upgradeOptions() as $target) {
