@@ -1344,7 +1344,10 @@ class GameManagementTest extends TestCase
         $this->assertSame(GamePhase::ScienceBonus, $game->phase);
         $this->assertSame(PendingInteractionType::SpendSpades, $game->state->pendingInteraction?->type);
 
-        $this->actingAs($firstUser)->post(route('games.starting-spade.store', $game), ['hex_id' => '1:0']);
+        $this->actingAs($firstUser)->post(route('games.paid-terraforming', $game), [
+            'hex_id' => '1:0',
+            'use_available' => false,
+        ])->assertRedirect(route('games.show', $game));
         $this->delete(route('games.starting-spade.destroy', $game));
         $game->refresh();
         $this->assertSame(TerrainType::Mountain, $game->state->board->hexes[1]->terrain);

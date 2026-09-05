@@ -31,7 +31,14 @@ final class StartPaidTerraformingAction
                 && $interaction->playerId === $player?->id
                 && ! isset($interaction->context['selectedHexId']);
 
-            if ($lockedGame->phase !== GamePhase::Actions
+            $isAllowedPhase = $lockedGame->phase === GamePhase::Actions
+                || ($isExistingSpadeInteraction && in_array(
+                    $lockedGame->phase,
+                    [GamePhase::Setup, GamePhase::ScienceBonus],
+                    true,
+                ));
+
+            if (! $isAllowedPhase
                 || $lockedGame->active_player_id !== $user->id
                 || ! $player instanceof GamePlayer
                 || ($interaction !== null && ! $isExistingSpadeInteraction)
@@ -88,7 +95,9 @@ final class StartPaidTerraformingAction
 
             $playerState->resources->tools -= $totalToolCost;
             $playerState->unassignedSpades += $purchasedSpadeCount;
-            $state->round->hasTakenMainAction = true;
+            if ($lockedGame->phase === GamePhase::Actions) {
+                $state->round->hasTakenMainAction = true;
+            }
 
             if ($isExistingSpadeInteraction) {
                 $interaction->optionIds = [$hexId];

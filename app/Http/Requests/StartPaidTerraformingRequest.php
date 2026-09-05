@@ -15,12 +15,21 @@ final class StartPaidTerraformingRequest extends FormRequest
     {
         $game = $this->route('game');
 
-        return $game instanceof Game
-            && $game->phase === GamePhase::Actions
-            && $game->active_player_id === $this->user()?->id
-            && ($game->state->pendingInteraction === null
-                || ($game->state->pendingInteraction->type === PendingInteractionType::SpendSpades
-                    && ! isset($game->state->pendingInteraction->context['selectedHexId'])));
+        if (! $game instanceof Game || $game->active_player_id !== $this->user()?->id) {
+            return false;
+        }
+
+        $interaction = $game->state->pendingInteraction;
+        $continuesSpadeInteraction = in_array(
+            $game->phase,
+            [GamePhase::Setup, GamePhase::Actions, GamePhase::ScienceBonus],
+            true,
+        )
+            && $interaction?->type === PendingInteractionType::SpendSpades
+            && ! isset($interaction->context['selectedHexId']);
+
+        return $continuesSpadeInteraction
+            || ($game->phase === GamePhase::Actions && $interaction === null);
     }
 
     /** @return array<string, array<int, mixed>> */
