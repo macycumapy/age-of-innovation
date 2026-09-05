@@ -37,7 +37,8 @@ final class CreatePowerOffersAfterBuildingAction
             }
 
             $powerByPlayerId[$ownerPlayerId] = ($powerByPlayerId[$ownerPlayerId] ?? 0)
-                + $hex->building->type->powerValue();
+                + $hex->building->type->powerValue()
+                + ($hex->building->hasAnnex ? 1 : 0);
         }
 
         $buildingPlayerIndex = array_search($buildingPlayerId, $state->turnOrder, true);
@@ -56,9 +57,9 @@ final class CreatePowerOffersAfterBuildingAction
             $availablePower = $playerState instanceof GamePlayerStateData
                 ? $playerState->resources->power->bowlOne + $playerState->resources->power->bowlTwo
                 : 0;
-            $powerAmount = min($powerByPlayerId[$playerId] ?? 0, $availablePower);
+            $powerAmount = $powerByPlayerId[$playerId] ?? 0;
 
-            if ($powerAmount > 0 && $playerState instanceof GamePlayerStateData) {
+            if ($powerAmount > 0 && $availablePower > 0 && $playerState instanceof GamePlayerStateData) {
                 $offers[] = [
                     'playerId' => $playerId,
                     'userId' => $playerState->userId,

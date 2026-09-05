@@ -10,6 +10,7 @@ use App\Domain\Game\Actions\ApplyIncomeAction;
 use App\Domain\Game\Actions\ApplyInnovationRewardAction;
 use App\Domain\Game\Actions\ApplyResourceExchangeAction;
 use App\Domain\Game\Actions\CreateBuildingFollowUpInteractionAction;
+use App\Domain\Game\Actions\CreatePowerOffersAfterBuildingAction;
 use App\Domain\Game\Actions\DetermineStartingBuildingOrderAction;
 use App\Domain\Game\Actions\FindEligibleTerraformHexesAction;
 use App\Domain\Game\Actions\FindEligibleTownHexesAction;
@@ -159,6 +160,66 @@ class GameManagementTest extends TestCase
             ['1:0', '0:2', '0:4'],
             $findEligibleHexes->execute($state, $player, TerrainType::Mountain),
         );
+    }
+
+    public function test_power_offer_sums_all_adjacent_buildings_with_annexes_before_limiting_received_power(): void
+    {
+        $builder = new GamePlayerStateData(
+            playerId: 1,
+            userId: 11,
+            color: PlayerColor::Green,
+            faction: Faction::Blessed,
+            homeland: TerrainType::Forest,
+            roundBonus: RoundBonus::Coins,
+        );
+        $neighbor = new GamePlayerStateData(
+            playerId: 2,
+            userId: 22,
+            color: PlayerColor::Blue,
+            faction: Faction::Blessed,
+            homeland: TerrainType::Mountain,
+            roundBonus: RoundBonus::Coins,
+            resources: new PlayerResourcesData(
+                power: new PowerBowlsStateData(bowlOne: 4),
+            ),
+        );
+        $state = new GameStateData(
+            turnOrder: [1, 2],
+            board: new BoardStateData(hexes: [
+                new BoardHexStateData(
+                    id: '8:4',
+                    q: 8,
+                    r: 4,
+                    initialTerrain: TerrainType::Forest,
+                    terrain: TerrainType::Forest,
+                    adjacentHexIds: ['9:4', '8:5'],
+                    building: new BuildingStateData(BuildingType::School, 1),
+                ),
+                new BoardHexStateData(
+                    id: '9:4',
+                    q: 9,
+                    r: 4,
+                    initialTerrain: TerrainType::Mountain,
+                    terrain: TerrainType::Mountain,
+                    building: new BuildingStateData(BuildingType::University, 2, hasAnnex: true),
+                ),
+                new BoardHexStateData(
+                    id: '8:5',
+                    q: 8,
+                    r: 5,
+                    initialTerrain: TerrainType::Mountain,
+                    terrain: TerrainType::Mountain,
+                    building: new BuildingStateData(BuildingType::School, 2, hasAnnex: true),
+                ),
+            ]),
+            players: [$builder, $neighbor],
+        );
+
+        $nextActiveUserId = app(CreatePowerOffersAfterBuildingAction::class)->execute($state, 1, '8:4');
+
+        $this->assertSame(22, $nextActiveUserId);
+        $this->assertSame(PendingInteractionType::PowerOffer, $state->pendingInteraction?->type);
+        $this->assertSame(7, $state->pendingInteraction?->context['powerAmount']);
     }
 
     #[DataProvider('terraformingToolCosts')]
