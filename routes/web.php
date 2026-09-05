@@ -41,6 +41,7 @@ use App\Http\Controllers\StartingCompetencyController;
 use App\Http\Controllers\StartingResourcesController;
 use App\Http\Controllers\StartingSpadeController;
 use App\Http\Controllers\StartingSpadeTurnController;
+use App\Http\Controllers\TerraformingAdvancementController;
 use App\Http\Controllers\TerraformWorkshopController;
 use App\Http\Controllers\TownChoiceUndoController;
 use App\Http\Controllers\TownController;
@@ -102,6 +103,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('games.faction-action');
     Route::post('games/{game}/shipping', ShippingAdvancementController::class)
         ->name('games.shipping');
+    Route::post('games/{game}/terraforming', TerraformingAdvancementController::class)
+        ->name('games.terraforming');
     Route::post('games/{game}/competency-action', CompetencyActionController::class)
         ->name('games.competency-action');
     Route::post('games/{game}/palace-action', PalaceActionController::class)

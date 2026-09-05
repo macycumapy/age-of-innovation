@@ -164,6 +164,7 @@ export type GamePlayerBoardState = {
     shippingLevel: number;
     canAdvanceShipping: boolean;
     terraformingLevel: number;
+    canAdvanceTerraforming: boolean;
     unassignedSpades: number;
     knowledge: {
         banking: number;

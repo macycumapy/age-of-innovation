@@ -3851,6 +3851,165 @@ class GameManagementTest extends TestCase
         $this->assertSame(26, $playerState->victoryPoints);
     }
 
+    public function test_player_can_confirm_terraforming_advancement_choose_books_and_restart_the_turn(): void
+    {
+        $user = User::factory()->create();
+        $game = Game::factory()->create([
+            'status' => GameStatus::Active,
+            'phase' => GamePhase::Actions,
+            'active_player_id' => $user->id,
+        ]);
+        $player = GamePlayer::factory()->create(['game_id' => $game->id, 'user_id' => $user->id]);
+        $game->update(['state' => new GameStateData(
+            turnOrder: [$player->id],
+            round: new RoundStateData(phase: GamePhase::Actions),
+            players: [new GamePlayerStateData(
+                playerId: $player->id,
+                userId: $user->id,
+                color: PlayerColor::Green,
+                faction: Faction::Blessed,
+                homeland: TerrainType::Forest,
+                roundBonus: RoundBonus::Coins,
+                resources: new PlayerResourcesData(tools: 2, coins: 10, scholars: 2),
+            )],
+        )]);
+
+        $this->actingAs($user)->post(route('games.terraforming', $game))
+            ->assertRedirect(route('games.show', $game));
+
+        $game->refresh();
+        $this->assertSame(1, $game->state->players[0]->terraformingLevel);
+        $this->assertSame(1, $game->state->players[0]->resources->tools);
+        $this->assertSame(5, $game->state->players[0]->resources->coins);
+        $this->assertSame(1, $game->state->players[0]->resources->scholars);
+        $this->assertSame(2, $game->state->players[0]->resources->books->unassigned);
+        $this->assertTrue($game->state->round->hasTakenMainAction);
+        $this->assertSame(PendingInteractionType::ChooseInnovationBooks, $game->state->pendingInteraction?->type);
+        $this->assertSame('terraforming', $game->state->pendingInteraction?->context['source']);
+        $this->assertSame(GameActionType::AdvanceTerraforming, $game->actions()->sole()->type);
+
+        $this->post(route('games.books', $game), [
+            'book_counts' => [
+                'banking' => 1,
+                'law' => 0,
+                'engineering' => 1,
+                'medicine' => 0,
+            ],
+        ])->assertRedirect(route('games.show', $game));
+
+        $game->refresh();
+        $this->assertNull($game->state->pendingInteraction);
+        $this->assertSame(1, $game->state->players[0]->resources->books->banking);
+        $this->assertSame(1, $game->state->players[0]->resources->books->engineering);
+        $this->assertSame(1, $game->actions()->sole()->payload['reward_book_counts']['banking']);
+
+        $this->post(route('games.current-turn.restart', $game));
+        $game->refresh();
+        $this->assertSame(0, $game->state->players[0]->terraformingLevel);
+        $this->assertSame(2, $game->state->players[0]->resources->tools);
+        $this->assertSame(10, $game->state->players[0]->resources->coins);
+        $this->assertSame(2, $game->state->players[0]->resources->scholars);
+        $this->assertSame(0, $game->state->players[0]->resources->books->banking);
+
+        $state = $game->state;
+        $state->players[0]->terraformingLevel = 1;
+        $game->update(['state' => $state]);
+
+        $this->post(route('games.terraforming', $game));
+        $game->refresh();
+        $this->assertSame(2, $game->state->players[0]->terraformingLevel);
+        $this->assertSame(1, $game->state->players[0]->resources->tools);
+        $this->assertSame(5, $game->state->players[0]->resources->coins);
+        $this->assertSame(26, $game->state->players[0]->victoryPoints);
+        $this->assertNull($game->state->pendingInteraction);
+    }
+
+    public function test_player_cannot_advance_terraforming_without_resources_or_past_the_last_level(): void
+    {
+        $user = User::factory()->create();
+        $game = Game::factory()->create([
+            'status' => GameStatus::Active,
+            'phase' => GamePhase::Actions,
+            'active_player_id' => $user->id,
+        ]);
+        $player = GamePlayer::factory()->create(['game_id' => $game->id, 'user_id' => $user->id]);
+        $game->update(['state' => new GameStateData(
+            turnOrder: [$player->id],
+            round: new RoundStateData(phase: GamePhase::Actions),
+            players: [new GamePlayerStateData(
+                playerId: $player->id,
+                userId: $user->id,
+                color: PlayerColor::Green,
+                faction: Faction::Blessed,
+                homeland: TerrainType::Forest,
+                roundBonus: RoundBonus::Coins,
+                resources: new PlayerResourcesData(tools: 1, coins: 4, scholars: 1),
+            )],
+        )]);
+
+        $this->actingAs($user)->post(route('games.terraforming', $game))
+            ->assertSessionHasErrors('terraforming');
+
+        $game->refresh();
+        $this->assertSame(0, $game->state->players[0]->terraformingLevel);
+        $this->assertSame(1, $game->state->players[0]->resources->tools);
+        $this->assertSame(4, $game->state->players[0]->resources->coins);
+        $this->assertSame(0, $game->actions()->count());
+
+        $state = $game->state;
+        $state->players[0]->terraformingLevel = 2;
+        $state->players[0]->resources->tools = 1;
+        $state->players[0]->resources->coins = 5;
+        $state->players[0]->resources->scholars = 1;
+        $game->update(['state' => $state]);
+
+        $this->post(route('games.terraforming', $game))
+            ->assertSessionHasErrors('terraforming');
+
+        $game->refresh();
+        $this->assertSame(2, $game->state->players[0]->terraformingLevel);
+        $this->assertSame(1, $game->state->players[0]->resources->tools);
+        $this->assertSame(5, $game->state->players[0]->resources->coins);
+        $this->assertSame(1, $game->state->players[0]->resources->scholars);
+        $this->assertSame(0, $game->actions()->count());
+    }
+
+    public function test_brown_player_pays_discounted_terraforming_advancement_cost(): void
+    {
+        $user = User::factory()->create();
+        $game = Game::factory()->create([
+            'status' => GameStatus::Active,
+            'phase' => GamePhase::Actions,
+            'active_player_id' => $user->id,
+        ]);
+        $player = GamePlayer::factory()->create(['game_id' => $game->id, 'user_id' => $user->id]);
+        $game->update(['state' => new GameStateData(
+            turnOrder: [$player->id],
+            round: new RoundStateData(phase: GamePhase::Actions),
+            players: [new GamePlayerStateData(
+                playerId: $player->id,
+                userId: $user->id,
+                color: PlayerColor::Brown,
+                faction: Faction::Blessed,
+                homeland: TerrainType::Plains,
+                roundBonus: RoundBonus::Coins,
+                resources: new PlayerResourcesData(tools: 1, coins: 1, scholars: 1),
+                terraformingLevel: 1,
+            )],
+        )]);
+
+        $this->actingAs($user)->post(route('games.terraforming', $game))
+            ->assertRedirect(route('games.show', $game));
+
+        $game->refresh();
+        $this->assertSame(2, $game->state->players[0]->terraformingLevel);
+        $this->assertSame(0, $game->state->players[0]->resources->tools);
+        $this->assertSame(0, $game->state->players[0]->resources->coins);
+        $this->assertSame(0, $game->state->players[0]->resources->scholars);
+        $this->assertSame(1, $game->actions()->sole()->payload['coins']);
+        $this->assertSame(1, $game->actions()->sole()->payload['tools']);
+    }
+
     public function test_all_resource_exchange_rates_are_applied(): void
     {
         $playerState = new GamePlayerStateData(

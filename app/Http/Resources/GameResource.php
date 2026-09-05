@@ -21,6 +21,7 @@ use App\Domain\Game\Enums\GameStatus;
 use App\Domain\Game\Enums\Innovation;
 use App\Domain\Game\Enums\KnowledgeDiscipline;
 use App\Domain\Game\Enums\PalaceAbility;
+use App\Domain\Game\Enums\PlayerColor;
 use App\Domain\Game\Enums\PowerAction;
 use App\Domain\Game\Enums\RoundBonus;
 use App\Domain\Game\Enums\TerrainType;
@@ -218,6 +219,10 @@ class GameResource extends JsonResource
                         && $player->resources->coins >= 4
                         && $player->resources->scholars >= 1,
                     'terraformingLevel' => $player->terraformingLevel,
+                    'canAdvanceTerraforming' => $player->terraformingLevel < 2
+                        && $player->resources->tools >= 1
+                        && $player->resources->coins >= ($player->color === PlayerColor::Brown ? 1 : 5)
+                        && $player->resources->scholars >= 1,
                     'unassignedSpades' => $player->unassignedSpades,
                     'knowledge' => [
                         'banking' => $player->knowledge->banking,

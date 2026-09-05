@@ -49,9 +49,11 @@ final class ChooseInnovationBooksAction
                 'version' => $lockedGame->version + 1,
             ]);
 
-            $sourceActionType = ($interaction->context['source'] ?? null) === 'shipping'
-                ? GameActionType::AdvanceShipping
-                : GameActionType::MakeInnovation;
+            $sourceActionType = match ($interaction->context['source'] ?? null) {
+                'shipping' => GameActionType::AdvanceShipping,
+                'terraforming' => GameActionType::AdvanceTerraforming,
+                default => GameActionType::MakeInnovation,
+            };
             $sourceAction = $lockedGame->actions()
                 ->where('type', $sourceActionType)
                 ->where('player_id', $user->id)
@@ -66,9 +68,11 @@ final class ChooseInnovationBooksAction
             $payload['reward_book_counts'] = $bookCounts;
             $events = $sourceAction->events ?? [];
             $events[] = [
-                'type' => $sourceActionType === GameActionType::AdvanceShipping
-                    ? 'shipping_books_chosen'
-                    : 'innovation_books_chosen',
+                'type' => match ($sourceActionType) {
+                    GameActionType::AdvanceShipping => 'shipping_books_chosen',
+                    GameActionType::AdvanceTerraforming => 'terraforming_books_chosen',
+                    default => 'innovation_books_chosen',
+                },
                 'player_id' => $player->id,
                 'book_counts' => $bookCounts,
             ];

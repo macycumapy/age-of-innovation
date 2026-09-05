@@ -70,6 +70,7 @@ final class ReplayGameHistoryAction
         GameActionType::SendScholar,
         GameActionType::MakeInnovation,
         GameActionType::AdvanceShipping,
+        GameActionType::AdvanceTerraforming,
         GameActionType::SpecialAction,
         GameActionType::Pass,
         GameActionType::ChooseScienceBonusBooks,
@@ -178,6 +179,7 @@ final class ReplayGameHistoryAction
                 GameActionType::SendScholar => $this->replaySendScholar($game, $players, $action),
                 GameActionType::MakeInnovation => $this->replayMakeInnovation($game, $players, $action),
                 GameActionType::AdvanceShipping => $this->replayAdvanceShipping($game, $players, $action),
+                GameActionType::AdvanceTerraforming => $this->replayAdvanceTerraforming($game, $players, $action),
                 GameActionType::SpecialAction => $this->replayRoundBonusAction($game, $players, $action),
                 GameActionType::Pass => $this->replayPass($game, $players, $action),
                 GameActionType::ChooseScienceBonusBooks => $this->replayScienceBonusBooks($game, $players, $action),
@@ -214,6 +216,38 @@ final class ReplayGameHistoryAction
         $playerState->resources->coins -= (int) ($action->payload['coins'] ?? 4);
         $playerState->resources->scholars -= (int) ($action->payload['scholars'] ?? 1);
         $this->advanceDevelopmentTrack->advanceShipping($playerState);
+
+        foreach ($action->payload['reward_book_counts'] ?? [] as $discipline => $count) {
+            $playerState->resources->books->{$discipline} += (int) $count;
+            $playerState->resources->books->unassigned -= (int) $count;
+        }
+
+        $state->round->hasTakenMainAction = true;
+        $state->pendingInteraction = null;
+        $game->state = $state;
+    }
+
+    /** @param Collection<int, GamePlayer> $players */
+    private function replayAdvanceTerraforming(Game $game, Collection $players, GameAction $action): void
+    {
+        $player = $players->firstWhere('user_id', $action->player_id);
+
+        if (! $player instanceof GamePlayer) {
+            $this->invalidHistory();
+        }
+
+        $state = $game->state;
+        $playerState = $this->playerState($state, $player->id);
+
+        if ($state->turnStartSnapshot === null) {
+            $state->turnStartSnapshot = $state->toArray();
+            $state->round->turnStartVersion = $game->version;
+        }
+
+        $playerState->resources->tools -= (int) ($action->payload['tools'] ?? 1);
+        $playerState->resources->coins -= (int) ($action->payload['coins'] ?? ($playerState->color === PlayerColor::Brown ? 1 : 5));
+        $playerState->resources->scholars -= (int) ($action->payload['scholars'] ?? 1);
+        $this->advanceDevelopmentTrack->advanceTerraforming($playerState);
 
         foreach ($action->payload['reward_book_counts'] ?? [] as $discipline => $count) {
             $playerState->resources->books->{$discipline} += (int) $count;

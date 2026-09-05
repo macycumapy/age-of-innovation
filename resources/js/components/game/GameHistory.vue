@@ -175,9 +175,9 @@ function incomeDetails(entry: GameHistoryEntry): string[] {
     });
 }
 
-function shippingRewardDetails(entry: GameHistoryEntry): string | null {
+function developmentTrackRewardDetails(entry: GameHistoryEntry): string | null {
     if (
-        entry.type !== 'advance_shipping' ||
+        !['advance_shipping', 'advance_terraforming'].includes(entry.type) ||
         typeof entry.payload.reward !== 'object' ||
         entry.payload.reward === null
     ) {
@@ -275,10 +275,10 @@ function actionDetails(entry: GameHistoryEntry): string | null {
         details.push(`предложено ${entry.payload.offered_power} Силы`);
     }
 
-    const shippingReward = shippingRewardDetails(entry);
+    const developmentTrackReward = developmentTrackRewardDetails(entry);
 
-    if (shippingReward !== null) {
-        details.push(shippingReward);
+    if (developmentTrackReward !== null) {
+        details.push(developmentTrackReward);
     }
 
     if (typeof entry.payload.victory_points === 'number' && entry.payload.victory_points > 0) {

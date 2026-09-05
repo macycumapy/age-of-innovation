@@ -39,6 +39,7 @@ import ResourceExchangeDialog from '@/components/game/ResourceExchangeDialog.vue
 import RoundBonusActionDialog from '@/components/game/RoundBonusActionDialog.vue';
 import ScholarActionDialog from '@/components/game/ScholarActionDialog.vue';
 import ShippingAdvancementDialog from '@/components/game/ShippingAdvancementDialog.vue';
+import TerraformingAdvancementDialog from '@/components/game/TerraformingAdvancementDialog.vue';
 import RoundBonusBoard from '@/components/game/RoundBonusBoard.vue';
 import TownTileBoard from '@/components/game/TownTileBoard.vue';
 import PalaceWaterTownDialog from '@/components/game/PalaceWaterTownDialog.vue';
@@ -467,6 +468,7 @@ const isPowerActionDialogOpen = ref(false);
 const isBookActionDialogOpen = ref(false);
 const isResourceExchangeDialogOpen = ref(false);
 const isShippingAdvancementDialogOpen = ref(false);
+const isTerraformingAdvancementDialogOpen = ref(false);
 const isCurrentTurnFinishDialogOpen = ref(false);
 const isBuildingUpgradeDialogOpen = ref(false);
 const isScholarActionDialogOpen = ref(false);
@@ -1555,6 +1557,9 @@ function selectedCompetencyForHomeland(homeland: TerrainType): Competency | unde
                             :can-advance-shipping="
                                 game.data.canPass && (currentPlayerState?.canAdvanceShipping ?? false)
                             "
+                            :can-advance-terraforming="
+                                game.data.canPass && (currentPlayerState?.canAdvanceTerraforming ?? false)
+                            "
                             :can-use-round-bonus-action="canExchangeResources"
                             :can-use-faction-action="canExchangeResources"
                             :can-use-competency-action="canExchangeResources"
@@ -1562,6 +1567,7 @@ function selectedCompetencyForHomeland(homeland: TerrainType): Competency | unde
                             @sacrifice-power="isPowerSacrificeDialogOpen = true"
                             @exchange-resources="isResourceExchangeDialogOpen = true"
                             @advance-shipping="isShippingAdvancementDialogOpen = true"
+                            @advance-terraforming="isTerraformingAdvancementDialogOpen = true"
                             @use-round-bonus-action="isRoundBonusActionDialogOpen = true"
                             @use-faction-action="isFactionActionDialogOpen = true"
                             @use-competency-action="isCompetencyActionDialogOpen = true"
@@ -1703,6 +1709,12 @@ function selectedCompetencyForHomeland(homeland: TerrainType): Competency | unde
             />
 
             <ShippingAdvancementDialog v-model:open="isShippingAdvancementDialogOpen" :game-id="game.data.id" />
+
+            <TerraformingAdvancementDialog
+                v-model:open="isTerraformingAdvancementDialogOpen"
+                :game-id="game.data.id"
+                :player-color="currentPlayer?.color ?? null"
+            />
 
             <BuildWorkshopDialog
                 v-if="

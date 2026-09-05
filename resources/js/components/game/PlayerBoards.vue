@@ -53,6 +53,7 @@ const props = defineProps<{
     canSacrificePower: boolean;
     canExchangeResources: boolean;
     canAdvanceShipping: boolean;
+    canAdvanceTerraforming: boolean;
     canUseRoundBonusAction: boolean;
     canUseFactionAction: boolean;
     canUseCompetencyAction: boolean;
@@ -63,6 +64,7 @@ const emit = defineEmits<{
     sacrificePower: [];
     exchangeResources: [];
     advanceShipping: [];
+    advanceTerraforming: [];
     useRoundBonusAction: [];
     useFactionAction: [];
     useCompetencyAction: [];
@@ -563,10 +565,20 @@ function canSacrificeFromBowl(player: GamePlayerSummary, bowl: PowerBowl): boole
                         v-if="canAdvanceShipping && player.user.id === currentUserId"
                         type="button"
                         class="absolute z-20 cursor-pointer rounded-md border border-amber-400/70 shadow-md"
-                        :style="{ left: '1.5%', top: '37%', width: '11%', height: '12%' }"
+                        :style="{ left: '2%', top: '37%', width: '10%', height: '11%' }"
                         aria-label="Прокачать навигацию"
                         title="Прокачать навигацию"
                         @click="emit('advanceShipping')"
+                    ></button>
+
+                    <button
+                        v-if="canAdvanceTerraforming && player.user.id === currentUserId"
+                        type="button"
+                        class="absolute z-20 cursor-pointer rounded-md border border-amber-400/70 shadow-md"
+                        :style="{ left: '35%', top: '36%', width: '12%', height: '11%' }"
+                        aria-label="Прокачать лопату"
+                        title="Прокачать лопату"
+                        @click="emit('advanceTerraforming')"
                     ></button>
 
                     <span
