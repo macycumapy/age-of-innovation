@@ -19,6 +19,7 @@ final class PerformAdvanceShippingAction
 {
     public function __construct(
         private AdvanceDevelopmentTrackAction $advanceDevelopmentTrack,
+        private ApplyDevelopmentTrackRoundScoringAction $applyDevelopmentTrackRoundScoring,
         private AppendGameHistoryAction $appendGameHistory,
     ) {
     }
@@ -54,6 +55,11 @@ final class PerformAdvanceShippingAction
             $playerState->resources->coins -= 4;
             $playerState->resources->scholars--;
             $reward = $this->advanceDevelopmentTrack->advanceShipping($playerState);
+            $reward['victoryPoints'] += $this->applyDevelopmentTrackRoundScoring->execute(
+                $state,
+                $playerState,
+                $reward['steps'],
+            );
             $state->round->hasTakenMainAction = true;
 
             if ($reward['books'] > 0) {

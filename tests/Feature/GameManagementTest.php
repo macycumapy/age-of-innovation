@@ -3732,6 +3732,29 @@ class GameManagementTest extends TestCase
         $this->assertSame(22, $playerState->victoryPoints);
     }
 
+    public function test_steam_engine_scores_each_development_track_step_for_the_round_goal(): void
+    {
+        $playerState = new GamePlayerStateData(
+            playerId: 15,
+            userId: 25,
+            color: PlayerColor::Green,
+            faction: Faction::Blessed,
+            homeland: TerrainType::Forest,
+            roundBonus: RoundBonus::Coins,
+        );
+        $state = new GameStateData(
+            round: new RoundStateData(scoringTileId: RoundScoringTile::TrackEngineering->value),
+            players: [$playerState],
+        );
+
+        $reward = app(ApplyInnovationRewardAction::class)->execute($state, $playerState, Innovation::SteamEngine);
+
+        $this->assertSame(1, $playerState->shippingLevel);
+        $this->assertSame(1, $playerState->terraformingLevel);
+        $this->assertSame(28, $playerState->victoryPoints);
+        $this->assertSame(8, $reward['victoryPoints']);
+    }
+
     public function test_shipping_advancement_grants_rewards_for_each_reached_level(): void
     {
         $playerState = new GamePlayerStateData(
@@ -3771,7 +3794,10 @@ class GameManagementTest extends TestCase
         $player = GamePlayer::factory()->create(['game_id' => $game->id, 'user_id' => $user->id]);
         $game->update(['state' => new GameStateData(
             turnOrder: [$player->id],
-            round: new RoundStateData(phase: GamePhase::Actions),
+            round: new RoundStateData(
+                phase: GamePhase::Actions,
+                scoringTileId: RoundScoringTile::TrackEngineering->value,
+            ),
             players: [new GamePlayerStateData(
                 playerId: $player->id,
                 userId: $user->id,
@@ -3790,7 +3816,7 @@ class GameManagementTest extends TestCase
         $this->assertSame(1, $game->state->players[0]->shippingLevel);
         $this->assertSame(0, $game->state->players[0]->resources->coins);
         $this->assertSame(0, $game->state->players[0]->resources->scholars);
-        $this->assertSame(22, $game->state->players[0]->victoryPoints);
+        $this->assertSame(25, $game->state->players[0]->victoryPoints);
         $this->assertTrue($game->state->round->hasTakenMainAction);
         $this->assertSame(GameActionType::AdvanceShipping, $game->actions()->sole()->type);
 
@@ -3822,6 +3848,7 @@ class GameManagementTest extends TestCase
         $game->refresh();
         $this->assertNull($game->state->pendingInteraction);
         $this->assertSame(2, $game->state->players[0]->resources->books->law);
+        $this->assertSame(23, $game->state->players[0]->victoryPoints);
         $this->assertSame(
             2,
             $game->actions()->sole()->payload['reward_book_counts']['law'],
@@ -3862,7 +3889,10 @@ class GameManagementTest extends TestCase
         $player = GamePlayer::factory()->create(['game_id' => $game->id, 'user_id' => $user->id]);
         $game->update(['state' => new GameStateData(
             turnOrder: [$player->id],
-            round: new RoundStateData(phase: GamePhase::Actions),
+            round: new RoundStateData(
+                phase: GamePhase::Actions,
+                scoringTileId: RoundScoringTile::TrackEngineering->value,
+            ),
             players: [new GamePlayerStateData(
                 playerId: $player->id,
                 userId: $user->id,
@@ -3883,6 +3913,7 @@ class GameManagementTest extends TestCase
         $this->assertSame(5, $game->state->players[0]->resources->coins);
         $this->assertSame(1, $game->state->players[0]->resources->scholars);
         $this->assertSame(2, $game->state->players[0]->resources->books->unassigned);
+        $this->assertSame(23, $game->state->players[0]->victoryPoints);
         $this->assertTrue($game->state->round->hasTakenMainAction);
         $this->assertSame(PendingInteractionType::ChooseInnovationBooks, $game->state->pendingInteraction?->type);
         $this->assertSame('terraforming', $game->state->pendingInteraction?->context['source']);
@@ -3920,7 +3951,7 @@ class GameManagementTest extends TestCase
         $this->assertSame(2, $game->state->players[0]->terraformingLevel);
         $this->assertSame(1, $game->state->players[0]->resources->tools);
         $this->assertSame(5, $game->state->players[0]->resources->coins);
-        $this->assertSame(26, $game->state->players[0]->victoryPoints);
+        $this->assertSame(29, $game->state->players[0]->victoryPoints);
         $this->assertNull($game->state->pendingInteraction);
     }
 

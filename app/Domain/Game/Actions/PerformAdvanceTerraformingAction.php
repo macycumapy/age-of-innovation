@@ -20,6 +20,7 @@ final class PerformAdvanceTerraformingAction
 {
     public function __construct(
         private AdvanceDevelopmentTrackAction $advanceDevelopmentTrack,
+        private ApplyDevelopmentTrackRoundScoringAction $applyDevelopmentTrackRoundScoring,
         private AppendGameHistoryAction $appendGameHistory,
     ) {
     }
@@ -58,6 +59,11 @@ final class PerformAdvanceTerraformingAction
             $playerState->resources->coins -= $coinCost;
             $playerState->resources->scholars--;
             $reward = $this->advanceDevelopmentTrack->advanceTerraforming($playerState);
+            $reward['victoryPoints'] += $this->applyDevelopmentTrackRoundScoring->execute(
+                $state,
+                $playerState,
+                $reward['steps'],
+            );
             $state->round->hasTakenMainAction = true;
 
             if ($reward['books'] > 0) {

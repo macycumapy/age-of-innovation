@@ -94,6 +94,7 @@ final class ReplayGameHistoryAction
         private CreateBuildingFollowUpInteractionAction $createBuildingFollowUpInteraction,
         private ApplyPowerOfferDecisionAction $applyPowerOfferDecision,
         private AdvanceDevelopmentTrackAction $advanceDevelopmentTrack,
+        private ApplyDevelopmentTrackRoundScoringAction $applyDevelopmentTrackRoundScoring,
         private AdvanceKnowledgeAction $advanceKnowledge,
         private ResolveCompletedStartingSetupAction $resolveCompletedStartingSetup,
         private ApplyRoundBonusAction $applyRoundBonusAction,
@@ -215,7 +216,8 @@ final class ReplayGameHistoryAction
 
         $playerState->resources->coins -= (int) ($action->payload['coins'] ?? 4);
         $playerState->resources->scholars -= (int) ($action->payload['scholars'] ?? 1);
-        $this->advanceDevelopmentTrack->advanceShipping($playerState);
+        $reward = $this->advanceDevelopmentTrack->advanceShipping($playerState);
+        $this->applyDevelopmentTrackRoundScoring->execute($state, $playerState, $reward['steps']);
 
         foreach ($action->payload['reward_book_counts'] ?? [] as $discipline => $count) {
             $playerState->resources->books->{$discipline} += (int) $count;
@@ -247,7 +249,8 @@ final class ReplayGameHistoryAction
         $playerState->resources->tools -= (int) ($action->payload['tools'] ?? 1);
         $playerState->resources->coins -= (int) ($action->payload['coins'] ?? ($playerState->color === PlayerColor::Brown ? 1 : 5));
         $playerState->resources->scholars -= (int) ($action->payload['scholars'] ?? 1);
-        $this->advanceDevelopmentTrack->advanceTerraforming($playerState);
+        $reward = $this->advanceDevelopmentTrack->advanceTerraforming($playerState);
+        $this->applyDevelopmentTrackRoundScoring->execute($state, $playerState, $reward['steps']);
 
         foreach ($action->payload['reward_book_counts'] ?? [] as $discipline => $count) {
             $playerState->resources->books->{$discipline} += (int) $count;

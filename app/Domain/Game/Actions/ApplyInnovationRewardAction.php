@@ -17,6 +17,7 @@ class ApplyInnovationRewardAction
     public function __construct(
         private AdvanceKnowledgeAction $advanceKnowledge,
         private AdvanceDevelopmentTrackAction $advanceDevelopmentTrack,
+        private ApplyDevelopmentTrackRoundScoringAction $applyDevelopmentTrackRoundScoring,
     ) {
     }
 
@@ -64,6 +65,11 @@ class ApplyInnovationRewardAction
             $reward['developmentTrackBooks'] = $shippingReward['books'] + $terraformingReward['books'];
             $reward['books'] += $reward['developmentTrackBooks'];
             $reward['victoryPoints'] += $shippingReward['victoryPoints'] + $terraformingReward['victoryPoints'];
+            $reward['victoryPoints'] += $this->applyDevelopmentTrackRoundScoring->execute(
+                $state,
+                $player,
+                $shippingReward['steps'] + $terraformingReward['steps'],
+            );
         }
 
         if ($innovation === Innovation::Palace) {
