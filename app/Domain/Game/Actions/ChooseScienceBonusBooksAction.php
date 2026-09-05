@@ -53,7 +53,7 @@ final class ChooseScienceBonusBooksAction
 
             $stateVersionBefore = $lockedGame->version;
             $state->pendingInteraction = null;
-            [$nextPlayer, $nextPhase, $incomeReceipts] = $this->resolveScienceBonusPhase->execute(
+            [$nextPlayer, $nextPhase, $incomeReceipts, $finalScoring] = $this->resolveScienceBonusPhase->execute(
                 $state,
                 $lockedGame->players,
             );
@@ -68,6 +68,7 @@ final class ChooseScienceBonusBooksAction
                 'disciplines' => array_map(static fn (KnowledgeDiscipline $discipline): string => $discipline->value, $disciplines),
                 'next_phase' => $nextPhase->value,
                 'income_receipts' => $incomeReceipts,
+                'final_scoring' => $finalScoring,
             ], [[
                 'type' => 'science_bonus_books_chosen',
                 'player_id' => $player->id,

@@ -1513,7 +1513,7 @@ function selectedCompetencyForHomeland(homeland: TerrainType): Competency | unde
                 </CardContent>
             </Card>
 
-            <section v-if="game.data.status === 'active'" class="grid gap-4">
+            <section v-if="['active', 'finished'].includes(game.data.status)" class="grid gap-4">
                 <div class="grid items-start gap-4 lg:grid-cols-[minmax(0,7fr)_minmax(16rem,3fr)]">
                     <div class="grid gap-4">
                         <BoardMap
@@ -1584,11 +1584,12 @@ function selectedCompetencyForHomeland(homeland: TerrainType): Competency | unde
                             @send-scholar="selectScholarDiscipline"
                         />
                         <RoundBonusBoard
-                            v-if="game.data.currentRound !== 6"
+                            v-if="game.data.status === 'active' && game.data.currentRound !== 6"
                             :offers="game.data.roundBonusOffers"
                             :descriptions="game.data.roundBonusDescriptions"
                         />
                         <InnovationBoard
+                            v-if="game.data.status === 'active'"
                             :player-count="game.data.playersCount"
                             :innovations="game.data.innovations"
                             :competencies="game.data.competencies"
@@ -1599,8 +1600,11 @@ function selectedCompetencyForHomeland(homeland: TerrainType): Competency | unde
                             :can-make-innovation="game.data.canMakeInnovation"
                             @innovation-click="selectInnovation"
                         />
-                        <PalaceBoard :palaces="game.data.availablePalaceIds" />
-                        <TownTileBoard :town-tiles="game.data.availableTownTileIds" />
+                        <PalaceBoard v-if="game.data.status === 'active'" :palaces="game.data.availablePalaceIds" />
+                        <TownTileBoard
+                            v-if="game.data.status === 'active'"
+                            :town-tiles="game.data.availableTownTileIds"
+                        />
                     </aside>
                 </div>
             </section>
@@ -1756,7 +1760,10 @@ function selectedCompetencyForHomeland(homeland: TerrainType): Competency | unde
         </div>
 
         <PlayerStatsPanel
-            v-if="game.data.status === 'active' && (game.data.phase !== 'setup' || planningChoicesCompleted)"
+            v-if="
+                game.data.status === 'finished' ||
+                (game.data.status === 'active' && (game.data.phase !== 'setup' || planningChoicesCompleted))
+            "
             :players="orderedPlayers"
             :player-states="game.data.playerBoardStates"
             :game-id="game.data.id"

@@ -20,12 +20,13 @@ final class ResolveScienceBonusPhaseAction
         private FindEligibleTerraformHexesAction $findEligibleTerraformHexes,
         private GainPowerAction $gainPower,
         private StartNextRoundAction $startNextRound,
+        private ApplyFinalScoringAction $applyFinalScoring,
     ) {
     }
 
     /**
      * @param Collection<int, GamePlayer> $players
-     * @return array{GamePlayer|null, GamePhase, list<array{player_id: int, tools: int, coins: int, scholars: int, power: int, books: int, knowledge_steps: int}>}
+     * @return array{GamePlayer|null, GamePhase, list<array{player_id: int, tools: int, coins: int, scholars: int, power: int, books: int, knowledge_steps: int}>, list<array{playerId: int, victoryPoints: int, sources: list<array{source: string, id: string, value: int, rank: int, points: int}>}>}
      */
     public function execute(GameStateData $state, Collection $players): array
     {
@@ -63,7 +64,7 @@ final class ResolveScienceBonusPhaseAction
                     ['bookCount' => $reward['books']],
                 );
 
-                return [$player, GamePhase::ScienceBonus, []];
+                return [$player, GamePhase::ScienceBonus, [], []];
             }
 
             if ($reward['spades'] > 0) {
@@ -82,7 +83,7 @@ final class ResolveScienceBonusPhaseAction
                         ],
                     );
 
-                    return [$player, GamePhase::ScienceBonus, []];
+                    return [$player, GamePhase::ScienceBonus, [], []];
                 }
             }
         }
@@ -90,11 +91,12 @@ final class ResolveScienceBonusPhaseAction
         $state->pendingInteraction = null;
 
         if ($state->round->number >= 6) {
+            $finalScoring = $this->applyFinalScoring->execute($state);
             $state->round->phase = GamePhase::Finished;
 
-            return [null, GamePhase::Finished, []];
+            return [null, GamePhase::Finished, [], $finalScoring];
         }
 
-        return $this->startNextRound->execute($state, $players);
+        return [...$this->startNextRound->execute($state, $players), []];
     }
 }

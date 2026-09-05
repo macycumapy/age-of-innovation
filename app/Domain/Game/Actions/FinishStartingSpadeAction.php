@@ -81,6 +81,7 @@ final class FinishStartingSpadeAction
             $interaction->context['buildableHexIds'] = array_values(array_unique($buildableHexIds));
             $buildOffered = false;
             $incomeReceipts = [];
+            $finalScoring = [];
 
             if ($remainingSpades > 0) {
                 $targetTerrain = TerrainType::from(
@@ -106,7 +107,7 @@ final class FinishStartingSpadeAction
                     $nextPhase = GamePhase::Actions;
                 } elseif ($interactionPhase === GamePhase::ScienceBonus) {
                     $state->pendingInteraction = null;
-                    [$nextPlayer, $nextPhase, $incomeReceipts] = $this->resolveScienceBonusPhase->execute(
+                    [$nextPlayer, $nextPhase, $incomeReceipts, $finalScoring] = $this->resolveScienceBonusPhase->execute(
                         $state,
                         $lockedGame->players()->get(),
                     );
@@ -127,7 +128,7 @@ final class FinishStartingSpadeAction
                 $nextPhase = GamePhase::Actions;
             } elseif ($interactionPhase === GamePhase::ScienceBonus) {
                 $state->pendingInteraction = null;
-                [$nextPlayer, $nextPhase, $incomeReceipts] = $this->resolveScienceBonusPhase->execute(
+                [$nextPlayer, $nextPhase, $incomeReceipts, $finalScoring] = $this->resolveScienceBonusPhase->execute(
                     $state,
                     $lockedGame->players()->get(),
                 );
@@ -165,6 +166,7 @@ final class FinishStartingSpadeAction
                     'paid_spade_count' => $paidSpadeCount,
                     'spades_spent' => $spentSpades,
                     'income_receipts' => $incomeReceipts,
+                    'final_scoring' => $finalScoring,
                 ],
                 [
                     [

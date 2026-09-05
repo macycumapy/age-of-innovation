@@ -1319,6 +1319,29 @@ class GameManagementTest extends TestCase
         $action = $game->actions()->sole();
         $this->assertNull($action->payload['round_bonus']);
         $this->assertSame(0, $action->payload['bonus_coins']);
+
+        $this->actingAs($secondUser)
+            ->post(route('games.pass', $game))
+            ->assertRedirect(route('games.show', $game))
+            ->assertSessionHasNoErrors();
+
+        $game->refresh();
+        $this->assertSame(GameStatus::Finished, $game->status);
+        $this->assertSame(GamePhase::Finished, $game->phase);
+        $this->assertSame([35, 35], array_column($game->state->players, 'victoryPoints'));
+
+        $finalScoring = $game->actions()
+            ->where('type', GameActionType::PhaseCheckpoint->value)
+            ->latest('sequence')
+            ->firstOrFail()
+            ->payload['final_scoring'];
+        $this->assertSame([15, 15], array_column($finalScoring, 'victoryPoints'));
+        $this->assertSame(['network'], array_column($finalScoring[0]['sources'], 'source'));
+        $this->assertSame(['network'], array_column($finalScoring[1]['sources'], 'source'));
+        $this->assertArrayNotHasKey(
+            'final_scoring',
+            $game->actions()->where('type', GameActionType::Pass->value)->latest('sequence')->firstOrFail()->payload,
+        );
     }
 
     public function test_last_pass_sets_the_next_round_turn_order_and_starts_the_next_round(): void

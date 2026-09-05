@@ -52,6 +52,7 @@ class LargestNetworkSizeCalculatorTest extends TestCase
         $player = $this->player(shippingLevel: 0, roundBonus: RoundBonus::RiverWorkshop);
 
         $this->assertSame(2, LargestNetworkSizeCalculator::calculate($player, $board));
+        $this->assertSame(1, LargestNetworkSizeCalculator::calculate($player, $board, includeRoundBonus: false));
         $this->assertSame(0, LargestNetworkSizeCalculator::calculate($player, new BoardStateData()));
     }
 

@@ -11,8 +11,11 @@ use App\Domain\Game\Enums\TerrainType;
 
 final class LargestNetworkSizeCalculator
 {
-    public static function calculate(GamePlayerStateData $player, BoardStateData $board): int
-    {
+    public static function calculate(
+        GamePlayerStateData $player,
+        BoardStateData $board,
+        bool $includeRoundBonus = true,
+    ): int {
         /** @var array<string, BoardHexStateData> $hexesById */
         $hexesById = [];
         /** @var array<string, true> $ownedHexIds */
@@ -48,7 +51,8 @@ final class LargestNetworkSizeCalculator
             }
         }
 
-        $navigationRange = $player->shippingLevel + $player->roundBonus->shippingBonus();
+        $navigationRange = $player->shippingLevel
+            + ($includeRoundBonus ? $player->roundBonus->shippingBonus() : 0);
 
         if ($navigationRange > 0) {
             foreach (array_keys($ownedHexIds) as $hexId) {

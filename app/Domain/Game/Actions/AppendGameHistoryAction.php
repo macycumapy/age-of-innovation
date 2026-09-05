@@ -27,6 +27,12 @@ final class AppendGameHistoryAction
         bool $createPhaseCheckpoint = false,
     ): GameAction {
         $nextSequence = ((int) $lockedGame->actions()->max('sequence')) + 1;
+        $phaseCheckpointPayload = [];
+
+        if ($createPhaseCheckpoint && array_key_exists('final_scoring', $payload)) {
+            $phaseCheckpointPayload['final_scoring'] = $payload['final_scoring'];
+            unset($payload['final_scoring']);
+        }
 
         $action = $lockedGame->actions()->create([
             'sequence' => $nextSequence,
@@ -39,13 +45,14 @@ final class AppendGameHistoryAction
         ]);
 
         if ($createPhaseCheckpoint) {
-            $this->appendPhaseCheckpoint($lockedGame);
+            $this->appendPhaseCheckpoint($lockedGame, $phaseCheckpointPayload);
         }
 
         return $action;
     }
 
-    private function appendPhaseCheckpoint(Game $game): void
+    /** @param array<string, mixed> $additionalPayload */
+    private function appendPhaseCheckpoint(Game $game, array $additionalPayload): void
     {
         $game->load('players');
 
@@ -74,6 +81,7 @@ final class AppendGameHistoryAction
                     'result_place' => $player->result_place,
                     'final_score' => $player->final_score,
                 ])->values()->all(),
+                ...$additionalPayload,
             ],
             'events' => [[
                 'type' => 'phase_started',

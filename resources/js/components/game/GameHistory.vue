@@ -215,6 +215,71 @@ function developmentTrackRewardDetails(entry: GameHistoryEntry): string | null {
     return rewards.length > 0 ? `получено ${rewards.join(', ')}` : null;
 }
 
+function finalScoringDetails(entry: GameHistoryEntry): string[] {
+    if (entry.type !== 'phase_checkpoint') {
+        return [];
+    }
+
+    const scoring = entry.payload.final_scoring;
+
+    if (!Array.isArray(scoring)) {
+        return [];
+    }
+
+    const disciplineNames: Record<string, string> = {
+        banking: 'Банковское дело',
+        law: 'Право',
+        engineering: 'Инженерия',
+        medicine: 'Медицина',
+    };
+
+    return scoring.flatMap((playerScoring) => {
+        if (typeof playerScoring !== 'object' || playerScoring === null) {
+            return [];
+        }
+
+        const result = playerScoring as Record<string, unknown>;
+        const playerId = Number(result.playerId);
+        const victoryPoints = Number(result.victoryPoints);
+
+        if (!Number.isFinite(playerId) || !Number.isFinite(victoryPoints) || victoryPoints <= 0) {
+            return [];
+        }
+
+        const playerName = props.players.find((player) => player.id === playerId)?.user.name ?? `Игрок ${playerId}`;
+        const sources = Array.isArray(result.sources)
+            ? result.sources.flatMap((source) => {
+                  if (typeof source !== 'object' || source === null) {
+                      return [];
+                  }
+
+                  const scoringSource = source as Record<string, unknown>;
+                  const value = Number(scoringSource.value);
+                  const rank = Number(scoringSource.rank);
+                  const points = Number(scoringSource.points);
+
+                  if (![value, rank, points].every(Number.isFinite) || points <= 0) {
+                      return [];
+                  }
+
+                  if (scoringSource.source === 'network') {
+                      return [`Сеть: ${value} зданий, ${rank}-е место — +${points} ПО`];
+                  }
+
+                  if (scoringSource.source === 'knowledge' && typeof scoringSource.id === 'string') {
+                      return [
+                          `${disciplineNames[scoringSource.id] ?? scoringSource.id}: уровень ${value}, ${rank}-е место — +${points} ПО`,
+                      ];
+                  }
+
+                  return [];
+              })
+            : [];
+
+        return [`${playerName}: ${sources.join('; ')}. Итого +${victoryPoints} ПО`];
+    });
+}
+
 function actionDescription(entry: GameHistoryEntry): string {
     if (entry.type === 'terraform_and_build' && entry.payload.built === false) {
         return 'отказался от строительства после преобразования';
@@ -226,14 +291,14 @@ function actionDescription(entry: GameHistoryEntry): string {
 function checkpointDescription(entry: GameHistoryEntry): string {
     const phase = payloadString(entry, 'phase');
     const phaseNames: Record<string, string> = {
-        setup: 'подготовка',
-        income: 'доход',
-        actions: 'действия',
-        science_bonus: 'научный бонус',
-        finished: 'завершение игры',
+        setup: 'Фаза подготовки',
+        income: 'Фаза дохода',
+        actions: 'Фаза действия',
+        science_bonus: 'Научный бонус',
+        finished: 'Завершение игры',
     };
 
-    return `Начало фазы: ${phaseNames[phase ?? ''] ?? phase ?? 'неизвестно'}`;
+    return `${phaseNames[phase ?? ''] ?? phase ?? 'неизвестно'}`;
 }
 
 function actionDetails(entry: GameHistoryEntry): string | null {
@@ -358,6 +423,13 @@ function actionTime(createdAt: string | null): string {
                         </template>
                         <span v-if="actionDetails(entry)" class="text-muted-foreground">
                             — {{ actionDetails(entry) }}
+                        </span>
+                        <span
+                            v-for="detail in finalScoringDetails(entry)"
+                            :key="detail"
+                            class="mt-1 block rounded-md bg-amber-500/15 px-2 py-1 text-xs font-medium text-amber-900 dark:text-amber-200"
+                        >
+                            {{ detail }}
                         </span>
                     </p>
                     <time
