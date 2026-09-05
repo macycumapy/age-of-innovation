@@ -8,6 +8,7 @@ import GameStartController from '@/actions/App/Http/Controllers/GameStartControl
 import BridgeController from '@/actions/App/Http/Controllers/BridgeController';
 import PalaceChoiceController from '@/actions/App/Http/Controllers/PalaceChoiceController';
 import PalaceGuildController from '@/actions/App/Http/Controllers/PalaceGuildController';
+import NeutralInnovationBuildingController from '@/actions/App/Http/Controllers/NeutralInnovationBuildingController';
 import PlanningBundleController from '@/actions/App/Http/Controllers/PlanningBundleController';
 import StartingBuildingController from '@/actions/App/Http/Controllers/StartingBuildingController';
 import StartingCompetencyController from '@/actions/App/Http/Controllers/StartingCompetencyController';
@@ -195,6 +196,17 @@ const pendingPalaceGuildHexId = computed(() =>
         : null,
 );
 
+const canPlaceNeutralBuilding = computed(
+    () =>
+        props.game.data.pendingInteraction?.type === 'place_neutral_building' &&
+        props.game.data.pendingInteraction.playerId === currentPlayer.value?.id &&
+        props.game.data.activePlayerId === page.props.auth.user.id,
+);
+
+const pendingNeutralBuilding = computed(() =>
+    props.game.data.pendingInteraction?.type === 'place_neutral_building' ? props.game.data.pendingInteraction : null,
+);
+
 const isBuildingCompetencyChoice = computed(
     () =>
         props.game.data.pendingInteraction?.type === 'choose_competency' &&
@@ -321,6 +333,10 @@ const selectableStartingHexIds = computed(() => {
         return pendingPalaceGuildHexId.value === null ? props.game.data.pendingInteraction.optionIds : [];
     }
 
+    if (canPlaceNeutralBuilding.value && pendingNeutralBuilding.value !== null) {
+        return pendingNeutralBuilding.value.optionIds;
+    }
+
     if (canSpendStartingSpade.value && props.game.data.pendingInteraction?.type === 'spend_spades') {
         return pendingStartingSpadeHexId.value === null ? props.game.data.pendingInteraction.optionIds : [];
     }
@@ -370,6 +386,25 @@ function placeStartingBuilding(hexId: string): void {
             {
                 preserveScroll: true,
             },
+        );
+
+        return;
+    }
+
+    if (canPlaceNeutralBuilding.value) {
+        const targetHex = props.game.data.board.hexes.find((hex) => hex.id === hexId);
+
+        if (targetHex?.terrain !== currentPlayer.value?.homeland) {
+            selectedPaidTerraformHexId.value = hexId;
+            isPaidTerraformingDialogOpen.value = true;
+
+            return;
+        }
+
+        router.post(
+            NeutralInnovationBuildingController.url(props.game.data.id),
+            { hex_id: hexId },
+            { preserveScroll: true },
         );
 
         return;
@@ -1616,6 +1651,7 @@ function selectedCompetencyForHomeland(homeland: TerrainType): Competency | unde
                 :target-hex="selectedPaidTerraformHex"
                 :homeland="currentPlayer.homeland"
                 :has-spade-interaction="canSpendStartingSpade"
+                :builds-neutral-building="canPlaceNeutralBuilding"
             />
 
             <BuildWorkshopDialog

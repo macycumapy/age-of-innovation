@@ -536,6 +536,19 @@ final class ReplayGameHistoryAction
         $state->pendingInteraction = null;
 
         if ($isBuildingChoice) {
+            if (isset($action->payload['neutral_building'])) {
+                $this->replayNeutralBuilding(
+                    $game,
+                    $state,
+                    $this->playerState($state, $player->id),
+                    $player,
+                    $action,
+                    [(string) ($action->payload['built_hex_id'] ?? '')],
+                );
+
+                return;
+            }
+
             $nextActiveUserId = $this->createTownChoiceAfterBuilding->execute(
                 $state,
                 $this->playerState($state, $player->id),
@@ -992,6 +1005,39 @@ final class ReplayGameHistoryAction
             $state->pendingInteraction = null;
         }
 
+        if ($state->pendingInteraction?->type === PendingInteractionType::PlaceNeutralBuilding) {
+            $this->replayNeutralBuilding($game, $state, $playerState, $player, $action);
+        }
+
+        $game->state = $state;
+    }
+
+    /** @param list<string> $queuedBuiltHexIds */
+    private function replayNeutralBuilding(
+        Game $game,
+        GameStateData $state,
+        GamePlayerStateData $playerState,
+        GamePlayer $player,
+        GameAction $action,
+        array $queuedBuiltHexIds = [],
+    ): void {
+        $neutralBuilding = (array) ($action->payload['neutral_building'] ?? []);
+        $hex = collect($state->board->hexes)->firstWhere('id', $neutralBuilding['hex_id'] ?? null);
+        $buildingType = BuildingType::tryFrom((string) ($neutralBuilding['type'] ?? ''));
+
+        if (! $hex instanceof BoardHexStateData || $buildingType === null || $hex->building !== null) {
+            $this->invalidHistory();
+        }
+
+        $playerState->resources->tools -= (int) ($neutralBuilding['tools'] ?? 0);
+        $playerState->resources->coins += (int) ($neutralBuilding['bonus_coins'] ?? 0);
+        $playerState->victoryPoints += (int) ($neutralBuilding['victory_points'] ?? 0);
+        $hex->terrain = $playerState->homeland;
+        $hex->building = new BuildingStateData($buildingType, $player->id, isNeutral: true);
+        $state->pendingInteraction = null;
+        $game->active_player_id = $buildingType === BuildingType::Tower
+            ? $this->createTownChoiceAfterBuilding->execute($state, $playerState, $hex->id, $queuedBuiltHexIds)
+            : $this->createBuildingFollowUpInteraction->execute($state, $playerState, $hex->id, $buildingType);
         $game->state = $state;
     }
 

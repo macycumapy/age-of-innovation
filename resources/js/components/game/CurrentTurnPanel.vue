@@ -110,6 +110,7 @@ function confirmRestartCurrentTurn(event: SubmitEvent): void {
                     canSpendStartingSpade ||
                     canResolvePowerOffer ||
                     game.data.pendingInteraction?.type === 'place_palace_guild' ||
+                    game.data.pendingInteraction?.type === 'place_neutral_building' ||
                     game.data.pendingInteraction?.type === 'place_bridge' ||
                     game.data.pendingInteraction?.type === 'choose_science_bonus_books' ||
                     game.data.pendingInteraction?.type === 'choose_innovation_books')
@@ -143,6 +144,9 @@ function confirmRestartCurrentTurn(event: SubmitEvent): void {
                         ? 'Рынок размещён — отмените действие или подтвердите.'
                         : 'Разместите бесплатный рынок на свободной родной местности.'
                 }}
+            </template>
+            <template v-else-if="game.data.pendingInteraction?.type === 'place_neutral_building'">
+                Выберите подсвеченную ячейку для нейтрального здания.
             </template>
             <template v-else-if="game.data.pendingInteraction?.type === 'place_bridge'">
                 {{

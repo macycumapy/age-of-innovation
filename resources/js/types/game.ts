@@ -370,6 +370,17 @@ export type PendingInteraction =
           };
       }
     | {
+          type: 'place_neutral_building';
+          playerId: number;
+          optionIds: string[];
+          context: {
+              innovation?: Innovation;
+              competency?: Competency;
+              source: 'innovation' | 'competency';
+              buildingType: BuildingType;
+          };
+      }
+    | {
           type: 'choose_competency';
           playerId: number;
           optionIds: Competency[];

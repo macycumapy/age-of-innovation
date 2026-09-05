@@ -18,6 +18,7 @@ use App\Http\Controllers\GamePlayerController;
 use App\Http\Controllers\GamePlayerReadinessController;
 use App\Http\Controllers\GameStartController;
 use App\Http\Controllers\InnovationController;
+use App\Http\Controllers\NeutralInnovationBuildingController;
 use App\Http\Controllers\PaidTerraformingController;
 use App\Http\Controllers\PalaceActionController;
 use App\Http\Controllers\PalaceChoiceController;
@@ -131,6 +132,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('games.scholar');
     Route::post('games/{game}/innovation', InnovationController::class)
         ->name('games.innovation');
+    Route::post('games/{game}/innovation/neutral-building', NeutralInnovationBuildingController::class)
+        ->name('games.innovation.neutral-building');
 });
 
 require __DIR__.'/settings.php';

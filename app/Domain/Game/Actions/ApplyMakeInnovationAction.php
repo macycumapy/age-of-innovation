@@ -23,6 +23,7 @@ final class ApplyMakeInnovationAction
     public function __construct(
         private InnovationPurchaseCostCalculator $costCalculator,
         private ApplyInnovationRewardAction $applyInnovationReward,
+        private CreateNeutralBuildingInteractionAction $createNeutralBuildingInteraction,
     ) {
     }
 
@@ -82,6 +83,17 @@ final class ApplyMakeInnovationAction
                     'innovation' => $innovation->value,
                     'source' => 'development_tracks',
                 ],
+            );
+        }
+
+        $neutralBuildingType = $innovation->neutralBuildingType();
+
+        if ($neutralBuildingType !== null) {
+            $this->createNeutralBuildingInteraction->execute(
+                $state,
+                $playerState,
+                $neutralBuildingType,
+                ['innovation' => $innovation->value, 'source' => 'innovation'],
             );
         }
 

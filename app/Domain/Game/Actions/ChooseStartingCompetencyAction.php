@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domain\Game\Actions;
 
+use App\Domain\Game\Enums\BuildingType;
 use App\Domain\Game\Enums\Competency;
 use App\Domain\Game\Enums\Faction;
 use App\Domain\Game\Enums\GameActionType;
@@ -19,6 +20,7 @@ final class ChooseStartingCompetencyAction
 {
     public function __construct(
         private AppendGameHistoryAction $appendGameHistory,
+        private CreateNeutralBuildingInteractionAction $createNeutralBuildingInteraction,
         private CreateTownChoiceAfterBuildingAction $createTownChoiceAfterBuilding,
         private DetermineStartingBuildingOrderAction $determineStartingBuildingOrder,
         private GrantCompetencyAction $grantCompetency,
@@ -79,11 +81,20 @@ final class ChooseStartingCompetencyAction
 
             if ($isBuildingChoice) {
                 $builtHexId = (string) ($interaction->context['builtHexId'] ?? '');
-                $nextActiveUserId = $this->createTownChoiceAfterBuilding->execute(
-                    $state,
-                    $playerState,
-                    $builtHexId,
-                );
+                $awaitsTowerPlacement = $competency === Competency::Competency10
+                    && $this->createNeutralBuildingInteraction->execute(
+                        $state,
+                        $playerState,
+                        BuildingType::Tower,
+                        [
+                            'competency' => $competency->value,
+                            'source' => 'competency',
+                            'queuedBuiltHexIds' => [$builtHexId],
+                        ],
+                    );
+                $nextActiveUserId = $awaitsTowerPlacement
+                    ? $playerState->userId
+                    : $this->createTownChoiceAfterBuilding->execute($state, $playerState, $builtHexId);
                 $lockedGame->update([
                     'active_player_id' => $nextActiveUserId,
                     'state' => $state,

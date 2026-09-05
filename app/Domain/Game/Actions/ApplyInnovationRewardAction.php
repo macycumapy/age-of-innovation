@@ -66,6 +66,10 @@ class ApplyInnovationRewardAction
             $reward['victoryPoints'] += $shippingReward['victoryPoints'] + $terraformingReward['victoryPoints'];
         }
 
+        if ($innovation === Innovation::Palace) {
+            $player->power->bowlThree += 2;
+        }
+
         $player->victoryPoints += $innovationVictoryPoints;
 
         return $reward;
@@ -100,6 +104,7 @@ class ApplyInnovationRewardAction
                 11,
             ),
             Innovation::Science => $this->buildingCount($state, $player, BuildingType::School) * 5,
+            Innovation::Monument => 7,
             default => 0,
         };
     }

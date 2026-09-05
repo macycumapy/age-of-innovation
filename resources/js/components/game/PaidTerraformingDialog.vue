@@ -2,6 +2,7 @@
 import { Form } from '@inertiajs/vue3';
 import { computed } from 'vue';
 import PaidTerraformingController from '@/actions/App/Http/Controllers/PaidTerraformingController';
+import NeutralInnovationBuildingController from '@/actions/App/Http/Controllers/NeutralInnovationBuildingController';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
 import {
@@ -23,6 +24,7 @@ const props = defineProps<{
     targetHex: BoardHexState;
     homeland: TerrainType;
     hasSpadeInteraction: boolean;
+    buildsNeutralBuilding?: boolean;
 }>();
 
 const isOpen = defineModel<boolean>('open', { required: true });
@@ -41,32 +43,39 @@ const requiredSpades = computed(() => {
 
     return Math.min(clockwiseDistance, counterclockwiseDistance);
 });
-const availableSpades = computed(() => Math.min(requiredSpades.value, props.playerState.unassignedSpades));
+const availableSpades = computed(() =>
+    props.buildsNeutralBuilding ? 0 : Math.min(requiredSpades.value, props.playerState.unassignedSpades),
+);
 const purchasedSpades = computed(() => Math.max(0, requiredSpades.value - availableSpades.value));
 const totalToolCost = computed(() => purchasedSpades.value * toolCostPerSpade.value);
 const canAffordFullTransformation = computed(() => totalToolCost.value <= props.playerState.tools);
-const canTransformAvailable = computed(() => props.hasSpadeInteraction
-    && availableSpades.value > 0
-    && availableSpades.value < requiredSpades.value);
+const canTransformAvailable = computed(
+    () => props.hasSpadeInteraction && availableSpades.value > 0 && availableSpades.value < requiredSpades.value,
+);
 
 function startSucceeded(): void {
     isOpen.value = false;
 }
-
 </script>
 
 <template>
     <Dialog v-model:open="isOpen">
         <DialogContent>
             <Form
-                v-bind="PaidTerraformingController.form(gameId)"
+                v-bind="
+                    buildsNeutralBuilding
+                        ? NeutralInnovationBuildingController.form(gameId)
+                        : PaidTerraformingController.form(gameId)
+                "
                 class="contents"
                 reset-on-success
                 #default="{ errors, processing }"
                 @success="startSucceeded"
             >
                 <DialogHeader>
-                    <DialogTitle>Преобразовать местность</DialogTitle>
+                    <DialogTitle>
+                        {{ buildsNeutralBuilding ? 'Преобразовать и построить' : 'Преобразовать местность' }}
+                    </DialogTitle>
                     <DialogDescription>
                         {{ terrainNames[targetHex.terrain] }} будет преобразована в {{ terrainNames[homeland] }}.
                     </DialogDescription>
@@ -103,7 +112,7 @@ function startSucceeded(): void {
                     <p v-if="purchasedSpades > 0" class="text-sm text-muted-foreground">
                         Недостающие лопаты: {{ purchasedSpades }} × {{ toolCostPerSpade }} инструмента.
                     </p>
-                    <p v-else class="text-sm text-muted-foreground">
+                    <p v-else-if="!buildsNeutralBuilding" class="text-sm text-muted-foreground">
                         Инструменты не потребуются — используются ранее полученные лопаты.
                     </p>
                     <p v-if="!canAffordFullTransformation" class="text-sm text-destructive">
@@ -134,7 +143,13 @@ function startSucceeded(): void {
                         :class="canTransformAvailable ? 'whitespace-normal sm:col-span-2' : 'whitespace-normal'"
                         :disabled="processing || !canAffordFullTransformation"
                     >
-                        {{ processing ? 'Подтверждение…' : 'Преобразовать полностью' }}
+                        {{
+                            processing
+                                ? 'Подтверждение…'
+                                : buildsNeutralBuilding
+                                  ? 'Преобразовать и построить'
+                                  : 'Преобразовать полностью'
+                        }}
                     </Button>
                 </DialogFooter>
             </Form>

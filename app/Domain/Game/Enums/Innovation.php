@@ -40,7 +40,7 @@ enum Innovation: string
     case University = 'university';
     /** Поставить нейтральный дворец без свойства; доход — 4 силы. */
     case Palace = 'palace';
-    /** Поставить монумент силы 4 и получить 7 ПО. */
+    /** Поставить нейтральный монумент и получить 7 ПО. */
     case Monument = 'monument';
 
     public function description(): string
@@ -63,12 +63,25 @@ enum Innovation: string
             self::School => 'Поставить нейтральную школу и получить любую компетенцию.',
             self::University => 'Поставить нейтральный университет без компетенции; доход — 2 ПО.',
             self::Palace => 'Поставить нейтральный дворец без свойства; доход — 4 силы.',
-            self::Monument => 'Поставить монумент силы 4 и получить 7 ПО.',
+            self::Monument => 'Поставить нейтральный монумент и получить 7 ПО.',
         };
     }
 
     public function passVictoryPoints(int $guildCount): int
     {
         return $this === self::TradeRoutes ? $guildCount * 2 : 0;
+    }
+
+    public function neutralBuildingType(): ?BuildingType
+    {
+        return match ($this) {
+            self::Workshop => BuildingType::Workshop,
+            self::Guild => BuildingType::Guild,
+            self::School => BuildingType::School,
+            self::University => BuildingType::University,
+            self::Palace => BuildingType::Palace,
+            self::Monument => BuildingType::Monument,
+            default => null,
+        };
     }
 }

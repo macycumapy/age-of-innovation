@@ -2672,6 +2672,81 @@ class GameManagementTest extends TestCase
         ];
     }
 
+    #[DataProvider('neutralInnovationBuildingTerrainProvider')]
+    public function test_competency_ten_places_a_neutral_tower_after_any_required_terraforming(
+        TerrainType $targetTerrain,
+        int $expectedToolCost,
+    ): void {
+        $user = User::factory()->create();
+        $game = Game::factory()->create([
+            'status' => GameStatus::Active,
+            'phase' => GamePhase::Actions,
+            'active_player_id' => $user->id,
+        ]);
+        $player = GamePlayer::factory()->create(['game_id' => $game->id, 'user_id' => $user->id, 'seat' => 1]);
+        $game->update(['state' => new GameStateData(
+            turnOrder: [$player->id],
+            board: new BoardStateData(hexes: [
+                new BoardHexStateData(
+                    id: '0:0',
+                    q: 0,
+                    r: 0,
+                    initialTerrain: TerrainType::Forest,
+                    terrain: TerrainType::Forest,
+                    adjacentHexIds: ['1:0'],
+                    building: new BuildingStateData(BuildingType::School, $player->id),
+                ),
+                new BoardHexStateData(
+                    id: '1:0',
+                    q: 1,
+                    r: 0,
+                    initialTerrain: $targetTerrain,
+                    terrain: $targetTerrain,
+                    adjacentHexIds: ['0:0'],
+                ),
+            ]),
+            players: [new GamePlayerStateData(
+                playerId: $player->id,
+                userId: $user->id,
+                color: PlayerColor::Green,
+                faction: Faction::Blessed,
+                homeland: TerrainType::Forest,
+                roundBonus: RoundBonus::Coins,
+                resources: new PlayerResourcesData(tools: 3),
+            )],
+            round: new RoundStateData(phase: GamePhase::Actions),
+            availableCompetencyIds: [Competency::Competency10->value],
+            pendingInteraction: new PendingInteractionData(
+                PendingInteractionType::ChooseCompetency,
+                $player->id,
+                [Competency::Competency10->value],
+                ['reason' => 'building', 'builtHexId' => '0:0', 'buildingType' => BuildingType::School->value],
+            ),
+        )]);
+
+        $this->actingAs($user)->post(route('games.starting-competency.store', $game), [
+            'competency_id' => Competency::Competency10->value,
+        ])->assertRedirect(route('games.show', $game));
+
+        $game->refresh();
+        $this->assertSame(PendingInteractionType::PlaceNeutralBuilding, $game->state->pendingInteraction?->type);
+        $this->assertSame(BuildingType::Tower->value, $game->state->pendingInteraction?->context['buildingType']);
+        $this->assertSame(['1:0'], $game->state->pendingInteraction?->optionIds);
+
+        $this->post(route('games.innovation.neutral-building', $game), ['hex_id' => '1:0'])
+            ->assertRedirect(route('games.show', $game));
+
+        $game->refresh();
+        $tower = $game->state->board->hexes[1];
+        $this->assertNull($game->state->pendingInteraction);
+        $this->assertSame(3 - $expectedToolCost, $game->state->players[0]->resources->tools);
+        $this->assertSame(TerrainType::Forest, $tower->terrain);
+        $this->assertSame(BuildingType::Tower, $tower->building?->type);
+        $this->assertTrue($tower->building?->isNeutral);
+        $this->assertSame('1:0', $game->actions()->sole()->payload['neutral_building']['hex_id']);
+        $this->assertSame(BuildingType::Tower->value, $game->actions()->sole()->payload['neutral_building']['type']);
+    }
+
     public function test_player_chooses_an_available_palace_tile_after_building_a_palace(): void
     {
         $user = User::factory()->create();
@@ -3150,6 +3225,94 @@ class GameManagementTest extends TestCase
         $this->assertSame([Innovation::Professor->value], $game->state->availableInventionIds);
         $this->assertFalse($game->state->round->hasTakenMainAction);
         $this->assertSame(0, $game->actions()->count());
+    }
+
+    #[DataProvider('neutralInnovationBuildingTerrainProvider')]
+    public function test_player_builds_a_neutral_innovation_building_after_any_required_terraforming(
+        TerrainType $targetTerrain,
+        int $expectedToolCost,
+    ): void {
+        $user = User::factory()->create();
+        $game = Game::factory()->create([
+            'status' => GameStatus::Active,
+            'phase' => GamePhase::Actions,
+            'active_player_id' => $user->id,
+        ]);
+        $player = GamePlayer::factory()->create([
+            'game_id' => $game->id,
+            'user_id' => $user->id,
+            'seat' => 1,
+        ]);
+        $setupPool = app(GameSetupPoolFactory::class)->createFromSeed(2, 'neutral-innovation-building');
+        $setupPool->innovations[0] = Innovation::Workshop;
+        $game->update(['state' => new GameStateData(
+            turnOrder: [$player->id],
+            board: new BoardStateData(hexes: [
+                new BoardHexStateData(
+                    id: '0:0',
+                    q: 0,
+                    r: 0,
+                    initialTerrain: TerrainType::Forest,
+                    terrain: TerrainType::Forest,
+                    adjacentHexIds: ['1:0'],
+                    building: new BuildingStateData(BuildingType::Workshop, $player->id),
+                ),
+                new BoardHexStateData(
+                    id: '1:0',
+                    q: 1,
+                    r: 0,
+                    initialTerrain: $targetTerrain,
+                    terrain: $targetTerrain,
+                    adjacentHexIds: ['0:0'],
+                ),
+            ]),
+            players: [new GamePlayerStateData(
+                playerId: $player->id,
+                userId: $user->id,
+                color: PlayerColor::Green,
+                faction: Faction::Blessed,
+                homeland: TerrainType::Forest,
+                roundBonus: RoundBonus::Coins,
+                resources: new PlayerResourcesData(
+                    tools: 3,
+                    coins: 10,
+                    books: new BookSupplyData(banking: 2, law: 2, medicine: 1),
+                ),
+            )],
+            round: new RoundStateData(phase: GamePhase::Actions),
+            availableInventionIds: [Innovation::Workshop->value],
+            setupPool: $setupPool,
+        )]);
+
+        $this->actingAs($user)->post(route('games.innovation', $game), [
+            'innovation' => Innovation::Workshop->value,
+            'book_counts' => ['banking' => 2, 'law' => 2, 'engineering' => 0, 'medicine' => 1],
+        ])->assertRedirect(route('games.show', $game));
+
+        $game->refresh();
+        $this->assertSame(PendingInteractionType::PlaceNeutralBuilding, $game->state->pendingInteraction?->type);
+        $this->assertSame(['1:0'], $game->state->pendingInteraction?->optionIds);
+
+        $this->post(route('games.innovation.neutral-building', $game), ['hex_id' => '1:0'])
+            ->assertRedirect(route('games.show', $game));
+
+        $game->refresh();
+        $this->assertNull($game->state->pendingInteraction);
+        $this->assertSame(3 - $expectedToolCost, $game->state->players[0]->resources->tools);
+        $this->assertSame(TerrainType::Forest, $game->state->board->hexes[1]->terrain);
+        $this->assertSame(BuildingType::Workshop, $game->state->board->hexes[1]->building?->type);
+        $this->assertTrue($game->state->board->hexes[1]->building?->isNeutral);
+        $this->assertSame('1:0', $game->actions()->sole()->payload['neutral_building']['hex_id']);
+        $this->assertSame($expectedToolCost, $game->actions()->sole()->payload['neutral_building']['tools']);
+    }
+
+    /** @return array<string, array{TerrainType, int}> */
+    public static function neutralInnovationBuildingTerrainProvider(): array
+    {
+        return [
+            'without terraforming' => [TerrainType::Forest, 0],
+            'with terraforming' => [TerrainType::Mountain, 3],
+        ];
     }
 
     public function test_player_distributes_books_received_from_an_innovation_in_the_same_history_action(): void
