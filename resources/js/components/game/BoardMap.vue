@@ -472,18 +472,6 @@ function closedActionTokenX(actionX: number, actionWidth: number): number {
                     class="pointer-events-none drop-shadow-md"
                     preserveAspectRatio="xMidYMid meet"
                 />
-                <text
-                    y="4"
-                    text-anchor="middle"
-                    fill="rgba(255, 255, 255, 0.9)"
-                    font-size="18"
-                    font-weight="600"
-                    paint-order="stroke"
-                    stroke="rgba(0, 0, 0, 0.6)"
-                    stroke-width="3"
-                >
-                    {{ hex.q }}:{{ hex.r }}
-                </text>
                 <image
                     v-if="hex.building?.hasAnnex"
                     :href="annexUrl"
@@ -527,14 +515,10 @@ function closedActionTokenX(actionX: number, actionWidth: number): number {
     transition: fill-opacity 150ms ease-in-out;
 }
 
-.board-hex-group:hover .board-hex {
-    fill-opacity: 0.42;
-}
-
 .board-hex-selectable {
     fill-opacity: 0.28;
-    stroke: rgb(255 255 255 / 0.95);
-    stroke-width: 5;
+    stroke: rgb(24 129 24 / 0.75);
+    stroke-width: 8;
 }
 
 .board-hex-pending {
