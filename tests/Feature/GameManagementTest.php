@@ -1762,6 +1762,57 @@ class GameManagementTest extends TestCase
         $this->assertSame(2, $game->state->players[0]->resources->coins);
     }
 
+    public function test_player_can_build_a_workshop_on_homeland_connected_by_their_bridge(): void
+    {
+        $user = User::factory()->create();
+        $game = Game::factory()->create([
+            'status' => GameStatus::Active,
+            'phase' => GamePhase::Actions,
+            'active_player_id' => $user->id,
+        ]);
+        $player = GamePlayer::factory()->create(['game_id' => $game->id, 'user_id' => $user->id]);
+        $game->update(['state' => new GameStateData(
+            turnOrder: [$player->id],
+            board: new BoardStateData(
+                hexes: [
+                    new BoardHexStateData(
+                        id: '0:0',
+                        q: 0,
+                        r: 0,
+                        initialTerrain: TerrainType::Forest,
+                        terrain: TerrainType::Forest,
+                        building: new BuildingStateData(BuildingType::Workshop, $player->id),
+                    ),
+                    new BoardHexStateData(
+                        id: '0:2',
+                        q: 0,
+                        r: 2,
+                        initialTerrain: TerrainType::Forest,
+                        terrain: TerrainType::Forest,
+                    ),
+                ],
+                bridges: [new BridgeStateData('0:0', '0:2', $player->id)],
+            ),
+            round: new RoundStateData(phase: GamePhase::Actions),
+            players: [new GamePlayerStateData(
+                playerId: $player->id,
+                userId: $user->id,
+                color: PlayerColor::Green,
+                faction: Faction::Blessed,
+                homeland: TerrainType::Forest,
+                roundBonus: RoundBonus::Coins,
+                resources: new PlayerResourcesData(tools: 1, coins: 2),
+            )],
+        )]);
+
+        $this->actingAs($user)->post(route('games.workshop', $game), ['hex_id' => '0:2'])
+            ->assertRedirect(route('games.show', $game));
+
+        $game->refresh();
+        $this->assertSame(BuildingType::Workshop, $game->state->board->hexes[1]->building?->type);
+        $this->assertSame($player->id, $game->state->board->hexes[1]->building?->ownerPlayerId);
+    }
+
     public function test_building_an_eligible_group_founds_a_town_and_player_chooses_its_tile(): void
     {
         $user = User::factory()->create();

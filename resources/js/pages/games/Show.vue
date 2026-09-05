@@ -573,6 +573,23 @@ const reachableEmptyLandHexIds = computed(() => {
         }
     });
 
+    props.game.data.board.bridges.forEach((bridge) => {
+        if (bridge.ownerPlayerId !== player.id) {
+            return;
+        }
+
+        const fromHex = hexesById.get(bridge.fromHexId);
+        const toHex = hexesById.get(bridge.toHexId);
+
+        if (fromHex?.building?.ownerPlayerId === player.id) {
+            reachableHexIds.add(bridge.toHexId);
+        }
+
+        if (toHex?.building?.ownerPlayerId === player.id) {
+            reachableHexIds.add(bridge.fromHexId);
+        }
+    });
+
     const visitedWaterHexIds = new Set<string>();
 
     const navigationRange = playerState.shippingLevel + (playerState.roundBonus === 'river_workshop' ? 1 : 0);
