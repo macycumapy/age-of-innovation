@@ -25,6 +25,7 @@ use App\Domain\Game\Enums\PowerAction;
 use App\Domain\Game\Enums\RoundBonus;
 use App\Domain\Game\Enums\TerrainType;
 use App\Domain\Game\Enums\TownTile;
+use App\Domain\Game\Services\CompetencySupply;
 use App\Domain\Game\Services\InnovationPurchaseCostCalculator;
 use App\Domain\Game\Services\PlayerIncomeCalculator;
 use App\Models\Game;
@@ -329,6 +330,7 @@ class GameResource extends JsonResource
             'competencies' => $this->enumValues(
                 $this->state->setupPool?->competencies ?? [],
             ),
+            'competencyCounts' => array_count_values(CompetencySupply::availableIds($this->state)),
             'availablePalaceIds' => $this->state->availablePalaceIds,
             'availableTownTileIds' => $this->state->availableTownTileIds,
             'townTileDescriptions' => collect(TownTile::cases())->mapWithKeys(

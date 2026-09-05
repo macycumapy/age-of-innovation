@@ -8,6 +8,7 @@ use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Data\GameStateData;
 use App\Domain\Game\Enums\Competency;
 use App\Domain\Game\Enums\KnowledgeDiscipline;
+use App\Domain\Game\Services\CompetencySupply;
 use Illuminate\Validation\ValidationException;
 
 final class GrantCompetencyAction
@@ -29,12 +30,27 @@ final class GrantCompetencyAction
             ]);
         }
 
+        if ($state->schemaVersion === 3) {
+            $state->availableCompetencyIds = CompetencySupply::availableIds($state);
+            $state->schemaVersion = CompetencySupply::CURRENT_SCHEMA_VERSION;
+        }
+
+        $availableCompetencyIndex = array_search($competency->value, $state->availableCompetencyIds, true);
+
+        if (! is_int($availableCompetencyIndex)) {
+            throw ValidationException::withMessages([
+                'competency_id' => 'Все плашки этой компетенции уже разобраны.',
+            ]);
+        }
+
         $competencyIndex = $this->competencyIndex($competency, $availableCompetencies);
         $disciplines = KnowledgeDiscipline::cases();
         $discipline = $disciplines[$competencyIndex % count($disciplines)];
         $competencyRow = intdiv($competencyIndex, count($disciplines));
 
         $playerState->competencyIds[] = $competency->value;
+        unset($state->availableCompetencyIds[$availableCompetencyIndex]);
+        $state->availableCompetencyIds = array_values($state->availableCompetencyIds);
         $this->advanceKnowledge->execute($state, $playerState, $discipline, 3 - $competencyRow);
         $playerState->resources->books->{$discipline->value} += $competencyRow;
         $this->applyImmediateEffect($playerState, $competency);

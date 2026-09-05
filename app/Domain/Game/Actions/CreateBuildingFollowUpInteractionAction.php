@@ -51,14 +51,14 @@ final class CreateBuildingFollowUpInteractionAction
             $state->pendingInteraction = new PendingInteractionData(
                 PendingInteractionType::ChooseCompetency,
                 $playerState->playerId,
-                array_values(array_filter(
+                array_values(array_unique(array_filter(
                     $state->availableCompetencyIds,
                     static fn (string $competencyId): bool => ! in_array(
                         $competencyId,
                         $playerState->competencyIds,
                         true,
                     ),
-                )),
+                ))),
                 [
                     'reason' => 'building',
                     'builtHexId' => $builtHexId,

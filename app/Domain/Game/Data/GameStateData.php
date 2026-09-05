@@ -16,7 +16,7 @@ use Spatie\LaravelData\Data;
  * @property list<string> $availableTownTileIds Доступные жетоны городов.
  * @property list<string> $availablePalaceIds Доступные дворцы.
  * @property list<string> $availableInventionIds Доступные изобретения.
- * @property list<string> $availableCompetencyIds Доступные компетенции.
+ * @property list<string> $availableCompetencyIds Доступные плашки компетенций, по одному элементу на экземпляр.
  * @property list<string> $roundBonusIds Бонусы раунда, участвующие в партии.
  * @property GameSetupPoolData|null $setupPool Пул компонентов, сформированный при старте партии.
  * @property list<PlayerPlanningSelectionData> $planningSelections Выбранные игроками стартовые комплекты.

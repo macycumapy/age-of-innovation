@@ -59,19 +59,19 @@ final class FinishStartingBuildingTurnAction
                     throw ValidationException::withMessages(['game' => 'Не найдено состояние игрока.']);
                 }
 
-                $availableCompetencyIds = array_values(array_filter(
+                $availableCompetencyIds = array_values(array_unique(array_filter(
                     array_map(
                         static fn (Competency|string $competency): string => $competency instanceof Competency
                             ? $competency->value
                             : $competency,
-                        $state->setupPool?->competencies ?? [],
+                        $state->availableCompetencyIds,
                     ),
                     static fn (string $competencyId): bool => ! in_array(
                         $competencyId,
                         $playerState->competencyIds,
                         true,
                     ),
-                ));
+                )));
                 $state->pendingInteraction = new PendingInteractionData(
                     PendingInteractionType::ChooseCompetency,
                     $player->id,

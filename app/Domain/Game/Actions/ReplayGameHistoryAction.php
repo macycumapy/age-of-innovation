@@ -33,6 +33,7 @@ use App\Domain\Game\Enums\TownTile;
 use App\Domain\Game\Factories\BoardStateFactory;
 use App\Domain\Game\Factories\GamePlayerStateFactory;
 use App\Domain\Game\Factories\GameSetupPoolFactory;
+use App\Domain\Game\Services\CompetencySupply;
 use App\Models\Game;
 use App\Models\GameAction;
 use App\Models\GamePlayer;
@@ -292,7 +293,7 @@ final class ReplayGameHistoryAction
             'active_player_id' => $orderedPlayers->firstOrFail()->user_id,
             'started_at' => $action->created_at,
             'state' => new GameStateData(
-                schemaVersion: 3,
+                schemaVersion: CompetencySupply::CURRENT_SCHEMA_VERSION,
                 turnOrder: $orderedPlayers->pluck('id')->all(),
                 board: $game->state->board,
                 round: new RoundStateData(
@@ -308,7 +309,11 @@ final class ReplayGameHistoryAction
                 )),
                 availablePalaceIds: $this->enumValues($setupPool->palaces),
                 availableInventionIds: $this->enumValues($setupPool->innovations),
-                availableCompetencyIds: $this->enumValues($setupPool->competencies),
+                availableCompetencyIds: array_merge(...array_fill(
+                    0,
+                    CompetencySupply::COPIES_PER_COMPETENCY,
+                    $this->enumValues($setupPool->competencies),
+                )),
                 roundBonusIds: [
                     ...array_map(
                         static fn (PlanningBundleData $bundle): string => $bundle->roundBonus->value,
@@ -529,9 +534,7 @@ final class ReplayGameHistoryAction
             $state,
             $this->playerState($state, $player->id),
             Competency::from((string) $action->payload['competency_id']),
-            $isBuildingChoice
-                ? $state->availableCompetencyIds
-                : ($state->setupPool?->competencies ?? []),
+            $state->setupPool?->competencies ?? $state->availableCompetencyIds,
         );
         $state->pendingInteraction = null;
 

@@ -12,6 +12,7 @@ use App\Domain\Game\Enums\GameActionType;
 use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\GameStatus;
 use App\Domain\Game\Factories\GameSetupPoolFactory;
+use App\Domain\Game\Services\CompetencySupply;
 use App\Models\Game;
 use App\Models\GamePlayer;
 use App\Models\User;
@@ -79,7 +80,7 @@ final class StartGameAction
                 'active_player_id' => $activePlayer->user_id,
                 'version' => $lockedGame->version + 1,
                 'state' => new GameStateData(
-                    schemaVersion: 3,
+                    schemaVersion: CompetencySupply::CURRENT_SCHEMA_VERSION,
                     turnOrder: $orderedPlayers->pluck('id')->all(),
                     board: $lockedGame->state->board,
                     round: new RoundStateData(
@@ -95,7 +96,11 @@ final class StartGameAction
                     )),
                     availablePalaceIds: $this->enumValues($setupPool->palaces),
                     availableInventionIds: $this->enumValues($setupPool->innovations),
-                    availableCompetencyIds: $this->enumValues($setupPool->competencies),
+                    availableCompetencyIds: array_merge(...array_fill(
+                        0,
+                        CompetencySupply::COPIES_PER_COMPETENCY,
+                        $this->enumValues($setupPool->competencies),
+                    )),
                     roundBonusIds: [
                         ...array_map(
                             static fn (PlanningBundleData $bundle): string => $bundle->roundBonus->value,

@@ -72,9 +72,7 @@ final class ChooseStartingCompetencyAction
                 $state,
                 $playerState,
                 $competency,
-                $isBuildingChoice
-                    ? $state->availableCompetencyIds
-                    : ($state->setupPool?->competencies ?? []),
+                $state->setupPool?->competencies ?? $state->availableCompetencyIds,
             );
             $state->players[$playerStateIndex] = $playerState;
             $state->pendingInteraction = null;

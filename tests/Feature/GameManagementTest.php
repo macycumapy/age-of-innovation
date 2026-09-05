@@ -4118,7 +4118,11 @@ class GameManagementTest extends TestCase
         $this->assertCount(21, $game->state->availableTownTileIds);
         $this->assertCount(4, $game->state->availablePalaceIds);
         $this->assertCount(6, $game->state->availableInventionIds);
-        $this->assertCount(12, $game->state->availableCompetencyIds);
+        $this->assertCount(48, $game->state->availableCompetencyIds);
+        $this->assertSame(
+            4,
+            array_count_values($game->state->availableCompetencyIds)[Competency::Competency01->value],
+        );
         $this->assertCount(10, $game->state->roundBonusIds);
         $this->assertEqualsCanonicalizing(
             [$ownerPlayer->id, $secondPlayer->id],
@@ -5589,7 +5593,10 @@ class GameManagementTest extends TestCase
         $this->assertSame(1, $game->state->pendingInteraction?->context['knowledgeStepCount']);
         $this->assertSame(GamePhase::Income, $game->phase);
         $this->assertContains(Competency::Competency04->value, $monkState->competencyIds);
-        $this->assertContains(Competency::Competency04->value, $game->state->availableCompetencyIds);
+        $this->assertSame(
+            2,
+            array_count_values($game->state->availableCompetencyIds)[Competency::Competency04->value],
+        );
         $this->assertSame($monkStateBefore->knowledge->medicine + 3, $monkState->knowledge->medicine);
         $monkIncome = PlayerIncomeCalculator::calculate($monkState, $game->state->board);
         $this->assertSame($monkStateBefore->resources->tools + 1 + $monkIncome['tools'], $monkState->resources->tools);

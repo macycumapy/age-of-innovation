@@ -18,6 +18,7 @@ const props = defineProps<{
     playerCount: number;
     innovations: Innovation[];
     competencies: Competency[];
+    competencyCounts: Partial<Record<Competency, number>>;
     innovationDescriptions: Record<Innovation, string>;
     competencyDescriptions: Record<Competency, string>;
     innovationStates: InnovationPurchaseState[];
@@ -32,7 +33,6 @@ const boardWidth = 850;
 const tileWidth = 168;
 const competencyBoardHeight = 480;
 const competencyTileWidth = 100;
-const competencyStackSize = 4;
 const competencyLayerOffset = 2;
 
 const inventionBoardUrl = computed(() =>
@@ -189,10 +189,10 @@ function competencyLayerStyle(layer: number): CSSProperties {
                             :style="competencyStyle(competencySlots[index])"
                             tabindex="0"
                             class="absolute aspect-[120/117] cursor-help"
-                            :aria-label="`Стопка из ${competencyStackSize} плашек компетенции ${competency}`"
+                            :aria-label="`Стопка из ${competencyCounts[competency] ?? 0} плашек компетенции ${competency}`"
                         >
                             <img
-                                v-for="layer in competencyStackSize"
+                                v-for="layer in competencyCounts[competency] ?? 0"
                                 :key="layer"
                                 :src="competencyImage(competency)"
                                 alt=""
@@ -204,6 +204,7 @@ function competencyLayerStyle(layer: number): CSSProperties {
                     <TooltipContent class="max-w-xs">
                         <p class="font-semibold">Компетенция {{ competency.slice(-2) }}</p>
                         <p>{{ competencyDescriptions[competency] }}</p>
+                        <p class="mt-1 font-medium">Осталось: {{ competencyCounts[competency] ?? 0 }}</p>
                     </TooltipContent>
                 </Tooltip>
             </TooltipProvider>

@@ -53,6 +53,7 @@ export type GameResource = {
         availableInventionIds: Innovation[];
         innovationStates: InnovationPurchaseState[];
         competencies: Competency[];
+        competencyCounts: Partial<Record<Competency, number>>;
         availablePalaceIds: PalaceAbility[];
         availableTownTileIds: TownTile[];
         townTileDescriptions: Record<TownTile, string>;

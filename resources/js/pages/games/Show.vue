@@ -1553,6 +1553,7 @@ function selectedCompetencyForHomeland(homeland: TerrainType): Competency | unde
                             :player-count="game.data.playersCount"
                             :innovations="game.data.innovations"
                             :competencies="game.data.competencies"
+                            :competency-counts="game.data.competencyCounts"
                             :innovation-descriptions="game.data.innovationDescriptions"
                             :competency-descriptions="game.data.competencyDescriptions"
                             :innovation-states="game.data.innovationStates"
