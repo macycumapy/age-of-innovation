@@ -28,17 +28,18 @@ final class ApplyPassAction
     public function execute(
         GameStateData $state,
         GamePlayerStateData $player,
-        RoundBonus $roundBonus,
+        ?RoundBonus $roundBonus,
         Collection $players,
     ): array {
         if (in_array($player->playerId, $state->passedPlayerIds, true)) {
             throw ValidationException::withMessages(['round_bonus' => 'Игрок уже спасовал в этом раунде.']);
         }
 
-        $offerIndex = collect($state->setupPool?->availableRoundBonuses ?? [])
+        $isFinalRound = $state->round->number >= 6;
+        $offerIndex = $isFinalRound ? null : collect($state->setupPool?->availableRoundBonuses ?? [])
             ->search(static fn (RoundBonusOfferData $offer): bool => $offer->roundBonus === $roundBonus);
 
-        if (! is_int($offerIndex) || $state->setupPool === null) {
+        if ($state->setupPool === null || (! $isFinalRound && ! is_int($offerIndex))) {
             throw ValidationException::withMessages(['round_bonus' => 'Выбранный бонус раунда недоступен.']);
         }
 
@@ -47,12 +48,22 @@ final class ApplyPassAction
         }
 
         $oldRoundBonus = $player->roundBonus;
-        $offer = $state->setupPool->availableRoundBonuses[$offerIndex];
         $bonuses = $this->applyPassBonuses->execute($state, $player);
-        array_splice($state->setupPool->availableRoundBonuses, $offerIndex, 1);
+
+        $offer = is_int($offerIndex) ? $state->setupPool->availableRoundBonuses[$offerIndex] : null;
+
+        if (is_int($offerIndex)) {
+            array_splice($state->setupPool->availableRoundBonuses, $offerIndex, 1);
+        }
+
         $state->setupPool->availableRoundBonuses[] = new RoundBonusOfferData($oldRoundBonus, 0);
-        $player->roundBonus = $offer->roundBonus;
-        $player->resources->coins += $offer->coins;
+
+        if ($offer instanceof RoundBonusOfferData) {
+            $player->roundBonus = $offer->roundBonus;
+            $player->resources->coins += $offer->coins;
+        }
+
+        $bonusCoins = $offer?->coins ?? 0;
         $state->passedPlayerIds[] = $player->playerId;
         $state->round->passOrder[] = $player->playerId;
         $passOrder = count($state->passedPlayerIds);
@@ -67,7 +78,7 @@ final class ApplyPassAction
             return [
                 'nextActiveUserId' => $nextPlayer->user_id,
                 'phase' => GamePhase::Actions,
-                'bonusCoins' => $offer->coins,
+                'bonusCoins' => $bonusCoins,
                 'victoryPoints' => $bonuses['victoryPoints'],
                 'scoringSources' => $bonuses['sources'],
                 'passOrder' => $passOrder,
@@ -86,7 +97,7 @@ final class ApplyPassAction
         return [
             'nextActiveUserId' => $nextPlayer?->user_id,
             'phase' => $phase,
-            'bonusCoins' => $offer->coins,
+            'bonusCoins' => $bonusCoins,
             'victoryPoints' => $bonuses['victoryPoints'],
             'scoringSources' => $bonuses['sources'],
             'passOrder' => $passOrder,

@@ -26,13 +26,18 @@ final class PassRequest extends FormRequest
     /** @return array<string, array<int, mixed>> */
     public function rules(): array
     {
+        $game = $this->route('game');
+        $isFinalRound = $game instanceof Game && $game->state->round->number >= 6;
+
         return [
-            'round_bonus' => ['required', Rule::enum(RoundBonus::class)],
+            'round_bonus' => [$isFinalRound ? 'nullable' : 'required', Rule::enum(RoundBonus::class)],
         ];
     }
 
-    public function roundBonus(): RoundBonus
+    public function roundBonus(): ?RoundBonus
     {
-        return RoundBonus::from((string) $this->validated('round_bonus'));
+        $roundBonus = $this->validated('round_bonus');
+
+        return is_string($roundBonus) ? RoundBonus::from($roundBonus) : null;
     }
 }

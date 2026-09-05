@@ -22,6 +22,7 @@ defineProps<{
     offers: RoundBonusOffer[];
     descriptions: Record<RoundBonus, string>;
     availableActions: string[];
+    isFinalRound: boolean;
 }>();
 
 const isOpen = defineModel<boolean>('open', { required: true });
@@ -58,11 +59,21 @@ function focusDialogTitle(event: Event): void {
                 #default="{ errors, processing }"
                 @success="isOpen = false"
             >
-                <input type="hidden" name="round_bonus" :value="selectedRoundBonus ?? ''" />
+                <input
+                    v-if="!isFinalRound"
+                    type="hidden"
+                    name="round_bonus"
+                    :value="selectedRoundBonus ?? ''"
+                />
                 <DialogHeader>
                     <DialogTitle><span ref="initialFocusTarget" tabindex="-1">Спасовать?</span></DialogTitle>
                     <DialogDescription>
-                        Выберите новый жетон бонуса раунда. Текущий жетон вернётся в общий пул.
+                        <template v-if="isFinalRound">
+                            Текущий жетон бонуса раунда вернётся в общий пул.
+                        </template>
+                        <template v-else>
+                            Выберите новый жетон бонуса раунда. Текущий жетон вернётся в общий пул.
+                        </template>
                     </DialogDescription>
                 </DialogHeader>
 
@@ -75,7 +86,7 @@ function focusDialogTitle(event: Event): void {
                     <p class="mt-1 text-muted-foreground">После паса выполнить их в этом раунде уже не получится.</p>
                 </div>
 
-                <TooltipProvider :delay-duration="150">
+                <TooltipProvider v-if="!isFinalRound" :delay-duration="150">
                     <div class="grid grid-cols-3 gap-2">
                         <Tooltip v-for="offer in offers" :key="offer.roundBonus">
                             <TooltipTrigger as-child>
@@ -114,7 +125,7 @@ function focusDialogTitle(event: Event): void {
                     <DialogClose as-child>
                         <Button type="button" variant="outline">Отмена</Button>
                     </DialogClose>
-                    <Button type="submit" :disabled="processing || selectedRoundBonus === null">
+                    <Button type="submit" :disabled="processing || (!isFinalRound && selectedRoundBonus === null)">
                         Подтвердить пас
                     </Button>
                 </DialogFooter>

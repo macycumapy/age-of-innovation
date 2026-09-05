@@ -23,7 +23,7 @@ final class PassAction
     ) {
     }
 
-    public function execute(Game $game, User $user, RoundBonus $roundBonus): Game
+    public function execute(Game $game, User $user, ?RoundBonus $roundBonus): Game
     {
         return DB::transaction(function () use ($game, $user, $roundBonus): Game {
             $lockedGame = Game::query()->lockForUpdate()->findOrFail($game->id);
@@ -57,7 +57,7 @@ final class PassAction
             $lockedGame->save();
             $this->appendGameHistory->execute($lockedGame, $user, GameActionType::Pass, [
                 'old_round_bonus' => $oldRoundBonus->value,
-                'round_bonus' => $roundBonus->value,
+                'round_bonus' => $roundBonus?->value,
                 'pass_order' => $result['passOrder'],
                 'bonus_coins' => $result['bonusCoins'],
                 'victory_points' => $result['victoryPoints'],

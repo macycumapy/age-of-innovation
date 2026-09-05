@@ -1232,7 +1232,9 @@ final class ReplayGameHistoryAction
         $result = $this->applyPassAction->execute(
             $state,
             $this->playerState($state, $player->id),
-            RoundBonus::from((string) $action->payload['round_bonus']),
+            isset($action->payload['round_bonus'])
+                ? RoundBonus::from((string) $action->payload['round_bonus'])
+                : null,
             $players,
         );
         $game->phase = $result['phase'];

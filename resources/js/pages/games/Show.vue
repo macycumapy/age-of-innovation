@@ -1547,6 +1547,7 @@ function selectedCompetencyForHomeland(homeland: TerrainType): Competency | unde
                             v-if="playersWithSelectedFactions.length > 0"
                             :players="playersWithSelectedFactions"
                             :player-states="game.data.playerBoardStates"
+                            :current-round="game.data.currentRound"
                             :current-user-id="page.props.auth.user.id"
                             :round-bonus-descriptions="game.data.roundBonusDescriptions"
                             :competency-descriptions="game.data.competencyDescriptions"
@@ -1583,6 +1584,7 @@ function selectedCompetencyForHomeland(homeland: TerrainType): Competency | unde
                             @send-scholar="selectScholarDiscipline"
                         />
                         <RoundBonusBoard
+                            v-if="game.data.currentRound !== 6"
                             :offers="game.data.roundBonusOffers"
                             :descriptions="game.data.roundBonusDescriptions"
                         />
@@ -1677,6 +1679,7 @@ function selectedCompetencyForHomeland(homeland: TerrainType): Competency | unde
                 :offers="game.data.roundBonusOffers"
                 :descriptions="game.data.roundBonusDescriptions"
                 :available-actions="availableActionsBeforePass"
+                :is-final-round="game.data.currentRound === 6"
             />
 
             <PaidTerraformingDialog

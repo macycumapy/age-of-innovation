@@ -1294,6 +1294,33 @@ class GameManagementTest extends TestCase
         );
     }
 
+    public function test_player_discards_their_round_bonus_without_choosing_a_new_one_in_the_final_round(): void
+    {
+        [$game, $firstUser, $secondUser] = $this->gameForPassing();
+        $state = $game->state;
+        $state->round->number = 6;
+        $game->update(['state' => $state]);
+
+        $this->actingAs($firstUser)
+            ->post(route('games.pass', $game))
+            ->assertRedirect(route('games.show', $game))
+            ->assertSessionHasNoErrors();
+
+        $game->refresh();
+        $this->assertSame($secondUser->id, $game->active_player_id);
+        $this->assertSame(RoundBonus::Knowledge, $game->state->players[0]->roundBonus);
+        $this->assertSame(0, $game->state->players[0]->resources->coins);
+        $this->assertCount(4, $game->state->setupPool?->availableRoundBonuses);
+        $this->assertContains(
+            RoundBonus::Knowledge,
+            array_column($game->state->setupPool?->availableRoundBonuses ?? [], 'roundBonus'),
+        );
+
+        $action = $game->actions()->sole();
+        $this->assertNull($action->payload['round_bonus']);
+        $this->assertSame(0, $action->payload['bonus_coins']);
+    }
+
     public function test_last_pass_sets_the_next_round_turn_order_and_starts_the_next_round(): void
     {
         [$game, $firstUser, $secondUser] = $this->gameForPassing();

@@ -45,6 +45,7 @@ type BookType = keyof GamePlayerBoardState['books'];
 const props = defineProps<{
     players: GamePlayerSummary[];
     playerStates: GamePlayerBoardState[];
+    currentRound: number | null;
     currentUserId: number;
     roundBonusDescriptions: Record<RoundBonus, string>;
     competencyDescriptions: Record<Competency, string>;
@@ -409,7 +410,9 @@ function innovationsForPlayer(playerId: number): Innovation[] {
 }
 
 function roundBonusForPlayer(playerId: number): RoundBonus | undefined {
-    return playerState(playerId)?.roundBonus;
+    const state = playerState(playerId);
+
+    return props.currentRound === 6 && state?.passOrder !== null ? undefined : state?.roundBonus;
 }
 
 function isRoundBonusActionAvailable(player: GamePlayerSummary): boolean {
@@ -680,8 +683,8 @@ function canSacrificeFromBowl(player: GamePlayerSummary, bowl: PowerBowl): boole
                     </TooltipProvider>
                 </div>
 
-                <figcaption v-if="playerState(player.id)?.roundBonus" class="flex items-start gap-3 p-3">
-                    <TooltipProvider :delay-duration="150">
+                <figcaption class="flex items-start gap-3 p-3">
+                    <TooltipProvider v-if="roundBonusForPlayer(player.id)" :delay-duration="150">
                         <Tooltip>
                             <TooltipTrigger as-child>
                                 <span
