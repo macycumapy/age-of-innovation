@@ -28,6 +28,7 @@ use App\Domain\Game\Enums\TerrainType;
 use App\Domain\Game\Enums\TownTile;
 use App\Domain\Game\Services\CompetencySupply;
 use App\Domain\Game\Services\InnovationPurchaseCostCalculator;
+use App\Domain\Game\Services\LargestNetworkSizeCalculator;
 use App\Domain\Game\Services\PlayerIncomeCalculator;
 use App\Models\Game;
 use App\Models\GameAction;
@@ -215,6 +216,7 @@ class GameResource extends JsonResource
                     ],
                     'income' => PlayerIncomeCalculator::calculate($player, $this->state->board),
                     'shippingLevel' => $player->shippingLevel,
+                    'largestNetworkSize' => LargestNetworkSizeCalculator::calculate($player, $this->state->board),
                     'canAdvanceShipping' => $player->shippingLevel < 3
                         && $player->resources->coins >= 4
                         && $player->resources->scholars >= 1,

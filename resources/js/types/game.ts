@@ -162,6 +162,7 @@ export type GamePlayerBoardState = {
         victoryPoints: number;
     };
     shippingLevel: number;
+    largestNetworkSize: number;
     canAdvanceShipping: boolean;
     terraformingLevel: number;
     canAdvanceTerraforming: boolean;

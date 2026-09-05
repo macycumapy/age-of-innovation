@@ -12,6 +12,7 @@ import coinUrl from '../../../images/token_parts/gold_medallion.png';
 import handUrl from '../../../images/token_parts/hand.png';
 import lawBookUrl from '../../../images/token_parts/law_book.png';
 import manaUrl from '../../../images/token_parts/mana.png';
+import networkUrl from '../../../images/token_parts/network.png';
 import medicineBookUrl from '../../../images/token_parts/medicine_book.png';
 import bowlOneUrl from '../../../images/token_parts/roman_one.png';
 import bowlThreeUrl from '../../../images/token_parts/roman_three.png';
@@ -141,6 +142,11 @@ function levelCounters(state: GamePlayerBoardState): StatCounter[] {
             label: 'Уровень лопаты',
             image: shovelUrl,
             value: Math.max(0, state.terraformingLevel) + 1,
+        },
+        {
+            label: 'Максимальная сеть зданий',
+            image: networkUrl,
+            value: state.largestNetworkSize,
         },
     ];
 }

@@ -53,6 +53,7 @@ use App\Domain\Game\Enums\TownTile;
 use App\Domain\Game\Factories\BoardStateFactory;
 use App\Domain\Game\Factories\GamePlayerStateFactory;
 use App\Domain\Game\Factories\GameSetupPoolFactory;
+use App\Domain\Game\Services\LargestNetworkSizeCalculator;
 use App\Domain\Game\Services\PlayerIncomeCalculator;
 use App\Models\Builders\GameBuilder;
 use App\Models\Game;
@@ -4999,6 +5000,13 @@ class GameManagementTest extends TestCase
                     ->where(
                         'game.data.playerBoardStates.0.shippingLevel',
                         $game->state->players[0]->shippingLevel,
+                    )
+                    ->where(
+                        'game.data.playerBoardStates.0.largestNetworkSize',
+                        LargestNetworkSizeCalculator::calculate(
+                            $game->state->players[0],
+                            $game->state->board,
+                        ),
                     )
                     ->where('game.data.playerBoardStates.0.terraformingLevel', 0)
                     ->where(
