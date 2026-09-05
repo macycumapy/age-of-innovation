@@ -30,7 +30,7 @@ final class GrantCompetencyAction
             ]);
         }
 
-        if ($state->schemaVersion === 3) {
+        if ($state->schemaVersion < CompetencySupply::CURRENT_SCHEMA_VERSION) {
             $state->availableCompetencyIds = CompetencySupply::availableIds($state);
             $state->schemaVersion = CompetencySupply::CURRENT_SCHEMA_VERSION;
         }

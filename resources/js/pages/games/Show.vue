@@ -18,6 +18,7 @@ import BookActionDialog from '@/components/game/BookActionDialog.vue';
 import BuildingUpgradeDialog from '@/components/game/BuildingUpgradeDialog.vue';
 import BuildWorkshopDialog from '@/components/game/BuildWorkshopDialog.vue';
 import CompetencySelector from '@/components/game/CompetencySelector.vue';
+import CompetencyActionDialog from '@/components/game/CompetencyActionDialog.vue';
 import CurrentTurnFinishDialog from '@/components/game/CurrentTurnFinishDialog.vue';
 import CurrentTurnPanel from '@/components/game/CurrentTurnPanel.vue';
 import FactionActionDialog from '@/components/game/FactionActionDialog.vue';
@@ -469,6 +470,7 @@ const isBuildingUpgradeDialogOpen = ref(false);
 const isScholarActionDialogOpen = ref(false);
 const isRoundBonusActionDialogOpen = ref(false);
 const isFactionActionDialogOpen = ref(false);
+const isCompetencyActionDialogOpen = ref(false);
 const isPalaceActionDialogOpen = ref(false);
 const isPassDialogOpen = ref(false);
 const isPaidTerraformingDialogOpen = ref(false);
@@ -662,6 +664,10 @@ const availableActionsBeforePass = computed(() => {
 
     if (state.canUseFactionAction) {
         actions.push('действие расы');
+    }
+
+    if (state.canUseCompetencyAction) {
+        actions.push('действие Компетенции Силы');
     }
 
     if (state.canUseRoundBonusAction) {
@@ -1529,11 +1535,13 @@ function selectedCompetencyForHomeland(homeland: TerrainType): Competency | unde
                             :can-exchange-resources="canExchangeResources"
                             :can-use-round-bonus-action="canExchangeResources"
                             :can-use-faction-action="canExchangeResources"
+                            :can-use-competency-action="canExchangeResources"
                             :can-use-palace-action="canExchangeResources"
                             @sacrifice-power="isPowerSacrificeDialogOpen = true"
                             @exchange-resources="isResourceExchangeDialogOpen = true"
                             @use-round-bonus-action="isRoundBonusActionDialogOpen = true"
                             @use-faction-action="isFactionActionDialogOpen = true"
+                            @use-competency-action="isCompetencyActionDialogOpen = true"
                             @use-palace-action="isPalaceActionDialogOpen = true"
                         />
                     </div>
@@ -1621,6 +1629,8 @@ function selectedCompetencyForHomeland(homeland: TerrainType): Competency | unde
                 :faction="currentPlayer?.faction ?? null"
                 :discipline-names="game.data.knowledgeDisciplineNames"
             />
+
+            <CompetencyActionDialog v-model:open="isCompetencyActionDialogOpen" :game-id="game.data.id" />
 
             <PalaceActionDialog
                 v-model:open="isPalaceActionDialogOpen"

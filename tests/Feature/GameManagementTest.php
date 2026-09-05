@@ -1380,6 +1380,39 @@ class GameManagementTest extends TestCase
         $this->assertSame([], $game->state->players[0]->usedSpecialActionIds);
     }
 
+    public function test_competency_seven_gains_power_only_once_and_can_be_restarted(): void
+    {
+        [$game, $user] = $this->gameForFactionAction(Faction::Blessed);
+        $state = $game->state;
+        $state->players[0]->competencyIds = [Competency::Competency07->value];
+        $game->update(['state' => $state]);
+
+        $this->actingAs($user)->post(route('games.competency-action', $game))
+            ->assertRedirect(route('games.show', $game));
+
+        $game->refresh();
+        $this->assertSame(1, $game->state->players[0]->resources->power->bowlOne);
+        $this->assertSame(4, $game->state->players[0]->resources->power->bowlTwo);
+        $this->assertSame(0, $game->state->players[0]->resources->power->bowlThree);
+        $this->assertFalse($game->state->round->hasTakenMainAction);
+        $this->assertSame(
+            [Competency::Competency07->value],
+            $game->state->players[0]->usedSpecialActionIds,
+        );
+        $this->assertSame(Competency::Competency07->value, $game->actions()->sole()->payload['competency']);
+
+        $this->post(route('games.competency-action', $game))
+            ->assertSessionHasErrors('competency');
+
+        $this->post(route('games.current-turn.restart', $game))
+            ->assertRedirect(route('games.show', $game));
+
+        $game->refresh();
+        $this->assertSame(5, $game->state->players[0]->resources->power->bowlOne);
+        $this->assertSame(0, $game->state->players[0]->resources->power->bowlTwo);
+        $this->assertSame([], $game->state->players[0]->usedSpecialActionIds);
+    }
+
     public function test_player_can_activate_a_book_action_only_once_per_round(): void
     {
         $user = User::factory()->create();

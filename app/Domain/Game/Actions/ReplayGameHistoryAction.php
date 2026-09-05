@@ -95,6 +95,7 @@ final class ReplayGameHistoryAction
         private ResolveCompletedStartingSetupAction $resolveCompletedStartingSetup,
         private ApplyRoundBonusAction $applyRoundBonusAction,
         private ApplyFactionAction $applyFactionAction,
+        private ApplyCompetencyAction $applyCompetencyAction,
         private ApplyPalaceAction $applyPalaceAction,
         private ApplyPassAction $applyPassAction,
         private ResolveScienceBonusPhaseAction $resolveScienceBonusPhase,
@@ -264,6 +265,8 @@ final class ReplayGameHistoryAction
             $game->active_player_id = $result['nextActiveUserId'];
         } elseif (isset($action->payload['faction'])) {
             $this->applyFactionAction->execute($state, $playerState, $discipline);
+        } elseif (($action->payload['competency'] ?? null) === Competency::Competency07->value) {
+            $this->applyCompetencyAction->execute($playerState);
         } else {
             $this->applyRoundBonusAction->execute($state, $playerState, $discipline);
         }

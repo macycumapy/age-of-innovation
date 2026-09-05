@@ -54,6 +54,7 @@ const props = defineProps<{
     canExchangeResources: boolean;
     canUseRoundBonusAction: boolean;
     canUseFactionAction: boolean;
+    canUseCompetencyAction: boolean;
     canUsePalaceAction: boolean;
 }>();
 
@@ -62,6 +63,7 @@ const emit = defineEmits<{
     exchangeResources: [];
     useRoundBonusAction: [];
     useFactionAction: [];
+    useCompetencyAction: [];
     usePalaceAction: [];
 }>();
 
@@ -264,6 +266,19 @@ function isFactionActionUsed(player: GamePlayerSummary): boolean {
         ['philosophers', 'psychics'].includes(player.faction) &&
         !(playerState(player.id)?.canUseFactionAction ?? false)
     );
+}
+
+function isCompetencyActionAvailable(player: GamePlayerSummary, competency: Competency): boolean {
+    return (
+        competency === 'competency_07' &&
+        props.canUseCompetencyAction &&
+        player.user.id === props.currentUserId &&
+        (playerState(player.id)?.canUseCompetencyAction ?? false)
+    );
+}
+
+function isCompetencyActionUsed(player: GamePlayerSummary, competency: Competency): boolean {
+    return competency === 'competency_07' && !(playerState(player.id)?.canUseCompetencyAction ?? false);
 }
 
 function factionActionTokenStyle(faction: Faction): CSSProperties {
@@ -755,12 +770,42 @@ function canSacrificeFromBowl(player: GamePlayerSummary, bowl: PowerBowl): boole
                             <TooltipProvider :delay-duration="150">
                                 <Tooltip v-for="competency in competenciesForPlayer(player.id)" :key="competency">
                                     <TooltipTrigger as-child>
-                                        <img
-                                            :src="competencyImage(competency)"
-                                            :alt="`Компетенция ${competency}`"
+                                        <span
+                                            class="relative block size-16"
+                                            :class="
+                                                isCompetencyActionAvailable(player, competency)
+                                                    ? 'cursor-pointer'
+                                                    : 'cursor-help'
+                                            "
+                                            :role="
+                                                isCompetencyActionAvailable(player, competency) ? 'button' : undefined
+                                            "
                                             tabindex="0"
-                                            class="size-16 cursor-help object-contain drop-shadow-md"
-                                        />
+                                            @click="
+                                                isCompetencyActionAvailable(player, competency) &&
+                                                emit('useCompetencyAction')
+                                            "
+                                            @keydown.enter="
+                                                isCompetencyActionAvailable(player, competency) &&
+                                                emit('useCompetencyAction')
+                                            "
+                                            @keydown.space.prevent="
+                                                isCompetencyActionAvailable(player, competency) &&
+                                                emit('useCompetencyAction')
+                                            "
+                                        >
+                                            <img
+                                                :src="competencyImage(competency)"
+                                                :alt="`Компетенция ${competency}`"
+                                                class="size-16 object-contain drop-shadow-md"
+                                            />
+                                            <img
+                                                v-if="isCompetencyActionUsed(player, competency)"
+                                                :src="goldCrossUrl"
+                                                alt="Действие компетенции использовано"
+                                                class="pointer-events-none absolute inset-0 size-16 object-contain drop-shadow-md"
+                                            />
+                                        </span>
                                     </TooltipTrigger>
                                     <TooltipContent class="max-w-xs">
                                         <p class="font-semibold">Компетенция {{ competency.slice(-2) }}</p>

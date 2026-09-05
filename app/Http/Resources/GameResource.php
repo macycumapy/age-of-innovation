@@ -161,6 +161,8 @@ class GameResource extends JsonResource
                     'roundBonus' => $player->roundBonus->value,
                     'canUseFactionAction' => $player->faction->hasSpecialAction()
                         && ! in_array($player->faction->specialActionId(), $player->usedSpecialActionIds, true),
+                    'canUseCompetencyAction' => in_array(Competency::Competency07->value, $player->competencyIds, true)
+                        && ! in_array(Competency::Competency07->value, $player->usedSpecialActionIds, true),
                     'canUseRoundBonusAction' => $player->roundBonus->hasAvailableSpecialAction()
                         && ! in_array($player->roundBonus->value, $player->usedSpecialActionIds, true),
                     'scholars' => $player->resources->scholars,

@@ -127,6 +127,7 @@ export type GamePlayerBoardState = {
     passOrder: number | null;
     roundBonus: RoundBonus;
     canUseFactionAction: boolean;
+    canUseCompetencyAction: boolean;
     canUseRoundBonusAction: boolean;
     scholars: number;
     scholarPoolSize: number;

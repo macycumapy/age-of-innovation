@@ -8,6 +8,7 @@ use App\Http\Controllers\BookDistributionController;
 use App\Http\Controllers\BridgeConfirmationController;
 use App\Http\Controllers\BridgeController;
 use App\Http\Controllers\BuildingUpgradeController;
+use App\Http\Controllers\CompetencyActionController;
 use App\Http\Controllers\CurrentTurnFinishController;
 use App\Http\Controllers\CurrentTurnRestartController;
 use App\Http\Controllers\FactionActionController;
@@ -98,6 +99,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('games.round-bonus-action');
     Route::post('games/{game}/faction-action', FactionActionController::class)
         ->name('games.faction-action');
+    Route::post('games/{game}/competency-action', CompetencyActionController::class)
+        ->name('games.competency-action');
     Route::post('games/{game}/palace-action', PalaceActionController::class)
         ->name('games.palace-action');
     Route::post('games/{game}/pass', PassController::class)
