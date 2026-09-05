@@ -3760,6 +3760,74 @@ class GameManagementTest extends TestCase
         $this->assertSame(2, $playerState->resources->books->unassigned);
     }
 
+    public function test_player_can_confirm_shipping_advancement_and_restart_the_turn(): void
+    {
+        $user = User::factory()->create();
+        $game = Game::factory()->create([
+            'status' => GameStatus::Active,
+            'phase' => GamePhase::Actions,
+            'active_player_id' => $user->id,
+        ]);
+        $player = GamePlayer::factory()->create(['game_id' => $game->id, 'user_id' => $user->id]);
+        $game->update(['state' => new GameStateData(
+            turnOrder: [$player->id],
+            round: new RoundStateData(phase: GamePhase::Actions),
+            players: [new GamePlayerStateData(
+                playerId: $player->id,
+                userId: $user->id,
+                color: PlayerColor::Green,
+                faction: Faction::Blessed,
+                homeland: TerrainType::Forest,
+                roundBonus: RoundBonus::Coins,
+                resources: new PlayerResourcesData(coins: 4, scholars: 1),
+            )],
+        )]);
+
+        $this->actingAs($user)->post(route('games.shipping', $game))
+            ->assertRedirect(route('games.show', $game));
+
+        $game->refresh();
+        $this->assertSame(1, $game->state->players[0]->shippingLevel);
+        $this->assertSame(0, $game->state->players[0]->resources->coins);
+        $this->assertSame(0, $game->state->players[0]->resources->scholars);
+        $this->assertSame(22, $game->state->players[0]->victoryPoints);
+        $this->assertTrue($game->state->round->hasTakenMainAction);
+        $this->assertSame(GameActionType::AdvanceShipping, $game->actions()->sole()->type);
+
+        $this->post(route('games.current-turn.restart', $game));
+        $game->refresh();
+        $this->assertSame(0, $game->state->players[0]->shippingLevel);
+        $this->assertSame(4, $game->state->players[0]->resources->coins);
+        $this->assertSame(1, $game->state->players[0]->resources->scholars);
+
+        $state = $game->state;
+        $state->players[0]->shippingLevel = 1;
+        $game->update(['state' => $state]);
+
+        $this->post(route('games.shipping', $game));
+        $game->refresh();
+        $this->assertSame(2, $game->state->players[0]->shippingLevel);
+        $this->assertSame(PendingInteractionType::ChooseInnovationBooks, $game->state->pendingInteraction?->type);
+        $this->assertSame('shipping', $game->state->pendingInteraction?->context['source']);
+
+        $this->post(route('games.books', $game), [
+            'book_counts' => [
+                'banking' => 0,
+                'law' => 2,
+                'engineering' => 0,
+                'medicine' => 0,
+            ],
+        ])->assertRedirect(route('games.show', $game));
+
+        $game->refresh();
+        $this->assertNull($game->state->pendingInteraction);
+        $this->assertSame(2, $game->state->players[0]->resources->books->law);
+        $this->assertSame(
+            2,
+            $game->actions()->sole()->payload['reward_book_counts']['law'],
+        );
+    }
+
     public function test_terraforming_advancement_grants_rewards_for_each_reached_level(): void
     {
         $playerState = new GamePlayerStateData(

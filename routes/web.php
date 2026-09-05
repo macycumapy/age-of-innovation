@@ -34,6 +34,7 @@ use App\Http\Controllers\PowerSacrificeController;
 use App\Http\Controllers\ResourceExchangeController;
 use App\Http\Controllers\RoundBonusActionController;
 use App\Http\Controllers\ScholarController;
+use App\Http\Controllers\ShippingAdvancementController;
 use App\Http\Controllers\StartingBuildingController;
 use App\Http\Controllers\StartingBuildingTurnController;
 use App\Http\Controllers\StartingCompetencyController;
@@ -99,6 +100,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('games.round-bonus-action');
     Route::post('games/{game}/faction-action', FactionActionController::class)
         ->name('games.faction-action');
+    Route::post('games/{game}/shipping', ShippingAdvancementController::class)
+        ->name('games.shipping');
     Route::post('games/{game}/competency-action', CompetencyActionController::class)
         ->name('games.competency-action');
     Route::post('games/{game}/palace-action', PalaceActionController::class)

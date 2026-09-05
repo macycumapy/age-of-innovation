@@ -162,6 +162,7 @@ export type GamePlayerBoardState = {
         victoryPoints: number;
     };
     shippingLevel: number;
+    canAdvanceShipping: boolean;
     terraformingLevel: number;
     unassignedSpades: number;
     knowledge: {

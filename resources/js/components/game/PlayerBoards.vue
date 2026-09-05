@@ -52,6 +52,7 @@ const props = defineProps<{
     palaceDescriptions: Record<PalaceAbility, string>;
     canSacrificePower: boolean;
     canExchangeResources: boolean;
+    canAdvanceShipping: boolean;
     canUseRoundBonusAction: boolean;
     canUseFactionAction: boolean;
     canUseCompetencyAction: boolean;
@@ -61,6 +62,7 @@ const props = defineProps<{
 const emit = defineEmits<{
     sacrificePower: [];
     exchangeResources: [];
+    advanceShipping: [];
     useRoundBonusAction: [];
     useFactionAction: [];
     useCompetencyAction: [];
@@ -555,6 +557,16 @@ function canSacrificeFromBowl(player: GamePlayerSummary, bowl: PowerBowl): boole
                         :style="{ left: '72.5%', top: '44.5%', width: '7%', height: '15%' }"
                         @click="emit('exchangeResources')"
                         title="Обмен ресурсов"
+                    ></button>
+
+                    <button
+                        v-if="canAdvanceShipping && player.user.id === currentUserId"
+                        type="button"
+                        class="absolute z-20 cursor-pointer rounded-md border border-amber-400/70 shadow-md"
+                        :style="{ left: '1.5%', top: '37%', width: '11%', height: '12%' }"
+                        aria-label="Прокачать навигацию"
+                        title="Прокачать навигацию"
+                        @click="emit('advanceShipping')"
                     ></button>
 
                     <span

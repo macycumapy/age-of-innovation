@@ -38,6 +38,7 @@ import PowerSacrificeDialog from '@/components/game/PowerSacrificeDialog.vue';
 import ResourceExchangeDialog from '@/components/game/ResourceExchangeDialog.vue';
 import RoundBonusActionDialog from '@/components/game/RoundBonusActionDialog.vue';
 import ScholarActionDialog from '@/components/game/ScholarActionDialog.vue';
+import ShippingAdvancementDialog from '@/components/game/ShippingAdvancementDialog.vue';
 import RoundBonusBoard from '@/components/game/RoundBonusBoard.vue';
 import TownTileBoard from '@/components/game/TownTileBoard.vue';
 import PalaceWaterTownDialog from '@/components/game/PalaceWaterTownDialog.vue';
@@ -465,6 +466,7 @@ const isPowerSacrificeDialogOpen = ref(false);
 const isPowerActionDialogOpen = ref(false);
 const isBookActionDialogOpen = ref(false);
 const isResourceExchangeDialogOpen = ref(false);
+const isShippingAdvancementDialogOpen = ref(false);
 const isCurrentTurnFinishDialogOpen = ref(false);
 const isBuildingUpgradeDialogOpen = ref(false);
 const isScholarActionDialogOpen = ref(false);
@@ -1550,12 +1552,16 @@ function selectedCompetencyForHomeland(homeland: TerrainType): Competency | unde
                             :palace-descriptions="game.data.palaceDescriptions"
                             :can-sacrifice-power="canSacrificePower"
                             :can-exchange-resources="canExchangeResources"
+                            :can-advance-shipping="
+                                game.data.canPass && (currentPlayerState?.canAdvanceShipping ?? false)
+                            "
                             :can-use-round-bonus-action="canExchangeResources"
                             :can-use-faction-action="canExchangeResources"
                             :can-use-competency-action="canExchangeResources"
                             :can-use-palace-action="canExchangeResources"
                             @sacrifice-power="isPowerSacrificeDialogOpen = true"
                             @exchange-resources="isResourceExchangeDialogOpen = true"
+                            @advance-shipping="isShippingAdvancementDialogOpen = true"
                             @use-round-bonus-action="isRoundBonusActionDialogOpen = true"
                             @use-faction-action="isFactionActionDialogOpen = true"
                             @use-competency-action="isCompetencyActionDialogOpen = true"
@@ -1695,6 +1701,8 @@ function selectedCompetencyForHomeland(homeland: TerrainType): Competency | unde
                 :player-state="currentPlayerState"
                 :knowledge-discipline-names="game.data.knowledgeDisciplineNames"
             />
+
+            <ShippingAdvancementDialog v-model:open="isShippingAdvancementDialogOpen" :game-id="game.data.id" />
 
             <BuildWorkshopDialog
                 v-if="

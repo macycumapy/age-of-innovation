@@ -175,6 +175,46 @@ function incomeDetails(entry: GameHistoryEntry): string[] {
     });
 }
 
+function shippingRewardDetails(entry: GameHistoryEntry): string | null {
+    if (
+        entry.type !== 'advance_shipping' ||
+        typeof entry.payload.reward !== 'object' ||
+        entry.payload.reward === null
+    ) {
+        return null;
+    }
+
+    const reward = entry.payload.reward as Record<string, unknown>;
+    const victoryPoints = Number(reward.victoryPoints ?? 0);
+    const books = Number(reward.books ?? 0);
+    const rewards: string[] = [];
+
+    if (Number.isFinite(victoryPoints) && victoryPoints > 0) {
+        rewards.push(`${victoryPoints} ПО`);
+    }
+
+    if (Number.isFinite(books) && books > 0) {
+        const disciplineNames: Record<string, string> = {
+            banking: 'банковское дело',
+            law: 'право',
+            engineering: 'инженерия',
+            medicine: 'медицина',
+        };
+        const selectedBooks =
+            typeof entry.payload.reward_book_counts === 'object' && entry.payload.reward_book_counts !== null
+                ? Object.entries(entry.payload.reward_book_counts)
+                      .filter(([, count]) => Number(count) > 0)
+                      .map(([discipline, count]) => `${disciplineNames[discipline] ?? discipline} ×${Number(count)}`)
+                : [];
+
+        rewards.push(
+            selectedBooks.length > 0 ? `${books} книги (${selectedBooks.join(', ')})` : `${books} книги на выбор`,
+        );
+    }
+
+    return rewards.length > 0 ? `получено ${rewards.join(', ')}` : null;
+}
+
 function actionDescription(entry: GameHistoryEntry): string {
     if (entry.type === 'terraform_and_build' && entry.payload.built === false) {
         return 'отказался от строительства после преобразования';
@@ -233,6 +273,12 @@ function actionDetails(entry: GameHistoryEntry): string | null {
 
     if (entry.type === 'decline_power' && typeof entry.payload.offered_power === 'number') {
         details.push(`предложено ${entry.payload.offered_power} Силы`);
+    }
+
+    const shippingReward = shippingRewardDetails(entry);
+
+    if (shippingReward !== null) {
+        details.push(shippingReward);
     }
 
     if (typeof entry.payload.victory_points === 'number' && entry.payload.victory_points > 0) {

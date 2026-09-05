@@ -214,6 +214,9 @@ class GameResource extends JsonResource
                     ],
                     'income' => PlayerIncomeCalculator::calculate($player, $this->state->board),
                     'shippingLevel' => $player->shippingLevel,
+                    'canAdvanceShipping' => $player->shippingLevel < 3
+                        && $player->resources->coins >= 4
+                        && $player->resources->scholars >= 1,
                     'terraformingLevel' => $player->terraformingLevel,
                     'unassignedSpades' => $player->unassignedSpades,
                     'knowledge' => [

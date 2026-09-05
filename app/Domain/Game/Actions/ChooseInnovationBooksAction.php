@@ -49,25 +49,30 @@ final class ChooseInnovationBooksAction
                 'version' => $lockedGame->version + 1,
             ]);
 
-            $innovationAction = $lockedGame->actions()
-                ->where('type', GameActionType::MakeInnovation)
+            $sourceActionType = ($interaction->context['source'] ?? null) === 'shipping'
+                ? GameActionType::AdvanceShipping
+                : GameActionType::MakeInnovation;
+            $sourceAction = $lockedGame->actions()
+                ->where('type', $sourceActionType)
                 ->where('player_id', $user->id)
                 ->latest('sequence')
                 ->first();
 
-            if ($innovationAction === null) {
-                throw ValidationException::withMessages(['game' => 'Не найдена покупка инновации.']);
+            if ($sourceAction === null) {
+                throw ValidationException::withMessages(['game' => 'Не найдено действие, выдавшее книги.']);
             }
 
-            $payload = $innovationAction->payload;
+            $payload = $sourceAction->payload;
             $payload['reward_book_counts'] = $bookCounts;
-            $events = $innovationAction->events ?? [];
+            $events = $sourceAction->events ?? [];
             $events[] = [
-                'type' => 'innovation_books_chosen',
+                'type' => $sourceActionType === GameActionType::AdvanceShipping
+                    ? 'shipping_books_chosen'
+                    : 'innovation_books_chosen',
                 'player_id' => $player->id,
                 'book_counts' => $bookCounts,
             ];
-            $innovationAction->update([
+            $sourceAction->update([
                 'payload' => $payload,
                 'events' => $events,
                 'state_version_after' => $lockedGame->version,
