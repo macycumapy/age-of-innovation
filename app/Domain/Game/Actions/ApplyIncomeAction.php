@@ -15,8 +15,11 @@ final class ApplyIncomeAction
     }
 
     /** @return array{tools: int, coins: int, scholars: int, power: int, books: int, knowledgeSteps: int} */
-    public function execute(GameStateData $state, GamePlayerStateData $player): array
-    {
+    public function execute(
+        GameStateData $state,
+        GamePlayerStateData $player,
+        bool $includeManualResources = true,
+    ): array {
         $income = PlayerIncomeCalculator::calculate($player, $state->board);
         $scholarsBeforeIncome = $player->resources->scholars;
 
@@ -26,8 +29,10 @@ final class ApplyIncomeAction
             $player->scholarPoolSize,
             $player->resources->scholars + $income['scholars'],
         );
-        $player->resources->books->unassigned += $income['books'];
-        $player->knowledge->unassignedSteps += $income['knowledgeSteps'];
+        if ($includeManualResources) {
+            $player->resources->books->unassigned += $income['books'];
+            $player->knowledge->unassignedSteps += $income['knowledgeSteps'];
+        }
         $player->victoryPoints += $income['victoryPoints'];
         $income['scholars'] = $player->resources->scholars - $scholarsBeforeIncome;
         $income['power'] = $this->gainPower->execute($player, $income['power']);

@@ -615,12 +615,11 @@ class GameManagementTest extends TestCase
         $this->assertSame(GamePhase::Income, $phase);
         $this->assertSame(GamePhase::Income, $state->round->phase);
         $this->assertSame(1, $state->round->incomeTurnIndex);
-        $this->assertSame([$secondPlayer->id, $firstPlayer->id], $state->round->incomeOrder);
+        $this->assertSame([$secondPlayer->id], $state->round->incomeOrder);
         $this->assertSame(PendingInteractionType::ChooseStartingResources, $state->pendingInteraction?->type);
         $this->assertSame($secondPlayer->id, $state->pendingInteraction?->playerId);
         $this->assertSame(1, $state->pendingInteraction?->context['bookCount']);
-        $this->assertCount(1, $state->round->incomeReceipts);
-        $this->assertSame($secondPlayer->id, $state->round->incomeReceipts[0]['player_id']);
+        $this->assertSame([], $state->round->incomeReceipts);
         $this->assertSame(0, $firstPlayerState->resources->tools);
         $this->assertSame(0, $firstPlayerState->resources->coins);
         $this->assertSame(1, $secondPlayerState->resources->books->unassigned);
@@ -634,7 +633,7 @@ class GameManagementTest extends TestCase
         $this->assertSame(GamePhase::Actions, $state->round->phase);
         $this->assertSame(1, $firstPlayerState->resources->tools);
         $this->assertSame(6, $firstPlayerState->resources->coins);
-        $this->assertSame($secondPlayerTools, $secondPlayerState->resources->tools);
+        $this->assertSame($secondPlayerTools + 1, $secondPlayerState->resources->tools);
         $this->assertSame([], $state->round->incomeOrder);
         $this->assertSame([], $state->round->incomeReceipts);
     }
@@ -692,16 +691,8 @@ class GameManagementTest extends TestCase
         );
         $state->round->phase = GamePhase::Income;
         $state->round->incomeTurnIndex = 1;
-        $state->round->incomeOrder = [$firstPlayer->id, $secondPlayer->id];
-        $state->round->incomeReceipts = [[
-            'player_id' => $firstPlayer->id,
-            'tools' => 0,
-            'coins' => 0,
-            'scholars' => 0,
-            'power' => 0,
-            'books' => 1,
-            'knowledge_steps' => 0,
-        ]];
+        $state->round->incomeOrder = [$firstPlayer->id];
+        $state->round->incomeReceipts = [];
         $game->update(['state' => $state]);
 
         $this->actingAs($users[0])->post(route('games.starting-resources.store', $game), [
@@ -732,12 +723,13 @@ class GameManagementTest extends TestCase
         $this->assertEquals([
             [
                 'player_id' => $firstPlayer->id,
-                'tools' => 0,
-                'coins' => 0,
+                'tools' => 1,
+                'coins' => 6,
                 'scholars' => 0,
                 'power' => 0,
-                'books' => 1,
+                'books' => 0,
                 'knowledge_steps' => 0,
+                'victory_points' => 0,
             ],
             [
                 'player_id' => $secondPlayer->id,
@@ -750,6 +742,64 @@ class GameManagementTest extends TestCase
                 'victory_points' => 0,
             ],
         ], $game->actions()->where('type', '!=', GameActionType::PhaseCheckpoint)->latest('sequence')->firstOrFail()->payload['income_receipts']);
+    }
+
+    public function test_manual_knowledge_step_reaching_level_nine_is_applied_before_other_income(): void
+    {
+        $user = User::factory()->create();
+        $game = Game::factory()->create([
+            'status' => GameStatus::Active,
+            'phase' => GamePhase::Income,
+            'active_player_id' => $user->id,
+        ]);
+        $player = GamePlayer::factory()->create([
+            'game_id' => $game->id,
+            'user_id' => $user->id,
+            'seat' => 1,
+        ]);
+        $playerState = new GamePlayerStateData(
+            playerId: $player->id,
+            userId: $user->id,
+            color: PlayerColor::Green,
+            faction: Faction::Blessed,
+            homeland: TerrainType::Forest,
+            roundBonus: RoundBonus::Coins,
+            knowledge: new KnowledgeStateData(banking: 8),
+            competencyIds: [Competency::Competency01->value],
+        );
+        $state = new GameStateData(
+            turnOrder: [$player->id],
+            players: [$playerState],
+        );
+        $state->round->phase = GamePhase::Income;
+
+        [$activePlayer, $phase] = app(ResolveIncomePhaseAction::class)->execute(
+            $state,
+            $game->players()->get(),
+        );
+        $game->update([
+            'active_player_id' => $activePlayer->user_id,
+            'phase' => $phase,
+            'state' => $state,
+        ]);
+
+        $this->assertSame(0, $playerState->resources->coins);
+        $this->assertSame(1, $playerState->knowledge->unassignedSteps);
+
+        $this->actingAs($user)->post(route('games.starting-resources.store', $game), [
+            'knowledge_counts' => [
+                'banking' => 1,
+                'law' => 0,
+                'engineering' => 0,
+                'medicine' => 0,
+            ],
+        ])->assertRedirect(route('games.show', $game));
+
+        $game->refresh();
+        $this->assertSame(GamePhase::Actions, $game->phase);
+        $this->assertSame(9, $game->state->players[0]->knowledge->banking);
+        $this->assertSame(9, $game->state->players[0]->resources->coins);
+        $this->assertSame(2, $game->state->players[0]->resources->tools);
     }
 
     public function test_active_player_can_sacrifice_power_without_ending_the_turn(): void
@@ -1358,6 +1408,11 @@ class GameManagementTest extends TestCase
         $this->assertSame(TerrainType::Forest, $game->state->board->hexes[1]->terrain);
         $this->assertSame(0, $game->state->players[0]->unassignedSpades);
         $this->assertSame(2, $game->state->round->number);
+        $this->assertNull($game->state->turnStartSnapshot);
+        $this->assertNull($game->state->round->turnStartVersion);
+        $this->get(route('games.show', $game))->assertInertia(
+            fn (Assert $page) => $page->where('game.data.canRestartCurrentTurn', false),
+        );
     }
 
     public function test_psychics_gain_power_without_spending_the_main_action(): void

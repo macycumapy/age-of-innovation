@@ -88,7 +88,7 @@ final class StartPaidTerraformingAction
 
             $stateVersionBefore = $lockedGame->version;
 
-            if ($state->turnStartSnapshot === null) {
+            if ($lockedGame->phase === GamePhase::Actions && $state->turnStartSnapshot === null) {
                 $state->turnStartSnapshot = $state->toArray();
                 $state->round->turnStartVersion = $stateVersionBefore;
             }
