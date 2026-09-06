@@ -67,6 +67,7 @@ final class PassAction
                 'round' => $roundNumber,
                 'income_receipts' => $result['incomeReceipts'],
                 'final_scoring' => $result['finalScoring'],
+                'final_resource_conversion' => $result['finalResourceConversion'],
             ], [[
                 'type' => 'player_passed',
                 'player_id' => $player->id,

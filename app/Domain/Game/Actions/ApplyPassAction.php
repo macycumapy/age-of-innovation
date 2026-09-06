@@ -23,7 +23,7 @@ final class ApplyPassAction
 
     /**
      * @param Collection<int, GamePlayer> $players
-     * @return array{nextActiveUserId: int|null, phase: GamePhase, bonusCoins: int, victoryPoints: int, scoringSources: list<array{source: string, id: string, points: int}>, passOrder: int, nextRoundStarted: bool, incomeReceipts: list<array{player_id: int, tools: int, coins: int, scholars: int, power: int, books: int, knowledge_steps: int}>, finalScoring: list<array{playerId: int, victoryPoints: int, sources: list<array{source: string, id: string, value: int, rank: int, points: int}>}>}
+     * @return array{nextActiveUserId: int|null, phase: GamePhase, bonusCoins: int, victoryPoints: int, scoringSources: list<array{source: string, id: string, points: int}>, passOrder: int, nextRoundStarted: bool, incomeReceipts: list<array{player_id: int, tools: int, coins: int, scholars: int, power: int, books: int, knowledge_steps: int}>, finalScoring: list<array{playerId: int, victoryPoints: int, sources: list<array{source: string, id: string, value: int, rank: int, points: int}>}>, finalResourceConversion: array{bowlTwoSpent: int, movedToBowlThree: int, convertedToCoins: int, totalCoins: int, victoryPoints: int, remainingCoins: int}|null}
      */
     public function execute(
         GameStateData $state,
@@ -49,6 +49,16 @@ final class ApplyPassAction
 
         $oldRoundBonus = $player->roundBonus;
         $bonuses = $this->applyPassBonuses->execute($state, $player);
+        $finalResourceConversion = $isFinalRound ? $this->convertFinalResources($player) : null;
+
+        if (($finalResourceConversion['victoryPoints'] ?? 0) > 0) {
+            $bonuses['victoryPoints'] += $finalResourceConversion['victoryPoints'];
+            $bonuses['sources'][] = [
+                'source' => 'end_game_resources',
+                'id' => 'coins',
+                'points' => $finalResourceConversion['victoryPoints'],
+            ];
+        }
 
         $offer = is_int($offerIndex) ? $state->setupPool->availableRoundBonuses[$offerIndex] : null;
 
@@ -85,6 +95,7 @@ final class ApplyPassAction
                 'nextRoundStarted' => false,
                 'incomeReceipts' => [],
                 'finalScoring' => [],
+                'finalResourceConversion' => $finalResourceConversion,
             ];
         }
 
@@ -105,6 +116,59 @@ final class ApplyPassAction
             'nextRoundStarted' => $phase !== GamePhase::ScienceBonus,
             'incomeReceipts' => $incomeReceipts,
             'finalScoring' => $finalScoring,
+            'finalResourceConversion' => $finalResourceConversion,
+        ];
+    }
+
+    /**
+     * @return array{bowlTwoSpent: int, movedToBowlThree: int, convertedToCoins: int, totalCoins: int, victoryPoints: int, remainingCoins: int}|null
+     */
+    private function convertFinalResources(GamePlayerStateData $player): ?array
+    {
+        $resources = $player->resources;
+        $movedToBowlThree = intdiv($resources->power->bowlTwo, 2);
+        $books = $resources->books;
+        $convertedToCoins = $resources->tools
+            + $resources->scholars
+            + $books->banking
+            + $books->law
+            + $books->engineering
+            + $books->medicine
+            + $books->unassigned
+            + $resources->power->bowlThree
+            + $movedToBowlThree;
+        $totalCoins = $resources->coins + $convertedToCoins;
+
+        if ($totalCoins < 5) {
+            return null;
+        }
+
+        $bowlTwoSpent = $movedToBowlThree * 2;
+        $resources->power->bowlTwo -= $bowlTwoSpent;
+        $resources->power->bowlThree += $movedToBowlThree;
+
+        $resources->tools = 0;
+        $resources->scholars = 0;
+        $books->banking = 0;
+        $books->law = 0;
+        $books->engineering = 0;
+        $books->medicine = 0;
+        $books->unassigned = 0;
+        $resources->power->bowlOne += $resources->power->bowlThree;
+        $resources->power->bowlThree = 0;
+        $resources->coins += $convertedToCoins;
+
+        $victoryPoints = intdiv($resources->coins, 5);
+        $resources->coins %= 5;
+        $player->victoryPoints += $victoryPoints;
+
+        return [
+            'bowlTwoSpent' => $bowlTwoSpent,
+            'movedToBowlThree' => $movedToBowlThree,
+            'convertedToCoins' => $convertedToCoins,
+            'totalCoins' => $totalCoins,
+            'victoryPoints' => $victoryPoints,
+            'remainingCoins' => $resources->coins,
         ];
     }
 

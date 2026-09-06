@@ -326,6 +326,28 @@ function actionDetails(entry: GameHistoryEntry): string | null {
 
     details.push(...incomeDetails(entry));
 
+    if (
+        entry.type === 'pass' &&
+        typeof entry.payload.final_resource_conversion === 'object' &&
+        entry.payload.final_resource_conversion !== null
+    ) {
+        const conversion = entry.payload.final_resource_conversion as Record<string, unknown>;
+        const bowlTwoSpent = Number(conversion.bowlTwoSpent ?? 0);
+        const movedToBowlThree = Number(conversion.movedToBowlThree ?? 0);
+        const convertedToCoins = Number(conversion.convertedToCoins ?? 0);
+        const totalCoins = Number(conversion.totalCoins ?? 0);
+        const victoryPoints = Number(conversion.victoryPoints ?? 0);
+        const remainingCoins = Number(conversion.remainingCoins ?? 0);
+
+        if (bowlTwoSpent > 0) {
+            details.push(`из чаши II сброшено ${bowlTwoSpent}, в чашу III переведено ${movedToBowlThree} Силы`);
+        }
+
+        details.push(
+            `ресурсы дали ${convertedToCoins} золота · всего ${totalCoins} золота → ${victoryPoints} ПО · осталось ${remainingCoins} золота`,
+        );
+    }
+
     if (entry.type === 'sacrifice_power' && typeof entry.payload.amount === 'number') {
         details.push(`сброшено ${entry.payload.amount} · переведено в чашу III ${entry.payload.amount}`);
     }

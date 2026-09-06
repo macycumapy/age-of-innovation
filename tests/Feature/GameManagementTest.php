@@ -1299,6 +1299,16 @@ class GameManagementTest extends TestCase
         [$game, $firstUser, $secondUser] = $this->gameForPassing();
         $state = $game->state;
         $state->round->number = 6;
+        $state->players[0]->resources->coins = 4;
+        $state->players[0]->resources->tools = 2;
+        $state->players[0]->resources->scholars = 1;
+        $state->players[0]->resources->books->banking = 1;
+        $state->players[0]->resources->books->law = 1;
+        $state->players[0]->resources->power->bowlTwo = 5;
+        $state->players[0]->resources->power->bowlThree = 1;
+        $state->players[1]->resources->coins = 2;
+        $state->players[1]->resources->tools = 1;
+        $state->players[1]->resources->power->bowlTwo = 2;
         $game->update(['state' => $state]);
 
         $this->actingAs($firstUser)
@@ -1309,7 +1319,13 @@ class GameManagementTest extends TestCase
         $game->refresh();
         $this->assertSame($secondUser->id, $game->active_player_id);
         $this->assertSame(RoundBonus::Knowledge, $game->state->players[0]->roundBonus);
-        $this->assertSame(0, $game->state->players[0]->resources->coins);
+        $this->assertSame(2, $game->state->players[0]->resources->coins);
+        $this->assertSame(0, $game->state->players[0]->resources->tools);
+        $this->assertSame(0, $game->state->players[0]->resources->scholars);
+        $this->assertSame(1, $game->state->players[0]->resources->power->bowlTwo);
+        $this->assertSame(0, $game->state->players[0]->resources->power->bowlThree);
+        $this->assertSame(3, $game->state->players[0]->resources->power->bowlOne);
+        $this->assertSame(22, $game->state->players[0]->victoryPoints);
         $this->assertCount(4, $game->state->setupPool?->availableRoundBonuses);
         $this->assertContains(
             RoundBonus::Knowledge,
@@ -1319,6 +1335,14 @@ class GameManagementTest extends TestCase
         $action = $game->actions()->sole();
         $this->assertNull($action->payload['round_bonus']);
         $this->assertSame(0, $action->payload['bonus_coins']);
+        $this->assertEquals([
+            'bowlTwoSpent' => 4,
+            'movedToBowlThree' => 2,
+            'convertedToCoins' => 8,
+            'totalCoins' => 12,
+            'victoryPoints' => 2,
+            'remainingCoins' => 2,
+        ], $action->payload['final_resource_conversion']);
 
         $this->actingAs($secondUser)
             ->post(route('games.pass', $game))
@@ -1328,7 +1352,14 @@ class GameManagementTest extends TestCase
         $game->refresh();
         $this->assertSame(GameStatus::Finished, $game->status);
         $this->assertSame(GamePhase::Finished, $game->phase);
-        $this->assertSame([35, 35], array_column($game->state->players, 'victoryPoints'));
+        $this->assertSame([37, 35], array_column($game->state->players, 'victoryPoints'));
+        $this->assertSame(2, $game->state->players[1]->resources->coins);
+        $this->assertSame(1, $game->state->players[1]->resources->tools);
+        $this->assertSame(2, $game->state->players[1]->resources->power->bowlTwo);
+        $this->assertNull(
+            $game->actions()->where('type', GameActionType::Pass->value)->latest('sequence')->firstOrFail()
+                ->payload['final_resource_conversion'],
+        );
 
         $finalScoring = $game->actions()
             ->where('type', GameActionType::PhaseCheckpoint->value)
