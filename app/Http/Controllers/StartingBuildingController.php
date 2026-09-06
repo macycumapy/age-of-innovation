@@ -9,8 +9,8 @@ use App\Domain\Game\Actions\UndoStartingBuildingAction;
 use App\Http\Requests\PlaceStartingBuildingRequest;
 use App\Models\Game;
 use App\Models\User;
-use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 
 final class StartingBuildingController extends Controller
 {
@@ -18,23 +18,23 @@ final class StartingBuildingController extends Controller
         PlaceStartingBuildingRequest $request,
         Game $game,
         PlaceStartingBuildingAction $placeStartingBuilding,
-    ): RedirectResponse {
+    ): Response {
         /** @var User $user */
         $user = $request->user();
         $placeStartingBuilding->execute($game, $user, (string) $request->validated('hex_id'));
 
-        return to_route('games.show', $game);
+        return response()->noContent();
     }
 
     public function destroy(
         Request $request,
         Game $game,
         UndoStartingBuildingAction $undoStartingBuilding,
-    ): RedirectResponse {
+    ): Response {
         /** @var User $user */
         $user = $request->user();
         $undoStartingBuilding->execute($game, $user);
 
-        return to_route('games.show', $game);
+        return response()->noContent();
     }
 }

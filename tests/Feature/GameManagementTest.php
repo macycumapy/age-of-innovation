@@ -5613,7 +5613,7 @@ class GameManagementTest extends TestCase
 
         $this
             ->post(route('games.starting-building.store', $game), ['hex_id' => $forestHex->id])
-            ->assertRedirect(route('games.show', $game));
+            ->assertNoContent();
 
         $game->refresh();
         $this->assertSame($forestHex->id, $game->state->pendingStartingBuildingHexId);
@@ -5626,7 +5626,7 @@ class GameManagementTest extends TestCase
             );
 
         $this->delete(route('games.starting-building.destroy', $game))
-            ->assertRedirect(route('games.show', $game));
+            ->assertNoContent();
 
         $game->refresh();
         $this->assertNull($game->state->pendingStartingBuildingHexId);
@@ -5640,7 +5640,7 @@ class GameManagementTest extends TestCase
 
         $this->post(route('games.starting-building.store', $game), ['hex_id' => $forestHex->id]);
         $this->post(route('games.starting-building.finish', $game))
-            ->assertRedirect(route('games.show', $game));
+            ->assertNoContent();
 
         $game->refresh();
         $this->assertSame(1, $game->state->startingBuildingTurnIndex);

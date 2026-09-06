@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Form } from '@inertiajs/vue3';
+import { Form, router, useHttp } from '@inertiajs/vue3';
 import { Check, RotateCcw } from '@lucide/vue';
 import { computed } from 'vue';
 import CurrentTurnRestartController from '@/actions/App/Http/Controllers/CurrentTurnRestartController';
@@ -38,6 +38,8 @@ const emit = defineEmits<{
 }>();
 
 const isCurrentUsersTurn = computed(() => props.activePlayer?.user.id === props.currentUserId);
+const undoStartingBuildingRequest = useHttp({});
+const finishStartingBuildingRequest = useHttp({});
 const canResolvePowerOffer = computed(
     () =>
         props.game.data.pendingInteraction?.type === 'power_offer' &&
@@ -74,6 +76,22 @@ function confirmRestartCurrentTurn(event: SubmitEvent): void {
     if (!window.confirm('Отменить все действия текущего хода и начать его заново?')) {
         event.preventDefault();
     }
+}
+
+function reloadGame(): void {
+    router.reload({ only: ['game'] });
+}
+
+function undoStartingBuilding(): void {
+    void undoStartingBuildingRequest.delete(StartingBuildingController.destroy.url(props.game.data.id), {
+        onSuccess: reloadGame,
+    });
+}
+
+function finishStartingBuildingTurn(): void {
+    void finishStartingBuildingRequest.post(StartingBuildingTurnController.url(props.game.data.id), {
+        onSuccess: reloadGame,
+    });
 }
 </script>
 
@@ -321,21 +339,27 @@ function confirmRestartCurrentTurn(event: SubmitEvent): void {
             :delay-duration="150"
         >
             <div class="flex shrink-0 items-center gap-2">
-                <Form v-bind="StartingBuildingController.destroy.form(game.data.id)" #default="{ processing }">
+                <div>
                     <Tooltip>
                         <TooltipTrigger as-child>
                             <Button
-                                type="submit"
+                                type="button"
                                 variant="outline"
                                 size="icon"
-                                :disabled="processing"
+                                :disabled="
+                                    undoStartingBuildingRequest.processing || finishStartingBuildingRequest.processing
+                                "
                                 :aria-label="
                                     isOmarStartingTowerTurn
                                         ? 'Отменить установку стартовой вышки'
                                         : 'Отменить установку дома'
                                 "
+                                @click="undoStartingBuilding"
                             >
-                                <RotateCcw class="size-4" :class="processing ? 'animate-spin' : ''" />
+                                <RotateCcw
+                                    class="size-4"
+                                    :class="undoStartingBuildingRequest.processing ? 'animate-spin' : ''"
+                                />
                             </Button>
                         </TooltipTrigger>
                         <TooltipContent>
@@ -346,22 +370,25 @@ function confirmRestartCurrentTurn(event: SubmitEvent): void {
                             }}
                         </TooltipContent>
                     </Tooltip>
-                </Form>
-                <Form v-bind="StartingBuildingTurnController.form(game.data.id)" #default="{ processing }">
+                </div>
+                <div>
                     <Tooltip>
                         <TooltipTrigger as-child>
                             <Button
-                                type="submit"
+                                type="button"
                                 size="icon"
-                                :disabled="processing"
+                                :disabled="
+                                    finishStartingBuildingRequest.processing || undoStartingBuildingRequest.processing
+                                "
                                 aria-label="Подтвердить и закончить ход"
+                                @click="finishStartingBuildingTurn"
                             >
                                 <Check class="size-4" />
                             </Button>
                         </TooltipTrigger>
                         <TooltipContent>Подтвердить и закончить ход</TooltipContent>
                     </Tooltip>
-                </Form>
+                </div>
             </div>
         </TooltipProvider>
 

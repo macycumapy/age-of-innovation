@@ -7,8 +7,8 @@ namespace App\Http\Controllers;
 use App\Domain\Game\Actions\FinishStartingBuildingTurnAction;
 use App\Models\Game;
 use App\Models\User;
-use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 
 final class StartingBuildingTurnController extends Controller
 {
@@ -16,11 +16,11 @@ final class StartingBuildingTurnController extends Controller
         Request $request,
         Game $game,
         FinishStartingBuildingTurnAction $finishStartingBuildingTurn,
-    ): RedirectResponse {
+    ): Response {
         /** @var User $user */
         $user = $request->user();
         $finishStartingBuildingTurn->execute($game, $user);
 
-        return to_route('games.show', $game);
+        return response()->noContent();
     }
 }

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Form, Head, Link, router, usePage, usePoll } from '@inertiajs/vue3';
+import { Form, Head, Link, router, useHttp, usePage, usePoll } from '@inertiajs/vue3';
 import { useEcho } from '@laravel/echo-vue';
 import { ChevronDown } from '@lucide/vue';
 import { computed, reactive, ref, watch } from 'vue';
@@ -168,12 +168,16 @@ const isOmarStartingTowerTurn = computed(
         props.game.data.board.hexes.filter((hex) => hex.building?.ownerPlayerId === activePlayer.value?.id).length >= 2,
 );
 
+const isStartingBuildingRequestPending = ref(false);
+const startingBuildingRequest = useHttp<{ hex_id: string }>({ hex_id: '' });
+
 const canPlaceStartingBuilding = computed(
     () =>
         isStartingBuildingStage.value &&
         props.game.data.activePlayerId === page.props.auth.user.id &&
         props.game.data.pendingInteraction === null &&
-        props.game.data.pendingStartingBuildingHexId === null,
+        props.game.data.pendingStartingBuildingHexId === null &&
+        !isStartingBuildingRequestPending.value,
 );
 
 const canChooseStartingCompetency = computed(
@@ -442,13 +446,28 @@ function placeStartingBuilding(hexId: string): void {
         return;
     }
 
-    router.post(
-        StartingBuildingController.store.url(props.game.data.id),
-        { hex_id: hexId },
-        {
-            preserveScroll: true,
+    isStartingBuildingRequestPending.value = true;
+    startingBuildingRequest.hex_id = hexId;
+
+    void startingBuildingRequest.post(StartingBuildingController.store.url(props.game.data.id), {
+        onSuccess: () => {
+            router.reload({
+                only: ['game'],
+                onFinish: () => {
+                    isStartingBuildingRequestPending.value = false;
+                },
+            });
         },
-    );
+        onError: () => {
+            isStartingBuildingRequestPending.value = false;
+        },
+        onCancel: () => {
+            isStartingBuildingRequestPending.value = false;
+        },
+        onNetworkError: () => {
+            isStartingBuildingRequestPending.value = false;
+        },
+    });
 }
 
 const startingBookCounts = reactive<Record<KnowledgeDiscipline, number>>({
