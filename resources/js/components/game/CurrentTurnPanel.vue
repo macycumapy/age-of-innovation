@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Form, router, useHttp } from '@inertiajs/vue3';
+import { useHttp } from '@inertiajs/vue3';
 import { Check, RotateCcw } from '@lucide/vue';
 import { computed } from 'vue';
 import CurrentTurnRestartController from '@/actions/App/Http/Controllers/CurrentTurnRestartController';
@@ -13,6 +13,7 @@ import StartingBuildingTurnController from '@/actions/App/Http/Controllers/Start
 import StartingSpadeController from '@/actions/App/Http/Controllers/StartingSpadeController';
 import StartingSpadeTurnController from '@/actions/App/Http/Controllers/StartingSpadeTurnController';
 import TownChoiceUndoController from '@/actions/App/Http/Controllers/TownChoiceUndoController';
+import Form from '@/components/game/GameActionForm.vue';
 import TownInteractionPanel from '@/components/game/TownInteractionPanel.vue';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -78,20 +79,12 @@ function confirmRestartCurrentTurn(event: SubmitEvent): void {
     }
 }
 
-function reloadGame(): void {
-    router.reload({ only: ['game'] });
-}
-
 function undoStartingBuilding(): void {
-    void undoStartingBuildingRequest.delete(StartingBuildingController.destroy.url(props.game.data.id), {
-        onSuccess: reloadGame,
-    });
+    void undoStartingBuildingRequest.delete(StartingBuildingController.destroy.url(props.game.data.id));
 }
 
 function finishStartingBuildingTurn(): void {
-    void finishStartingBuildingRequest.post(StartingBuildingTurnController.url(props.game.data.id), {
-        onSuccess: reloadGame,
-    });
+    void finishStartingBuildingRequest.post(StartingBuildingTurnController.url(props.game.data.id));
 }
 </script>
 

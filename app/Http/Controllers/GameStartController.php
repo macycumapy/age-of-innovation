@@ -7,13 +7,13 @@ namespace App\Http\Controllers;
 use App\Domain\Game\Actions\StartGameAction;
 use App\Models\Game;
 use App\Models\User;
-use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Inertia\Inertia;
 
 final class GameStartController extends Controller
 {
-    public function __invoke(Request $request, Game $game, StartGameAction $startGame): RedirectResponse
+    public function __invoke(Request $request, Game $game, StartGameAction $startGame): Response
     {
         /** @var User $user */
         $user = $request->user();
@@ -25,6 +25,6 @@ final class GameStartController extends Controller
             'message' => 'Игра началась.',
         ]);
 
-        return to_route('games.show', $game);
+        return $this->gameChanged($game);
     }
 }

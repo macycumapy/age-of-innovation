@@ -8,7 +8,7 @@ use App\Domain\Game\Actions\UndoTownChoiceAction;
 use App\Http\Requests\UndoTownChoiceRequest;
 use App\Models\Game;
 use App\Models\User;
-use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Response;
 
 final class TownChoiceUndoController extends Controller
 {
@@ -16,11 +16,11 @@ final class TownChoiceUndoController extends Controller
         UndoTownChoiceRequest $request,
         Game $game,
         UndoTownChoiceAction $undoTownChoice,
-    ): RedirectResponse {
+    ): Response {
         /** @var User $user */
         $user = $request->user();
         $undoTownChoice->execute($game, $user);
 
-        return to_route('games.show', $game);
+        return $this->gameChanged($game);
     }
 }

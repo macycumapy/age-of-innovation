@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Form } from '@inertiajs/vue3';
+import Form from '@/components/game/GameActionForm.vue';
 import CompetencyActionController from '@/actions/App/Http/Controllers/CompetencyActionController';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';

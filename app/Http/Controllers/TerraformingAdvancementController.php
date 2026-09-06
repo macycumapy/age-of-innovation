@@ -8,7 +8,7 @@ use App\Domain\Game\Actions\PerformAdvanceTerraformingAction;
 use App\Http\Requests\AdvanceTerraformingRequest;
 use App\Models\Game;
 use App\Models\User;
-use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Response;
 
 final class TerraformingAdvancementController extends Controller
 {
@@ -16,11 +16,11 @@ final class TerraformingAdvancementController extends Controller
         AdvanceTerraformingRequest $request,
         Game $game,
         PerformAdvanceTerraformingAction $action,
-    ): RedirectResponse {
+    ): Response {
         /** @var User $user */
         $user = $request->user();
         $action->execute($game, $user);
 
-        return to_route('games.show', $game);
+        return $this->gameChanged($game);
     }
 }

@@ -8,7 +8,7 @@ use App\Domain\Game\Actions\ChoosePalaceAction;
 use App\Http\Requests\ChoosePalaceRequest;
 use App\Models\Game;
 use App\Models\User;
-use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Response;
 
 final class PalaceChoiceController extends Controller
 {
@@ -16,11 +16,11 @@ final class PalaceChoiceController extends Controller
         ChoosePalaceRequest $request,
         Game $game,
         ChoosePalaceAction $choosePalace,
-    ): RedirectResponse {
+    ): Response {
         /** @var User $user */
         $user = $request->user();
         $choosePalace->execute($game, $user, $request->palace());
 
-        return to_route('games.show', $game);
+        return $this->gameChanged($game);
     }
 }

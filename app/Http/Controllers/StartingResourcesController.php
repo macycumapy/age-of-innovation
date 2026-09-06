@@ -8,7 +8,7 @@ use App\Domain\Game\Actions\ChooseStartingResourcesAction;
 use App\Http\Requests\ChooseStartingResourcesRequest;
 use App\Models\Game;
 use App\Models\User;
-use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Response;
 use Inertia\Inertia;
 
 final class StartingResourcesController extends Controller
@@ -17,7 +17,7 @@ final class StartingResourcesController extends Controller
         ChooseStartingResourcesRequest $request,
         Game $game,
         ChooseStartingResourcesAction $chooseStartingResources,
-    ): RedirectResponse {
+    ): Response {
         /** @var User $user */
         $user = $request->user();
 
@@ -34,6 +34,6 @@ final class StartingResourcesController extends Controller
             'message' => 'Стартовые ресурсы распределены.',
         ]);
 
-        return to_route('games.show', $game);
+        return $this->gameChanged($game);
     }
 }

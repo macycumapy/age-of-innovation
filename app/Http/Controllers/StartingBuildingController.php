@@ -23,7 +23,7 @@ final class StartingBuildingController extends Controller
         $user = $request->user();
         $placeStartingBuilding->execute($game, $user, (string) $request->validated('hex_id'));
 
-        return response()->noContent();
+        return $this->gameChanged($game);
     }
 
     public function destroy(
@@ -35,6 +35,6 @@ final class StartingBuildingController extends Controller
         $user = $request->user();
         $undoStartingBuilding->execute($game, $user);
 
-        return response()->noContent();
+        return $this->gameChanged($game);
     }
 }

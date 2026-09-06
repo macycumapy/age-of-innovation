@@ -8,7 +8,7 @@ use App\Domain\Game\Actions\ChoosePlanningBundleAction;
 use App\Http\Requests\ChoosePlanningBundleRequest;
 use App\Models\Game;
 use App\Models\User;
-use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Response;
 use Inertia\Inertia;
 
 final class PlanningBundleController extends Controller
@@ -17,7 +17,7 @@ final class PlanningBundleController extends Controller
         ChoosePlanningBundleRequest $request,
         Game $game,
         ChoosePlanningBundleAction $choosePlanningBundle,
-    ): RedirectResponse {
+    ): Response {
         /** @var User $user */
         $user = $request->user();
 
@@ -28,6 +28,6 @@ final class PlanningBundleController extends Controller
             'message' => 'Стартовый комплект выбран.',
         ]);
 
-        return to_route('games.show', $game);
+        return $this->gameChanged($game);
     }
 }

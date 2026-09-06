@@ -8,7 +8,7 @@ use App\Domain\Game\Actions\FinishActionTurnAction;
 use App\Http\Requests\FinishActionTurnRequest;
 use App\Models\Game;
 use App\Models\User;
-use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Response;
 
 final class CurrentTurnFinishController extends Controller
 {
@@ -16,11 +16,11 @@ final class CurrentTurnFinishController extends Controller
         FinishActionTurnRequest $request,
         Game $game,
         FinishActionTurnAction $finishActionTurn,
-    ): RedirectResponse {
+    ): Response {
         /** @var User $user */
         $user = $request->user();
         $finishActionTurn->execute($game, $user);
 
-        return to_route('games.show', $game);
+        return $this->gameChanged($game);
     }
 }

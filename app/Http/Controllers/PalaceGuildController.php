@@ -9,8 +9,8 @@ use App\Domain\Game\Actions\UndoPalaceGuildAction;
 use App\Http\Requests\PlacePalaceGuildRequest;
 use App\Models\Game;
 use App\Models\User;
-use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 
 final class PalaceGuildController extends Controller
 {
@@ -18,20 +18,20 @@ final class PalaceGuildController extends Controller
         PlacePalaceGuildRequest $request,
         Game $game,
         PlacePalaceGuildAction $placePalaceGuild,
-    ): RedirectResponse {
+    ): Response {
         /** @var User $user */
         $user = $request->user();
         $placePalaceGuild->execute($game, $user, (string) $request->validated('hex_id'));
 
-        return to_route('games.show', $game);
+        return $this->gameChanged($game);
     }
 
-    public function destroy(Request $request, Game $game, UndoPalaceGuildAction $undoPalaceGuild): RedirectResponse
+    public function destroy(Request $request, Game $game, UndoPalaceGuildAction $undoPalaceGuild): Response
     {
         /** @var User $user */
         $user = $request->user();
         $undoPalaceGuild->execute($game, $user);
 
-        return to_route('games.show', $game);
+        return $this->gameChanged($game);
     }
 }

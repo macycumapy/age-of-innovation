@@ -8,7 +8,7 @@ use App\Domain\Game\Actions\RestartCurrentTurnAction;
 use App\Http\Requests\RestartCurrentTurnRequest;
 use App\Models\Game;
 use App\Models\User;
-use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Response;
 
 final class CurrentTurnRestartController extends Controller
 {
@@ -16,11 +16,11 @@ final class CurrentTurnRestartController extends Controller
         RestartCurrentTurnRequest $request,
         Game $game,
         RestartCurrentTurnAction $restartCurrentTurn,
-    ): RedirectResponse {
+    ): Response {
         /** @var User $user */
         $user = $request->user();
         $restartCurrentTurn->execute($game, $user);
 
-        return to_route('games.show', $game);
+        return $this->gameChanged($game);
     }
 }

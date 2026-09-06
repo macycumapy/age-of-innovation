@@ -8,7 +8,7 @@ use App\Domain\Game\Actions\MakeInnovationAction;
 use App\Http\Requests\MakeInnovationRequest;
 use App\Models\Game;
 use App\Models\User;
-use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Response;
 
 final class InnovationController extends Controller
 {
@@ -16,11 +16,11 @@ final class InnovationController extends Controller
         MakeInnovationRequest $request,
         Game $game,
         MakeInnovationAction $makeInnovation,
-    ): RedirectResponse {
+    ): Response {
         /** @var User $user */
         $user = $request->user();
         $makeInnovation->execute($game, $user, $request->innovation(), $request->bookCounts());
 
-        return to_route('games.show', $game);
+        return $this->gameChanged($game);
     }
 }

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Form } from '@inertiajs/vue3';
+import Form from '@/components/game/GameActionForm.vue';
 import { computed, ref, watch } from 'vue';
 import TerraformWorkshopController from '@/actions/App/Http/Controllers/TerraformWorkshopController';
 import WorkshopController from '@/actions/App/Http/Controllers/WorkshopController';
@@ -112,7 +112,7 @@ watch(
                     </div>
                 </div>
 
-                <InputError :message="errors.building ?? errors.hex_id" />
+                <InputError :message="errors.build ?? errors.building ?? errors.hex_id ?? errors.game" />
 
                 <DialogFooter>
                     <Button

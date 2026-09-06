@@ -8,7 +8,7 @@ use App\Domain\Game\Actions\ResolveWorkshopAfterTerraformingAction;
 use App\Http\Requests\ResolveWorkshopAfterTerraformingRequest;
 use App\Models\Game;
 use App\Models\User;
-use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Response;
 
 final class TerraformWorkshopController extends Controller
 {
@@ -16,7 +16,7 @@ final class TerraformWorkshopController extends Controller
         ResolveWorkshopAfterTerraformingRequest $request,
         Game $game,
         ResolveWorkshopAfterTerraformingAction $resolveWorkshop,
-    ): RedirectResponse {
+    ): Response {
         /** @var User $user */
         $user = $request->user();
         $resolveWorkshop->execute(
@@ -26,6 +26,6 @@ final class TerraformWorkshopController extends Controller
             $request->string('hex_id')->toString() ?: null,
         );
 
-        return to_route('games.show', $game);
+        return $this->gameChanged($game);
     }
 }

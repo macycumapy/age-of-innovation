@@ -9,7 +9,7 @@ use App\Domain\Game\Actions\StartPaidTerraformingAction;
 use App\Http\Requests\StartPaidTerraformingRequest;
 use App\Models\Game;
 use App\Models\User;
-use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
 
 final class PaidTerraformingController extends Controller
@@ -19,7 +19,7 @@ final class PaidTerraformingController extends Controller
         Game $game,
         StartPaidTerraformingAction $startPaidTerraforming,
         SpendStartingSpadeAction $spendStartingSpade,
-    ): RedirectResponse {
+    ): Response {
         /** @var User $user */
         $user = $request->user();
         DB::transaction(function () use ($game, $user, $request, $startPaidTerraforming, $spendStartingSpade): void {
@@ -32,6 +32,6 @@ final class PaidTerraformingController extends Controller
             $spendStartingSpade->execute($preparedGame, $user, $request->hexId());
         });
 
-        return to_route('games.show', $game);
+        return $this->gameChanged($game);
     }
 }

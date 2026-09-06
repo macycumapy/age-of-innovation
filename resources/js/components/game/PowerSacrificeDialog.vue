@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Form } from '@inertiajs/vue3';
+import Form from '@/components/game/GameActionForm.vue';
 import { ref, watch } from 'vue';
 import PowerSacrificeController from '@/actions/App/Http/Controllers/PowerSacrificeController';
 import InputError from '@/components/InputError.vue';

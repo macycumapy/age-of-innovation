@@ -8,7 +8,7 @@ use App\Domain\Game\Actions\PlaceNeutralInnovationBuildingAction;
 use App\Http\Requests\PlaceNeutralInnovationBuildingRequest;
 use App\Models\Game;
 use App\Models\User;
-use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Response;
 
 final class NeutralInnovationBuildingController extends Controller
 {
@@ -19,12 +19,12 @@ final class NeutralInnovationBuildingController extends Controller
         PlaceNeutralInnovationBuildingRequest $request,
         Game $game,
         PlaceNeutralInnovationBuildingAction $placeNeutralBuilding,
-    ): RedirectResponse {
+    ): Response {
         /** @var User $user */
         $user = $request->user();
         $placeNeutralBuilding->execute($game, $user, $request->string('hex_id')->toString());
 
-        return to_route('games.show', $game);
+        return $this->gameChanged($game);
     }
 
 }

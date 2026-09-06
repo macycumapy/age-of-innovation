@@ -8,11 +8,11 @@ use App\Domain\Game\Actions\PerformPalaceAction;
 use App\Http\Requests\UsePalaceActionRequest;
 use App\Models\Game;
 use App\Models\User;
-use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Response;
 
 final class PalaceActionController extends Controller
 {
-    public function __invoke(UsePalaceActionRequest $request, Game $game, PerformPalaceAction $action): RedirectResponse
+    public function __invoke(UsePalaceActionRequest $request, Game $game, PerformPalaceAction $action): Response
     {
         /** @var User $user */
         $user = $request->user();
@@ -24,6 +24,6 @@ final class PalaceActionController extends Controller
             $request->hexId(),
         );
 
-        return to_route('games.show', $game);
+        return $this->gameChanged($game);
     }
 }

@@ -8,7 +8,7 @@ use App\Domain\Game\Actions\PerformRoundBonusAction;
 use App\Http\Requests\UseRoundBonusActionRequest;
 use App\Models\Game;
 use App\Models\User;
-use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Response;
 
 final class RoundBonusActionController extends Controller
 {
@@ -16,11 +16,11 @@ final class RoundBonusActionController extends Controller
         UseRoundBonusActionRequest $request,
         Game $game,
         PerformRoundBonusAction $performRoundBonusAction,
-    ): RedirectResponse {
+    ): Response {
         /** @var User $user */
         $user = $request->user();
         $performRoundBonusAction->execute($game, $user, $request->discipline());
 
-        return to_route('games.show', $game);
+        return $this->gameChanged($game);
     }
 }

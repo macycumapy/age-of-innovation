@@ -8,7 +8,7 @@ use App\Domain\Game\Actions\ChooseBooksAction;
 use App\Http\Requests\ChooseBooksRequest;
 use App\Models\Game;
 use App\Models\User;
-use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Response;
 
 final class BookDistributionController extends Controller
 {
@@ -16,11 +16,11 @@ final class BookDistributionController extends Controller
         ChooseBooksRequest $request,
         Game $game,
         ChooseBooksAction $chooseBooks,
-    ): RedirectResponse {
+    ): Response {
         /** @var User $user */
         $user = $request->user();
         $chooseBooks->execute($game, $user, $request->bookCounts());
 
-        return to_route('games.show', $game);
+        return $this->gameChanged($game);
     }
 }

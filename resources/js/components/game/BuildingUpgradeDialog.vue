@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Form } from '@inertiajs/vue3';
+import Form from '@/components/game/GameActionForm.vue';
 import { ArrowRight } from '@lucide/vue';
 import { computed, ref, watch } from 'vue';
 import BuildingUpgradeController from '@/actions/App/Http/Controllers/BuildingUpgradeController';

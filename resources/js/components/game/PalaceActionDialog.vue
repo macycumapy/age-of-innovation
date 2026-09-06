@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Form } from '@inertiajs/vue3';
+import Form from '@/components/game/GameActionForm.vue';
 import { computed, reactive, ref, watch } from 'vue';
 import PalaceActionController from '@/actions/App/Http/Controllers/PalaceActionController';
 import InputError from '@/components/InputError.vue';

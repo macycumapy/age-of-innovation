@@ -8,7 +8,7 @@ use App\Domain\Game\Actions\ChooseStartingCompetencyAction;
 use App\Http\Requests\ChooseStartingCompetencyRequest;
 use App\Models\Game;
 use App\Models\User;
-use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Response;
 
 final class StartingCompetencyController extends Controller
 {
@@ -16,11 +16,11 @@ final class StartingCompetencyController extends Controller
         ChooseStartingCompetencyRequest $request,
         Game $game,
         ChooseStartingCompetencyAction $chooseStartingCompetency,
-    ): RedirectResponse {
+    ): Response {
         /** @var User $user */
         $user = $request->user();
         $chooseStartingCompetency->execute($game, $user, $request->competency());
 
-        return to_route('games.show', $game);
+        return $this->gameChanged($game);
     }
 }

@@ -8,7 +8,7 @@ use App\Domain\Game\Actions\SetGamePlayerReadinessAction;
 use App\Http\Requests\UpdateGamePlayerReadinessRequest;
 use App\Models\Game;
 use App\Models\GamePlayer;
-use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Response;
 use Inertia\Inertia;
 
 class GamePlayerReadinessController extends Controller
@@ -18,7 +18,7 @@ class GamePlayerReadinessController extends Controller
         Game $game,
         GamePlayer $gamePlayer,
         SetGamePlayerReadinessAction $setReadiness,
-    ): RedirectResponse {
+    ): Response {
         $setReadiness->execute($gamePlayer, $request->isReady());
 
         Inertia::flash('toast', [
@@ -26,6 +26,6 @@ class GamePlayerReadinessController extends Controller
             'message' => $request->isReady() ? 'Готовность подтверждена.' : 'Готовность отменена.',
         ]);
 
-        return to_route('games.show', $game);
+        return $this->gameChanged($game);
     }
 }

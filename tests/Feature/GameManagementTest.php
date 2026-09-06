@@ -55,12 +55,14 @@ use App\Domain\Game\Factories\GamePlayerStateFactory;
 use App\Domain\Game\Factories\GameSetupPoolFactory;
 use App\Domain\Game\Services\LargestNetworkSizeCalculator;
 use App\Domain\Game\Services\PlayerIncomeCalculator;
+use App\Events\GameChanged;
 use App\Models\Builders\GameBuilder;
 use App\Models\Game;
 use App\Models\GameAction;
 use App\Models\GamePlayer;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Event;
 use Inertia\Testing\AssertableInertia as Assert;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
@@ -290,7 +292,7 @@ class GameManagementTest extends TestCase
 
         $this->post(route('games.paid-terraforming', $game), [
             'hex_id' => '1:0',
-        ])->assertRedirect(route('games.show', $game));
+        ])->assertNoContent();
         $game->refresh();
 
         $this->assertSame(6 - $toolCost * 2, $game->state->players[0]->resources->tools);
@@ -764,7 +766,7 @@ class GameManagementTest extends TestCase
                 'engineering' => 0,
                 'medicine' => 0,
             ],
-        ])->assertRedirect(route('games.show', $game));
+        ])->assertNoContent();
 
         $game->refresh();
         $updatedFirstPlayer = collect($game->state->players)->firstWhere('playerId', $firstPlayer->id);
@@ -855,7 +857,7 @@ class GameManagementTest extends TestCase
                 'engineering' => 0,
                 'medicine' => 0,
             ],
-        ])->assertRedirect(route('games.show', $game));
+        ])->assertNoContent();
 
         $game->refresh();
         $this->assertSame(GamePhase::Actions, $game->phase);
@@ -917,7 +919,7 @@ class GameManagementTest extends TestCase
         $this->assertSame(0, $game->actions()->count());
 
         $this->post(route('games.power-sacrifice.store', $game), ['amount' => 2])
-            ->assertRedirect(route('games.show', $game));
+            ->assertNoContent();
 
         $game->refresh();
         $this->assertSame(1, $game->state->players[0]->resources->power->bowlTwo);
@@ -970,7 +972,7 @@ class GameManagementTest extends TestCase
                 'action' => PowerAction::GainTools->value,
                 'sacrifice_amount' => 2,
             ])
-            ->assertRedirect(route('games.show', $game));
+            ->assertNoContent();
 
         $game->refresh();
         $playerState = $game->state->players[0];
@@ -1020,7 +1022,7 @@ class GameManagementTest extends TestCase
 
         $this->actingAs($user)->post(route('games.round-bonus-action', $game), [
             'discipline' => KnowledgeDiscipline::Law->value,
-        ])->assertRedirect(route('games.show', $game));
+        ])->assertNoContent();
 
         $game->refresh();
         $this->assertSame(1, $game->state->players[0]->knowledge->law);
@@ -1033,7 +1035,7 @@ class GameManagementTest extends TestCase
         ])->assertSessionHasErrors('round_bonus');
 
         $this->post(route('games.current-turn.restart', $game))
-            ->assertRedirect(route('games.show', $game));
+            ->assertNoContent();
 
         $game->refresh();
         $this->assertSame(0, $game->state->players[0]->knowledge->law);
@@ -1082,7 +1084,7 @@ class GameManagementTest extends TestCase
 
         $this->actingAs($user)->post(route('games.faction-action', $game), [
             'discipline' => KnowledgeDiscipline::Engineering->value,
-        ])->assertRedirect(route('games.show', $game));
+        ])->assertNoContent();
 
         $game->refresh();
         $this->assertSame(1, $game->state->players[0]->resources->books->engineering);
@@ -1098,7 +1100,7 @@ class GameManagementTest extends TestCase
         ])->assertSessionHasErrors('faction');
 
         $this->post(route('games.current-turn.restart', $game))
-            ->assertRedirect(route('games.show', $game));
+            ->assertNoContent();
 
         $game->refresh();
         $this->assertSame(0, $game->state->players[0]->resources->books->engineering);
@@ -1110,7 +1112,7 @@ class GameManagementTest extends TestCase
         [$game, $user] = $this->gameForPalaceAction(PalaceAbility::Palace01);
 
         $this->actingAs($user)->post(route('games.palace-action', $game))
-            ->assertRedirect(route('games.show', $game));
+            ->assertNoContent();
         $game->refresh();
         $this->assertSame(2, $game->state->players[0]->resources->tools);
         $this->assertContains(PalaceAbility::Palace01->specialActionId(), $game->state->players[0]->usedSpecialActionIds);
@@ -1210,7 +1212,7 @@ class GameManagementTest extends TestCase
         $game->update(['state' => $state]);
 
         $this->actingAs($user)->post(route('games.palace-action', $game))
-            ->assertRedirect(route('games.show', $game));
+            ->assertNoContent();
 
         $game->refresh();
         $this->assertSame(2, $game->state->players[0]->unassignedSpades);
@@ -1273,7 +1275,7 @@ class GameManagementTest extends TestCase
 
         $this->post(route('games.pass', $game), [
             'round_bonus' => RoundBonus::RiverWorkshop->value,
-        ])->assertRedirect(route('games.show', $game));
+        ])->assertNoContent();
 
         $game->refresh();
         $this->assertSame($secondUser->id, $game->active_player_id);
@@ -1313,7 +1315,7 @@ class GameManagementTest extends TestCase
 
         $this->actingAs($firstUser)
             ->post(route('games.pass', $game))
-            ->assertRedirect(route('games.show', $game))
+            ->assertNoContent()
             ->assertSessionHasNoErrors();
 
         $game->refresh();
@@ -1346,7 +1348,7 @@ class GameManagementTest extends TestCase
 
         $this->actingAs($secondUser)
             ->post(route('games.pass', $game))
-            ->assertRedirect(route('games.show', $game))
+            ->assertNoContent()
             ->assertSessionHasNoErrors();
 
         $game->refresh();
@@ -1383,10 +1385,10 @@ class GameManagementTest extends TestCase
 
         $this->actingAs($firstUser)->post(route('games.pass', $game), [
             'round_bonus' => RoundBonus::RiverWorkshop->value,
-        ])->assertRedirect(route('games.show', $game))->assertSessionHasNoErrors();
+        ])->assertNoContent()->assertSessionHasNoErrors();
         $this->actingAs($secondUser)->post(route('games.pass', $game), [
             'round_bonus' => RoundBonus::BuildGuild->value,
-        ])->assertRedirect(route('games.show', $game))->assertSessionHasNoErrors();
+        ])->assertNoContent()->assertSessionHasNoErrors();
 
         $game->refresh();
         $this->assertSame(2, $game->state->round->number);
@@ -1434,7 +1436,7 @@ class GameManagementTest extends TestCase
 
         $this->actingAs($firstUser)->post(route('games.pass', $game), [
             'round_bonus' => RoundBonus::RiverWorkshop->value,
-        ])->assertRedirect(route('games.show', $game))->assertSessionHasNoErrors();
+        ])->assertNoContent()->assertSessionHasNoErrors();
 
         $game->refresh();
         $this->assertSame(46, $game->state->players[0]->victoryPoints);
@@ -1473,7 +1475,7 @@ class GameManagementTest extends TestCase
 
         $this->actingAs($firstUser)->post(route('games.books', $game), [
             'book_counts' => ['banking' => 1, 'law' => 0, 'engineering' => 0, 'medicine' => 1],
-        ])->assertRedirect(route('games.show', $game))->assertSessionHasNoErrors();
+        ])->assertNoContent()->assertSessionHasNoErrors();
 
         $game->refresh();
         $this->assertSame(1, $game->state->players[0]->resources->books->banking);
@@ -1540,13 +1542,13 @@ class GameManagementTest extends TestCase
         $this->actingAs($firstUser)->post(route('games.paid-terraforming', $game), [
             'hex_id' => '1:0',
             'use_available' => false,
-        ])->assertRedirect(route('games.show', $game));
+        ])->assertNoContent();
         $this->delete(route('games.starting-spade.destroy', $game));
         $game->refresh();
         $this->assertSame(TerrainType::Mountain, $game->state->board->hexes[1]->terrain);
 
         $this->post(route('games.starting-spade.store', $game), ['hex_id' => '1:0']);
-        $this->post(route('games.starting-spade.finish', $game))->assertRedirect(route('games.show', $game));
+        $this->post(route('games.starting-spade.finish', $game))->assertNoContent();
         $game->refresh();
         $this->assertSame(TerrainType::Forest, $game->state->board->hexes[1]->terrain);
         $this->assertSame(0, $game->state->players[0]->unassignedSpades);
@@ -1563,7 +1565,7 @@ class GameManagementTest extends TestCase
         [$game, $user] = $this->gameForFactionAction(Faction::Psychics);
 
         $this->actingAs($user)->post(route('games.faction-action', $game))
-            ->assertRedirect(route('games.show', $game));
+            ->assertNoContent();
 
         $game->refresh();
         $this->assertSame(5, $game->state->players[0]->resources->power->bowlTwo);
@@ -1574,7 +1576,7 @@ class GameManagementTest extends TestCase
         );
 
         $this->post(route('games.current-turn.restart', $game))
-            ->assertRedirect(route('games.show', $game));
+            ->assertNoContent();
 
         $game->refresh();
         $this->assertSame(0, $game->state->players[0]->resources->power->bowlTwo);
@@ -1589,7 +1591,7 @@ class GameManagementTest extends TestCase
         $game->update(['state' => $state]);
 
         $this->actingAs($user)->post(route('games.competency-action', $game))
-            ->assertRedirect(route('games.show', $game));
+            ->assertNoContent();
 
         $game->refresh();
         $this->assertSame(1, $game->state->players[0]->resources->power->bowlOne);
@@ -1606,7 +1608,7 @@ class GameManagementTest extends TestCase
             ->assertSessionHasErrors('competency');
 
         $this->post(route('games.current-turn.restart', $game))
-            ->assertRedirect(route('games.show', $game));
+            ->assertNoContent();
 
         $game->refresh();
         $this->assertSame(5, $game->state->players[0]->resources->power->bowlOne);
@@ -1674,7 +1676,7 @@ class GameManagementTest extends TestCase
         ];
         $this->actingAs($user)
             ->post(route('games.book-action', $game), $payload)
-            ->assertRedirect(route('games.show', $game));
+            ->assertNoContent();
 
         $game->refresh();
         $this->assertSame(6, $game->state->players[0]->resources->coins);
@@ -1739,7 +1741,7 @@ class GameManagementTest extends TestCase
         $this->actingAs($user)->post(route('games.power-action', $game), [
             'action' => PowerAction::BuildBridge->value,
             'sacrifice_amount' => 0,
-        ])->assertRedirect(route('games.show', $game));
+        ])->assertNoContent();
 
         $game->refresh();
         $this->assertSame(PendingInteractionType::PlaceBridge, $game->state->pendingInteraction?->type);
@@ -1764,18 +1766,18 @@ class GameManagementTest extends TestCase
 
         $bridge = ['from_hex_id' => '8:5', 'to_hex_id' => '7:7'];
         $this->post(route('games.bridge.store', $game), $bridge)
-            ->assertRedirect(route('games.show', $game));
+            ->assertNoContent();
         $game->refresh();
         $this->assertSame('8:5', $game->state->pendingInteraction?->context['selectedFromHexId']);
 
         $this->delete(route('games.bridge.destroy', $game))
-            ->assertRedirect(route('games.show', $game));
+            ->assertNoContent();
         $game->refresh();
         $this->assertArrayNotHasKey('selectedFromHexId', $game->state->pendingInteraction?->context ?? []);
 
         $this->post(route('games.bridge.store', $game), $bridge);
         $this->post(route('games.bridge.confirm', $game))
-            ->assertRedirect(route('games.show', $game));
+            ->assertNoContent();
 
         $game->refresh();
         $this->assertNull($game->state->pendingInteraction);
@@ -1793,14 +1795,14 @@ class GameManagementTest extends TestCase
         [$game, $user] = $this->gameForBridgeAction(RoundBonus::Bridge);
 
         $this->actingAs($user)->post(route('games.round-bonus-action', $game))
-            ->assertRedirect(route('games.show', $game));
+            ->assertNoContent();
 
         $game->refresh();
         $this->assertSame(PendingInteractionType::PlaceBridge, $game->state->pendingInteraction?->type);
         $this->assertContains(RoundBonus::Bridge->value, $game->state->players[0]->usedSpecialActionIds);
 
         $this->post(route('games.current-turn.restart', $game))
-            ->assertRedirect(route('games.show', $game));
+            ->assertNoContent();
         $game->refresh();
         $this->assertNull($game->state->pendingInteraction);
         $this->assertSame([], $game->state->players[0]->usedSpecialActionIds);
@@ -1858,7 +1860,7 @@ class GameManagementTest extends TestCase
         $this->actingAs($user)->post(route('games.power-action', $game), [
             'action' => PowerAction::TerraformTwoSpades->value,
             'sacrifice_amount' => 0,
-        ])->assertRedirect(route('games.show', $game));
+        ])->assertNoContent();
 
         $game->refresh();
         $this->assertSame(PendingInteractionType::SpendSpades, $game->state->pendingInteraction?->type);
@@ -1872,13 +1874,13 @@ class GameManagementTest extends TestCase
             'hex_id' => '1:0',
             'use_available' => true,
         ])
-            ->assertRedirect(route('games.show', $game));
+            ->assertNoContent();
         $game->refresh();
         $this->assertSame(TerrainType::Mountain, $game->state->board->hexes[1]->terrain);
         $this->assertSame(0, $game->state->players[0]->resources->tools);
 
         $this->delete(route('games.starting-spade.destroy', $game))
-            ->assertRedirect(route('games.show', $game));
+            ->assertNoContent();
         $game->refresh();
         $this->assertSame(TerrainType::Desert, $game->state->board->hexes[1]->terrain);
 
@@ -1946,7 +1948,7 @@ class GameManagementTest extends TestCase
         )]);
 
         $this->actingAs($user)->post(route('games.workshop', $game), ['hex_id' => '0:2'])
-            ->assertRedirect(route('games.show', $game));
+            ->assertNoContent();
 
         $game->refresh();
         $this->assertSame(BuildingType::Workshop, $game->state->board->hexes[2]->building?->type);
@@ -2007,7 +2009,7 @@ class GameManagementTest extends TestCase
         )]);
 
         $this->actingAs($user)->post(route('games.workshop', $game), ['hex_id' => '0:2'])
-            ->assertRedirect(route('games.show', $game));
+            ->assertNoContent();
 
         $game->refresh();
         $this->assertSame(BuildingType::Workshop, $game->state->board->hexes[1]->building?->type);
@@ -2102,7 +2104,7 @@ class GameManagementTest extends TestCase
             ->assertInertia(fn (Assert $page) => $page->where('game.data.canRestartCurrentTurn', true));
 
         $this->actingAs($user)->post(route('games.town', $game), ['town_tile' => TownTile::Tools->value])
-            ->assertRedirect(route('games.show', $game));
+            ->assertNoContent();
         $game->refresh();
 
         $this->assertSame([TownTile::Tools->value], $game->state->players[0]->townTileIds);
@@ -2122,7 +2124,7 @@ class GameManagementTest extends TestCase
                 ->where('game.data.canFinishCurrentTurn', true));
 
         $this->delete(route('games.town-choice.destroy', $game))
-            ->assertRedirect(route('games.show', $game));
+            ->assertNoContent();
         $game->refresh();
 
         $this->assertSame(PendingInteractionType::ChooseTown, $game->state->pendingInteraction?->type);
@@ -2259,7 +2261,7 @@ class GameManagementTest extends TestCase
 
         $this->actingAs($user)->post(route('games.town', $game), [
             'town_tile' => TownTile::Knowledge->value,
-        ])->assertRedirect(route('games.show', $game));
+        ])->assertNoContent();
         $game->refresh();
 
         $this->assertSame(30, $game->state->players[0]->victoryPoints);
@@ -2310,7 +2312,7 @@ class GameManagementTest extends TestCase
 
         $this->post(route('games.books', $game), [
             'book_counts' => ['banking' => 1, 'law' => 0, 'engineering' => 0, 'medicine' => 1],
-        ])->assertRedirect(route('games.show', $game));
+        ])->assertNoContent();
         $game->refresh();
 
         $this->assertSame(0, $game->state->players[0]->resources->books->unassigned);
@@ -2470,15 +2472,24 @@ class GameManagementTest extends TestCase
         $this->assertSame(PendingInteractionType::BuildWorkshopAfterTerraforming, $game->state->pendingInteraction?->type);
 
         $this->post(route('games.terraform-workshop', $game), ['build' => true, 'hex_id' => '1:0'])
-            ->assertRedirect(route('games.show', $game));
+            ->assertNoContent();
         $game->refresh();
         $this->assertSame(BuildingType::Workshop, $game->state->board->hexes[0]->building?->type);
         $this->assertSame(1, $game->state->players[0]->resources->tools);
         $this->assertSame(2, $game->state->players[0]->resources->coins);
         $this->assertNull($game->state->pendingInteraction);
 
+        $this->post(route('games.building-upgrade', $game), [
+            'hex_id' => '1:0',
+            'target' => BuildingType::Guild->value,
+        ])->assertForbidden();
+        $this->post(route('games.power-action', $game), [
+            'action' => PowerAction::GainCoins->value,
+            'sacrifice_amount' => 0,
+        ])->assertForbidden();
+
         $this->post(route('games.current-turn.finish', $game))
-            ->assertRedirect(route('games.show', $game));
+            ->assertNoContent();
         $game->refresh();
         $this->assertSame($nextUser->id, $game->active_player_id);
         $this->assertNull($game->state->round->turnStartVersion);
@@ -2752,7 +2763,7 @@ class GameManagementTest extends TestCase
         $this->post(route('games.current-turn.restart', $game))->assertForbidden();
 
         $this->post(route('games.current-turn.finish', $game))
-            ->assertRedirect(route('games.show', $game));
+            ->assertNoContent();
         $game->refresh();
         $this->assertFalse($game->state->round->isCurrentTurnIrrevocable);
         $this->assertSame($firstNeighborUser->id, $game->active_player_id);
@@ -2830,7 +2841,7 @@ class GameManagementTest extends TestCase
         $this->post(route('games.building-upgrade', $game), [
             'hex_id' => '0:0',
             'target' => BuildingType::Guild->value,
-        ])->assertRedirect(route('games.show', $game));
+        ])->assertNoContent();
 
         $game->refresh();
         $this->assertSame(BuildingType::Guild, $game->state->board->hexes[0]->building?->type);
@@ -2920,7 +2931,7 @@ class GameManagementTest extends TestCase
         $this->post(route('games.building-upgrade', $game), [
             'hex_id' => '0:0',
             'target' => BuildingType::Guild->value,
-        ])->assertRedirect(route('games.show', $game));
+        ])->assertNoContent();
 
         $game->refresh();
         $this->assertSame(BuildingType::Guild, $game->state->board->hexes[0]->building?->type);
@@ -3007,7 +3018,7 @@ class GameManagementTest extends TestCase
         $this->actingAs($user)->post(route('games.building-upgrade', $game), [
             'hex_id' => '0:0',
             'target' => $targetBuilding->value,
-        ])->assertRedirect(route('games.show', $game));
+        ])->assertNoContent();
 
         $game->refresh();
         $this->assertSame(PendingInteractionType::ChooseCompetency, $game->state->pendingInteraction?->type);
@@ -3021,7 +3032,7 @@ class GameManagementTest extends TestCase
 
         $this->post(route('games.starting-competency.store', $game), [
             'competency_id' => Competency::Competency04->value,
-        ])->assertRedirect(route('games.show', $game));
+        ])->assertNoContent();
 
         $game->refresh();
         $this->assertContains(Competency::Competency04->value, $game->state->players[0]->competencyIds);
@@ -3099,7 +3110,7 @@ class GameManagementTest extends TestCase
 
         $this->actingAs($user)->post(route('games.starting-competency.store', $game), [
             'competency_id' => Competency::Competency10->value,
-        ])->assertRedirect(route('games.show', $game));
+        ])->assertNoContent();
 
         $game->refresh();
         $this->assertSame(PendingInteractionType::PlaceNeutralBuilding, $game->state->pendingInteraction?->type);
@@ -3107,7 +3118,7 @@ class GameManagementTest extends TestCase
         $this->assertSame(['1:0'], $game->state->pendingInteraction?->optionIds);
 
         $this->post(route('games.innovation.neutral-building', $game), ['hex_id' => '1:0'])
-            ->assertRedirect(route('games.show', $game));
+            ->assertNoContent();
 
         $game->refresh();
         $tower = $game->state->board->hexes[1];
@@ -3164,7 +3175,7 @@ class GameManagementTest extends TestCase
         $this->actingAs($user)->post(route('games.building-upgrade', $game), [
             'hex_id' => '0:0',
             'target' => BuildingType::Palace->value,
-        ])->assertRedirect(route('games.show', $game));
+        ])->assertNoContent();
 
         $game->refresh();
         $this->assertSame(PendingInteractionType::ChoosePalace, $game->state->pendingInteraction?->type);
@@ -3184,7 +3195,7 @@ class GameManagementTest extends TestCase
 
         $this->post(route('games.palace-choice', $game), [
             'palace_id' => PalaceAbility::Palace17->value,
-        ])->assertRedirect(route('games.show', $game));
+        ])->assertNoContent();
 
         $game->refresh();
         $this->assertSame(PalaceAbility::Palace17->value, $game->state->players[0]->palaceId);
@@ -3271,21 +3282,21 @@ class GameManagementTest extends TestCase
         $this->post(route('games.palace-guild.store', $game), ['hex_id' => '1:0'])
             ->assertSessionHasErrors('hex_id');
         $this->post(route('games.palace-guild.store', $game), ['hex_id' => '5:5'])
-            ->assertRedirect(route('games.show', $game));
+            ->assertNoContent();
 
         $game->refresh();
         $this->assertSame('5:5', $game->state->pendingInteraction?->context['selectedHexId']);
         $this->assertSame(BuildingType::Guild, collect($game->state->board->hexes)->firstWhere('id', '5:5')?->building?->type);
 
         $this->delete(route('games.palace-guild.destroy', $game))
-            ->assertRedirect(route('games.show', $game));
+            ->assertNoContent();
         $game->refresh();
         $this->assertNull(collect($game->state->board->hexes)->firstWhere('id', '5:5')?->building);
         $this->assertNull($game->state->pendingInteraction?->context['selectedHexId']);
 
         $this->post(route('games.palace-guild.store', $game), ['hex_id' => '5:5']);
         $this->post(route('games.palace-guild.confirm', $game))
-            ->assertRedirect(route('games.show', $game));
+            ->assertNoContent();
 
         $game->refresh();
         $this->assertNull($game->state->pendingInteraction);
@@ -3372,7 +3383,7 @@ class GameManagementTest extends TestCase
                     powerToBook: ['law' => 1],
                 ),
             ])
-            ->assertRedirect(route('games.show', $game));
+            ->assertNoContent();
 
         $game->refresh();
         $this->assertSame(0, $game->state->players[0]->resources->power->bowlThree);
@@ -3444,7 +3455,7 @@ class GameManagementTest extends TestCase
         $this->actingAs($firstUser)->post(route('games.scholar', $game), [
             'discipline' => 'law',
             'place' => true,
-        ])->assertRedirect(route('games.show', $game));
+        ])->assertNoContent();
 
         $game->refresh();
         $this->assertSame(3, $game->state->players[0]->knowledge->law);
@@ -3463,7 +3474,7 @@ class GameManagementTest extends TestCase
         $this->actingAs($secondUser)->post(route('games.scholar', $game), [
             'discipline' => 'law',
             'place' => true,
-        ])->assertRedirect(route('games.show', $game));
+        ])->assertNoContent();
 
         $game->refresh();
         $this->assertSame(2, $game->state->players[1]->knowledge->law);
@@ -3480,7 +3491,7 @@ class GameManagementTest extends TestCase
         $this->actingAs($firstUser)->post(route('games.scholar', $game), [
             'discipline' => 'medicine',
             'place' => false,
-        ])->assertRedirect(route('games.show', $game));
+        ])->assertNoContent();
 
         $game->refresh();
         $this->assertSame(1, $game->state->players[0]->knowledge->medicine);
@@ -3535,7 +3546,7 @@ class GameManagementTest extends TestCase
         $this->actingAs($user)->post(route('games.innovation', $game), [
             'innovation' => Innovation::LeagueOfCities->value,
             'book_counts' => ['banking' => 2, 'law' => 2, 'engineering' => 0, 'medicine' => 1],
-        ])->assertRedirect(route('games.show', $game));
+        ])->assertNoContent();
 
         $game->refresh();
         $updatedPlayerState = $game->state->players[0];
@@ -3699,14 +3710,14 @@ class GameManagementTest extends TestCase
         $this->actingAs($user)->post(route('games.innovation', $game), [
             'innovation' => Innovation::Workshop->value,
             'book_counts' => ['banking' => 2, 'law' => 2, 'engineering' => 0, 'medicine' => 1],
-        ])->assertRedirect(route('games.show', $game));
+        ])->assertNoContent();
 
         $game->refresh();
         $this->assertSame(PendingInteractionType::PlaceNeutralBuilding, $game->state->pendingInteraction?->type);
         $this->assertSame(['1:0'], $game->state->pendingInteraction?->optionIds);
 
         $this->post(route('games.innovation.neutral-building', $game), ['hex_id' => '1:0'])
-            ->assertRedirect(route('games.show', $game));
+            ->assertNoContent();
 
         $game->refresh();
         $this->assertNull($game->state->pendingInteraction);
@@ -3765,7 +3776,7 @@ class GameManagementTest extends TestCase
         $this->actingAs($user)->post(route('games.innovation', $game), [
             'innovation' => Innovation::SteamEngine->value,
             'book_counts' => ['banking' => 2, 'law' => 2, 'engineering' => 0, 'medicine' => 1],
-        ])->assertRedirect(route('games.show', $game));
+        ])->assertNoContent();
 
         $game->refresh();
         $this->assertSame(PendingInteractionType::ChooseInnovationBooks, $game->state->pendingInteraction?->type);
@@ -3785,7 +3796,7 @@ class GameManagementTest extends TestCase
 
         $this->actingAs($user)->post(route('games.books', $game), [
             'book_counts' => ['banking' => 1, 'law' => 0, 'engineering' => 1, 'medicine' => 0],
-        ])->assertRedirect(route('games.show', $game));
+        ])->assertNoContent();
 
         $game->refresh();
         $this->assertNull($game->state->pendingInteraction);
@@ -3980,7 +3991,7 @@ class GameManagementTest extends TestCase
         )]);
 
         $this->actingAs($user)->post(route('games.shipping', $game))
-            ->assertRedirect(route('games.show', $game));
+            ->assertNoContent();
 
         $game->refresh();
         $this->assertSame(1, $game->state->players[0]->shippingLevel);
@@ -4013,7 +4024,7 @@ class GameManagementTest extends TestCase
                 'engineering' => 0,
                 'medicine' => 0,
             ],
-        ])->assertRedirect(route('games.show', $game));
+        ])->assertNoContent();
 
         $game->refresh();
         $this->assertNull($game->state->pendingInteraction);
@@ -4075,7 +4086,7 @@ class GameManagementTest extends TestCase
         )]);
 
         $this->actingAs($user)->post(route('games.terraforming', $game))
-            ->assertRedirect(route('games.show', $game));
+            ->assertNoContent();
 
         $game->refresh();
         $this->assertSame(1, $game->state->players[0]->terraformingLevel);
@@ -4096,7 +4107,7 @@ class GameManagementTest extends TestCase
                 'engineering' => 1,
                 'medicine' => 0,
             ],
-        ])->assertRedirect(route('games.show', $game));
+        ])->assertNoContent();
 
         $game->refresh();
         $this->assertNull($game->state->pendingInteraction);
@@ -4200,7 +4211,7 @@ class GameManagementTest extends TestCase
         )]);
 
         $this->actingAs($user)->post(route('games.terraforming', $game))
-            ->assertRedirect(route('games.show', $game));
+            ->assertNoContent();
 
         $game->refresh();
         $this->assertSame(2, $game->state->players[0]->terraformingLevel);
@@ -4642,7 +4653,7 @@ class GameManagementTest extends TestCase
             );
 
         $this->post(route('games.players.store', $game))
-            ->assertRedirect(route('games.show', $game));
+            ->assertNoContent();
 
         $this->assertTrue($game->players()->whereBelongsTo($joiningUser)->where('seat', 2)->exists());
     }
@@ -4699,13 +4710,13 @@ class GameManagementTest extends TestCase
             ->patch(route('games.players.readiness.update', [$gamePlayer->game, $gamePlayer]), [
                 'is_ready' => true,
             ])
-            ->assertRedirect(route('games.show', $gamePlayer->game));
+            ->assertNoContent();
 
         $this->assertTrue($gamePlayer->refresh()->is_ready);
 
         $this->patch(route('games.players.readiness.update', [$gamePlayer->game, $gamePlayer]), [
             'is_ready' => false,
-        ])->assertRedirect(route('games.show', $gamePlayer->game));
+        ])->assertNoContent();
 
         $this->assertFalse($gamePlayer->refresh()->is_ready);
     }
@@ -4768,7 +4779,7 @@ class GameManagementTest extends TestCase
 
         $this->actingAs($owner)
             ->post(route('games.start', $game))
-            ->assertRedirect(route('games.show', $game));
+            ->assertNoContent();
 
         $game->refresh();
 
@@ -4908,7 +4919,7 @@ class GameManagementTest extends TestCase
 
         $this->actingAs($owner)
             ->delete(route('games.history.latest.destroy', $game))
-            ->assertRedirect(route('games.show', $game));
+            ->assertNoContent();
 
         $game->refresh();
         $this->assertSame(GameStatus::Active, $game->status);
@@ -4920,7 +4931,7 @@ class GameManagementTest extends TestCase
         $this->assertTrue($game->players()->whereNull('faction')->whereNull('homeland')->exists());
 
         $this->delete(route('games.history.latest.destroy', $game))
-            ->assertRedirect(route('games.show', $game));
+            ->assertNoContent();
 
         $game->refresh();
         $this->assertSame(GameStatus::Lobby, $game->status);
@@ -5006,7 +5017,7 @@ class GameManagementTest extends TestCase
             ->post(route('games.planning-bundle.store', $game), [
                 'homeland' => $bundle->homeland->value,
             ])
-            ->assertRedirect(route('games.show', $game));
+            ->assertNoContent();
 
         $game->refresh();
         $player = $game->players()->whereBelongsTo($activeUser)->sole();
@@ -5291,7 +5302,7 @@ class GameManagementTest extends TestCase
             ->post(route('games.planning-bundle.store', $game), [
                 'homeland' => TerrainType::Wasteland->value,
             ])
-            ->assertRedirect(route('games.show', $game));
+            ->assertNoContent();
 
         $game->refresh();
         $player = $game->players()->whereBelongsTo($activeUser)->sole();
@@ -5371,7 +5382,7 @@ class GameManagementTest extends TestCase
                 'engineering' => 0,
                 'medicine' => 0,
             ],
-        ])->assertRedirect(route('games.show', $game));
+        ])->assertNoContent();
 
         $game->refresh();
 
@@ -5413,7 +5424,7 @@ class GameManagementTest extends TestCase
             ->post(route('games.planning-bundle.store', $game), [
                 'homeland' => $inventorBundle->homeland->value,
             ])
-            ->assertRedirect(route('games.show', $game));
+            ->assertNoContent();
 
         $game->refresh();
         $inventorPlayer = $game->players()->whereBelongsTo($inventorUser)->sole();
@@ -5434,7 +5445,7 @@ class GameManagementTest extends TestCase
 
         $this->post(route('games.starting-resources.store', $game), [
             'competency_id' => Competency::Competency01->value,
-        ])->assertRedirect(route('games.show', $game));
+        ])->assertNoContent();
 
         $game->refresh();
         $inventorState = collect($game->state->players)->firstWhere('playerId', $inventorPlayer->id);
@@ -5487,7 +5498,7 @@ class GameManagementTest extends TestCase
             ->post(route('games.planning-bundle.store', $game), [
                 'homeland' => $bundle->homeland->value,
             ])
-            ->assertRedirect(route('games.show', $game));
+            ->assertNoContent();
 
         $game->refresh();
         $player = $game->players()->whereBelongsTo($activeUser)->sole();
@@ -5496,7 +5507,7 @@ class GameManagementTest extends TestCase
 
         $this->post(route('games.starting-resources.store', $game), [
             'competency_id' => $competency->value,
-        ])->assertRedirect(route('games.show', $game));
+        ])->assertNoContent();
 
         $game->refresh();
         $playerState = collect($game->state->players)->firstWhere('playerId', $player->id);
@@ -5600,6 +5611,8 @@ class GameManagementTest extends TestCase
             ),
         ]);
 
+        Event::fake([GameChanged::class]);
+
         $this->actingAs($users[1])
             ->post(route('games.starting-building.store', $game), ['hex_id' => $forestHex->id])
             ->assertForbidden();
@@ -5614,6 +5627,11 @@ class GameManagementTest extends TestCase
         $this
             ->post(route('games.starting-building.store', $game), ['hex_id' => $forestHex->id])
             ->assertNoContent();
+
+        Event::assertDispatched(
+            GameChanged::class,
+            static fn (GameChanged $event): bool => $event->gameId === $game->id,
+        );
 
         $game->refresh();
         $this->assertSame($forestHex->id, $game->state->pendingStartingBuildingHexId);
@@ -5752,7 +5770,7 @@ class GameManagementTest extends TestCase
 
         $this->actingAs($users[0])
             ->post(route('games.starting-building.finish', $game))
-            ->assertRedirect(route('games.show', $game));
+            ->assertNoContent();
 
         $game->refresh();
         $this->assertSame(GamePhase::Setup, $game->phase);
@@ -5771,7 +5789,7 @@ class GameManagementTest extends TestCase
         $this->assertSame(PendingInteractionType::SpendSpades, $game->state->pendingInteraction?->type);
 
         $this->post(route('games.starting-spade.store', $game), ['hex_id' => $targetHexId])
-            ->assertRedirect(route('games.show', $game));
+            ->assertNoContent();
 
         $game->refresh();
         $desertPlayerState = collect($game->state->players)->firstWhere('playerId', $desertPlayer->id);
@@ -5782,7 +5800,7 @@ class GameManagementTest extends TestCase
         $this->assertCount($historyCountBeforeSelection, $game->actions);
 
         $this->delete(route('games.starting-spade.destroy', $game))
-            ->assertRedirect(route('games.show', $game));
+            ->assertNoContent();
 
         $game->refresh();
         $this->assertSame($targetTerrainBefore, collect($game->state->board->hexes)->firstWhere('id', $targetHexId)?->terrain);
@@ -5791,7 +5809,7 @@ class GameManagementTest extends TestCase
 
         $this->post(route('games.starting-spade.store', $game), ['hex_id' => $targetHexId]);
         $this->post(route('games.starting-spade.finish', $game))
-            ->assertRedirect(route('games.show', $game));
+            ->assertNoContent();
 
         $game->refresh();
         $desertPlayerState = collect($game->state->players)->firstWhere('playerId', $desertPlayer->id);
@@ -5909,9 +5927,9 @@ class GameManagementTest extends TestCase
         foreach ($placements as [$user, $hexId]) {
             $this->actingAs($user)
                 ->post(route('games.starting-building.store', $game), ['hex_id' => $hexId])
-                ->assertRedirect(route('games.show', $game));
+                ->assertNoContent();
             $this->post(route('games.starting-building.finish', $game))
-                ->assertRedirect(route('games.show', $game));
+                ->assertNoContent();
         }
 
         $game->refresh();
@@ -5979,7 +5997,7 @@ class GameManagementTest extends TestCase
 
         $this->actingAs($users[0])
             ->post(route('games.current-turn.restart', $game))
-            ->assertRedirect(route('games.show', $game));
+            ->assertNoContent();
 
         $game->refresh();
         $restartedPlayerState = collect($game->state->players)->firstWhere('userId', $users[0]->id);
@@ -6148,7 +6166,7 @@ class GameManagementTest extends TestCase
         $towerHex = $forestHexes[2];
         $this->actingAs($users[1])
             ->post(route('games.starting-building.store', $game), ['hex_id' => $towerHex->id])
-            ->assertRedirect(route('games.show', $game));
+            ->assertNoContent();
 
         $building = collect($game->refresh()->state->board->hexes)->firstWhere('id', $towerHex->id)?->building;
         $this->assertSame(BuildingType::Tower, $building?->type);
@@ -6234,9 +6252,9 @@ class GameManagementTest extends TestCase
         foreach ($forestHexes as $forestHex) {
             $this->actingAs($users[1])
                 ->post(route('games.starting-building.store', $game), ['hex_id' => $forestHex->id])
-                ->assertRedirect(route('games.show', $game));
+                ->assertNoContent();
             $this->post(route('games.starting-building.finish', $game))
-                ->assertRedirect(route('games.show', $game));
+                ->assertNoContent();
         }
 
         $game->refresh();
@@ -6245,7 +6263,7 @@ class GameManagementTest extends TestCase
 
         $this->actingAs($users[0])
             ->post(route('games.starting-building.store', $game), ['hex_id' => $mountainHex->id])
-            ->assertRedirect(route('games.show', $game));
+            ->assertNoContent();
 
         $game->refresh();
         $this->assertSame(
@@ -6254,7 +6272,7 @@ class GameManagementTest extends TestCase
         );
 
         $this->post(route('games.starting-building.finish', $game))
-            ->assertRedirect(route('games.show', $game));
+            ->assertNoContent();
 
         $game->refresh();
         $this->assertSame(GamePhase::Setup, $game->phase);
@@ -6271,7 +6289,7 @@ class GameManagementTest extends TestCase
 
         $this->post(route('games.starting-competency.store', $game), [
             'competency_id' => Competency::Competency04->value,
-        ])->assertRedirect(route('games.show', $game));
+        ])->assertNoContent();
 
         $game->refresh();
         $monkState = collect($game->state->players)->firstWhere('playerId', $monkPlayer->id);
@@ -6285,9 +6303,8 @@ class GameManagementTest extends TestCase
             array_count_values($game->state->availableCompetencyIds)[Competency::Competency04->value],
         );
         $this->assertSame($monkStateBefore->knowledge->medicine + 3, $monkState->knowledge->medicine);
-        $monkIncome = PlayerIncomeCalculator::calculate($monkState, $game->state->board);
-        $this->assertSame($monkStateBefore->resources->tools + 1 + $monkIncome['tools'], $monkState->resources->tools);
-        $this->assertSame($monkStateBefore->resources->coins + 2 + $monkIncome['coins'], $monkState->resources->coins);
+        $this->assertSame($monkStateBefore->resources->tools + 1, $monkState->resources->tools);
+        $this->assertSame($monkStateBefore->resources->coins + 2, $monkState->resources->coins);
         $this->assertSame($monkStateBefore->victoryPoints + 5, $monkState->victoryPoints);
         $this->assertSame(
             GameActionType::ChooseCompetency,

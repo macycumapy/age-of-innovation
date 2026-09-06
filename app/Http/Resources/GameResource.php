@@ -347,6 +347,7 @@ class GameResource extends JsonResource
             'buildingUpgrades' => $this->phase === GamePhase::Actions
                 && $this->active_player_id === $request->user()?->id
                 && $this->state->pendingInteraction === null
+                && ! $this->state->round->hasTakenMainAction
                 && $currentPlayerState instanceof GamePlayerStateData
                 ? $this->buildingUpgrades($currentPlayerState)
                 : [],

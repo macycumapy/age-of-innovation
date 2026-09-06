@@ -7,8 +7,8 @@ namespace App\Http\Controllers;
 use App\Domain\Game\Actions\FinishStartingSpadeAction;
 use App\Models\Game;
 use App\Models\User;
-use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 
 final class StartingSpadeTurnController extends Controller
 {
@@ -16,11 +16,11 @@ final class StartingSpadeTurnController extends Controller
         Request $request,
         Game $game,
         FinishStartingSpadeAction $finishStartingSpade,
-    ): RedirectResponse {
+    ): Response {
         /** @var User $user */
         $user = $request->user();
         $finishStartingSpade->execute($game, $user);
 
-        return to_route('games.show', $game);
+        return $this->gameChanged($game);
     }
 }

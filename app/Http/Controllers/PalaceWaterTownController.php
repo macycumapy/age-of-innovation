@@ -7,7 +7,7 @@ namespace App\Http\Controllers;
 use App\Domain\Game\Actions\ResolvePalaceWaterTownAction;
 use App\Http\Requests\ResolvePalaceWaterTownRequest;
 use App\Models\Game;
-use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Response;
 
 final class PalaceWaterTownController extends Controller
 {
@@ -15,7 +15,7 @@ final class PalaceWaterTownController extends Controller
         ResolvePalaceWaterTownRequest $request,
         Game $game,
         ResolvePalaceWaterTownAction $resolvePalaceWaterTown,
-    ): RedirectResponse {
+    ): Response {
         $resolvePalaceWaterTown->execute(
             $game,
             $request->user(),
@@ -23,6 +23,6 @@ final class PalaceWaterTownController extends Controller
             $request->validated('water_hex_id'),
         );
 
-        return to_route('games.show', $game);
+        return $this->gameChanged($game);
     }
 }

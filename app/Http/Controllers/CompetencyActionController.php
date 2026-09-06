@@ -8,7 +8,7 @@ use App\Domain\Game\Actions\PerformCompetencyAction;
 use App\Http\Requests\UseCompetencyActionRequest;
 use App\Models\Game;
 use App\Models\User;
-use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Response;
 
 final class CompetencyActionController extends Controller
 {
@@ -16,11 +16,11 @@ final class CompetencyActionController extends Controller
         UseCompetencyActionRequest $request,
         Game $game,
         PerformCompetencyAction $performCompetencyAction,
-    ): RedirectResponse {
+    ): Response {
         /** @var User $user */
         $user = $request->user();
         $performCompetencyAction->execute($game, $user);
 
-        return to_route('games.show', $game);
+        return $this->gameChanged($game);
     }
 }

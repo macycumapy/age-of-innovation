@@ -8,7 +8,7 @@ use App\Domain\Game\Actions\SacrificePowerAction;
 use App\Http\Requests\SacrificePowerRequest;
 use App\Models\Game;
 use App\Models\User;
-use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Response;
 
 final class PowerSacrificeController extends Controller
 {
@@ -16,11 +16,11 @@ final class PowerSacrificeController extends Controller
         SacrificePowerRequest $request,
         Game $game,
         SacrificePowerAction $sacrificePower,
-    ): RedirectResponse {
+    ): Response {
         /** @var User $user */
         $user = $request->user();
         $sacrificePower->execute($game, $user, $request->amount());
 
-        return to_route('games.show', $game);
+        return $this->gameChanged($game);
     }
 }

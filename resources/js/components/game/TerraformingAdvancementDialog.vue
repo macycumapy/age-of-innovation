@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Form } from '@inertiajs/vue3';
+import Form from '@/components/game/GameActionForm.vue';
 import { computed } from 'vue';
 import TerraformingAdvancementController from '@/actions/App/Http/Controllers/TerraformingAdvancementController';
 import InputError from '@/components/InputError.vue';

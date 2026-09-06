@@ -21,6 +21,6 @@ final class StartingBuildingTurnController extends Controller
         $user = $request->user();
         $finishStartingBuildingTurn->execute($game, $user);
 
-        return response()->noContent();
+        return $this->gameChanged($game);
     }
 }

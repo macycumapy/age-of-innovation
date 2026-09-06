@@ -9,7 +9,7 @@ use App\Domain\Game\Enums\BuildingType;
 use App\Http\Requests\UpgradeBuildingRequest;
 use App\Models\Game;
 use App\Models\User;
-use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Response;
 
 final class BuildingUpgradeController extends Controller
 {
@@ -17,7 +17,7 @@ final class BuildingUpgradeController extends Controller
         UpgradeBuildingRequest $request,
         Game $game,
         UpgradeBuildingAction $upgradeBuilding,
-    ): RedirectResponse {
+    ): Response {
         /** @var User $user */
         $user = $request->user();
         $upgradeBuilding->execute(
@@ -27,6 +27,6 @@ final class BuildingUpgradeController extends Controller
             BuildingType::from($request->string('target')->toString()),
         );
 
-        return to_route('games.show', $game);
+        return $this->gameChanged($game);
     }
 }

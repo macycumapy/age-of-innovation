@@ -7,13 +7,13 @@ namespace App\Http\Controllers;
 use App\Domain\Game\Actions\JoinGameAction;
 use App\Models\Game;
 use App\Models\User;
-use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Inertia\Inertia;
 
 class GamePlayerController extends Controller
 {
-    public function store(Request $request, Game $game, JoinGameAction $joinGame): RedirectResponse
+    public function store(Request $request, Game $game, JoinGameAction $joinGame): Response
     {
         /** @var User $user */
         $user = $request->user();
@@ -25,6 +25,6 @@ class GamePlayerController extends Controller
             'message' => 'Вы присоединились к игре.',
         ]);
 
-        return to_route('games.show', $game);
+        return $this->gameChanged($game);
     }
 }

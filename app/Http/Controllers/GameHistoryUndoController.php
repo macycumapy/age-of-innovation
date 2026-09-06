@@ -7,7 +7,7 @@ namespace App\Http\Controllers;
 use App\Domain\Game\Actions\UndoLastGameAction;
 use App\Http\Requests\UndoLastGameActionRequest;
 use App\Models\Game;
-use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Response;
 
 final class GameHistoryUndoController extends Controller
 {
@@ -15,9 +15,9 @@ final class GameHistoryUndoController extends Controller
         UndoLastGameActionRequest $request,
         Game $game,
         UndoLastGameAction $undoLastGameAction,
-    ): RedirectResponse {
+    ): Response {
         $undoLastGameAction->execute($game);
 
-        return to_route('games.show', $game);
+        return $this->gameChanged($game);
     }
 }

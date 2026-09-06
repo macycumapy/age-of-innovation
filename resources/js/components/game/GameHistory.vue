@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { Form, useHttp } from '@inertiajs/vue3';
+import { useHttp } from '@inertiajs/vue3';
 import { History, LoaderCircle, RotateCcw } from '@lucide/vue';
 import { ref, watch } from 'vue';
 import GameHistoryController from '@/actions/App/Http/Controllers/GameHistoryController';
 import GameHistoryUndoController from '@/actions/App/Http/Controllers/GameHistoryUndoController';
+import Form from '@/components/game/GameActionForm.vue';
 import { Button } from '@/components/ui/button';
 import { playerColorValues, terrainNames } from '@/lib/gameDisplay';
 import type { GameActionType, GameHistoryEntry, GameHistoryPage, GamePlayerSummary, TerrainType } from '@/types';

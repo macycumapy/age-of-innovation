@@ -8,16 +8,16 @@ use App\Domain\Game\Actions\ChooseTownAction;
 use App\Http\Requests\ChooseTownRequest;
 use App\Models\Game;
 use App\Models\User;
-use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Response;
 
 final class TownController extends Controller
 {
-    public function __invoke(ChooseTownRequest $request, Game $game, ChooseTownAction $chooseTown): RedirectResponse
+    public function __invoke(ChooseTownRequest $request, Game $game, ChooseTownAction $chooseTown): Response
     {
         /** @var User $user */
         $user = $request->user();
         $chooseTown->execute($game, $user, $request->townTile());
 
-        return to_route('games.show', $game);
+        return $this->gameChanged($game);
     }
 }

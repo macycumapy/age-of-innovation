@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Form, Head, Link, router, useHttp, usePage, usePoll } from '@inertiajs/vue3';
+import { Head, Link, router, useHttp, usePage, usePoll } from '@inertiajs/vue3';
 import { useEcho } from '@laravel/echo-vue';
 import { ChevronDown } from '@lucide/vue';
 import { computed, reactive, ref, watch } from 'vue';
@@ -14,6 +14,7 @@ import PlanningBundleController from '@/actions/App/Http/Controllers/PlanningBun
 import StartingBuildingController from '@/actions/App/Http/Controllers/StartingBuildingController';
 import StartingCompetencyController from '@/actions/App/Http/Controllers/StartingCompetencyController';
 import StartingResourcesController from '@/actions/App/Http/Controllers/StartingResourcesController';
+import Form from '@/components/game/GameActionForm.vue';
 import BoardMap from '@/components/game/BoardMap.vue';
 import BookActionDialog from '@/components/game/BookActionDialog.vue';
 import BuildingUpgradeDialog from '@/components/game/BuildingUpgradeDialog.vue';
@@ -94,7 +95,7 @@ const props = defineProps<{
 
 const page = usePage();
 
-useEcho(`games.${props.game.data.id}`, ['.history.changed', '.players.changed'], () => {
+useEcho(`games.${props.game.data.id}`, '.game.changed', () => {
     router.reload({ only: ['game'] });
 });
 
@@ -170,6 +171,14 @@ const isOmarStartingTowerTurn = computed(
 
 const isStartingBuildingRequestPending = ref(false);
 const startingBuildingRequest = useHttp<{ hex_id: string }>({ hex_id: '' });
+const boardActionRequest = useHttp<Record<string, string>>({});
+
+watch(
+    () => props.game.data.pendingStartingBuildingHexId,
+    () => {
+        isStartingBuildingRequestPending.value = false;
+    },
+);
 
 const canPlaceStartingBuilding = computed(
     () =>
@@ -366,6 +375,10 @@ const selectableStartingHexIds = computed(() => {
 });
 
 function placeStartingBuilding(hexId: string): void {
+    if (boardActionRequest.processing) {
+        return;
+    }
+
     if (pendingBridgeInteraction.value !== null) {
         if (selectedBridgeFromHexId.value === null) {
             selectedBridgeFromHexId.value = hexId;
@@ -373,31 +386,24 @@ function placeStartingBuilding(hexId: string): void {
             return;
         }
 
-        router.post(
-            BridgeController.store.url(props.game.data.id),
-            {
-                from_hex_id: selectedBridgeFromHexId.value,
-                to_hex_id: hexId,
+        const fromHexId = selectedBridgeFromHexId.value;
+
+        boardActionRequest.transform(() => ({
+            from_hex_id: fromHexId,
+            to_hex_id: hexId,
+        }));
+        void boardActionRequest.post(BridgeController.store.url(props.game.data.id), {
+            onSuccess: () => {
+                selectedBridgeFromHexId.value = null;
             },
-            {
-                preserveScroll: true,
-                onSuccess: () => {
-                    selectedBridgeFromHexId.value = null;
-                },
-            },
-        );
+        });
 
         return;
     }
 
     if (canPlacePalaceGuild.value) {
-        router.post(
-            PalaceGuildController.store.url(props.game.data.id),
-            { hex_id: hexId },
-            {
-                preserveScroll: true,
-            },
-        );
+        boardActionRequest.transform(() => ({ hex_id: hexId }));
+        void boardActionRequest.post(PalaceGuildController.store.url(props.game.data.id));
 
         return;
     }
@@ -412,15 +418,11 @@ function placeStartingBuilding(hexId: string): void {
             return;
         }
 
-        router.post(
-            NeutralInnovationBuildingController.url(props.game.data.id),
-            { hex_id: hexId },
-            { preserveScroll: true },
-        );
+        boardActionRequest.transform(() => ({ hex_id: hexId }));
+        void boardActionRequest.post(NeutralInnovationBuildingController.url(props.game.data.id));
 
         return;
     }
-
     if (canSpendStartingSpade.value) {
         selectedPaidTerraformHexId.value = hexId;
         isPaidTerraformingDialogOpen.value = true;
@@ -450,14 +452,6 @@ function placeStartingBuilding(hexId: string): void {
     startingBuildingRequest.hex_id = hexId;
 
     void startingBuildingRequest.post(StartingBuildingController.store.url(props.game.data.id), {
-        onSuccess: () => {
-            router.reload({
-                only: ['game'],
-                onFinish: () => {
-                    isStartingBuildingRequestPending.value = false;
-                },
-            });
-        },
         onError: () => {
             isStartingBuildingRequestPending.value = false;
         },
@@ -1563,8 +1557,8 @@ function selectedCompetencyForHomeland(homeland: TerrainType): Competency | unde
                             :used-book-action-ids="game.data.usedBookActionIds"
                             :book-action-states="game.data.bookActionStates"
                             :power-actions="game.data.powerActions"
-                            :can-use-power-actions="canExchangeResources"
-                            :can-use-book-actions="canExchangeResources"
+                            :can-use-power-actions="game.data.canPass"
+                            :can-use-book-actions="game.data.canPass"
                             :upgradeable-building-hex-ids="interactiveBuildingHexIds"
                             @hex-click="placeStartingBuilding"
                             @power-action-click="selectPowerAction"

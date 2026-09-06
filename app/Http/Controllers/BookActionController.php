@@ -8,7 +8,7 @@ use App\Domain\Game\Actions\PerformBookActionAction;
 use App\Http\Requests\UseBookActionRequest;
 use App\Models\Game;
 use App\Models\User;
-use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Response;
 
 final class BookActionController extends Controller
 {
@@ -16,7 +16,7 @@ final class BookActionController extends Controller
         UseBookActionRequest $request,
         Game $game,
         PerformBookActionAction $performBookAction,
-    ): RedirectResponse {
+    ): Response {
         /** @var User $user */
         $user = $request->user();
         $performBookAction->execute(
@@ -28,6 +28,6 @@ final class BookActionController extends Controller
             $request->hexId(),
         );
 
-        return to_route('games.show', $game);
+        return $this->gameChanged($game);
     }
 }

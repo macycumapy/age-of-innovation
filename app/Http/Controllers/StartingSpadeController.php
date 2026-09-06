@@ -9,8 +9,8 @@ use App\Domain\Game\Actions\UndoStartingSpadeAction;
 use App\Http\Requests\SpendStartingSpadeRequest;
 use App\Models\Game;
 use App\Models\User;
-use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 
 final class StartingSpadeController extends Controller
 {
@@ -18,23 +18,23 @@ final class StartingSpadeController extends Controller
         SpendStartingSpadeRequest $request,
         Game $game,
         SpendStartingSpadeAction $spendStartingSpade,
-    ): RedirectResponse {
+    ): Response {
         /** @var User $user */
         $user = $request->user();
         $spendStartingSpade->execute($game, $user, $request->hexId());
 
-        return to_route('games.show', $game);
+        return $this->gameChanged($game);
     }
 
     public function destroy(
         Request $request,
         Game $game,
         UndoStartingSpadeAction $undoStartingSpade,
-    ): RedirectResponse {
+    ): Response {
         /** @var User $user */
         $user = $request->user();
         $undoStartingSpade->execute($game, $user);
 
-        return to_route('games.show', $game);
+        return $this->gameChanged($game);
     }
 }

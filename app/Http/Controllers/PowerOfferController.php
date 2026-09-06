@@ -8,7 +8,7 @@ use App\Domain\Game\Actions\ResolvePowerOfferAction;
 use App\Http\Requests\ResolvePowerOfferRequest;
 use App\Models\Game;
 use App\Models\User;
-use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Response;
 
 final class PowerOfferController extends Controller
 {
@@ -16,11 +16,11 @@ final class PowerOfferController extends Controller
         ResolvePowerOfferRequest $request,
         Game $game,
         ResolvePowerOfferAction $resolvePowerOffer,
-    ): RedirectResponse {
+    ): Response {
         /** @var User $user */
         $user = $request->user();
         $resolvePowerOffer->execute($game, $user, $request->boolean('accept'));
 
-        return to_route('games.show', $game);
+        return $this->gameChanged($game);
     }
 }

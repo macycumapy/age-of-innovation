@@ -36,6 +36,7 @@ final class UpgradeBuildingAction
             if ($lockedGame->phase !== GamePhase::Actions
                 || $lockedGame->active_player_id !== $user->id
                 || $state->pendingInteraction !== null
+                || $state->round->hasTakenMainAction
                 || ! $player instanceof GamePlayer
                 || ! $hex instanceof BoardHexStateData
                 || $hex->building === null

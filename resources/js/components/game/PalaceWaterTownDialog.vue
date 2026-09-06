@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Form } from '@inertiajs/vue3';
+import Form from '@/components/game/GameActionForm.vue';
 import { ref } from 'vue';
 import PalaceWaterTownController from '@/actions/App/Http/Controllers/PalaceWaterTownController';
 import InputError from '@/components/InputError.vue';

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Form } from '@inertiajs/vue3';
+import Form from '@/components/game/GameActionForm.vue';
 import { Check } from '@lucide/vue';
 import { ref } from 'vue';
 import TownController from '@/actions/App/Http/Controllers/TownController';
