@@ -34,11 +34,9 @@ const props = withDefaults(defineProps<{
 
 const isOpen = defineModel<boolean>('open', { default: false });
 const dialogOpen = computed({
-    get: () => props.afterTerraforming || isOpen.value,
+    get: () => isOpen.value,
     set: (open: boolean) => {
-        if (!props.afterTerraforming) {
-            isOpen.value = open;
-        }
+        isOpen.value = open;
     },
 });
 const selectedHexId = ref(props.hexId ?? props.hexIds[0] ?? '');
@@ -67,7 +65,7 @@ watch(
 
 <template>
     <Dialog v-model:open="dialogOpen">
-        <DialogContent class="sm:max-w-md" :show-close-button="!afterTerraforming">
+        <DialogContent class="sm:max-w-md">
             <DialogHeader>
                 <DialogTitle>Построить дом?</DialogTitle>
                 <DialogDescription>
@@ -115,17 +113,7 @@ watch(
                 <InputError :message="errors.build ?? errors.building ?? errors.hex_id ?? errors.game" />
 
                 <DialogFooter>
-                    <Button
-                        v-if="afterTerraforming"
-                        type="submit"
-                        name="build"
-                        value="0"
-                        variant="outline"
-                        :disabled="processing"
-                    >
-                        Не строить
-                    </Button>
-                    <DialogClose v-else as-child>
+                    <DialogClose as-child>
                         <Button type="button" variant="outline">Отмена</Button>
                     </DialogClose>
                     <Button

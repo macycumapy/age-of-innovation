@@ -34,7 +34,6 @@ final class ExchangeResourcesAction
 
             if ($lockedGame->phase !== GamePhase::Actions
                 || $lockedGame->active_player_id !== $user->id
-                || $state->pendingInteraction !== null
                 || ! $player instanceof GamePlayer) {
                 throw ValidationException::withMessages(['game' => 'Сейчас нельзя обменивать ресурсы.']);
             }

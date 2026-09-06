@@ -613,6 +613,35 @@ final class ReplayGameHistoryAction
         $state->pendingInteraction = null;
 
         if ($isBuildingChoice) {
+            $playerState = $this->playerState($state, $player->id);
+            $competency = Competency::from((string) $action->payload['competency_id']);
+
+            if ($competency === Competency::Competency05) {
+                $eligibleHexIds = $this->findEligibleTerraformHexes->execute(
+                    $state,
+                    $playerState,
+                    $playerState->homeland,
+                );
+
+                if ($eligibleHexIds !== []) {
+                    $state->pendingInteraction = new PendingInteractionData(
+                        PendingInteractionType::SpendSpades,
+                        $player->id,
+                        $eligibleHexIds,
+                        [
+                            'phase' => GamePhase::Actions->value,
+                            'spadeCount' => 2,
+                            'remainingSpades' => 2,
+                            'targetTerrain' => $playerState->homeland->value,
+                        ],
+                    );
+                    $game->active_player_id = $player->user_id;
+                    $game->state = $state;
+
+                    return;
+                }
+            }
+
             if (isset($action->payload['neutral_building'])) {
                 $this->replayNeutralBuilding(
                     $game,

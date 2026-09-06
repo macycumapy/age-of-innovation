@@ -6,6 +6,7 @@ namespace App\Domain\Game\Actions;
 
 use App\Domain\Game\Enums\GameActionType;
 use App\Domain\Game\Enums\GamePhase;
+use App\Domain\Game\Enums\PendingInteractionType;
 use App\Models\Game;
 use App\Models\GamePlayer;
 use App\Models\User;
@@ -27,7 +28,9 @@ final class FinishActionTurnAction
 
             if ($lockedGame->phase !== GamePhase::Actions
                 || $lockedGame->active_player_id !== $user->id
-                || $state->pendingInteraction !== null
+                || ($state->pendingInteraction !== null
+                    && ($state->pendingInteraction->type !== PendingInteractionType::BuildWorkshopAfterTerraforming
+                        || $state->pendingInteraction->playerId !== $player?->id))
                 || $state->round->turnStartVersion === null
                 || ! $state->round->hasTakenMainAction
                 || ! $player instanceof GamePlayer) {
@@ -55,6 +58,7 @@ final class FinishActionTurnAction
             }
 
             $stateVersionBefore = $lockedGame->version;
+            $state->pendingInteraction = null;
             $state->turnStartSnapshot = null;
             $state->townChoiceCheckpoint = null;
             $state->round->turnStartVersion = null;

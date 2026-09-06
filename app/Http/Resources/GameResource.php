@@ -22,6 +22,7 @@ use App\Domain\Game\Enums\GameStatus;
 use App\Domain\Game\Enums\Innovation;
 use App\Domain\Game\Enums\KnowledgeDiscipline;
 use App\Domain\Game\Enums\PalaceAbility;
+use App\Domain\Game\Enums\PendingInteractionType;
 use App\Domain\Game\Enums\PlayerColor;
 use App\Domain\Game\Enums\PowerAction;
 use App\Domain\Game\Enums\RoundBonus;
@@ -95,7 +96,8 @@ class GameResource extends JsonResource
                 && ! $this->state->round->isCurrentTurnIrrevocable,
             'canFinishCurrentTurn' => $this->phase === GamePhase::Actions
                 && $this->active_player_id === $request->user()?->id
-                && $this->state->pendingInteraction === null
+                && ($this->state->pendingInteraction === null
+                    || $this->state->pendingInteraction->type === PendingInteractionType::BuildWorkshopAfterTerraforming)
                 && $this->state->round->turnStartVersion !== null
                 && $this->state->round->hasTakenMainAction,
             'canPass' => $this->phase === GamePhase::Actions

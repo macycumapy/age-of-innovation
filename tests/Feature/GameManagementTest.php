@@ -889,6 +889,11 @@ class GameManagementTest extends TestCase
             'state' => new GameStateData(
                 turnOrder: [$activePlayer->id],
                 round: new RoundStateData(phase: GamePhase::Actions),
+                pendingInteraction: new PendingInteractionData(
+                    PendingInteractionType::ChooseTown,
+                    $activePlayer->id,
+                    [TownTile::Tools->value],
+                ),
                 players: [
                     new GamePlayerStateData(
                         playerId: $activePlayer->id,
@@ -953,6 +958,11 @@ class GameManagementTest extends TestCase
             'state' => new GameStateData(
                 turnOrder: [$player->id],
                 round: new RoundStateData(phase: GamePhase::Actions),
+                pendingInteraction: new PendingInteractionData(
+                    PendingInteractionType::ChooseTown,
+                    $player->id,
+                    [TownTile::Tools->value],
+                ),
                 players: [new GamePlayerStateData(
                     playerId: $player->id,
                     userId: $user->id,
@@ -2450,7 +2460,9 @@ class GameManagementTest extends TestCase
                 faction: Faction::Blessed,
                 homeland: TerrainType::Mountain,
                 roundBonus: RoundBonus::Coins,
-                resources: new PlayerResourcesData(coins: 4, tools: 2),
+                resources: new PlayerResourcesData(
+                    power: new PowerBowlsStateData(bowlTwo: 2, bowlThree: 4),
+                ),
                 unassignedSpades: 1,
             )],
             pendingInteraction: new PendingInteractionData(
@@ -2471,12 +2483,29 @@ class GameManagementTest extends TestCase
         $game->refresh();
         $this->assertSame(PendingInteractionType::BuildWorkshopAfterTerraforming, $game->state->pendingInteraction?->type);
 
+        $this->post(route('games.power-sacrifice.store', $game), ['amount' => 1])
+            ->assertNoContent();
+
+        $game->refresh();
+        $this->assertSame(PendingInteractionType::BuildWorkshopAfterTerraforming, $game->state->pendingInteraction?->type);
+        $this->assertSame(0, $game->state->players[0]->resources->power->bowlTwo);
+        $this->assertSame(5, $game->state->players[0]->resources->power->bowlThree);
+
+        $this->post(route('games.resource-exchange', $game), [
+            'exchanges' => $this->resourceExchanges(powerToTool: 1, powerToCoin: 2),
+        ])->assertNoContent();
+
+        $game->refresh();
+        $this->assertSame(PendingInteractionType::BuildWorkshopAfterTerraforming, $game->state->pendingInteraction?->type);
+        $this->assertSame(1, $game->state->players[0]->resources->tools);
+        $this->assertSame(2, $game->state->players[0]->resources->coins);
+
         $this->post(route('games.terraform-workshop', $game), ['build' => true, 'hex_id' => '1:0'])
             ->assertNoContent();
         $game->refresh();
         $this->assertSame(BuildingType::Workshop, $game->state->board->hexes[0]->building?->type);
-        $this->assertSame(1, $game->state->players[0]->resources->tools);
-        $this->assertSame(2, $game->state->players[0]->resources->coins);
+        $this->assertSame(0, $game->state->players[0]->resources->tools);
+        $this->assertSame(0, $game->state->players[0]->resources->coins);
         $this->assertNull($game->state->pendingInteraction);
 
         $this->post(route('games.building-upgrade', $game), [
@@ -2499,15 +2528,21 @@ class GameManagementTest extends TestCase
     public function test_player_can_decline_workshop_after_power_terraforming(): void
     {
         $user = User::factory()->create();
+        $nextUser = User::factory()->create();
         $game = Game::factory()->create([
             'status' => GameStatus::Active,
             'phase' => GamePhase::Actions,
             'active_player_id' => $user->id,
         ]);
-        $player = GamePlayer::factory()->create(['game_id' => $game->id, 'user_id' => $user->id]);
+        $player = GamePlayer::factory()->create(['game_id' => $game->id, 'user_id' => $user->id, 'seat' => 1]);
+        $nextPlayer = GamePlayer::factory()->create(['game_id' => $game->id, 'user_id' => $nextUser->id, 'seat' => 2]);
         $game->update(['state' => new GameStateData(
-            turnOrder: [$player->id],
-            round: new RoundStateData(phase: GamePhase::Actions),
+            turnOrder: [$player->id, $nextPlayer->id],
+            round: new RoundStateData(
+                phase: GamePhase::Actions,
+                turnStartVersion: 0,
+                hasTakenMainAction: true,
+            ),
             players: [new GamePlayerStateData(
                 playerId: $player->id,
                 userId: $user->id,
@@ -2524,13 +2559,16 @@ class GameManagementTest extends TestCase
             ),
         )]);
 
-        $this->actingAs($user)->post(route('games.terraform-workshop', $game), ['build' => false]);
+        $this->actingAs($user)->get(route('games.show', $game))
+            ->assertInertia(fn (Assert $page) => $page->where('game.data.canFinishCurrentTurn', true));
+        $this->post(route('games.current-turn.finish', $game))->assertNoContent();
         $game->refresh();
 
         $this->assertNull($game->state->pendingInteraction);
         $this->assertSame(1, $game->state->players[0]->resources->tools);
         $this->assertSame(2, $game->state->players[0]->resources->coins);
-        $this->assertFalse((bool) $game->actions()->latest('sequence')->first()?->payload['built']);
+        $this->assertSame($nextUser->id, $game->active_player_id);
+        $this->assertSame(GameActionType::FinishTurn, $game->actions()->latest('sequence')->first()?->type);
     }
 
     public function test_player_can_place_an_annex_from_the_building_dialog_and_restart_the_turn(): void
@@ -3054,6 +3092,75 @@ class GameManagementTest extends TestCase
             'school' => [BuildingType::Guild, BuildingType::School, 3, 5],
             'university' => [BuildingType::School, BuildingType::University, 5, 8],
         ];
+    }
+
+    public function test_competency_five_starts_terraforming_with_two_free_spades(): void
+    {
+        $user = User::factory()->create();
+        $game = Game::factory()->create([
+            'status' => GameStatus::Active,
+            'phase' => GamePhase::Actions,
+            'active_player_id' => $user->id,
+        ]);
+        $player = GamePlayer::factory()->create([
+            'game_id' => $game->id,
+            'user_id' => $user->id,
+            'seat' => 1,
+        ]);
+        $game->update(['state' => new GameStateData(
+            turnOrder: [$player->id],
+            board: new BoardStateData(hexes: [
+                new BoardHexStateData(
+                    id: '0:0',
+                    q: 0,
+                    r: 0,
+                    initialTerrain: TerrainType::Forest,
+                    terrain: TerrainType::Forest,
+                    adjacentHexIds: ['1:0'],
+                    building: new BuildingStateData(BuildingType::School, $player->id),
+                ),
+                new BoardHexStateData(
+                    id: '1:0',
+                    q: 1,
+                    r: 0,
+                    initialTerrain: TerrainType::Mountain,
+                    terrain: TerrainType::Mountain,
+                    adjacentHexIds: ['0:0'],
+                ),
+            ]),
+            round: new RoundStateData(phase: GamePhase::Actions, hasTakenMainAction: true),
+            players: [new GamePlayerStateData(
+                playerId: $player->id,
+                userId: $user->id,
+                color: PlayerColor::Green,
+                faction: Faction::Blessed,
+                homeland: TerrainType::Forest,
+                roundBonus: RoundBonus::Coins,
+            )],
+            pendingInteraction: new PendingInteractionData(
+                PendingInteractionType::ChooseCompetency,
+                $player->id,
+                [Competency::Competency05->value],
+                [
+                    'reason' => 'building',
+                    'builtHexId' => '0:0',
+                    'buildingType' => BuildingType::School->value,
+                ],
+            ),
+            availableCompetencyIds: [Competency::Competency05->value],
+        )]);
+
+        $this->actingAs($user)->post(route('games.starting-competency.store', $game), [
+            'competency_id' => Competency::Competency05->value,
+        ])->assertNoContent();
+
+        $game->refresh();
+        $this->assertSame(2, $game->state->players[0]->unassignedSpades);
+        $this->assertSame(PendingInteractionType::SpendSpades, $game->state->pendingInteraction?->type);
+        $this->assertSame(2, $game->state->pendingInteraction?->context['remainingSpades']);
+        $this->assertSame(TerrainType::Forest->value, $game->state->pendingInteraction?->context['targetTerrain']);
+        $this->assertContains('1:0', $game->state->pendingInteraction?->optionIds);
+        $this->assertSame($user->id, $game->active_player_id);
     }
 
     #[DataProvider('neutralInnovationBuildingTerrainProvider')]

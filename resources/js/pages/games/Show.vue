@@ -240,6 +240,16 @@ const canSpendStartingSpade = computed(
         props.game.data.activePlayerId === page.props.auth.user.id,
 );
 
+const pendingWorkshopAfterTerraforming = computed(() => {
+    const interaction = props.game.data.pendingInteraction;
+
+    return interaction?.type === 'build_workshop_after_terraforming' &&
+        interaction.playerId === currentPlayer.value?.id &&
+        props.game.data.activePlayerId === page.props.auth.user.id
+        ? interaction
+        : null;
+});
+
 const pendingStartingSpadeHexId = computed(() =>
     props.game.data.pendingInteraction?.type === 'spend_spades'
         ? (props.game.data.pendingInteraction.context.selectedHexId ?? null)
@@ -361,6 +371,14 @@ const selectableStartingHexIds = computed(() => {
         return pendingStartingSpadeHexId.value === null ? props.game.data.pendingInteraction.optionIds : [];
     }
 
+    if (pendingWorkshopAfterTerraforming.value !== null) {
+        const state = currentPlayerState.value;
+
+        return state !== undefined && state.tools >= 1 && state.coins >= 2 && state.buildingsOnMap.workshop < 9
+            ? pendingWorkshopAfterTerraforming.value.optionIds
+            : [];
+    }
+
     if (canStartPaidTerraforming.value) {
         return [...paidTerraformHexIds.value, ...buildableWorkshopHexIds.value];
     }
@@ -426,6 +444,13 @@ function placeStartingBuilding(hexId: string): void {
     if (canSpendStartingSpade.value) {
         selectedPaidTerraformHexId.value = hexId;
         isPaidTerraformingDialogOpen.value = true;
+
+        return;
+    }
+
+    if (pendingWorkshopAfterTerraforming.value?.optionIds.includes(hexId)) {
+        selectedBuildWorkshopHexId.value = hexId;
+        isBuildWorkshopDialogOpen.value = true;
 
         return;
     }
@@ -554,15 +579,13 @@ const canSacrificePower = computed(
     () =>
         props.game.data.phase === 'actions' &&
         props.game.data.activePlayerId === page.props.auth.user.id &&
-        props.game.data.pendingInteraction === null &&
         maximumPowerSacrifice.value > 0,
 );
 
 const canExchangeResources = computed(
     () =>
         props.game.data.phase === 'actions' &&
-        props.game.data.activePlayerId === page.props.auth.user.id &&
-        props.game.data.pendingInteraction === null,
+        props.game.data.activePlayerId === page.props.auth.user.id,
 );
 
 const canStartPaidTerraforming = computed(() => {
@@ -1729,6 +1752,7 @@ function selectedCompetencyForHomeland(homeland: TerrainType): Competency | unde
                 :game-id="game.data.id"
                 :hex-id="selectedBuildWorkshopHexId"
                 :player-color="currentPlayer?.color ?? null"
+                :after-terraforming="pendingWorkshopAfterTerraforming !== null"
             />
 
             <ResourceExchangeDialog
@@ -1744,18 +1768,6 @@ function selectedCompetencyForHomeland(homeland: TerrainType): Competency | unde
                 v-model:open="isTerraformingAdvancementDialogOpen"
                 :game-id="game.data.id"
                 :player-color="currentPlayer?.color ?? null"
-            />
-
-            <BuildWorkshopDialog
-                v-if="
-                    game.data.pendingInteraction?.type === 'build_workshop_after_terraforming' &&
-                    game.data.pendingInteraction.playerId === currentPlayer?.id
-                "
-                :game-id="game.data.id"
-                :hex-ids="game.data.pendingInteraction.optionIds"
-                :hexes="game.data.board.hexes"
-                :player-color="currentPlayer?.color ?? null"
-                after-terraforming
             />
 
             <PalaceWaterTownDialog

@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace App\Domain\Game\Actions;
 
+use App\Domain\Game\Data\GamePlayerStateData;
+use App\Domain\Game\Data\GameStateData;
+use App\Domain\Game\Data\PendingInteractionData;
 use App\Domain\Game\Enums\BuildingType;
 use App\Domain\Game\Enums\Competency;
 use App\Domain\Game\Enums\Faction;
@@ -23,6 +26,7 @@ final class ChooseStartingCompetencyAction
         private CreateNeutralBuildingInteractionAction $createNeutralBuildingInteraction,
         private CreateTownChoiceAfterBuildingAction $createTownChoiceAfterBuilding,
         private DetermineStartingBuildingOrderAction $determineStartingBuildingOrder,
+        private FindEligibleTerraformHexesAction $findEligibleTerraformHexes,
         private GrantCompetencyAction $grantCompetency,
         private ResolveCompletedStartingSetupAction $resolveCompletedStartingSetup,
     ) {
@@ -79,6 +83,8 @@ final class ChooseStartingCompetencyAction
 
             if ($isBuildingChoice) {
                 $builtHexId = (string) ($interaction->context['builtHexId'] ?? '');
+                $awaitsTerraforming = $competency === Competency::Competency05
+                    && $this->createTerraformingInteraction($state, $playerState);
                 $awaitsTowerPlacement = $competency === Competency::Competency10
                     && $this->createNeutralBuildingInteraction->execute(
                         $state,
@@ -90,7 +96,7 @@ final class ChooseStartingCompetencyAction
                             'queuedBuiltHexIds' => [$builtHexId],
                         ],
                     );
-                $nextActiveUserId = $awaitsTowerPlacement
+                $nextActiveUserId = $awaitsTerraforming || $awaitsTowerPlacement
                     ? $playerState->userId
                     : $this->createTownChoiceAfterBuilding->execute($state, $playerState, $builtHexId);
                 $lockedGame->update([
@@ -169,5 +175,28 @@ final class ChooseStartingCompetencyAction
 
             return $lockedGame->refresh();
         });
+    }
+
+    private function createTerraformingInteraction(GameStateData $state, GamePlayerStateData $playerState): bool
+    {
+        $eligibleHexIds = $this->findEligibleTerraformHexes->execute($state, $playerState, $playerState->homeland);
+
+        if ($eligibleHexIds === []) {
+            return false;
+        }
+
+        $state->pendingInteraction = new PendingInteractionData(
+            PendingInteractionType::SpendSpades,
+            $playerState->playerId,
+            $eligibleHexIds,
+            [
+                'phase' => GamePhase::Actions->value,
+                'spadeCount' => 2,
+                'remainingSpades' => 2,
+                'targetTerrain' => $playerState->homeland->value,
+            ],
+        );
+
+        return true;
     }
 }

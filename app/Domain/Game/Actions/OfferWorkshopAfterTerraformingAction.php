@@ -30,10 +30,7 @@ final class OfferWorkshopAfterTerraformingAction
                 && $hex->building->type === BuildingType::Workshop,
         ));
 
-        if ($availableHexIds === []
-            || $playerState->resources->tools < 1
-            || $playerState->resources->coins < 2
-            || $workshopsOnMap >= 9) {
+        if ($availableHexIds === [] || $workshopsOnMap >= BuildingType::Workshop->supplyLimit()) {
             $state->pendingInteraction = null;
 
             return false;

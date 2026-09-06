@@ -123,6 +123,7 @@ function finishStartingBuildingTurn(): void {
                     game.data.pendingInteraction?.type === 'place_palace_guild' ||
                     game.data.pendingInteraction?.type === 'place_neutral_building' ||
                     game.data.pendingInteraction?.type === 'place_bridge' ||
+                    game.data.pendingInteraction?.type === 'build_workshop_after_terraforming' ||
                     game.data.pendingInteraction?.type === 'choose_science_bonus_books' ||
                     game.data.pendingInteraction?.type === 'choose_innovation_books')
             "
@@ -167,6 +168,9 @@ function finishStartingBuildingTurn(): void {
                           ? 'Выберите противоположный берег.'
                           : 'Выберите ячейку со своим зданием для начала моста.'
                 }}
+            </template>
+            <template v-else-if="game.data.pendingInteraction?.type === 'build_workshop_after_terraforming'">
+                Выберите перекопанную клетку для строительства дома или завершите ход.
             </template>
             <template v-else-if="game.data.pendingStartingBuildingHexId">
                 {{
@@ -445,7 +449,12 @@ function finishStartingBuildingTurn(): void {
         </Form>
 
         <div
-            v-else-if="game.data.phase === 'actions' && isCurrentUsersTurn && game.data.pendingInteraction === null"
+            v-else-if="
+                game.data.phase === 'actions' &&
+                isCurrentUsersTurn &&
+                (game.data.pendingInteraction === null ||
+                    game.data.pendingInteraction.type === 'build_workshop_after_terraforming')
+            "
             class="flex shrink-0 items-center gap-2"
         >
             <Form
