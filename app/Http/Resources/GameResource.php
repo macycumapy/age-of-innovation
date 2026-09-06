@@ -8,6 +8,7 @@ use App\Domain\Game\Actions\ReplayGameHistoryAction;
 use App\Domain\Game\Data\BoardHexStateData;
 use App\Domain\Game\Data\BridgeStateData;
 use App\Domain\Game\Data\GamePlayerStateData;
+use App\Domain\Game\Data\GameStateData;
 use App\Domain\Game\Data\PlanningBundleData;
 use App\Domain\Game\Data\PlayerPlanningSelectionData;
 use App\Domain\Game\Data\RoundBonusOfferData;
@@ -41,6 +42,16 @@ use Illuminate\Http\Resources\Json\JsonResource;
 /** @mixin Game */
 class GameResource extends JsonResource
 {
+    private GameStateData $state;
+
+    public function __construct(mixed $resource)
+    {
+        parent::__construct($resource);
+
+        /** @var Game $resource */
+        $this->state = $resource->state;
+    }
+
     /** @return array<string, mixed> */
     public function toArray(Request $request): array
     {
