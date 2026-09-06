@@ -5351,6 +5351,13 @@ class GameManagementTest extends TestCase
         $this->assertSame(0, $game->state->players[0]->knowledge->banking);
         $this->assertSame(0, $game->state->players[0]->knowledge->law);
 
+        $state = $game->state;
+        $state->players[0]->knowledge->law = 2;
+        $state->players[0]->resources->power->bowlOne = 1;
+        $state->players[0]->resources->power->bowlTwo = 0;
+        $state->players[0]->resources->power->bowlThree = 0;
+        $game->update(['state' => $state]);
+
         $this->post(route('games.starting-resources.store', $game), [
             'book_counts' => [
                 'banking' => 1,
@@ -5372,7 +5379,10 @@ class GameManagementTest extends TestCase
         $this->assertSame(0, $game->state->players[0]->resources->books->unassigned);
         $this->assertSame(1, $game->state->players[0]->resources->books->banking);
         $this->assertSame(0, $game->state->players[0]->knowledge->unassignedSteps);
-        $this->assertSame(2, $game->state->players[0]->knowledge->law);
+        $this->assertSame(4, $game->state->players[0]->knowledge->law);
+        $this->assertSame(0, $game->state->players[0]->resources->power->bowlOne);
+        $this->assertSame(1, $game->state->players[0]->resources->power->bowlTwo);
+        $this->assertSame(0, $game->state->players[0]->resources->power->bowlThree);
         $this->assertNotSame($activeUser->id, $game->active_player_id);
 
         $inventorUser = $users->firstWhere('id', $game->active_player_id);

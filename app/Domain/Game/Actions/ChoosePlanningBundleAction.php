@@ -81,7 +81,7 @@ final class ChoosePlanningBundleAction
                 ]);
             }
 
-            $playerState = $this->playerStateFactory->create($player, $bundle);
+            $playerState = $this->playerStateFactory->create($player, $bundle, $state);
 
             $player->update([
                 'color' => $playerState->color,

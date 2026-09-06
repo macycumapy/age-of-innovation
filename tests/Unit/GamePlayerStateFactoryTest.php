@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Unit;
 
+use App\Domain\Game\Actions\AdvanceKnowledgeAction;
+use App\Domain\Game\Actions\GainPowerAction;
 use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Data\PlanningBundleData;
 use App\Domain\Game\Enums\Faction;
@@ -66,6 +68,16 @@ class GamePlayerStateFactoryTest extends TestCase
         $this->assertSame(2, $lizards->knowledge->unassignedSteps);
     }
 
+    public function test_it_grants_power_for_fixed_starting_knowledge_advancements(): void
+    {
+        $navigators = $this->createState(TerrainType::Forest, Faction::Navigators);
+
+        $this->assertSame(4, $navigators->knowledge->law);
+        $this->assertSame(3, $navigators->resources->power->bowlOne);
+        $this->assertSame(9, $navigators->resources->power->bowlTwo);
+        $this->assertSame(0, $navigators->resources->power->bowlThree);
+    }
+
     private function createState(TerrainType $homeland, Faction $faction): GamePlayerStateData
     {
         $player = new GamePlayer();
@@ -74,7 +86,7 @@ class GamePlayerStateFactoryTest extends TestCase
             'user_id' => 20,
         ]);
 
-        return (new GamePlayerStateFactory())->create(
+        return (new GamePlayerStateFactory(new AdvanceKnowledgeAction(new GainPowerAction())))->create(
             $player,
             new PlanningBundleData($homeland, $faction, RoundBonus::Coins),
         );

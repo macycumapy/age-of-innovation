@@ -4,21 +4,31 @@ declare(strict_types=1);
 
 namespace App\Domain\Game\Factories;
 
+use App\Domain\Game\Actions\AdvanceKnowledgeAction;
 use App\Domain\Game\Data\BookSupplyData;
 use App\Domain\Game\Data\GamePlayerStateData;
+use App\Domain\Game\Data\GameStateData;
 use App\Domain\Game\Data\KnowledgeStateData;
 use App\Domain\Game\Data\PlanningBundleData;
 use App\Domain\Game\Data\PlayerResourcesData;
 use App\Domain\Game\Data\PowerBowlsStateData;
 use App\Domain\Game\Enums\Faction;
+use App\Domain\Game\Enums\KnowledgeDiscipline;
 use App\Domain\Game\Enums\PlayerColor;
 use App\Domain\Game\Enums\TerrainType;
 use App\Models\GamePlayer;
 
 final class GamePlayerStateFactory
 {
-    public function create(GamePlayer $player, PlanningBundleData $bundle): GamePlayerStateData
+    public function __construct(private AdvanceKnowledgeAction $advanceKnowledge)
     {
+    }
+
+    public function create(
+        GamePlayer $player,
+        PlanningBundleData $bundle,
+        ?GameStateData $state = null,
+    ): GamePlayerStateData {
         $resources = new PlayerResourcesData(
             coins: 15,
             tools: 3,
@@ -42,7 +52,7 @@ final class GamePlayerStateFactory
             $resources->tools++;
         }
 
-        return new GamePlayerStateData(
+        $playerState = new GamePlayerStateData(
             playerId: $player->id,
             userId: $player->user_id,
             color: $this->colorFor($bundle->homeland),
@@ -50,10 +60,23 @@ final class GamePlayerStateFactory
             homeland: $bundle->homeland,
             roundBonus: $bundle->roundBonus,
             resources: $resources,
-            knowledge: $knowledge,
+            knowledge: new KnowledgeStateData(unassignedSteps: $knowledge->unassignedSteps),
             shippingLevel: $bundle->homeland === TerrainType::Lake ? 1 : 0,
             unassignedSpades: $bundle->homeland === TerrainType::Desert ? 1 : 0,
         );
+
+        $state ??= new GameStateData();
+
+        foreach (KnowledgeDiscipline::cases() as $discipline) {
+            $this->advanceKnowledge->execute(
+                $state,
+                $playerState,
+                $discipline,
+                $knowledge->{$discipline->value},
+            );
+        }
+
+        return $playerState;
     }
 
     private function power(TerrainType $homeland): PowerBowlsStateData

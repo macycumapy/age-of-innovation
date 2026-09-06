@@ -24,6 +24,7 @@ final class ChooseStartingResourcesAction
     public function __construct(
         private DetermineNextPlanningPlayerAction $determineNextPlanningPlayer,
         private AppendGameHistoryAction $appendGameHistory,
+        private AdvanceKnowledgeAction $advanceKnowledge,
         private GrantCompetencyAction $grantCompetency,
         private ResolveIncomePhaseAction $resolveIncomePhase,
     ) {
@@ -84,7 +85,7 @@ final class ChooseStartingResourcesAction
 
             $playerState = $state->players[$playerStateIndex];
             $this->assignBooks($playerState, $bookDisciplines);
-            $this->assignKnowledge($playerState, $knowledgeDisciplines);
+            $this->assignKnowledge($state, $playerState, $knowledgeDisciplines);
             if ($interactionPhase === GamePhase::Setup) {
                 $this->assignCompetency(
                     $state,
@@ -167,8 +168,11 @@ final class ChooseStartingResourcesAction
     }
 
     /** @param list<KnowledgeDiscipline> $disciplines */
-    private function assignKnowledge(GamePlayerStateData $playerState, array $disciplines): void
-    {
+    private function assignKnowledge(
+        GameStateData $state,
+        GamePlayerStateData $playerState,
+        array $disciplines,
+    ): void {
         if (count($disciplines) !== $playerState->knowledge->unassignedSteps) {
             throw ValidationException::withMessages([
                 'knowledge_counts' => 'Распределите все стартовые шаги знаний.',
@@ -176,7 +180,7 @@ final class ChooseStartingResourcesAction
         }
 
         foreach ($disciplines as $discipline) {
-            $playerState->knowledge->{$discipline->value}++;
+            $this->advanceKnowledge->execute($state, $playerState, $discipline, 1);
         }
 
         $playerState->knowledge->unassignedSteps = 0;

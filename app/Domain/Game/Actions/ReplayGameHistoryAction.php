@@ -417,7 +417,7 @@ final class ReplayGameHistoryAction
             $this->invalidHistory();
         }
 
-        $playerState = $this->playerStateFactory->create($player, $bundle);
+        $playerState = $this->playerStateFactory->create($player, $bundle, $state);
         $player->update([
             'color' => $playerState->color,
             'faction' => $bundle->faction,
@@ -467,7 +467,7 @@ final class ReplayGameHistoryAction
 
         foreach ($action->payload['knowledge_disciplines'] ?? [] as $disciplineValue) {
             $discipline = KnowledgeDiscipline::from((string) $disciplineValue);
-            $playerState->knowledge->{$discipline->value}++;
+            $this->advanceKnowledge->execute($state, $playerState, $discipline, 1);
         }
 
         $playerState->resources->books->unassigned = 0;
