@@ -22,6 +22,7 @@ import CompetencyActionDialog from '@/components/game/CompetencyActionDialog.vue
 import CurrentTurnFinishDialog from '@/components/game/CurrentTurnFinishDialog.vue';
 import CurrentTurnPanel from '@/components/game/CurrentTurnPanel.vue';
 import FactionActionDialog from '@/components/game/FactionActionDialog.vue';
+import FinalLeaderboard from '@/components/game/FinalLeaderboard.vue';
 import CultBoard from '@/components/game/CultBoard.vue';
 import InnovationBoard from '@/components/game/InnovationBoard.vue';
 import InnovationPurchaseDialog from '@/components/game/InnovationPurchaseDialog.vue';
@@ -1514,6 +1515,12 @@ function selectedCompetencyForHomeland(homeland: TerrainType): Competency | unde
             </Card>
 
             <section v-if="['active', 'finished'].includes(game.data.status)" class="grid gap-4">
+                <FinalLeaderboard
+                    v-if="game.data.phase === 'finished'"
+                    :players="game.data.players"
+                    :player-states="game.data.playerBoardStates"
+                />
+
                 <div class="grid items-start gap-4 lg:grid-cols-[minmax(0,7fr)_minmax(16rem,3fr)]">
                     <div class="grid gap-4">
                         <BoardMap
