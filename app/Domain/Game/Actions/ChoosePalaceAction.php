@@ -66,7 +66,19 @@ final class ChoosePalaceAction
             ));
             $state->pendingInteraction = null;
 
-            if ($palace === PalaceAbility::Palace16) {
+            if ($palace === PalaceAbility::Palace11) {
+                $state->pendingInteraction = new PendingInteractionData(
+                    PendingInteractionType::ChooseTown,
+                    $player->id,
+                    array_values(array_unique($state->availableTownTileIds)),
+                    [
+                        'townHexIds' => [],
+                        'builtHexId' => $builtHexId,
+                        'freePalaceTownTile' => true,
+                    ],
+                );
+                $nextActiveUserId = $player->user_id;
+            } elseif ($palace === PalaceAbility::Palace16) {
                 $eligibleHexIds = array_values(array_map(
                     static fn (BoardHexStateData $hex): string => $hex->id,
                     array_filter(

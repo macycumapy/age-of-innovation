@@ -992,7 +992,19 @@ final class ReplayGameHistoryAction
         $builtHexId = (string) ($action->payload['built_hex_id'] ?? '');
         $state->pendingInteraction = null;
 
-        if ($palace === PalaceAbility::Palace16) {
+        if ($palace === PalaceAbility::Palace11) {
+            $state->pendingInteraction = new PendingInteractionData(
+                PendingInteractionType::ChooseTown,
+                $player->id,
+                array_values(array_unique($state->availableTownTileIds)),
+                [
+                    'townHexIds' => [],
+                    'builtHexId' => $builtHexId,
+                    'freePalaceTownTile' => true,
+                ],
+            );
+            $game->active_player_id = $player->user_id;
+        } elseif ($palace === PalaceAbility::Palace16) {
             $state->pendingInteraction = new PendingInteractionData(
                 PendingInteractionType::PlacePalaceGuild,
                 $player->id,

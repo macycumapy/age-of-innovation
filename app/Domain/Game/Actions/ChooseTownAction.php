@@ -50,17 +50,20 @@ final class ChooseTownAction
             $townHexIds = $interaction->context['townHexIds'] ?? [];
             $builtHexId = (string) ($interaction->context['builtHexId'] ?? '');
             $markerHexId = (string) ($interaction->context['markerHexId'] ?? $builtHexId);
+            $isFreePalaceTownTile = ($interaction->context['freePalaceTownTile'] ?? false) === true;
             $queuedBuiltHexIds = is_array($interaction->context['queuedBuiltHexIds'] ?? null)
                 ? $interaction->context['queuedBuiltHexIds']
                 : [];
 
-            if (! $playerState instanceof GamePlayerStateData || ! is_array($townHexIds) || $townHexIds === []) {
+            if (! $playerState instanceof GamePlayerStateData
+                || ! is_array($townHexIds)
+                || ($townHexIds === [] && ! $isFreePalaceTownTile)) {
                 throw ValidationException::withMessages(['town_tile' => 'Не найдены клетки основанного города.']);
             }
 
             $stateVersionBefore = $lockedGame->version;
             $townChoiceCheckpoint = $state->toArray();
-            $townId = (string) Str::uuid();
+            $townId = $isFreePalaceTownTile ? null : (string) Str::uuid();
 
             foreach ($state->board->hexes as $hex) {
                 if (in_array($hex->id, $townHexIds, true)) {

@@ -3304,6 +3304,67 @@ class GameManagementTest extends TestCase
         $this->assertSame(GameActionType::PlacePalaceGuild, $game->actions()->latest('sequence')->firstOrFail()->type);
     }
 
+    public function test_palace_eleven_grants_a_free_town_tile_after_it_is_built(): void
+    {
+        $user = User::factory()->create();
+        $game = Game::factory()->create([
+            'status' => GameStatus::Active,
+            'phase' => GamePhase::Actions,
+            'active_player_id' => $user->id,
+        ]);
+        $player = GamePlayer::factory()->create([
+            'game_id' => $game->id,
+            'user_id' => $user->id,
+            'seat' => 1,
+        ]);
+        $game->update(['state' => new GameStateData(
+            turnOrder: [$player->id],
+            board: new BoardStateData(hexes: [new BoardHexStateData(
+                id: '0:0',
+                q: 0,
+                r: 0,
+                initialTerrain: TerrainType::Forest,
+                terrain: TerrainType::Forest,
+                building: new BuildingStateData(BuildingType::Palace, $player->id),
+            )]),
+            round: new RoundStateData(phase: GamePhase::Actions, hasTakenMainAction: true),
+            players: [new GamePlayerStateData(
+                playerId: $player->id,
+                userId: $user->id,
+                color: PlayerColor::Green,
+                faction: Faction::Blessed,
+                homeland: TerrainType::Forest,
+                roundBonus: RoundBonus::Coins,
+            )],
+            pendingInteraction: new PendingInteractionData(
+                PendingInteractionType::ChoosePalace,
+                $player->id,
+                [PalaceAbility::Palace11->value],
+                ['reason' => 'building', 'builtHexId' => '0:0'],
+            ),
+            availablePalaceIds: [PalaceAbility::Palace11->value],
+            availableTownTileIds: [TownTile::Tools->value],
+        )]);
+
+        $this->actingAs($user)->post(route('games.palace-choice', $game), [
+            'palace_id' => PalaceAbility::Palace11->value,
+        ])->assertNoContent();
+
+        $game->refresh();
+        $this->assertSame(PendingInteractionType::ChooseTown, $game->state->pendingInteraction?->type);
+        $this->assertSame([TownTile::Tools->value], $game->state->pendingInteraction?->optionIds);
+        $this->assertTrue($game->state->pendingInteraction?->context['freePalaceTownTile']);
+
+        $this->post(route('games.town', $game), ['town_tile' => TownTile::Tools->value])
+            ->assertNoContent();
+
+        $game->refresh();
+        $this->assertSame([TownTile::Tools->value], $game->state->players[0]->townTileIds);
+        $this->assertSame(3, $game->state->players[0]->resources->tools);
+        $this->assertNull($game->state->board->hexes[0]->townId);
+        $this->assertNull($game->state->pendingInteraction);
+    }
+
     public function test_neutral_university_does_not_grant_a_competency(): void
     {
         $playerState = new GamePlayerStateData(
