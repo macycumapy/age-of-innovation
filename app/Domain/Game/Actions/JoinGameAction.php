@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Domain\Game\Actions;
 
 use App\Domain\Game\Enums\GameStatus;
+use App\Events\GamePlayersChanged;
 use App\Models\Game;
 use App\Models\GamePlayer;
 use App\Models\User;
@@ -52,7 +53,11 @@ final class JoinGameAction
                 ]);
             }
 
-            return $this->createGamePlayer->execute($lockedGame, $user, (int) $seat);
+            $gamePlayer = $this->createGamePlayer->execute($lockedGame, $user, (int) $seat);
+
+            GamePlayersChanged::dispatch($lockedGame->id);
+
+            return $gamePlayer;
         });
     }
 }

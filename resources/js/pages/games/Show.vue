@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { Form, Head, Link, router, usePage, usePoll } from '@inertiajs/vue3';
+import { useEcho } from '@laravel/echo-vue';
 import { ChevronDown } from '@lucide/vue';
 import { computed, reactive, ref, watch } from 'vue';
 import GamePlayerController from '@/actions/App/Http/Controllers/GamePlayerController';
@@ -93,7 +94,9 @@ const props = defineProps<{
 
 const page = usePage();
 
-usePoll(3000, { only: ['game'] });
+useEcho(`games.${props.game.data.id}`, ['.history.changed', '.players.changed'], () => {
+    router.reload({ only: ['game'] });
+});
 
 const currentPlayer = computed(() =>
     props.game.data.players.find((player) => player.user.id === page.props.auth.user.id),

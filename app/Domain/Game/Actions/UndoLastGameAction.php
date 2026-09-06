@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Domain\Game\Actions;
 
 use App\Domain\Game\Enums\GameActionType;
+use App\Events\GameHistoryChanged;
 use App\Models\Game;
 use App\Models\GameAction;
 use Illuminate\Database\Eloquent\Collection;
@@ -51,6 +52,7 @@ final class UndoLastGameAction
 
             $this->replayGameHistory->execute($lockedGame, $actions);
             GameAction::query()->whereKey($actionsToDelete->pluck('id'))->delete();
+            GameHistoryChanged::dispatch($lockedGame->id);
 
             return $lockedGame->refresh();
         });

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Domain\Game\Actions;
 
 use App\Domain\Game\Enums\GameActionType;
+use App\Events\GameHistoryChanged;
 use App\Models\Game;
 use App\Models\GameAction;
 use App\Models\GamePlayer;
@@ -47,6 +48,8 @@ final class AppendGameHistoryAction
         if ($createPhaseCheckpoint) {
             $this->appendPhaseCheckpoint($lockedGame, $phaseCheckpointPayload);
         }
+
+        GameHistoryChanged::dispatch($lockedGame->id);
 
         return $action;
     }
