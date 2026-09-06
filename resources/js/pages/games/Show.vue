@@ -1629,11 +1629,6 @@ function selectedCompetencyForHomeland(homeland: TerrainType): Competency | unde
                             :can-send-scholar="game.data.canSendScholar"
                             @send-scholar="selectScholarDiscipline"
                         />
-                        <RoundBonusBoard
-                            v-if="game.data.status === 'active' && game.data.currentRound !== 6"
-                            :offers="game.data.roundBonusOffers"
-                            :descriptions="game.data.roundBonusDescriptions"
-                        />
                         <InnovationBoard
                             v-if="game.data.status === 'active'"
                             :player-count="game.data.playersCount"
@@ -1646,10 +1641,15 @@ function selectedCompetencyForHomeland(homeland: TerrainType): Competency | unde
                             :can-make-innovation="game.data.canMakeInnovation"
                             @innovation-click="selectInnovation"
                         />
-                        <PalaceBoard v-if="game.data.status === 'active'" :palaces="game.data.availablePalaceIds" />
                         <TownTileBoard
                             v-if="game.data.status === 'active'"
                             :town-tiles="game.data.availableTownTileIds"
+                        />
+                        <PalaceBoard v-if="game.data.status === 'active'" :palaces="game.data.availablePalaceIds" />
+                        <RoundBonusBoard
+                            v-if="game.data.status === 'active' && game.data.currentRound !== 6"
+                            :offers="game.data.roundBonusOffers"
+                            :descriptions="game.data.roundBonusDescriptions"
                         />
                     </aside>
                 </div>

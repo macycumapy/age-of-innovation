@@ -497,13 +497,13 @@ function canSacrificeFromBowl(player: GamePlayerSummary, bowl: PowerBowl): boole
 
 <template>
     <section v-if="playersWithBoards.length" class="grid gap-4">
-        <div class="grid grid-cols-1 gap-4 xl:grid-cols-2">
+        <div class="grid grid-cols-1 gap-4">
             <figure
                 v-for="player in playersWithBoards"
                 :key="player.id"
-                class="overflow-hidden rounded-xl bg-card shadow-sm"
+                class="grid overflow-hidden rounded-xl bg-card shadow-sm xl:grid-cols-[calc(60%-0.6rem)_minmax(30rem,1fr)]"
             >
-                <div class="relative">
+                <div class="relative aspect-[1219/636] self-start overflow-hidden">
                     <img
                         :src="boardImage(player.color)"
                         :alt="`Планшет игрока ${player.user.name}`"
@@ -683,7 +683,7 @@ function canSacrificeFromBowl(player: GamePlayerSummary, bowl: PowerBowl): boole
                     </TooltipProvider>
                 </div>
 
-                <figcaption class="flex items-start gap-3 p-3">
+                <figcaption class="flex items-start gap-3 border-t p-3 xl:border-t-0 xl:border-l">
                     <TooltipProvider v-if="roundBonusForPlayer(player.id)" :delay-duration="150">
                         <Tooltip>
                             <TooltipTrigger as-child>
@@ -718,7 +718,7 @@ function canSacrificeFromBowl(player: GamePlayerSummary, bowl: PowerBowl): boole
                         </Tooltip>
                     </TooltipProvider>
 
-                    <span class="grid gap-2">
+                    <span class="grid min-w-0 flex-1 gap-2">
                         <span
                             class="flex flex-wrap gap-1"
                             :aria-label="`Доступные учёные: ${scholarsForPlayer(player.id)}`"
@@ -728,7 +728,7 @@ function canSacrificeFromBowl(player: GamePlayerSummary, bowl: PowerBowl): boole
                                 :key="scholarIndex"
                                 :src="scientistImage(player.color)"
                                 alt=""
-                                class="h-auto w-16 object-contain drop-shadow-md transition-opacity"
+                                class="h-auto w-12 object-contain drop-shadow-md transition-opacity"
                                 :class="{
                                     'opacity-35': scholarIndex > scholarsForPlayer(player.id),
                                 }"
