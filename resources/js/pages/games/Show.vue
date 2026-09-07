@@ -23,6 +23,7 @@ import CompetencySelector from '@/components/game/CompetencySelector.vue';
 import CompetencyActionDialog from '@/components/game/CompetencyActionDialog.vue';
 import CurrentTurnFinishDialog from '@/components/game/CurrentTurnFinishDialog.vue';
 import CurrentTurnPanel from '@/components/game/CurrentTurnPanel.vue';
+import IncomeDistributionPanel from '@/components/game/IncomeDistributionPanel.vue';
 import FactionActionDialog from '@/components/game/FactionActionDialog.vue';
 import FinalLeaderboard from '@/components/game/FinalLeaderboard.vue';
 import CultBoard from '@/components/game/CultBoard.vue';
@@ -157,9 +158,7 @@ const planningChoicesCompleted = computed(
 );
 
 const shouldShowPlanningBundleGroup = computed(
-    () =>
-        props.game.data.status === 'active' &&
-        (isIncomeResourceDistribution.value ? canChooseStartingResources.value : !planningChoicesCompleted.value),
+    () => props.game.data.status === 'active' && !isIncomeResourceDistribution.value && !planningChoicesCompleted.value,
 );
 
 const isStartingBuildingStage = computed(() => props.game.data.phase === 'setup' && planningChoicesCompleted.value);
@@ -1074,15 +1073,22 @@ function selectedCompetencyForHomeland(homeland: TerrainType): Competency | unde
                 :discipline-names="game.data.knowledgeDisciplineNames"
             />
 
+            <IncomeDistributionPanel
+                v-if="
+                    isIncomeResourceDistribution &&
+                    canChooseStartingResources &&
+                    game.data.pendingInteraction?.type === 'choose_starting_resources'
+                "
+                :game-id="game.data.id"
+                :interaction="game.data.pendingInteraction"
+                :discipline-names="game.data.knowledgeDisciplineNames"
+            />
+
             <Collapsible v-if="shouldShowPlanningBundleGroup" v-model:open="isPlanningBundleGroupOpen">
                 <Card>
                     <CardHeader>
                         <div class="flex items-center justify-between gap-4">
-                            <CardTitle>
-                                {{
-                                    isIncomeResourceDistribution ? 'Распределение дохода' : 'Выбор стартового комплекта'
-                                }}
-                            </CardTitle>
+                            <CardTitle>Выбор стартового комплекта</CardTitle>
                             <CollapsibleTrigger as-child>
                                 <Button
                                     type="button"
@@ -1101,10 +1107,7 @@ function selectedCompetencyForHomeland(homeland: TerrainType): Competency | unde
                                 </Button>
                             </CollapsibleTrigger>
                         </div>
-                        <ol
-                            v-if="!isIncomeResourceDistribution"
-                            class="flex flex-wrap items-center gap-2 text-sm font-medium"
-                        >
+                        <ol class="flex flex-wrap items-center gap-2 text-sm font-medium">
                             <template v-for="(player, index) in orderedPlayers" :key="player.id">
                                 <li :class="player.user.id === game.data.activePlayerId ? 'text-primary' : ''">
                                     {{ player.user.name }}
@@ -1147,19 +1150,9 @@ function selectedCompetencyForHomeland(homeland: TerrainType): Competency | unde
                                 class="mb-6 grid w-xl gap-5 rounded-xl border border-primary/40 bg-primary/5 p-5"
                             >
                                 <div class="grid gap-1">
-                                    <h3 class="font-semibold">
-                                        {{
-                                            isIncomeResourceDistribution
-                                                ? 'Распределите полученный доход'
-                                                : 'Распределите стартовые ресурсы'
-                                        }}
-                                    </h3>
+                                    <h3 class="font-semibold">Распределите стартовые ресурсы</h3>
                                     <p class="text-sm text-muted-foreground">
-                                        {{
-                                            isIncomeResourceDistribution
-                                                ? 'После распределения доход автоматически перейдёт к следующему игроку.'
-                                                : 'Этот выбор завершает получение вашего стартового комплекта.'
-                                        }}
+                                        Этот выбор завершает получение вашего стартового комплекта.
                                     </p>
                                 </div>
 
@@ -1174,7 +1167,7 @@ function selectedCompetencyForHomeland(homeland: TerrainType): Competency | unde
                                         </p>
                                     </div>
                                     <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                                        <label
+                                        <div
                                             v-for="discipline in game.data.pendingInteraction?.optionIds"
                                             :key="discipline"
                                             class="grid h-full grid-rows-[auto_minmax(2.5rem,1fr)_auto_auto] justify-items-center gap-2 rounded-lg border bg-background/70 p-3 text-center text-sm font-medium"
@@ -1194,7 +1187,7 @@ function selectedCompetencyForHomeland(homeland: TerrainType): Competency | unde
                                                 class="w-28 self-end"
                                             />
                                             <InputError :message="errors[`book_counts.${discipline}`]" />
-                                        </label>
+                                        </div>
                                     </div>
                                     <InputError :message="errors.book_counts" />
                                 </div>
@@ -1228,7 +1221,7 @@ function selectedCompetencyForHomeland(homeland: TerrainType): Competency | unde
                                         </p>
                                     </div>
                                     <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                                        <label
+                                        <div
                                             v-for="discipline in game.data.pendingInteraction?.optionIds"
                                             :key="discipline"
                                             class="grid h-full grid-rows-[auto_minmax(2.5rem,1fr)_auto_auto] justify-items-center gap-2 rounded-lg border bg-background/70 p-3 text-center text-sm font-medium"
@@ -1251,7 +1244,7 @@ function selectedCompetencyForHomeland(homeland: TerrainType): Competency | unde
                                                 class="w-28 self-end"
                                             />
                                             <InputError :message="errors[`knowledge_counts.${discipline}`]" />
-                                        </label>
+                                        </div>
                                     </div>
                                     <InputError :message="errors.knowledge_counts" />
                                 </div>
@@ -1331,10 +1324,7 @@ function selectedCompetencyForHomeland(homeland: TerrainType): Competency | unde
                                 </Dialog>
                             </Form>
 
-                            <div
-                                v-if="!isIncomeResourceDistribution"
-                                class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3"
-                            >
+                            <div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
                                 <Form
                                     v-for="bundle in game.data.planningBundles"
                                     :key="bundle.homeland"

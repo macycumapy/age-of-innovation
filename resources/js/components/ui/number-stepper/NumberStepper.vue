@@ -37,10 +37,18 @@ function updateValue(value: string | number): void {
 }
 
 function decrease(): void {
+    if (!canDecrease.value) {
+        return;
+    }
+
     modelValue.value = clamp(modelValue.value - props.step);
 }
 
 function increase(): void {
+    if (!canIncrease.value) {
+        return;
+    }
+
     modelValue.value = clamp(modelValue.value + props.step);
 }
 </script>

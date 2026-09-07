@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import Form from '@/components/game/GameActionForm.vue';
-import { computed, reactive } from 'vue';
+import { computed, reactive, watch } from 'vue';
 import BookDistributionController from '@/actions/App/Http/Controllers/BookDistributionController';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
@@ -23,8 +23,13 @@ type BookDistributionType =
 const props = defineProps<{
     gameId: number;
     bookCount: number;
-    type: BookDistributionType;
+    type?: BookDistributionType;
     disciplineNames: Record<KnowledgeDiscipline, string>;
+    embedded?: boolean;
+    errors?: Record<string, string>;
+}>();
+const emit = defineEmits<{
+    change: [counts: Record<KnowledgeDiscipline, number>];
 }>();
 const disciplines: KnowledgeDiscipline[] = ['banking', 'law', 'engineering', 'medicine'];
 const counts = reactive<Record<KnowledgeDiscipline, number>>({ banking: 0, law: 0, engineering: 0, medicine: 0 });
@@ -41,10 +46,12 @@ const title = computed(() => 'Выберите получаемые книги')
 function maximumFor(discipline: KnowledgeDiscipline): number {
     return counts[discipline] + remainingCount.value;
 }
+
+watch(counts, () => emit('change', { ...counts }), { deep: true, immediate: true });
 </script>
 
 <template>
-    <Card class="mx-auto w-full max-w-3xl border-primary/40">
+    <Card class="mx-auto w-full max-w-3xl border-none p-0">
         <CardHeader class="gap-0.5 px-4 py-3">
             <CardTitle class="text-base">{{ title }}</CardTitle>
             <CardDescription class="text-xs">
@@ -52,9 +59,32 @@ function maximumFor(discipline: KnowledgeDiscipline): number {
             </CardDescription>
         </CardHeader>
         <CardContent class="px-4 pb-3">
-            <Form v-bind="BookDistributionController.form(gameId)" class="grid gap-3" #default="{ errors, processing }">
+            <div v-if="embedded" class="grid gap-3">
                 <div class="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                    <label
+                    <div
+                        v-for="discipline in disciplines"
+                        :key="discipline"
+                        class="grid justify-items-center gap-1 rounded-md px-2 py-1.5 text-xs font-medium"
+                        :title="disciplineNames[discipline]"
+                    >
+                        <img
+                            :src="images[discipline]"
+                            :alt="disciplineNames[discipline]"
+                            class="size-12 shrink-0 object-contain"
+                        />
+                        <NumberStepper v-model="counts[discipline]" :min="0" :max="maximumFor(discipline)" />
+                    </div>
+                </div>
+                <InputError :message="errors?.book_counts ?? errors?.game" />
+            </div>
+            <Form
+                v-else
+                v-bind="BookDistributionController.form(gameId)"
+                class="grid gap-3"
+                #default="{ errors, processing }"
+            >
+                <div class="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                    <div
                         v-for="discipline in disciplines"
                         :key="discipline"
                         class="grid justify-items-center gap-1 rounded-md border px-2 py-1.5 text-xs font-medium"
@@ -63,11 +93,11 @@ function maximumFor(discipline: KnowledgeDiscipline): number {
                         <img
                             :src="images[discipline]"
                             :alt="disciplineNames[discipline]"
-                            class="size-8 shrink-0 object-contain"
+                            class="size-12 shrink-0 object-contain"
                         />
                         <NumberStepper v-model="counts[discipline]" :min="0" :max="maximumFor(discipline)" />
                         <input type="hidden" :name="`book_counts[${discipline}]`" :value="counts[discipline]" />
-                    </label>
+                    </div>
                 </div>
                 <div class="grid justify-items-center gap-1.5">
                     <InputError :message="errors.book_counts ?? errors.game" />

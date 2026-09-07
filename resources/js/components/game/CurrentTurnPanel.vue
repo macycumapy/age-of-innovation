@@ -72,7 +72,6 @@ const remainingSpades = computed(() => {
 
     return Math.max(0, availableSpades - stagedSpades);
 });
-
 function confirmRestartCurrentTurn(event: SubmitEvent): void {
     if (!window.confirm('Отменить все действия текущего хода и начать его заново?')) {
         event.preventDefault();
@@ -131,6 +130,8 @@ function scrollToPageTop(event: MouseEvent): void {
                 (isStartingBuildingStage ||
                     canSpendStartingSpade ||
                     canResolvePowerOffer ||
+                    (game.data.phase === 'income' &&
+                        game.data.pendingInteraction?.type === 'choose_starting_resources') ||
                     game.data.pendingInteraction?.type === 'place_palace_guild' ||
                     game.data.pendingInteraction?.type === 'place_neutral_building' ||
                     game.data.pendingInteraction?.type === 'place_bridge' ||
@@ -148,6 +149,13 @@ function scrollToPageTop(event: MouseEvent): void {
         >
             <template v-if="game.data.pendingInteraction?.type === 'power_offer'">
                 Получить {{ powerOfferAmount }} Силы за {{ powerOfferVictoryPointCost }} ПО?
+            </template>
+            <template
+                v-else-if="
+                    game.data.phase === 'income' && game.data.pendingInteraction?.type === 'choose_starting_resources'
+                "
+            >
+                Распределите получаемый доход
             </template>
             <template v-else-if="game.data.pendingInteraction?.type === 'choose_round_bonus'">
                 Выберите жетон бонуса
