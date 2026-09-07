@@ -495,7 +495,7 @@ class GameManagementTest extends TestCase
 
         $this->assertEquals([
             'tools' => 8,
-            'coins' => 21,
+            'coins' => 22,
             'scholars' => 1,
             'power' => 17,
             'books' => 1,
@@ -539,6 +539,68 @@ class GameManagementTest extends TestCase
             'third guild' => [3, 4],
             'fourth guild' => [4, 6],
         ];
+    }
+
+    public function test_grey_player_first_guild_grants_one_additional_coin(): void
+    {
+        $board = new BoardStateData(hexes: [new BoardHexStateData(
+            id: '0:0',
+            q: 0,
+            r: 0,
+            initialTerrain: TerrainType::Mountain,
+            terrain: TerrainType::Mountain,
+            building: new BuildingStateData(BuildingType::Guild, 15),
+        )]);
+        $greyPlayer = new GamePlayerStateData(
+            playerId: 15,
+            userId: 25,
+            color: PlayerColor::Grey,
+            faction: Faction::Omar,
+            homeland: TerrainType::Mountain,
+            roundBonus: RoundBonus::RiverWorkshop,
+        );
+        $greenPlayer = new GamePlayerStateData(
+            playerId: 15,
+            userId: 25,
+            color: PlayerColor::Green,
+            faction: Faction::Blessed,
+            homeland: TerrainType::Forest,
+            roundBonus: RoundBonus::RiverWorkshop,
+        );
+
+        $this->assertSame(
+            3,
+            PlayerIncomeCalculator::calculate($greyPlayer, $board)['coins']
+                - PlayerIncomeCalculator::calculate($greyPlayer, new BoardStateData())['coins'],
+        );
+        $this->assertSame(
+            2,
+            PlayerIncomeCalculator::calculate($greenPlayer, $board)['coins']
+                - PlayerIncomeCalculator::calculate($greenPlayer, new BoardStateData())['coins'],
+        );
+    }
+
+    public function test_grey_player_has_two_coin_default_income(): void
+    {
+        $greyPlayer = new GamePlayerStateData(
+            playerId: 15,
+            userId: 25,
+            color: PlayerColor::Grey,
+            faction: Faction::Omar,
+            homeland: TerrainType::Mountain,
+            roundBonus: RoundBonus::RiverWorkshop,
+        );
+        $greenPlayer = new GamePlayerStateData(
+            playerId: 16,
+            userId: 26,
+            color: PlayerColor::Green,
+            faction: Faction::Blessed,
+            homeland: TerrainType::Mountain,
+            roundBonus: RoundBonus::RiverWorkshop,
+        );
+
+        $this->assertSame(2, PlayerIncomeCalculator::calculate($greyPlayer, new BoardStateData())['coins']);
+        $this->assertSame(0, PlayerIncomeCalculator::calculate($greenPlayer, new BoardStateData())['coins']);
     }
 
     #[DataProvider('workshopToolIncomeProvider')]

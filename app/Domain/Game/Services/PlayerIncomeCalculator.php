@@ -11,8 +11,8 @@ use App\Domain\Game\Enums\Competency;
 use App\Domain\Game\Enums\Innovation;
 use App\Domain\Game\Enums\KnowledgeDiscipline;
 use App\Domain\Game\Enums\PalaceAbility;
+use App\Domain\Game\Enums\PlayerColor;
 use App\Domain\Game\Enums\RoundBonus;
-use App\Domain\Game\Enums\TerrainType;
 
 final class PlayerIncomeCalculator
 {
@@ -21,7 +21,7 @@ final class PlayerIncomeCalculator
     {
         $income = [
             'tools' => 1,
-            'coins' => $player->homeland === TerrainType::Mountain ? 2 : 0,
+            'coins' => $player->color === PlayerColor::Grey ? 2 : 0,
             'scholars' => 0,
             'power' => 0,
             'books' => 0,
@@ -32,8 +32,13 @@ final class PlayerIncomeCalculator
 
         $workshopCount = $buildingCounts[BuildingType::Workshop->value];
         $income['tools'] += $workshopCount - ($workshopCount >= 5 ? 1 : 0);
-        $income['coins'] += $buildingCounts[BuildingType::Guild->value] * 2;
-        $income['power'] += match ($buildingCounts[BuildingType::Guild->value]) {
+        $guildCount = $buildingCounts[BuildingType::Guild->value];
+        $income['coins'] += $guildCount * 2;
+
+        if ($player->color === PlayerColor::Grey && $guildCount > 0) {
+            $income['coins']++;
+        }
+        $income['power'] += match ($guildCount) {
             0 => 0,
             1 => 1,
             2 => 2,
