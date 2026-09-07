@@ -16,7 +16,7 @@ final class PassController extends Controller
     {
         /** @var User $user */
         $user = $request->user();
-        $pass->execute($game, $user, $request->roundBonus());
+        $pass->execute($game, $user, $request->knowledgeDisciplines());
 
         return $this->gameChanged($game);
     }

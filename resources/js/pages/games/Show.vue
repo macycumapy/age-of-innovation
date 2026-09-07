@@ -40,6 +40,7 @@ import PowerActionDialog from '@/components/game/PowerActionDialog.vue';
 import PowerSacrificeDialog from '@/components/game/PowerSacrificeDialog.vue';
 import ResourceExchangeDialog from '@/components/game/ResourceExchangeDialog.vue';
 import RoundBonusActionDialog from '@/components/game/RoundBonusActionDialog.vue';
+import RoundBonusChoiceDialog from '@/components/game/RoundBonusChoiceDialog.vue';
 import ScholarActionDialog from '@/components/game/ScholarActionDialog.vue';
 import ShippingAdvancementDialog from '@/components/game/ShippingAdvancementDialog.vue';
 import TerraformingAdvancementDialog from '@/components/game/TerraformingAdvancementDialog.vue';
@@ -475,10 +476,11 @@ const isPalaceActionDialogOpen = ref(false);
 const isPassDialogOpen = ref(false);
 const isPaidTerraformingDialogOpen = ref(false);
 
-const hasImplementedFactionAction = computed(() =>
-    currentPlayer.value?.faction !== null &&
-    currentPlayer.value?.faction !== undefined &&
-    ['moles', 'philosophers', 'psychics'].includes(currentPlayer.value.faction),
+const hasImplementedFactionAction = computed(
+    () =>
+        currentPlayer.value?.faction !== null &&
+        currentPlayer.value?.faction !== undefined &&
+        ['moles', 'philosophers', 'psychics'].includes(currentPlayer.value.faction),
 );
 
 function openFactionActionDialog(): void {
@@ -552,9 +554,7 @@ const canSacrificePower = computed(
 );
 
 const canExchangeResources = computed(
-    () =>
-        props.game.data.phase === 'actions' &&
-        props.game.data.activePlayerId === page.props.auth.user.id,
+    () => props.game.data.phase === 'actions' && props.game.data.activePlayerId === page.props.auth.user.id,
 );
 
 const canStartPaidTerraforming = computed(() => {
@@ -643,9 +643,7 @@ const moleTunnelTerraformHexIds = computed(() => {
 
     const hexesById = new Map(props.game.data.board.hexes.map((hex) => [hex.id, hex]));
     const ownedBuildingHexIds = new Set(
-        props.game.data.board.hexes
-            .filter((hex) => hex.building?.ownerPlayerId === player.id)
-            .map((hex) => hex.id),
+        props.game.data.board.hexes.filter((hex) => hex.building?.ownerPlayerId === player.id).map((hex) => hex.id),
     );
     const eligibleHexIds = new Set<string>();
 
@@ -657,11 +655,7 @@ const moleTunnelTerraformHexIds = computed(() => {
         props.game.data.board.hexes.forEach((targetHex) => {
             const qDistance = targetHex.q - originHex.q;
             const rDistance = targetHex.r - originHex.r;
-            const hexDistance = Math.max(
-                Math.abs(qDistance),
-                Math.abs(rDistance),
-                Math.abs(qDistance + rDistance),
-            );
+            const hexDistance = Math.max(Math.abs(qDistance), Math.abs(rDistance), Math.abs(qDistance + rDistance));
             const hasIntermediateHex = originHex.adjacentHexIds.some(
                 (hexId) => targetHex.adjacentHexIds.includes(hexId) && hexesById.has(hexId),
             );
@@ -681,15 +675,15 @@ const moleTunnelTerraformHexIds = computed(() => {
 
     return [...eligibleHexIds];
 });
-const paidTerraformHexIds = computed(() =>
-    [...new Set([
+const paidTerraformHexIds = computed(() => [
+    ...new Set([
         ...reachableEmptyLandHexIds.value.filter(
             (hexId) =>
                 props.game.data.board.hexes.find((hex) => hex.id === hexId)?.terrain !== currentPlayer.value?.homeland,
         ),
         ...moleTunnelTerraformHexIds.value,
-    ])],
-);
+    ]),
+]);
 const buildableWorkshopHexIds = computed(() => {
     const state = currentPlayerState.value;
 
@@ -1579,6 +1573,17 @@ function selectedCompetencyForHomeland(homeland: TerrainType): Competency | unde
                     :player-states="game.data.playerBoardStates"
                 />
 
+                <RoundBonusChoiceDialog
+                    v-if="
+                        game.data.pendingInteraction?.type === 'choose_round_bonus' &&
+                        game.data.pendingInteraction.playerId === currentPlayer?.id
+                    "
+                    :game-id="game.data.id"
+                    :offers="game.data.roundBonusOffers"
+                    :option-ids="game.data.pendingInteraction.optionIds"
+                    :descriptions="game.data.roundBonusDescriptions"
+                />
+
                 <div class="grid items-start gap-4 lg:grid-cols-[minmax(0,7fr)_minmax(16rem,3fr)]">
                     <div class="grid gap-4">
                         <BoardMap
@@ -1746,10 +1751,11 @@ function selectedCompetencyForHomeland(homeland: TerrainType): Competency | unde
             <PassDialog
                 v-model:open="isPassDialogOpen"
                 :game-id="game.data.id"
-                :offers="game.data.roundBonusOffers"
-                :descriptions="game.data.roundBonusDescriptions"
                 :available-actions="availableActionsBeforePass"
                 :is-final-round="game.data.currentRound === 6"
+                :current-round-bonus="currentPlayerState?.roundBonus ?? null"
+                :school-count="currentPlayerState?.buildingsOnMap.school ?? 0"
+                :discipline-names="game.data.knowledgeDisciplineNames"
             />
 
             <PaidTerraformingDialog

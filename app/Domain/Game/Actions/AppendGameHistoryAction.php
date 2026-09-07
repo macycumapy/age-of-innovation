@@ -29,6 +29,10 @@ final class AppendGameHistoryAction
     ): GameAction {
         $nextSequence = ((int) $lockedGame->actions()->max('sequence')) + 1;
         $phaseCheckpointPayload = [];
+        $incomeReceipts = $payload['income_receipts'] ?? [];
+        $scienceBonusReceipts = $payload['science_bonus_receipts'] ?? [];
+        unset($payload['income_receipts']);
+        unset($payload['science_bonus_receipts']);
 
         if ($createPhaseCheckpoint && array_key_exists('final_scoring', $payload)) {
             $phaseCheckpointPayload['final_scoring'] = $payload['final_scoring'];
@@ -45,6 +49,14 @@ final class AppendGameHistoryAction
             'state_version_after' => $stateVersionAfter,
         ]);
 
+        if (is_array($scienceBonusReceipts) && $scienceBonusReceipts !== []) {
+            $this->appendScienceBonusPhase($lockedGame, $scienceBonusReceipts);
+        }
+
+        if (is_array($incomeReceipts) && $incomeReceipts !== []) {
+            $this->appendIncomePhase($lockedGame, $incomeReceipts);
+        }
+
         if ($createPhaseCheckpoint) {
             $this->appendPhaseCheckpoint($lockedGame, $phaseCheckpointPayload);
         }
@@ -52,6 +64,46 @@ final class AppendGameHistoryAction
         GameHistoryChanged::dispatch($lockedGame->id);
 
         return $action;
+    }
+
+    /** @param list<array<string, mixed>> $receipts */
+    private function appendIncomePhase(Game $game, array $receipts): void
+    {
+        $game->actions()->create([
+            'sequence' => ((int) $game->actions()->max('sequence')) + 1,
+            'player_id' => null,
+            'type' => GameActionType::IncomePhase,
+            'payload' => [
+                'round' => $game->round,
+                'income_receipts' => $receipts,
+            ],
+            'events' => [[
+                'type' => 'income_phase_resolved',
+                'round' => $game->round,
+            ]],
+            'state_version_before' => $game->version,
+            'state_version_after' => $game->version,
+        ]);
+    }
+
+    /** @param list<array<string, mixed>> $receipts */
+    private function appendScienceBonusPhase(Game $game, array $receipts): void
+    {
+        $game->actions()->create([
+            'sequence' => ((int) $game->actions()->max('sequence')) + 1,
+            'player_id' => null,
+            'type' => GameActionType::ScienceBonusPhase,
+            'payload' => [
+                'round' => $receipts[0]['round'] ?? $game->round,
+                'science_bonus_receipts' => $receipts,
+            ],
+            'events' => [[
+                'type' => 'science_bonus_phase_resolved',
+                'round' => $receipts[0]['round'] ?? $game->round,
+            ]],
+            'state_version_before' => $game->version,
+            'state_version_after' => $game->version,
+        ]);
     }
 
     /** @param array<string, mixed> $additionalPayload */

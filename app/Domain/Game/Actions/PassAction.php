@@ -8,7 +8,7 @@ use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Enums\GameActionType;
 use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\GameStatus;
-use App\Domain\Game\Enums\RoundBonus;
+use App\Domain\Game\Enums\KnowledgeDiscipline;
 use App\Models\Game;
 use App\Models\GamePlayer;
 use App\Models\User;
@@ -18,14 +18,15 @@ use Illuminate\Validation\ValidationException;
 final class PassAction
 {
     public function __construct(
-        private ApplyPassAction $applyPass,
+        private BeginPassAction $beginPass,
         private AppendGameHistoryAction $appendGameHistory,
     ) {
     }
 
-    public function execute(Game $game, User $user, ?RoundBonus $roundBonus): Game
+    /** @param list<KnowledgeDiscipline> $knowledgeDisciplines */
+    public function execute(Game $game, User $user, array $knowledgeDisciplines = []): Game
     {
-        return DB::transaction(function () use ($game, $user, $roundBonus): Game {
+        return DB::transaction(function () use ($game, $user, $knowledgeDisciplines): Game {
             $lockedGame = Game::query()->lockForUpdate()->findOrFail($game->id);
             $state = $lockedGame->state;
             $player = $lockedGame->players()->whereBelongsTo($user)->first();
@@ -48,31 +49,34 @@ final class PassAction
             $phaseBefore = $lockedGame->phase;
             $oldRoundBonus = $playerState->roundBonus;
             $roundNumber = $state->round->number;
-            $result = $this->applyPass->execute($state, $playerState, $roundBonus, $lockedGame->players);
-            $lockedGame->phase = $result['phase'];
-            $lockedGame->active_player_id = $result['nextActiveUserId'];
-            $lockedGame->status = $result['phase'] === GamePhase::Finished ? GameStatus::Finished : GameStatus::Active;
+            $result = $this->beginPass->execute($state, $playerState, $lockedGame->players, $knowledgeDisciplines);
+            $completion = $result['completion'];
+            $lockedGame->phase = $completion['phase'] ?? GamePhase::Actions;
+            $lockedGame->active_player_id = $completion['nextActiveUserId'] ?? $user->id;
+            $lockedGame->status = $lockedGame->phase === GamePhase::Finished ? GameStatus::Finished : GameStatus::Active;
             $lockedGame->state = $state;
             $lockedGame->version++;
             $lockedGame->save();
             $this->appendGameHistory->execute($lockedGame, $user, GameActionType::Pass, [
                 'old_round_bonus' => $oldRoundBonus->value,
-                'round_bonus' => $roundBonus?->value,
+                'knowledge_disciplines' => array_map(
+                    static fn (KnowledgeDiscipline $discipline): string => $discipline->value,
+                    $knowledgeDisciplines,
+                ),
                 'pass_order' => $result['passOrder'],
-                'bonus_coins' => $result['bonusCoins'],
                 'victory_points' => $result['victoryPoints'],
                 'scoring_sources' => $result['scoringSources'],
-                'next_round_started' => $result['nextRoundStarted'],
-                'science_bonus_started' => $result['passOrder'] === count($state->turnOrder),
+                'next_round_started' => $completion['nextRoundStarted'] ?? false,
+                'science_bonus_started' => $completion !== null && $result['passOrder'] === count($state->turnOrder),
                 'round' => $roundNumber,
-                'income_receipts' => $result['incomeReceipts'],
-                'final_scoring' => $result['finalScoring'],
+                'income_receipts' => $completion['incomeReceipts'] ?? [],
+                'final_scoring' => $completion['finalScoring'] ?? [],
                 'final_resource_conversion' => $result['finalResourceConversion'],
             ], [[
                 'type' => 'player_passed',
                 'player_id' => $player->id,
                 'pass_order' => $result['passOrder'],
-            ]], $stateVersionBefore, $lockedGame->version, $result['phase'] !== $phaseBefore);
+            ]], $stateVersionBefore, $lockedGame->version, $lockedGame->phase !== $phaseBefore);
 
             return $lockedGame->refresh();
         });

@@ -45,6 +45,8 @@ final class ReplayGameHistoryAction
     /** @var list<GameActionType> */
     public const array SUPPORTED_ACTION_TYPES = [
         GameActionType::PhaseCheckpoint,
+        GameActionType::IncomePhase,
+        GameActionType::ScienceBonusPhase,
         GameActionType::StartGame,
         GameActionType::ChoosePlanningBundle,
         GameActionType::ChooseStartingResources,
@@ -73,6 +75,7 @@ final class ReplayGameHistoryAction
         GameActionType::AdvanceTerraforming,
         GameActionType::SpecialAction,
         GameActionType::Pass,
+        GameActionType::ChooseRoundBonus,
         GameActionType::ChooseScienceBonusBooks,
         GameActionType::ChooseTown,
         GameActionType::ChooseTownBooks,
@@ -103,6 +106,8 @@ final class ReplayGameHistoryAction
         private ApplyCompetencyAction $applyCompetencyAction,
         private ApplyPalaceAction $applyPalaceAction,
         private ApplyPassAction $applyPassAction,
+        private BeginPassAction $beginPassAction,
+        private CompletePassTurnAction $completePassTurnAction,
         private ResolveScienceBonusPhaseAction $resolveScienceBonusPhase,
         private ResolveIncomePhaseAction $resolveIncomePhase,
         private GainPowerAction $gainPower,
@@ -184,6 +189,7 @@ final class ReplayGameHistoryAction
                 GameActionType::AdvanceTerraforming => $this->replayAdvanceTerraforming($game, $players, $action),
                 GameActionType::SpecialAction => $this->replayRoundBonusAction($game, $players, $action),
                 GameActionType::Pass => $this->replayPass($game, $players, $action),
+                GameActionType::ChooseRoundBonus => $this->replayChooseRoundBonus($game, $players, $action),
                 GameActionType::ChooseScienceBonusBooks => $this->replayScienceBonusBooks($game, $players, $action),
                 GameActionType::ChooseTown => $this->replayChooseTown($game, $players, $action),
                 GameActionType::ChooseTownBooks => $this->replayChooseTownBooks($game, $players, $action),
@@ -1288,6 +1294,26 @@ final class ReplayGameHistoryAction
         }
 
         $state = $game->state;
+
+        if (! array_key_exists('round_bonus', $action->payload)) {
+            $result = $this->beginPassAction->execute(
+                $state,
+                $this->playerState($state, $player->id),
+                $players,
+                array_map(
+                    static fn (string $discipline): KnowledgeDiscipline => KnowledgeDiscipline::from($discipline),
+                    $action->payload['knowledge_disciplines'] ?? [],
+                ),
+            );
+            $completion = $result['completion'];
+            $game->phase = $completion['phase'] ?? GamePhase::Actions;
+            $game->status = $game->phase === GamePhase::Finished ? GameStatus::Finished : GameStatus::Active;
+            $game->active_player_id = $completion['nextActiveUserId'] ?? $player->user_id;
+            $game->state = $state;
+
+            return;
+        }
+
         $result = $this->applyPassAction->execute(
             $state,
             $this->playerState($state, $player->id),
@@ -1295,10 +1321,46 @@ final class ReplayGameHistoryAction
                 ? RoundBonus::from((string) $action->payload['round_bonus'])
                 : null,
             $players,
+            isset($action->payload['knowledge_disciplines'])
+                ? array_map(
+                    static fn (string $discipline): KnowledgeDiscipline => KnowledgeDiscipline::from($discipline),
+                    $action->payload['knowledge_disciplines'],
+                )
+                : null,
         );
         $game->phase = $result['phase'];
         $game->status = $result['phase'] === GamePhase::Finished ? GameStatus::Finished : GameStatus::Active;
         $game->active_player_id = $result['nextActiveUserId'];
+        $game->state = $state;
+    }
+
+    /** @param Collection<int, GamePlayer> $players */
+    private function replayChooseRoundBonus(Game $game, Collection $players, GameAction $action): void
+    {
+        $player = $players->firstWhere('user_id', $action->player_id);
+
+        if (! $player instanceof GamePlayer) {
+            $this->invalidHistory();
+        }
+
+        $state = $game->state;
+        $playerState = $this->playerState($state, $player->id);
+        $roundBonus = RoundBonus::from((string) $action->payload['round_bonus']);
+        $offerIndex = collect($state->setupPool?->availableRoundBonuses ?? [])
+            ->search(static fn (RoundBonusOfferData $offer): bool => $offer->roundBonus === $roundBonus);
+
+        if (! is_int($offerIndex) || $state->setupPool === null) {
+            $this->invalidHistory();
+        }
+
+        array_splice($state->setupPool->availableRoundBonuses, $offerIndex, 1);
+        $state->setupPool->availableRoundBonuses[] = new RoundBonusOfferData($playerState->roundBonus, 0);
+        $playerState->roundBonus = $roundBonus;
+        $playerState->resources->coins += (int) ($action->payload['bonus_coins'] ?? 0);
+        $completion = $this->completePassTurnAction->execute($state, $player->id, $players);
+        $game->phase = $completion['phase'];
+        $game->status = $game->phase === GamePhase::Finished ? GameStatus::Finished : GameStatus::Active;
+        $game->active_player_id = $completion['nextActiveUserId'];
         $game->state = $state;
     }
 

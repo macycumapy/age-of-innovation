@@ -86,12 +86,23 @@ function undoStartingBuilding(): void {
 function finishStartingBuildingTurn(): void {
     void finishStartingBuildingRequest.post(StartingBuildingTurnController.url(props.game.data.id));
 }
+
+function scrollToPageTop(event: MouseEvent): void {
+    const target = event.target;
+
+    if (target instanceof Element && target.closest('button, a, input, select, textarea')) {
+        return;
+    }
+
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
 </script>
 
 <template>
     <div
         v-if="game.data.status === 'active'"
-        class="sticky top-0 z-30 -mx-4 flex items-center justify-center gap-4 border-y border-border/80 bg-background/95 px-4 py-3 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-background/80"
+        class="sticky top-0 z-30 -mx-4 flex cursor-pointer items-center justify-center gap-4 border-y border-border/80 bg-background/95 px-4 py-3 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-background/80"
+        @click="scrollToPageTop"
     >
         <span
             v-if="game.data.phase === 'income'"
@@ -124,6 +135,7 @@ function finishStartingBuildingTurn(): void {
                     game.data.pendingInteraction?.type === 'place_neutral_building' ||
                     game.data.pendingInteraction?.type === 'place_bridge' ||
                     game.data.pendingInteraction?.type === 'build_workshop_after_terraforming' ||
+                    game.data.pendingInteraction?.type === 'choose_round_bonus' ||
                     game.data.pendingInteraction?.type === 'choose_science_bonus_books' ||
                     game.data.pendingInteraction?.type === 'choose_innovation_books' ||
                     game.data.pendingInteraction?.type === 'choose_shipping_books' ||
@@ -136,6 +148,9 @@ function finishStartingBuildingTurn(): void {
         >
             <template v-if="game.data.pendingInteraction?.type === 'power_offer'">
                 Получить {{ powerOfferAmount }} Силы за {{ powerOfferVictoryPointCost }} ПО?
+            </template>
+            <template v-else-if="game.data.pendingInteraction?.type === 'choose_round_bonus'">
+                Выберите жетон бонуса
             </template>
             <template v-else-if="game.data.pendingInteraction?.type === 'choose_science_bonus_books'">
                 Выберите книги, полученные за научную цель раунда.

@@ -7,6 +7,8 @@ namespace App\Domain\Game\Enums;
 enum GameActionType: string
 {
     case PhaseCheckpoint = 'phase_checkpoint';
+    case IncomePhase = 'income_phase';
+    case ScienceBonusPhase = 'science_bonus_phase';
     case StartGame = 'start_game';
     case ChoosePlanningBundle = 'choose_planning_bundle';
     case ChooseStartingResources = 'choose_starting_resources';
@@ -29,6 +31,7 @@ enum GameActionType: string
     case SpecialAction = 'special_action';
     case ExchangeResources = 'exchange_resources';
     case Pass = 'pass';
+    case ChooseRoundBonus = 'choose_round_bonus';
     case ChooseScienceBonusBooks = 'choose_science_bonus_books';
     case AcceptPower = 'accept_power';
     case DeclinePower = 'decline_power';

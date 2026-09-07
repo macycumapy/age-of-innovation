@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 namespace App\Domain\Game\Actions;
 
+use App\Domain\Game\Data\BoardHexStateData;
 use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Data\GameStateData;
 use App\Domain\Game\Data\RoundBonusOfferData;
+use App\Domain\Game\Enums\BuildingType;
 use App\Domain\Game\Enums\GamePhase;
+use App\Domain\Game\Enums\KnowledgeDiscipline;
 use App\Domain\Game\Enums\RoundBonus;
 use App\Models\GamePlayer;
 use Illuminate\Database\Eloquent\Collection;
@@ -18,11 +21,13 @@ final class ApplyPassAction
     public function __construct(
         private ApplyPassBonusesAction $applyPassBonuses,
         private ResolveScienceBonusPhaseAction $resolveScienceBonusPhase,
+        private AdvanceKnowledgeAction $advanceKnowledge,
     ) {
     }
 
     /**
      * @param Collection<int, GamePlayer> $players
+     * @param list<KnowledgeDiscipline>|null $knowledgeDisciplines Null only replays legacy history without this effect.
      * @return array{nextActiveUserId: int|null, phase: GamePhase, bonusCoins: int, victoryPoints: int, scoringSources: list<array{source: string, id: string, points: int}>, passOrder: int, nextRoundStarted: bool, incomeReceipts: list<array{player_id: int, tools: int, coins: int, scholars: int, power: int, books: int, knowledge_steps: int}>, finalScoring: list<array{playerId: int, victoryPoints: int, sources: list<array{source: string, id: string, value: int, rank: int, points: int}>}>, finalResourceConversion: array{bowlTwoSpent: int, movedToBowlThree: int, convertedToCoins: int, totalCoins: int, victoryPoints: int, remainingCoins: int}|null}
      */
     public function execute(
@@ -30,6 +35,7 @@ final class ApplyPassAction
         GamePlayerStateData $player,
         ?RoundBonus $roundBonus,
         Collection $players,
+        ?array $knowledgeDisciplines = [],
     ): array {
         if (in_array($player->playerId, $state->passedPlayerIds, true)) {
             throw ValidationException::withMessages(['round_bonus' => 'Игрок уже спасовал в этом раунде.']);
@@ -48,6 +54,7 @@ final class ApplyPassAction
         }
 
         $oldRoundBonus = $player->roundBonus;
+        $this->applySchoolKnowledgeSteps($state, $player, $knowledgeDisciplines);
         $bonuses = $this->applyPassBonuses->execute($state, $player);
         $finalResourceConversion = $isFinalRound ? $this->convertFinalResources($player) : null;
 
@@ -118,6 +125,36 @@ final class ApplyPassAction
             'finalScoring' => $finalScoring,
             'finalResourceConversion' => $finalResourceConversion,
         ];
+    }
+
+    /** @param list<KnowledgeDiscipline>|null $knowledgeDisciplines */
+    private function applySchoolKnowledgeSteps(
+        GameStateData $state,
+        GamePlayerStateData $player,
+        ?array $knowledgeDisciplines,
+    ): void {
+        if ($knowledgeDisciplines === null) {
+            return;
+        }
+
+        $schoolCount = $player->roundBonus === RoundBonus::PassSchool
+            ? count(array_filter(
+                $state->board->hexes,
+                static fn (BoardHexStateData $hex): bool => $hex->building?->ownerPlayerId === $player->playerId
+                    && ! $hex->building->isNeutral
+                    && $hex->building->type === BuildingType::School,
+            ))
+            : 0;
+
+        if (count($knowledgeDisciplines) !== $schoolCount) {
+            throw ValidationException::withMessages([
+                'knowledge_counts' => 'Распределите все шаги знаний за школы.',
+            ]);
+        }
+
+        foreach ($knowledgeDisciplines as $discipline) {
+            $this->advanceKnowledge->execute($state, $player, $discipline, 1);
+        }
     }
 
     /**

@@ -100,6 +100,7 @@ final class FinishStartingSpadeAction
             $buildOffered = false;
             $incomeReceipts = [];
             $finalScoring = [];
+            $scienceBonusReceipts = [];
 
             if ($remainingSpades > 0) {
                 $targetTerrain = TerrainType::from(
@@ -131,7 +132,7 @@ final class FinishStartingSpadeAction
                     $nextPhase = GamePhase::Actions;
                 } elseif ($interactionPhase === GamePhase::ScienceBonus) {
                     $state->pendingInteraction = null;
-                    [$nextPlayer, $nextPhase, $incomeReceipts, $finalScoring] = $this->resolveScienceBonusPhase->execute(
+                    [$nextPlayer, $nextPhase, $incomeReceipts, $finalScoring, $scienceBonusReceipts] = $this->resolveScienceBonusPhase->execute(
                         $state,
                         $lockedGame->players()->get(),
                     );
@@ -152,7 +153,7 @@ final class FinishStartingSpadeAction
                 $nextPhase = GamePhase::Actions;
             } elseif ($interactionPhase === GamePhase::ScienceBonus) {
                 $state->pendingInteraction = null;
-                [$nextPlayer, $nextPhase, $incomeReceipts, $finalScoring] = $this->resolveScienceBonusPhase->execute(
+                [$nextPlayer, $nextPhase, $incomeReceipts, $finalScoring, $scienceBonusReceipts] = $this->resolveScienceBonusPhase->execute(
                     $state,
                     $lockedGame->players()->get(),
                 );
@@ -193,6 +194,7 @@ final class FinishStartingSpadeAction
                     'tunnel_victory_points' => $tunnelVictoryPoints,
                     'victory_points' => $roundScoringVictoryPoints,
                     'income_receipts' => $incomeReceipts,
+                    'science_bonus_receipts' => $scienceBonusReceipts,
                     'final_scoring' => $finalScoring,
                 ],
                 [

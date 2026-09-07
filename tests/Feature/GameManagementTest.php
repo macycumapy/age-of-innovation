@@ -955,7 +955,7 @@ class GameManagementTest extends TestCase
         $this->assertSame(8, $updatedSecondPlayer?->resources->coins);
         $this->assertSame(
             GameActionType::ChooseIncomeResources,
-            $game->actions()->where('type', '!=', GameActionType::PhaseCheckpoint)->latest('sequence')->firstOrFail()->type,
+            $game->actions()->where('type', GameActionType::ChooseIncomeResources)->latest('sequence')->firstOrFail()->type,
         );
         $this->assertEquals([
             [
@@ -978,7 +978,7 @@ class GameManagementTest extends TestCase
                 'knowledge_steps' => 0,
                 'victory_points' => 0,
             ],
-        ], $game->actions()->where('type', '!=', GameActionType::PhaseCheckpoint)->latest('sequence')->firstOrFail()->payload['income_receipts']);
+        ], $game->actions()->where('type', GameActionType::IncomePhase)->latest('sequence')->firstOrFail()->payload['income_receipts']);
     }
 
     public function test_manual_knowledge_step_reaching_level_nine_is_applied_before_other_income(): void
@@ -1452,11 +1452,13 @@ class GameManagementTest extends TestCase
             'round_bonus' => RoundBonus::RiverWorkshop->value,
         ])->assertForbidden();
 
-        $this->actingAs($firstUser)->post(route('games.pass', $game), [
+        $this->actingAs($firstUser)->post(route('games.pass', $game))->assertNoContent();
+
+        $this->post(route('games.round-bonus-choice', $game), [
             'round_bonus' => RoundBonus::Spade->value,
         ])->assertSessionHasErrors('round_bonus');
 
-        $this->post(route('games.pass', $game), [
+        $this->post(route('games.round-bonus-choice', $game), [
             'round_bonus' => RoundBonus::RiverWorkshop->value,
         ])->assertNoContent();
 
@@ -1470,12 +1472,68 @@ class GameManagementTest extends TestCase
             RoundBonus::Knowledge,
             array_column($game->state->setupPool?->availableRoundBonuses ?? [], 'roundBonus'),
         );
-        $this->assertSame(GameActionType::Pass, $game->actions()->sole()->type);
+        $this->assertSame(
+            [GameActionType::Pass, GameActionType::ChooseRoundBonus],
+            $game->actions()->orderBy('sequence')->pluck('type')->all(),
+        );
 
         $this->get(route('games.show', $game))->assertInertia(
             fn (Assert $page) => $page
                 ->where('game.data.playerBoardStates.0.passOrder', 1)
                 ->where('game.data.canPass', false),
+        );
+    }
+
+    public function test_pass_school_round_bonus_advances_knowledge_once_per_school(): void
+    {
+        [$game, $firstUser] = $this->gameForPassing();
+        $state = $game->state;
+        $player = $state->players[0];
+        $player->roundBonus = RoundBonus::PassSchool;
+        $player->knowledge = new KnowledgeStateData(banking: 2, law: 4);
+        $player->resources->power = new PowerBowlsStateData(bowlOne: 3);
+        $state->board = new BoardStateData(hexes: [
+            new BoardHexStateData(
+                id: '0:0',
+                q: 0,
+                r: 0,
+                initialTerrain: TerrainType::Forest,
+                terrain: TerrainType::Forest,
+                building: new BuildingStateData(BuildingType::School, $player->playerId),
+            ),
+            new BoardHexStateData(
+                id: '1:0',
+                q: 1,
+                r: 0,
+                initialTerrain: TerrainType::Forest,
+                terrain: TerrainType::Forest,
+                building: new BuildingStateData(BuildingType::School, $player->playerId),
+            ),
+        ]);
+        $game->update(['state' => $state]);
+
+        $this->actingAs($firstUser)->post(route('games.pass', $game), [
+            'round_bonus' => RoundBonus::RiverWorkshop->value,
+        ])->assertSessionHasErrors('knowledge_counts');
+
+        $this->post(route('games.pass', $game), [
+            'round_bonus' => RoundBonus::RiverWorkshop->value,
+            'knowledge_counts' => [
+                KnowledgeDiscipline::Banking->value => 1,
+                KnowledgeDiscipline::Law->value => 1,
+                KnowledgeDiscipline::Engineering->value => 0,
+                KnowledgeDiscipline::Medicine->value => 0,
+            ],
+        ])->assertNoContent()->assertSessionHasNoErrors();
+
+        $game->refresh();
+        $this->assertSame(3, $game->state->players[0]->knowledge->banking);
+        $this->assertSame(5, $game->state->players[0]->knowledge->law);
+        $this->assertSame(0, $game->state->players[0]->resources->power->bowlOne);
+        $this->assertSame(3, $game->state->players[0]->resources->power->bowlTwo);
+        $this->assertSame(
+            [KnowledgeDiscipline::Banking->value, KnowledgeDiscipline::Law->value],
+            $game->actions()->sole()->payload['knowledge_disciplines'],
         );
     }
 
@@ -1518,8 +1576,8 @@ class GameManagementTest extends TestCase
         );
 
         $action = $game->actions()->sole();
-        $this->assertNull($action->payload['round_bonus']);
-        $this->assertSame(0, $action->payload['bonus_coins']);
+        $this->assertArrayNotHasKey('round_bonus', $action->payload);
+        $this->assertArrayNotHasKey('bonus_coins', $action->payload);
         $this->assertEquals([
             'bowlTwoSpent' => 4,
             'movedToBowlThree' => 2,
@@ -1566,12 +1624,14 @@ class GameManagementTest extends TestCase
         $firstPlayerId = $game->state->players[0]->playerId;
         $secondPlayerId = $game->state->players[1]->playerId;
 
-        $this->actingAs($firstUser)->post(route('games.pass', $game), [
+        $this->actingAs($firstUser)->post(route('games.pass', $game))->assertNoContent();
+        $this->post(route('games.round-bonus-choice', $game), [
             'round_bonus' => RoundBonus::RiverWorkshop->value,
-        ])->assertNoContent()->assertSessionHasNoErrors();
-        $this->actingAs($secondUser)->post(route('games.pass', $game), [
+        ])->assertNoContent();
+        $this->actingAs($secondUser)->post(route('games.pass', $game))->assertNoContent();
+        $this->post(route('games.round-bonus-choice', $game), [
             'round_bonus' => RoundBonus::BuildGuild->value,
-        ])->assertNoContent()->assertSessionHasNoErrors();
+        ])->assertNoContent();
 
         $game->refresh();
         $this->assertSame(2, $game->state->round->number);
@@ -1580,7 +1640,9 @@ class GameManagementTest extends TestCase
         $this->assertSame([], $game->state->passedPlayerIds);
         $this->assertSame(GamePhase::Actions, $game->phase);
         $this->assertSame($firstUser->id, $game->active_player_id);
-        $this->assertSame(2, $game->actions()->count());
+        $this->assertSame(6, $game->actions()->count());
+        $this->assertSame(1, $game->actions()->where('type', GameActionType::ScienceBonusPhase)->count());
+        $this->assertSame(1, $game->actions()->where('type', GameActionType::IncomePhase)->count());
     }
 
     public function test_pass_awards_victory_points_from_all_pass_bonus_sources(): void
@@ -1639,10 +1701,12 @@ class GameManagementTest extends TestCase
         $state->players[0]->knowledge->law = 6;
         $game->update(['state' => $state]);
 
-        $this->actingAs($firstUser)->post(route('games.pass', $game), [
+        $this->actingAs($firstUser)->post(route('games.pass', $game));
+        $this->post(route('games.round-bonus-choice', $game), [
             'round_bonus' => RoundBonus::RiverWorkshop->value,
         ]);
-        $this->actingAs($secondUser)->post(route('games.pass', $game), [
+        $this->actingAs($secondUser)->post(route('games.pass', $game));
+        $this->post(route('games.round-bonus-choice', $game), [
             'round_bonus' => RoundBonus::BuildGuild->value,
         ]);
 
@@ -1678,14 +1742,58 @@ class GameManagementTest extends TestCase
         $state->players[1]->knowledge->banking = 6;
         $game->update(['state' => $state]);
 
-        $this->actingAs($firstUser)->post(route('games.pass', $game), ['round_bonus' => RoundBonus::RiverWorkshop->value]);
-        $this->actingAs($secondUser)->post(route('games.pass', $game), ['round_bonus' => RoundBonus::BuildGuild->value]);
+        $this->actingAs($firstUser)->post(route('games.pass', $game));
+        $this->post(route('games.round-bonus-choice', $game), [
+            'round_bonus' => RoundBonus::RiverWorkshop->value,
+        ]);
+        $this->actingAs($secondUser)->post(route('games.pass', $game));
+        $this->post(route('games.round-bonus-choice', $game), [
+            'round_bonus' => RoundBonus::BuildGuild->value,
+        ]);
 
         $game->refresh();
         $this->assertSame(3, $game->state->players[0]->resources->tools);
         $this->assertSame(4, $game->state->players[1]->resources->tools);
         $this->assertSame(2, $game->state->round->number);
         $this->assertSame(GamePhase::Actions, $game->phase);
+    }
+
+    public function test_science_phase_records_engineering_coin_rewards_in_phase_history(): void
+    {
+        [$game, $firstUser, $secondUser] = $this->gameForPassing();
+        $state = $game->state;
+        $state->round->scoringTileId = RoundScoringTile::SpadeEngineering->value;
+        $state->setupPool->roundScoringTiles[0] = RoundScoringTile::SpadeEngineering;
+        $state->players[0]->knowledge->engineering = 7;
+        $state->players[1]->knowledge->engineering = 2;
+        $game->update(['state' => $state]);
+
+        $this->actingAs($firstUser)->post(route('games.pass', $game));
+        $this->post(route('games.round-bonus-choice', $game), [
+            'round_bonus' => RoundBonus::RiverWorkshop->value,
+        ]);
+        $this->actingAs($secondUser)->post(route('games.pass', $game));
+        $this->post(route('games.round-bonus-choice', $game), [
+            'round_bonus' => RoundBonus::BuildGuild->value,
+        ])->assertNoContent();
+
+        $receipts = $game->actions()
+            ->where('type', GameActionType::ScienceBonusPhase->value)
+            ->latest('sequence')
+            ->firstOrFail()
+            ->payload['science_bonus_receipts'];
+
+        $this->assertArrayNotHasKey(
+            'science_bonus_receipts',
+            $game->actions()->where('type', GameActionType::ChooseRoundBonus)->latest('sequence')->firstOrFail()->payload,
+        );
+
+        $this->assertSame([7, 2], array_column($receipts, 'knowledge_level'));
+        $this->assertSame([7, 2], array_column($receipts, 'coins'));
+        $this->assertSame(
+            [KnowledgeDiscipline::Engineering->value, KnowledgeDiscipline::Engineering->value],
+            array_column($receipts, 'discipline'),
+        );
     }
 
     public function test_player_can_confirm_or_rollback_a_science_bonus_spade(): void
@@ -1716,8 +1824,14 @@ class GameManagementTest extends TestCase
         ]);
         $game->update(['state' => $state]);
 
-        $this->actingAs($firstUser)->post(route('games.pass', $game), ['round_bonus' => RoundBonus::RiverWorkshop->value]);
-        $this->actingAs($secondUser)->post(route('games.pass', $game), ['round_bonus' => RoundBonus::BuildGuild->value]);
+        $this->actingAs($firstUser)->post(route('games.pass', $game));
+        $this->post(route('games.round-bonus-choice', $game), [
+            'round_bonus' => RoundBonus::RiverWorkshop->value,
+        ]);
+        $this->actingAs($secondUser)->post(route('games.pass', $game));
+        $this->post(route('games.round-bonus-choice', $game), [
+            'round_bonus' => RoundBonus::BuildGuild->value,
+        ]);
         $game->refresh();
         $this->assertSame(GamePhase::ScienceBonus, $game->phase);
         $this->assertSame(PendingInteractionType::SpendSpades, $game->state->pendingInteraction?->type);
@@ -6369,10 +6483,10 @@ class GameManagementTest extends TestCase
         $this->assertNull($game->state->pendingInteraction);
         $this->assertSame($targetTerrainAfter, collect($game->state->board->hexes)->firstWhere('id', $targetHexId)?->terrain);
         $this->assertSame(0, $desertPlayerState?->unassignedSpades);
-        $this->assertCount($historyCountBeforeSelection + 2, $game->actions);
+        $this->assertCount($historyCountBeforeSelection + 3, $game->actions);
         $this->assertSame(
             GameActionType::SpendStartingSpade,
-            $game->actions()->where('type', '!=', GameActionType::PhaseCheckpoint)->latest('sequence')->firstOrFail()->type,
+            $game->actions()->where('type', GameActionType::SpendStartingSpade)->latest('sequence')->firstOrFail()->type,
         );
 
         $targetHexIndex = collect($game->state->board->hexes)->search(
@@ -6492,22 +6606,23 @@ class GameManagementTest extends TestCase
         $this->assertSame($users[0]->id, $game->active_player_id);
         $this->assertNull($game->state->pendingStartingBuildingHexId);
         $this->assertNull($game->state->pendingInteraction);
-        $this->assertCount(5, $game->actions);
-        $this->assertTrue($game->actions->where('type', '!=', GameActionType::PhaseCheckpoint)->every(
+        $this->assertCount(6, $game->actions);
+        $this->assertTrue($game->actions->whereNotIn('type', [GameActionType::PhaseCheckpoint, GameActionType::IncomePhase])->every(
             static fn (GameAction $action): bool => $action->type === GameActionType::PlaceStartingBuilding,
         ));
         $incomeStartingAction = $game->actions()
-            ->where('type', '!=', GameActionType::PhaseCheckpoint)
+            ->where('type', GameActionType::PlaceStartingBuilding)
             ->latest('sequence')
             ->firstOrFail();
         $this->assertTrue($incomeStartingAction->payload['income_started']);
         $this->assertSame(1, $incomeStartingAction->payload['round']);
         $this->assertSame('income_phase_started', $incomeStartingAction->events[1]['type']);
         $this->assertSame(1, $incomeStartingAction->events[1]['round']);
-        $this->assertCount(2, $incomeStartingAction->payload['income_receipts']);
+        $incomePhaseAction = $game->actions()->where('type', GameActionType::IncomePhase)->sole();
+        $this->assertCount(2, $incomePhaseAction->payload['income_receipts']);
         $this->assertEqualsCanonicalizing(
             [$firstPlayer->id, $secondPlayer->id],
-            array_column($incomeStartingAction->payload['income_receipts'], 'player_id'),
+            array_column($incomePhaseAction->payload['income_receipts'], 'player_id'),
         );
 
         foreach ($game->state->players as $playerState) {
@@ -6531,7 +6646,7 @@ class GameManagementTest extends TestCase
         $this->post(route('games.power-sacrifice.store', $game), ['amount' => 1]);
 
         $game->refresh();
-        $this->assertCount(7, $game->actions);
+        $this->assertCount(8, $game->actions);
         $this->assertSame(4, $game->state->round->turnStartVersion);
         $this->assertSame($bowlTwoAtTurnStart - 4, $game->state->players[0]->resources->power->bowlTwo);
         $this->assertSame($bowlThreeAtTurnStart + 2, $game->state->players[0]->resources->power->bowlThree);

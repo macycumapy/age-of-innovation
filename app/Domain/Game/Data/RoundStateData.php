@@ -22,6 +22,7 @@ use Spatie\LaravelData\Data;
  * @property bool $isCurrentTurnIrrevocable Нельзя ли перезапустить текущий ход из-за принятой другим игроком Силы.
  * @property list<int> $passOrder Порядок, в котором игроки пасовали.
  * @property int $scienceBonusTurnIndex Индекс игрока, следующего за научным бонусом.
+ * @property list<array<string, int|string>> $scienceBonusReceipts Награды игроков в научной фазе.
  */
 class RoundStateData extends Data
 {
@@ -31,6 +32,7 @@ class RoundStateData extends Data
      * @param list<int> $incomeOrder
      * @param list<array{player_id: int, tools: int, coins: int, scholars: int, power: int, books: int, knowledge_steps: int}> $incomeReceipts
      * @param list<int> $passOrder
+     * @param list<array<string, int|string>> $scienceBonusReceipts
      */
     public function __construct(
         public int $number = 1,
@@ -47,6 +49,7 @@ class RoundStateData extends Data
         public bool $isCurrentTurnIrrevocable = false,
         public array $passOrder = [],
         public int $scienceBonusTurnIndex = 0,
+        public array $scienceBonusReceipts = [],
     ) {
     }
 }

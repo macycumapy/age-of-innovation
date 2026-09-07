@@ -6,8 +6,15 @@ import GameHistoryController from '@/actions/App/Http/Controllers/GameHistoryCon
 import GameHistoryUndoController from '@/actions/App/Http/Controllers/GameHistoryUndoController';
 import Form from '@/components/game/GameActionForm.vue';
 import { Button } from '@/components/ui/button';
-import { playerColorValues, terrainNames } from '@/lib/gameDisplay';
-import type { GameActionType, GameHistoryEntry, GameHistoryPage, GamePlayerSummary, TerrainType } from '@/types';
+import { playerColorValues, roundBonusNames, terrainNames } from '@/lib/gameDisplay';
+import type {
+    GameActionType,
+    GameHistoryEntry,
+    GameHistoryPage,
+    GamePlayerSummary,
+    RoundBonus,
+    TerrainType,
+} from '@/types';
 
 const props = defineProps<{
     gameId: number;
@@ -18,10 +25,12 @@ const props = defineProps<{
 
 const actionDescriptions: Record<GameActionType, string> = {
     phase_checkpoint: 'начал новую фазу',
+    income_phase: 'завершила фазу дохода',
+    science_bonus_phase: 'завершила фазу культов',
     start_game: 'начал партию',
     choose_planning_bundle: 'выбрал стартовый комплект',
     choose_starting_resources: 'распределил стартовые ресурсы',
-    choose_income_resources: 'завершил фазу дохода',
+    choose_income_resources: 'распределил ресурсы дохода',
     place_starting_building: 'установил стартовый дом',
     undo_starting_building: 'отменил установку стартового дома',
     finish_starting_building_turn: 'завершил ход выставления дома',
@@ -39,7 +48,8 @@ const actionDescriptions: Record<GameActionType, string> = {
     book_action: 'выполнил действие за книги',
     special_action: 'выполнил особое действие',
     exchange_resources: 'обменял ресурсы',
-    pass: 'спасовал',
+    pass: 'спасовал и выбирает жетон бонуса раунда',
+    choose_round_bonus: 'выбрал жетон бонуса раунда',
     choose_science_bonus_books: 'выбрал книги научного бонуса',
     accept_power: 'принял силу',
     decline_power: 'отказался от силы',
@@ -132,7 +142,7 @@ function playerColor(entry: GameHistoryEntry): string {
 }
 
 function isSharedIncomeEntry(entry: GameHistoryEntry): boolean {
-    return entry.type === 'choose_income_resources';
+    return entry.type === 'income_phase' || entry.type === 'science_bonus_phase';
 }
 
 function payloadString(entry: GameHistoryEntry, key: string): string | null {
@@ -173,6 +183,51 @@ function incomeDetails(entry: GameHistoryEntry): string[] {
             .filter((resource): resource is string => resource !== null);
 
         return resources.length > 0 ? [`${playerName}: ${resources.join(', ')}`] : [];
+    });
+}
+
+function scienceBonusDetails(entry: GameHistoryEntry): string[] {
+    const receipts = entry.payload.science_bonus_receipts;
+
+    if (!Array.isArray(receipts)) {
+        return [];
+    }
+
+    const disciplineNames: Record<string, string> = {
+        banking: 'Банковское дело',
+        law: 'Право',
+        engineering: 'Инженерия',
+        medicine: 'Медицина',
+    };
+
+    return receipts.flatMap((receipt) => {
+        if (typeof receipt !== 'object' || receipt === null || !('player_id' in receipt)) {
+            return [];
+        }
+
+        const result = receipt as Record<string, unknown>;
+        const playerId = Number(result.player_id);
+        const playerName = props.players.find((player) => player.id === playerId)?.user.name ?? `Игрок ${playerId}`;
+        const discipline = String(result.discipline ?? '');
+        const level = Number(result.knowledge_level ?? 0);
+        const resources = [
+            ['tools', 'инстр.'],
+            ['coins', 'золота'],
+            ['power', 'Силы'],
+            ['scholars', 'учёных'],
+            ['books', 'книг'],
+            ['spades', 'лопат'],
+        ]
+            .map(([key, label]) => {
+                const amount = Number(result[key] ?? 0);
+
+                return Number.isFinite(amount) && amount > 0 ? `${amount} ${label}` : null;
+            })
+            .filter((resource): resource is string => resource !== null);
+
+        return [
+            `${playerName}: ${disciplineNames[discipline] ?? discipline}, уровень ${level} — ${resources.length > 0 ? resources.join(', ') : 'без награды'}`,
+        ];
     });
 }
 
@@ -325,7 +380,34 @@ function actionDetails(entry: GameHistoryEntry): string | null {
         details.push(terrainNames[homeland].toLocaleLowerCase('ru-RU'));
     }
 
-    details.push(...incomeDetails(entry));
+    const selectedRoundBonus = payloadString(entry, 'round_bonus') as RoundBonus | null;
+
+    if (entry.type === 'choose_round_bonus' && selectedRoundBonus !== null) {
+        details.push(roundBonusNames[selectedRoundBonus] ?? selectedRoundBonus);
+    }
+
+    if (entry.type === 'pass' && Array.isArray(entry.payload.knowledge_disciplines)) {
+        const disciplineNames: Record<string, string> = {
+            banking: 'банковское дело',
+            law: 'право',
+            engineering: 'инженерия',
+            medicine: 'медицина',
+        };
+        const counts = entry.payload.knowledge_disciplines.reduce<Record<string, number>>((result, discipline) => {
+            if (typeof discipline === 'string') {
+                result[discipline] = (result[discipline] ?? 0) + 1;
+            }
+
+            return result;
+        }, {});
+        const advancements = Object.entries(counts).map(
+            ([discipline, count]) => `${disciplineNames[discipline] ?? discipline} +${count}`,
+        );
+
+        if (advancements.length > 0) {
+            details.push(`шаги знаний за школы: ${advancements.join(', ')}`);
+        }
+    }
 
     if (
         entry.type === 'pass' &&
@@ -444,7 +526,13 @@ function actionTime(createdAt: string | null): string {
                             <span class="font-bold">{{ checkpointDescription(entry) }}</span>
                         </template>
                         <template v-else-if="isSharedIncomeEntry(entry)">
-                            <span class="font-bold">Фаза дохода завершена</span>
+                            <span class="font-bold">
+                                {{
+                                    entry.type === 'science_bonus_phase'
+                                        ? 'Фаза культов завершена'
+                                        : 'Фаза дохода завершена'
+                                }}
+                            </span>
                         </template>
                         <template v-else>
                             <span class="font-bold">{{ entry.player?.name ?? 'Система' }}</span>
@@ -452,6 +540,20 @@ function actionTime(createdAt: string | null): string {
                         </template>
                         <span v-if="actionDetails(entry)" class="text-muted-foreground">
                             — {{ actionDetails(entry) }}
+                        </span>
+                        <span
+                            v-for="detail in incomeDetails(entry)"
+                            :key="detail"
+                            class="mt-1 block rounded-md bg-emerald-500/15 px-2 py-1 text-xs font-medium text-emerald-900 dark:text-emerald-200"
+                        >
+                            {{ detail }}
+                        </span>
+                        <span
+                            v-for="detail in scienceBonusDetails(entry)"
+                            :key="detail"
+                            class="mt-1 block rounded-md bg-sky-500/15 px-2 py-1 text-xs font-medium text-sky-900 dark:text-sky-200"
+                        >
+                            {{ detail }}
                         </span>
                         <span
                             v-for="detail in finalScoringDetails(entry)"

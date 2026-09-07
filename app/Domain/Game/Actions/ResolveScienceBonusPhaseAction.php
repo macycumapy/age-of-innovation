@@ -26,7 +26,7 @@ final class ResolveScienceBonusPhaseAction
 
     /**
      * @param Collection<int, GamePlayer> $players
-     * @return array{GamePlayer|null, GamePhase, list<array{player_id: int, tools: int, coins: int, scholars: int, power: int, books: int, knowledge_steps: int}>, list<array{playerId: int, victoryPoints: int, sources: list<array{source: string, id: string, value: int, rank: int, points: int}>}>}
+     * @return array{GamePlayer|null, GamePhase, list<array{player_id: int, tools: int, coins: int, scholars: int, power: int, books: int, knowledge_steps: int}>, list<array{playerId: int, victoryPoints: int, sources: list<array{source: string, id: string, value: int, rank: int, points: int}>}>, list<array<string, int|string>>}
      */
     public function execute(GameStateData $state, Collection $players): array
     {
@@ -34,6 +34,10 @@ final class ResolveScienceBonusPhaseAction
 
         if ($scoringTile === null) {
             throw ValidationException::withMessages(['game' => 'Не найдена научная цель текущего раунда.']);
+        }
+
+        if ($state->round->scienceBonusTurnIndex === 0) {
+            $state->round->scienceBonusReceipts = [];
         }
 
         while ($state->round->scienceBonusTurnIndex < count($state->turnOrder)) {
@@ -47,13 +51,27 @@ final class ResolveScienceBonusPhaseAction
 
             $knowledgeLevel = $playerState->knowledge->{$scoringTile->knowledgeDiscipline()->value};
             $reward = $scoringTile->scienceBonus($knowledgeLevel);
+            $scholarsBefore = $playerState->resources->scholars;
             $playerState->resources->coins += $reward['coins'];
             $playerState->resources->tools += $reward['tools'];
             $playerState->resources->scholars = min(
                 $playerState->scholarPoolSize,
                 $playerState->resources->scholars + $reward['scholars'],
             );
-            $this->gainPower->execute($playerState, $reward['power']);
+            $gainedPower = $this->gainPower->execute($playerState, $reward['power']);
+            $state->round->scienceBonusReceipts[] = [
+                'player_id' => $playerId,
+                'round' => $state->round->number,
+                'round_scoring_tile' => $scoringTile->value,
+                'discipline' => $scoringTile->knowledgeDiscipline()->value,
+                'knowledge_level' => $knowledgeLevel,
+                'coins' => $reward['coins'],
+                'tools' => $reward['tools'],
+                'scholars' => $playerState->resources->scholars - $scholarsBefore,
+                'power' => $gainedPower,
+                'books' => $reward['books'],
+                'spades' => $reward['spades'],
+            ];
             $state->round->scienceBonusTurnIndex++;
 
             if ($reward['books'] > 0) {
@@ -64,7 +82,7 @@ final class ResolveScienceBonusPhaseAction
                     ['bookCount' => $reward['books']],
                 );
 
-                return [$player, GamePhase::ScienceBonus, [], []];
+                return [$player, GamePhase::ScienceBonus, [], [], []];
             }
 
             if ($reward['spades'] > 0) {
@@ -83,20 +101,22 @@ final class ResolveScienceBonusPhaseAction
                         ],
                     );
 
-                    return [$player, GamePhase::ScienceBonus, [], []];
+                    return [$player, GamePhase::ScienceBonus, [], [], []];
                 }
             }
         }
 
         $state->pendingInteraction = null;
+        $scienceBonusReceipts = $state->round->scienceBonusReceipts;
+        $state->round->scienceBonusReceipts = [];
 
         if ($state->round->number >= 6) {
             $finalScoring = $this->applyFinalScoring->execute($state);
             $state->round->phase = GamePhase::Finished;
 
-            return [null, GamePhase::Finished, [], $finalScoring];
+            return [null, GamePhase::Finished, [], $finalScoring, $scienceBonusReceipts];
         }
 
-        return [...$this->startNextRound->execute($state, $players), []];
+        return [...$this->startNextRound->execute($state, $players), [], $scienceBonusReceipts];
     }
 }

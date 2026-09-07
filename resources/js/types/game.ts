@@ -68,6 +68,8 @@ export type GameResource = {
 
 export type GameActionType =
     | 'phase_checkpoint'
+    | 'income_phase'
+    | 'science_bonus_phase'
     | 'start_game'
     | 'choose_planning_bundle'
     | 'choose_starting_resources'
@@ -90,6 +92,7 @@ export type GameActionType =
     | 'special_action'
     | 'exchange_resources'
     | 'pass'
+    | 'choose_round_bonus'
     | 'choose_science_bonus_books'
     | 'accept_power'
     | 'decline_power'
@@ -347,6 +350,12 @@ export type PlanningBundleDescriptions = {
 export type KnowledgeDiscipline = 'banking' | 'law' | 'engineering' | 'medicine';
 
 export type PendingInteraction =
+    | {
+          type: 'choose_round_bonus';
+          playerId: number;
+          optionIds: RoundBonus[];
+          context: Record<string, never>;
+      }
     | {
           type: 'choose_starting_resources';
           playerId: number;

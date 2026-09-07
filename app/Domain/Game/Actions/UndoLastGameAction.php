@@ -41,6 +41,11 @@ final class UndoLastGameAction
             if ($lastAction->type === GameActionType::PhaseCheckpoint) {
                 $phaseStartingAction = $actions->pop();
 
+                while ($phaseStartingAction instanceof GameAction && $this->isSystemPhaseAction($phaseStartingAction)) {
+                    $actionsToDelete->push($phaseStartingAction);
+                    $phaseStartingAction = $actions->pop();
+                }
+
                 if (! $phaseStartingAction instanceof GameAction) {
                     throw ValidationException::withMessages([
                         'history' => 'Перед чекпоинтом фазы отсутствует действие перехода.',
@@ -48,6 +53,18 @@ final class UndoLastGameAction
                 }
 
                 $actionsToDelete->push($phaseStartingAction);
+            } elseif ($this->isSystemPhaseAction($lastAction)) {
+                do {
+                    $phaseStartingAction = $actions->pop();
+
+                    if (! $phaseStartingAction instanceof GameAction) {
+                        throw ValidationException::withMessages([
+                            'history' => 'Перед системной фазой отсутствует действие перехода.',
+                        ]);
+                    }
+
+                    $actionsToDelete->push($phaseStartingAction);
+                } while ($this->isSystemPhaseAction($phaseStartingAction));
             }
 
             $this->replayGameHistory->execute($lockedGame, $actions);
@@ -56,5 +73,10 @@ final class UndoLastGameAction
 
             return $lockedGame->refresh();
         });
+    }
+
+    private function isSystemPhaseAction(GameAction $action): bool
+    {
+        return in_array($action->type, [GameActionType::IncomePhase, GameActionType::ScienceBonusPhase], true);
     }
 }

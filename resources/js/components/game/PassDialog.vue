@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import Form from '@/components/game/GameActionForm.vue';
-import { nextTick, ref, watch } from 'vue';
+import { computed, nextTick, reactive, ref, watch } from 'vue';
 import PassController from '@/actions/App/Http/Controllers/PassController';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
+import { NumberStepper } from '@/components/ui/number-stepper';
 import {
     Dialog,
     DialogClose,
@@ -13,36 +14,47 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import type { RoundBonus, RoundBonusOffer } from '@/types';
-import goldMedallionUrl from '../../../images/token_parts/gold_medallion.png';
+import type { KnowledgeDiscipline, RoundBonus } from '@/types';
+import bankingRoundUrl from '../../../images/token_parts/coin_round.png';
+import engineeringRoundUrl from '../../../images/token_parts/engineering_round.png';
+import lawRoundUrl from '../../../images/token_parts/law_round.png';
+import medicineRoundUrl from '../../../images/token_parts/medicine_round.png';
 
-defineProps<{
+const props = defineProps<{
     gameId: number;
-    offers: RoundBonusOffer[];
-    descriptions: Record<RoundBonus, string>;
     availableActions: string[];
     isFinalRound: boolean;
+    currentRoundBonus: RoundBonus | null;
+    schoolCount: number;
+    disciplineNames: Record<KnowledgeDiscipline, string>;
 }>();
 
 const isOpen = defineModel<boolean>('open', { required: true });
-const selectedRoundBonus = ref<RoundBonus | null>(null);
 const initialFocusTarget = ref<HTMLElement | null>(null);
-const roundBonusImages = import.meta.glob<string>('../../../images/round_bonus_cards/*_top.png', {
-    eager: true,
-    import: 'default',
-    query: '?url',
+const disciplines: KnowledgeDiscipline[] = ['banking', 'law', 'engineering', 'medicine'];
+const knowledgeCounts = reactive<Record<KnowledgeDiscipline, number>>({
+    banking: 0,
+    law: 0,
+    engineering: 0,
+    medicine: 0,
 });
-
+const knowledgeImages: Record<KnowledgeDiscipline, string> = {
+    banking: bankingRoundUrl,
+    law: lawRoundUrl,
+    engineering: engineeringRoundUrl,
+    medicine: medicineRoundUrl,
+};
+const assignedKnowledgeSteps = computed(() =>
+    Object.values(knowledgeCounts).reduce((total, count) => total + count, 0),
+);
+const remainingKnowledgeSteps = computed(() => Math.max(0, props.schoolCount - assignedKnowledgeSteps.value));
 watch(isOpen, (open) => {
     if (open) {
-        selectedRoundBonus.value = null;
+        for (const discipline of disciplines) {
+            knowledgeCounts[discipline] = 0;
+        }
     }
 });
-
-function roundBonusImage(roundBonus: RoundBonus): string {
-    return roundBonusImages[`../../../images/round_bonus_cards/${roundBonus}_top.png`];
-}
 
 function focusDialogTitle(event: Event): void {
     event.preventDefault();
@@ -59,21 +71,11 @@ function focusDialogTitle(event: Event): void {
                 #default="{ errors, processing }"
                 @success="isOpen = false"
             >
-                <input
-                    v-if="!isFinalRound"
-                    type="hidden"
-                    name="round_bonus"
-                    :value="selectedRoundBonus ?? ''"
-                />
                 <DialogHeader>
                     <DialogTitle><span ref="initialFocusTarget" tabindex="-1">Спасовать?</span></DialogTitle>
                     <DialogDescription>
-                        <template v-if="isFinalRound">
-                            Текущий жетон бонуса раунда вернётся в общий пул.
-                        </template>
-                        <template v-else>
-                            Выберите новый жетон бонуса раунда. Текущий жетон вернётся в общий пул.
-                        </template>
+                        <template v-if="isFinalRound"> Текущий жетон бонуса раунда вернётся в общий пул. </template>
+                        <template v-else>Сначала будут начислены бонусы конца раунда.</template>
                     </DialogDescription>
                 </DialogHeader>
 
@@ -86,46 +88,50 @@ function focusDialogTitle(event: Event): void {
                     <p class="mt-1 text-muted-foreground">После паса выполнить их в этом раунде уже не получится.</p>
                 </div>
 
-                <TooltipProvider v-if="!isFinalRound" :delay-duration="150">
-                    <div class="grid grid-cols-3 gap-2">
-                        <Tooltip v-for="offer in offers" :key="offer.roundBonus">
-                            <TooltipTrigger as-child>
-                                <button
-                                    type="button"
-                                    class="relative rounded-lg border-2 p-1 transition-colors"
-                                    :class="
-                                        selectedRoundBonus === offer.roundBonus
-                                            ? 'border-primary ring-2 ring-primary'
-                                            : 'border-muted'
-                                    "
-                                    :aria-pressed="selectedRoundBonus === offer.roundBonus"
-                                    @click="selectedRoundBonus = offer.roundBonus"
-                                >
-                                    <img
-                                        :src="roundBonusImage(offer.roundBonus)"
-                                        :alt="`Бонус раунда ${offer.roundBonus}`"
-                                        class="h-auto w-full rounded-md"
-                                    />
-                                    <span
-                                        v-if="offer.coins > 0"
-                                        class="absolute top-3 right-3 grid size-9 place-items-center"
-                                    >
-                                        <img :src="goldMedallionUrl" alt="" class="absolute size-full" />
-                                        <span class="relative text-sm font-bold text-amber-950">{{ offer.coins }}</span>
-                                    </span>
-                                </button>
-                            </TooltipTrigger>
-                            <TooltipContent class="max-w-xs">{{ descriptions[offer.roundBonus] }}</TooltipContent>
-                        </Tooltip>
+                <div v-if="currentRoundBonus === 'pass_school' && schoolCount > 0" class="grid gap-3">
+                    <div class="flex items-center justify-between gap-3 text-sm">
+                        <p class="font-medium">Распределите шаги знаний за школы</p>
+                        <p class="rounded-md bg-muted px-3 py-1.5 font-medium">
+                            Осталось: {{ remainingKnowledgeSteps }}
+                        </p>
                     </div>
-                </TooltipProvider>
+                    <div class="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                        <label
+                            v-for="discipline in disciplines"
+                            :key="discipline"
+                            class="grid justify-items-center gap-2 rounded-lg border bg-background/70 p-2 text-center text-sm"
+                        >
+                            <img
+                                :src="knowledgeImages[discipline]"
+                                :alt="disciplineNames[discipline]"
+                                class="h-12 w-auto object-contain"
+                            />
+                            <span>{{ disciplineNames[discipline] }}</span>
+                            <NumberStepper
+                                v-model="knowledgeCounts[discipline]"
+                                :name="`knowledge_counts[${discipline}]`"
+                                :min="0"
+                                :max="knowledgeCounts[discipline] + remainingKnowledgeSteps"
+                                required
+                                class="w-24"
+                            />
+                        </label>
+                    </div>
+                    <InputError :message="errors.knowledge_counts" />
+                </div>
 
-                <InputError :message="errors.round_bonus ?? errors.game" />
+                <InputError :message="errors.game" />
                 <DialogFooter>
                     <DialogClose as-child>
                         <Button type="button" variant="outline">Отмена</Button>
                     </DialogClose>
-                    <Button type="submit" :disabled="processing || (!isFinalRound && selectedRoundBonus === null)">
+                    <Button
+                        type="submit"
+                        :disabled="
+                            processing ||
+                            (currentRoundBonus === 'pass_school' && assignedKnowledgeSteps !== schoolCount)
+                        "
+                    >
                         Подтвердить пас
                     </Button>
                 </DialogFooter>
