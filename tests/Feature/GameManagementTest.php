@@ -2116,6 +2116,26 @@ class GameManagementTest extends TestCase
         $state->board->hexes[2]->terrain = TerrainType::Forest;
         $state->board->hexes[3]->terrain = TerrainType::Forest;
         $state->board->hexes[3]->building = new BuildingStateData(BuildingType::Guild, $state->players[0]->playerId);
+        $state->board->hexes[0]->adjacentHexIds = ['9:5', '9:4'];
+        $state->board->hexes[] = new BoardHexStateData(
+            id: '9:5',
+            q: 9,
+            r: 5,
+            initialTerrain: TerrainType::Forest,
+            terrain: TerrainType::Forest,
+            adjacentHexIds: ['8:5'],
+            building: new BuildingStateData(BuildingType::Palace, $state->players[0]->playerId),
+        );
+        $state->board->hexes[] = new BoardHexStateData(
+            id: '9:4',
+            q: 9,
+            r: 4,
+            initialTerrain: TerrainType::Forest,
+            terrain: TerrainType::Forest,
+            adjacentHexIds: ['8:5'],
+            building: new BuildingStateData(BuildingType::Workshop, $state->players[0]->playerId),
+        );
+        $state->availableTownTileIds = [TownTile::Tools->value];
         $game->update(['state' => $state]);
 
         $this->actingAs($user)->post(route('games.faction-action', $game))
@@ -2150,6 +2170,11 @@ class GameManagementTest extends TestCase
 
         $game->refresh();
         $this->assertCount(1, $game->state->board->bridges);
+        $this->assertSame(PendingInteractionType::ChooseTown, $game->state->pendingInteraction?->type);
+        $this->assertEqualsCanonicalizing(
+            ['8:5', '9:5', '9:4', '7:7'],
+            $game->state->pendingInteraction?->context['townHexIds'] ?? [],
+        );
         $bridgeAction = $game->actions()->firstOrFail();
         $this->assertSame(Faction::Moles->value, $bridgeAction->payload['faction']);
         $this->assertSame(GameActionType::SpecialAction, $bridgeAction->type);

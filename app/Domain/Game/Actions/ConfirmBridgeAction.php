@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Domain\Game\Actions;
 
 use App\Domain\Game\Data\BridgeStateData;
+use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Enums\GameActionType;
 use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\PendingInteractionType;
@@ -16,8 +17,10 @@ use Illuminate\Validation\ValidationException;
 
 final class ConfirmBridgeAction
 {
-    public function __construct(private AppendGameHistoryAction $appendGameHistory)
-    {
+    public function __construct(
+        private AppendGameHistoryAction $appendGameHistory,
+        private CreateTownChoiceAfterBuildingAction $createTownChoiceAfterBuilding,
+    ) {
     }
 
     public function execute(Game $game, User $user): Game
@@ -50,8 +53,21 @@ final class ConfirmBridgeAction
             }
 
             $state->board->bridges[] = new BridgeStateData($fromHexId, $toHexId, $player->id);
-            $state->pendingInteraction = null;
-            $lockedGame->update(['state' => $state, 'version' => $lockedGame->version + 1]);
+            $playerState = collect($state->players)->firstWhere('playerId', $player->id);
+
+            if (! $playerState instanceof GamePlayerStateData) {
+                throw ValidationException::withMessages(['bridge' => 'Не найдено состояние игрока.']);
+            }
+
+            $lockedGame->active_player_id = $this->createTownChoiceAfterBuilding->execute(
+                $state,
+                $playerState,
+                $fromHexId,
+                powerOffersResolved: true,
+            );
+            $lockedGame->state = $state;
+            $lockedGame->version++;
+            $lockedGame->save();
             $actionType = $source === 'power' ? GameActionType::PowerAction : GameActionType::SpecialAction;
             $payload = $source === 'power'
                 ? [

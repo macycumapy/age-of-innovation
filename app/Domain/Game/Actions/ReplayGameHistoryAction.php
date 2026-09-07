@@ -349,7 +349,11 @@ final class ReplayGameHistoryAction
             $this->applyRoundBonusAction->execute($state, $playerState, $discipline);
         }
 
-        $this->applyReplayedBridge($state, $player->id, $action);
+        $nextActiveUserId = $this->applyReplayedBridge($state, $player->id, $action);
+
+        if ($nextActiveUserId !== null) {
+            $game->active_player_id = $nextActiveUserId;
+        }
 
         $game->state = $state;
     }
@@ -1462,21 +1466,31 @@ final class ReplayGameHistoryAction
             PowerAction::from((string) $action->payload['action']),
             (int) ($action->payload['sacrifice_amount'] ?? 0),
         );
-        $this->applyReplayedBridge($state, $player->id, $action);
+        $nextActiveUserId = $this->applyReplayedBridge($state, $player->id, $action);
+
+        if ($nextActiveUserId !== null) {
+            $game->active_player_id = $nextActiveUserId;
+        }
         $game->state = $state;
     }
 
-    private function applyReplayedBridge(GameStateData $state, int $playerId, GameAction $action): void
+    private function applyReplayedBridge(GameStateData $state, int $playerId, GameAction $action): ?int
     {
         $fromHexId = $action->payload['from_hex_id'] ?? null;
         $toHexId = $action->payload['to_hex_id'] ?? null;
 
         if (! is_string($fromHexId) || ! is_string($toHexId)) {
-            return;
+            return null;
         }
 
         $state->board->bridges[] = new BridgeStateData($fromHexId, $toHexId, $playerId);
-        $state->pendingInteraction = null;
+
+        return $this->createTownChoiceAfterBuilding->execute(
+            $state,
+            $this->playerState($state, $playerId),
+            $fromHexId,
+            powerOffersResolved: true,
+        );
     }
 
     /** @param Collection<int, GamePlayer> $players */
