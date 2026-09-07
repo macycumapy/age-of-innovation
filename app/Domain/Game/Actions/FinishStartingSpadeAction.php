@@ -8,6 +8,8 @@ use App\Domain\Game\Enums\GameActionType;
 use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\GameStatus;
 use App\Domain\Game\Enums\PendingInteractionType;
+use App\Domain\Game\Enums\RoundScoringGoal;
+use App\Domain\Game\Enums\RoundScoringTile;
 use App\Domain\Game\Enums\TerrainType;
 use App\Models\Game;
 use App\Models\GamePlayer;
@@ -65,6 +67,12 @@ final class FinishStartingSpadeAction
             $paidSpadeCount = (int) ($interaction->context['paidSpadeCount'] ?? 0);
             $tunnelTools = (int) ($interaction->context['tunnelTools'] ?? 0);
             $tunnelVictoryPoints = (int) ($interaction->context['tunnelVictoryPoints'] ?? 0);
+            $roundScoringTile = RoundScoringTile::tryFrom((string) $state->round->scoringTileId);
+            $roundScoringVictoryPoints = $interactionPhase === GamePhase::Actions
+                && $roundScoringTile?->goal() === RoundScoringGoal::Spade
+                    ? $spentSpades * 2
+                    : 0;
+            $playerState->victoryPoints += $roundScoringVictoryPoints;
             $buildableHexIds = $interaction->context['buildableHexIds'] ?? [];
 
             if ($tunnelTools > 0) {
@@ -183,6 +191,7 @@ final class FinishStartingSpadeAction
                     'spades_spent' => $spentSpades,
                     'tunnel_tools' => $tunnelTools,
                     'tunnel_victory_points' => $tunnelVictoryPoints,
+                    'victory_points' => $roundScoringVictoryPoints,
                     'income_receipts' => $incomeReceipts,
                     'final_scoring' => $finalScoring,
                 ],
@@ -200,6 +209,12 @@ final class FinishStartingSpadeAction
                         'hex_id' => $hexId,
                         'tools' => $tunnelTools,
                         'victory_points' => $tunnelVictoryPoints,
+                    ]] : []),
+                    ...($roundScoringVictoryPoints > 0 ? [[
+                        'type' => 'round_spade_scored',
+                        'player_id' => $player->id,
+                        'spades' => $spentSpades,
+                        'victory_points' => $roundScoringVictoryPoints,
                     ]] : []),
                     ...($interactionPhase === GamePhase::Setup && $nextPhase !== GamePhase::Setup ? [[
                         'type' => 'income_phase_started',

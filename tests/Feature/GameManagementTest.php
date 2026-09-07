@@ -261,7 +261,10 @@ class GameManagementTest extends TestCase
                     adjacentHexIds: ['0:0'],
                 ),
             ]),
-            round: new RoundStateData(phase: GamePhase::Actions),
+            round: new RoundStateData(
+                phase: GamePhase::Actions,
+                scoringTileId: RoundScoringTile::SpadeEngineering->value,
+            ),
             players: [new GamePlayerStateData(
                 playerId: $player->id,
                 userId: $user->id,
@@ -326,6 +329,8 @@ class GameManagementTest extends TestCase
         $this->assertSame($toolCost * 2, $paidTerraformingAction->payload['paid_tools']);
         $this->assertSame(2, $paidTerraformingAction->payload['paid_spade_count']);
         $this->assertSame(2, $paidTerraformingAction->payload['spades_spent']);
+        $this->assertSame(4, $paidTerraformingAction->payload['victory_points']);
+        $this->assertSame(24, $game->state->players[0]->victoryPoints);
     }
 
     /** @return array<string, array{int, int}> */
