@@ -1818,6 +1818,93 @@ class GameManagementTest extends TestCase
         $this->assertSame([], $game->state->players[0]->usedSpecialActionIds);
     }
 
+    public function test_moles_can_pay_a_tool_to_build_a_bridge_across_terrain(): void
+    {
+        [$game, $user] = $this->gameForBridgeAction();
+        $state = $game->state;
+        $state->players[0]->faction = Faction::Moles;
+        $state->players[0]->resources->tools = 1;
+        $state->board->riverBankHexIds = [];
+        $state->board->hexes[1]->terrain = TerrainType::Plains;
+        $state->board->hexes[2]->terrain = TerrainType::Forest;
+        $state->board->hexes[3]->terrain = TerrainType::Forest;
+        $state->board->hexes[3]->building = new BuildingStateData(BuildingType::Guild, $state->players[0]->playerId);
+        $game->update(['state' => $state]);
+
+        $this->actingAs($user)->post(route('games.faction-action', $game))
+            ->assertNoContent();
+
+        $game->refresh();
+        $this->assertSame(0, $game->state->players[0]->resources->tools);
+        $this->assertTrue($game->state->round->hasTakenMainAction);
+        $this->assertSame(PendingInteractionType::PlaceBridge, $game->state->pendingInteraction?->type);
+        $this->assertContains([
+            'toHexId' => '7:7',
+            'fromHexId' => '8:5',
+        ], $game->state->pendingInteraction?->context['pairs'] ?? []);
+        $this->assertContains([
+            'toHexId' => '8:5',
+            'fromHexId' => '7:7',
+        ], $game->state->pendingInteraction?->context['pairs'] ?? []);
+
+        $this->post(route('games.current-turn.restart', $game))->assertNoContent();
+        $game->refresh();
+        $this->assertSame(1, $game->state->players[0]->resources->tools);
+        $this->assertFalse($game->state->round->hasTakenMainAction);
+        $this->assertNull($game->state->pendingInteraction);
+
+        $this->post(route('games.faction-action', $game))->assertNoContent();
+
+        $this->post(route('games.bridge.store', $game), [
+            'from_hex_id' => '7:7',
+            'to_hex_id' => '8:5',
+        ])->assertNoContent();
+        $this->post(route('games.bridge.confirm', $game))->assertNoContent();
+
+        $game->refresh();
+        $this->assertCount(1, $game->state->board->bridges);
+        $bridgeAction = $game->actions()->firstOrFail();
+        $this->assertSame(Faction::Moles->value, $bridgeAction->payload['faction']);
+        $this->assertSame(GameActionType::SpecialAction, $bridgeAction->type);
+    }
+
+    public function test_moles_power_bridge_still_requires_a_river(): void
+    {
+        [$game, $user] = $this->gameForBridgeAction();
+        $state = $game->state;
+        $state->players[0]->faction = Faction::Moles;
+        $state->board->riverBankHexIds = [];
+        $state->board->hexes[1]->terrain = TerrainType::Plains;
+        $state->board->hexes[2]->terrain = TerrainType::Forest;
+        $game->update(['state' => $state]);
+
+        $this->actingAs($user)->post(route('games.power-action', $game), [
+            'action' => PowerAction::BuildBridge->value,
+            'sacrifice_amount' => 0,
+        ])->assertSessionHasErrors('bridge');
+
+        $game->refresh();
+        $this->assertNull($game->state->pendingInteraction);
+        $this->assertCount(0, $game->state->board->bridges);
+    }
+
+    public function test_moles_faction_bridge_cannot_be_built_across_only_water(): void
+    {
+        [$game, $user] = $this->gameForBridgeAction();
+        $state = $game->state;
+        $state->players[0]->faction = Faction::Moles;
+        $state->players[0]->resources->tools = 1;
+        $game->update(['state' => $state]);
+
+        $this->actingAs($user)->post(route('games.faction-action', $game))
+            ->assertSessionHasErrors('bridge');
+
+        $game->refresh();
+        $this->assertSame(1, $game->state->players[0]->resources->tools);
+        $this->assertFalse($game->state->round->hasTakenMainAction);
+        $this->assertNull($game->state->pendingInteraction);
+    }
+
     public function test_power_action_spades_can_be_selected_rolled_back_and_confirmed_immediately(): void
     {
         $user = User::factory()->create();

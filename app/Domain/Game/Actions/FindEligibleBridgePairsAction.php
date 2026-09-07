@@ -26,7 +26,7 @@ final class FindEligibleBridgePairsAction
     ];
 
     /** @return list<array{fromHexId: string, toHexId: string}> */
-    public function execute(GameStateData $state, int $playerId): array
+    public function execute(GameStateData $state, int $playerId, bool $canBuildAcrossTerrain = false): array
     {
         $hexesById = collect($state->board->hexes)->keyBy('id');
         $pairs = [];
@@ -41,24 +41,24 @@ final class FindEligibleBridgePairsAction
                 $toHex = $hexesById->get($toHexId);
 
                 if (! $toHex instanceof BoardHexStateData
-                    || ! in_array($fromHex->id, $state->board->riverBankHexIds, true)
-                    || ! in_array($toHex->id, $state->board->riverBankHexIds, true)
                     || ! $toHex->terrain->isHomeland()
-                    || ! $this->hasWaterBetweenFacingCorners($fromHex, $toHex, $hexesById)
+                    || ($canBuildAcrossTerrain
+                        ? ! $this->hasTerrainBesideBridge($fromHex, $toHex, $hexesById)
+                        : (! in_array($fromHex->id, $state->board->riverBankHexIds, true)
+                            || ! in_array($toHex->id, $state->board->riverBankHexIds, true)
+                            || ! $this->hasWaterBetweenFacingCorners($fromHex, $toHex, $hexesById)))
                     || $this->bridgeExists($state->board->bridges, $fromHex->id, $toHex->id)) {
                     continue;
                 }
 
-                $pairIds = [$fromHex->id, $toHex->id];
-                sort($pairIds);
-                $pairs[implode('|', $pairIds)] = [
+                $pairs[] = [
                     'fromHexId' => $fromHex->id,
                     'toHexId' => $toHex->id,
                 ];
             }
         }
 
-        return array_values($pairs);
+        return $pairs;
     }
 
     /** @param Collection<string, BoardHexStateData> $hexesById */
@@ -67,6 +67,31 @@ final class FindEligibleBridgePairsAction
         BoardHexStateData $toHex,
         Collection $hexesById,
     ): bool {
+        $betweenHexIds = $this->betweenHexIds($fromHex, $toHex);
+
+        return count($betweenHexIds) === 2
+            && collect($betweenHexIds)->every(
+                static fn (string $hexId): bool => $hexesById->get($hexId)?->terrain === TerrainType::Water,
+            );
+    }
+
+    /** @param Collection<string, BoardHexStateData> $hexesById */
+    private function hasTerrainBesideBridge(
+        BoardHexStateData $fromHex,
+        BoardHexStateData $toHex,
+        Collection $hexesById,
+    ): bool {
+        $betweenHexIds = $this->betweenHexIds($fromHex, $toHex);
+
+        return count($betweenHexIds) === 2
+            && collect($betweenHexIds)->contains(
+                static fn (string $hexId): bool => $hexesById->get($hexId)?->terrain->isHomeland() === true,
+            );
+    }
+
+    /** @return list<string> */
+    private function betweenHexIds(BoardHexStateData $fromHex, BoardHexStateData $toHex): array
+    {
         $fromNeighbours = array_map(
             static fn (array $offset): string => ($fromHex->q + $offset[0]).':'.($fromHex->r + $offset[1]),
             self::NEIGHBOUR_OFFSETS,
@@ -75,12 +100,8 @@ final class FindEligibleBridgePairsAction
             static fn (array $offset): string => ($toHex->q + $offset[0]).':'.($toHex->r + $offset[1]),
             self::NEIGHBOUR_OFFSETS,
         );
-        $betweenHexIds = array_values(array_intersect($fromNeighbours, $toNeighbours));
 
-        return count($betweenHexIds) === 2
-            && collect($betweenHexIds)->every(
-                static fn (string $hexId): bool => $hexesById->get($hexId)?->terrain === TerrainType::Water,
-            );
+        return array_values(array_intersect($fromNeighbours, $toNeighbours));
     }
 
     /** @param list<BridgeStateData> $bridges */

@@ -16,8 +16,11 @@ final class CreateBridgeInteractionAction
     {
     }
 
-    public function execute(GameStateData $state, GamePlayerStateData $playerState): void
-    {
+    public function execute(
+        GameStateData $state,
+        GamePlayerStateData $playerState,
+        bool $canBuildAcrossTerrain = false,
+    ): void {
         $builtBridgeCount = collect($state->board->bridges)
             ->where('ownerPlayerId', $playerState->playerId)
             ->count();
@@ -26,7 +29,11 @@ final class CreateBridgeInteractionAction
             throw ValidationException::withMessages(['bridge' => 'У игрока не осталось мостов.']);
         }
 
-        $pairs = $this->findEligibleBridgePairs->execute($state, $playerState->playerId);
+        $pairs = $this->findEligibleBridgePairs->execute(
+            $state,
+            $playerState->playerId,
+            $canBuildAcrossTerrain,
+        );
 
         if ($pairs === []) {
             throw ValidationException::withMessages(['bridge' => 'Нет доступного места для строительства моста.']);

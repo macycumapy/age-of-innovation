@@ -64,7 +64,7 @@ enum Faction: string
     public function hasSpecialAction(): bool
     {
         return match ($this) {
-            self::Philosophers, self::Psychics => true,
+            self::Moles, self::Philosophers, self::Psychics => true,
             default => false,
         };
     }

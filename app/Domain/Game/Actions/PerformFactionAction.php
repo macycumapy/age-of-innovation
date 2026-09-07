@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Domain\Game\Actions;
 
 use App\Domain\Game\Data\GamePlayerStateData;
+use App\Domain\Game\Enums\Faction;
 use App\Domain\Game\Enums\GameActionType;
 use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\KnowledgeDiscipline;
@@ -51,21 +52,27 @@ final class PerformFactionAction
 
             $faction = $playerState->faction;
             $this->applyFactionAction->execute($state, $playerState, $discipline);
+            if ($faction === Faction::Moles && $state->pendingInteraction !== null) {
+                $state->pendingInteraction->context['source'] = 'faction';
+            }
             $lockedGame->update(['state' => $state, 'version' => $lockedGame->version + 1]);
-            $this->appendGameHistory->execute(
-                $lockedGame,
-                $user,
-                GameActionType::SpecialAction,
-                ['faction' => $faction->value, 'discipline' => $discipline?->value],
-                [[
-                    'type' => 'faction_action_used',
-                    'player_id' => $player->id,
-                    'faction' => $faction->value,
-                    'discipline' => $discipline?->value,
-                ]],
-                $stateVersionBefore,
-                $lockedGame->version,
-            );
+
+            if ($faction !== Faction::Moles) {
+                $this->appendGameHistory->execute(
+                    $lockedGame,
+                    $user,
+                    GameActionType::SpecialAction,
+                    ['faction' => $faction->value, 'discipline' => $discipline?->value],
+                    [[
+                        'type' => 'faction_action_used',
+                        'player_id' => $player->id,
+                        'faction' => $faction->value,
+                        'discipline' => $discipline?->value,
+                    ]],
+                    $stateVersionBefore,
+                    $lockedGame->version,
+                );
+            }
 
             return $lockedGame->refresh();
         });

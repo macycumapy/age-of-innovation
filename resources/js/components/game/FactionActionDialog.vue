@@ -35,10 +35,21 @@ const disciplineImages: Record<KnowledgeDiscipline, string> = {
     medicine: medicineUrl,
 };
 const requiresBook = computed(() => props.faction === 'philosophers');
-const canSubmit = computed(() => !requiresBook.value || selectedDiscipline.value !== null);
-const actionQuestion = computed(() => props.faction === 'philosophers'
-    ? 'Получить выбранную книгу?'
-    : 'Получить 5 Силы и выполнить дополнительное действие?');
+const isImplementedFactionAction = computed(() =>
+    props.faction !== null && ['moles', 'philosophers', 'psychics'].includes(props.faction),
+);
+const canSubmit = computed(
+    () => isImplementedFactionAction.value && (!requiresBook.value || selectedDiscipline.value !== null),
+);
+const actionQuestion = computed(() => {
+    const questions: Partial<Record<Faction, string>> = {
+        philosophers: 'Получить выбранную книгу?',
+        moles: 'Заплатить 1 инструмент и построить мост?',
+        psychics: 'Получить 5 Силы и выполнить дополнительное действие?',
+    };
+
+    return props.faction === null ? '' : (questions[props.faction] ?? '');
+});
 
 watch(isOpen, (open) => {
     if (open) {

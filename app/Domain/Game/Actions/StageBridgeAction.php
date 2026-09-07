@@ -35,7 +35,11 @@ final class StageBridgeAction
                 || isset($interaction->context['selectedFromHexId'])
                 || ! $player instanceof GamePlayer
                 || ! $this->containsPair(
-                    $this->findEligibleBridgePairs->execute($state, $player->id),
+                    $this->findEligibleBridgePairs->execute(
+                        $state,
+                        $player->id,
+                        canBuildAcrossTerrain: ($interaction->context['source'] ?? null) === 'faction',
+                    ),
                     $fromHexId,
                     $toHexId,
                 )) {

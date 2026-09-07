@@ -259,60 +259,12 @@ const selectedBridgeFromHexId = ref<string | null>(null);
 const pendingBridgeInteraction = computed(() =>
     props.game.data.pendingInteraction?.type === 'place_bridge' ? props.game.data.pendingInteraction : null,
 );
-const bridgeOffsets = [
-    [1, 1],
-    [-1, -1],
-    [2, -1],
-    [-2, 1],
-    [1, -2],
-    [-1, 2],
-] as const;
-const neighbourOffsets = [
-    [1, 0],
-    [1, -1],
-    [0, -1],
-    [-1, 0],
-    [-1, 1],
-    [0, 1],
-] as const;
 const eligibleBridgePairs = computed(() => {
-    if (pendingBridgeInteraction.value === null || currentPlayer.value === undefined) {
+    if (pendingBridgeInteraction.value === null) {
         return [];
     }
 
-    const hexesById = new Map(props.game.data.board.hexes.map((hex) => [hex.id, hex]));
-    const riverBankHexIds = new Set(props.game.data.board.riverBankHexIds);
-
-    return props.game.data.board.hexes.flatMap((fromHex) => {
-        if (
-            fromHex.building?.ownerPlayerId !== currentPlayer.value?.id ||
-            fromHex.building.isNeutral ||
-            !riverBankHexIds.has(fromHex.id)
-        ) {
-            return [];
-        }
-
-        return bridgeOffsets.flatMap(([qOffset, rOffset]) => {
-            const toHex = hexesById.get(`${fromHex.q + qOffset}:${fromHex.r + rOffset}`);
-
-            if (toHex === undefined || toHex.terrain === 'water' || !riverBankHexIds.has(toHex.id)) {
-                return [];
-            }
-
-            const fromNeighbours = neighbourOffsets.map(([q, r]) => `${fromHex.q + q}:${fromHex.r + r}`);
-            const toNeighbours = new Set(neighbourOffsets.map(([q, r]) => `${toHex.q + q}:${toHex.r + r}`));
-            const betweenHexIds = fromNeighbours.filter((hexId) => toNeighbours.has(hexId));
-            const hasWaterBetween =
-                betweenHexIds.length === 2 && betweenHexIds.every((hexId) => hexesById.get(hexId)?.terrain === 'water');
-            const bridgeExists = (props.game.data.board.bridges ?? []).some(
-                (bridge) =>
-                    (bridge.fromHexId === fromHex.id && bridge.toHexId === toHex.id) ||
-                    (bridge.fromHexId === toHex.id && bridge.toHexId === fromHex.id),
-            );
-
-            return hasWaterBetween && !bridgeExists ? [{ fromHexId: fromHex.id, toHexId: toHex.id }] : [];
-        });
-    });
+    return pendingBridgeInteraction.value.context.pairs ?? [];
 });
 const pendingBridge = computed(() => {
     const interaction = pendingBridgeInteraction.value;
@@ -520,6 +472,18 @@ const isCompetencyActionDialogOpen = ref(false);
 const isPalaceActionDialogOpen = ref(false);
 const isPassDialogOpen = ref(false);
 const isPaidTerraformingDialogOpen = ref(false);
+
+const hasImplementedFactionAction = computed(() =>
+    currentPlayer.value?.faction !== null &&
+    currentPlayer.value?.faction !== undefined &&
+    ['moles', 'philosophers', 'psychics'].includes(currentPlayer.value.faction),
+);
+
+function openFactionActionDialog(): void {
+    if (hasImplementedFactionAction.value) {
+        isFactionActionDialogOpen.value = true;
+    }
+}
 const isBuildWorkshopDialogOpen = ref(false);
 const isInnovationPurchaseDialogOpen = ref(false);
 const selectedPaidTerraformHexId = ref<string | null>(null);
@@ -1616,7 +1580,7 @@ function selectedCompetencyForHomeland(homeland: TerrainType): Competency | unde
                             @advance-shipping="isShippingAdvancementDialogOpen = true"
                             @advance-terraforming="isTerraformingAdvancementDialogOpen = true"
                             @use-round-bonus-action="isRoundBonusActionDialogOpen = true"
-                            @use-faction-action="isFactionActionDialogOpen = true"
+                            @use-faction-action="openFactionActionDialog"
                             @use-competency-action="isCompetencyActionDialogOpen = true"
                             @use-palace-action="isPalaceActionDialogOpen = true"
                         />
@@ -1705,6 +1669,7 @@ function selectedCompetencyForHomeland(homeland: TerrainType): Competency | unde
             />
 
             <FactionActionDialog
+                v-if="hasImplementedFactionAction"
                 v-model:open="isFactionActionDialogOpen"
                 :game-id="game.data.id"
                 :faction="currentPlayer?.faction ?? null"

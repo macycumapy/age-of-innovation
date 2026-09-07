@@ -180,7 +180,14 @@ class GameResource extends JsonResource
                         : $passIndex + 1,
                     'roundBonus' => $player->roundBonus->value,
                     'canUseFactionAction' => $player->faction->hasSpecialAction()
-                        && ! in_array($player->faction->specialActionId(), $player->usedSpecialActionIds, true),
+                        && ($player->faction === Faction::Moles
+                            ? $player->resources->tools > 0
+                                && ! $this->state->round->hasTakenMainAction
+                                && count(array_filter(
+                                    $this->state->board->bridges,
+                                    static fn (BridgeStateData $bridge): bool => $bridge->ownerPlayerId === $player->playerId,
+                                )) < 3
+                            : ! in_array($player->faction->specialActionId(), $player->usedSpecialActionIds, true)),
                     'canUseCompetencyAction' => in_array(Competency::Competency07->value, $player->competencyIds, true)
                         && ! in_array(Competency::Competency07->value, $player->usedSpecialActionIds, true),
                     'canUseRoundBonusAction' => $player->roundBonus->hasAvailableSpecialAction()

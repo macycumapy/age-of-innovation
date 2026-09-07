@@ -45,7 +45,7 @@ final class ConfirmBridgeAction
             $stateVersionBefore = $lockedGame->version;
             $source = $interaction->context['source'] ?? null;
 
-            if (! in_array($source, ['power', 'round_bonus'], true)) {
+            if (! in_array($source, ['power', 'round_bonus', 'faction'], true)) {
                 throw ValidationException::withMessages(['bridge' => 'Не определён источник строительства моста.']);
             }
 
@@ -60,12 +60,17 @@ final class ConfirmBridgeAction
                     'from_hex_id' => $fromHexId,
                     'to_hex_id' => $toHexId,
                 ]
-                : [
+                : ($source === 'faction' ? [
+                    'faction' => 'moles',
+                    'discipline' => null,
+                    'from_hex_id' => $fromHexId,
+                    'to_hex_id' => $toHexId,
+                ] : [
                     'round_bonus' => 'bridge',
                     'discipline' => null,
                     'from_hex_id' => $fromHexId,
                     'to_hex_id' => $toHexId,
-                ];
+                ]);
             $this->appendGameHistory->execute(
                 $lockedGame,
                 $user,

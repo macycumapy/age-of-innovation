@@ -12,8 +12,10 @@ use Illuminate\Validation\ValidationException;
 
 final class ApplyFactionAction
 {
-    public function __construct(private GainPowerAction $gainPower)
-    {
+    public function __construct(
+        private GainPowerAction $gainPower,
+        private CreateBridgeInteractionAction $createBridgeInteraction,
+    ) {
     }
 
     public function execute(
@@ -25,8 +27,18 @@ final class ApplyFactionAction
         $actionId = $faction->specialActionId();
 
         if (! $faction->hasSpecialAction()
-            || in_array($actionId, $playerState->usedSpecialActionIds, true)) {
+            || ($faction !== Faction::Moles && in_array($actionId, $playerState->usedSpecialActionIds, true))) {
             throw ValidationException::withMessages(['faction' => 'Действие этой расы недоступно.']);
+        }
+
+        if ($faction === Faction::Moles) {
+            if ($state->round->hasTakenMainAction || $playerState->resources->tools < 1) {
+                throw ValidationException::withMessages(['faction' => 'Недостаточно инструментов или основное действие уже выполнено.']);
+            }
+
+            $this->createBridgeInteraction->execute($state, $playerState, canBuildAcrossTerrain: true);
+            $playerState->resources->tools--;
+            $state->round->hasTakenMainAction = true;
         }
 
         if ($faction === Faction::Philosophers) {
@@ -42,6 +54,8 @@ final class ApplyFactionAction
             $this->gainPower->execute($playerState, 5);
         }
 
-        $playerState->usedSpecialActionIds[] = $actionId;
+        if ($faction !== Faction::Moles) {
+            $playerState->usedSpecialActionIds[] = $actionId;
+        }
     }
 }
