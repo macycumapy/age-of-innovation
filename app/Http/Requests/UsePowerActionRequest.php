@@ -15,12 +15,10 @@ final class UsePowerActionRequest extends FormRequest
     public function authorize(): bool
     {
         $game = $this->route('game');
-
         return $game instanceof Game
             && $game->phase === GamePhase::Actions
             && $game->active_player_id === $this->user()?->id
-            && $game->state->pendingInteraction === null
-            && ! $game->state->round->hasTakenMainAction;
+            && ($game->state->pendingInteraction !== null || ! $game->state->round->hasTakenMainAction);
     }
 
     /** @return array<string, array<int, mixed>> */

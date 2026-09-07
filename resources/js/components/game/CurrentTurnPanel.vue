@@ -125,7 +125,10 @@ function finishStartingBuildingTurn(): void {
                     game.data.pendingInteraction?.type === 'place_bridge' ||
                     game.data.pendingInteraction?.type === 'build_workshop_after_terraforming' ||
                     game.data.pendingInteraction?.type === 'choose_science_bonus_books' ||
-                    game.data.pendingInteraction?.type === 'choose_innovation_books')
+                    game.data.pendingInteraction?.type === 'choose_innovation_books' ||
+                    game.data.pendingInteraction?.type === 'choose_shipping_books' ||
+                    game.data.pendingInteraction?.type === 'choose_terraforming_books' ||
+                    game.data.pendingInteraction?.type === 'choose_palace_books')
             "
             class="truncate text-sm font-medium"
             role="status"
@@ -138,7 +141,16 @@ function finishStartingBuildingTurn(): void {
                 Выберите книги, полученные за научную цель раунда.
             </template>
             <template v-else-if="game.data.pendingInteraction?.type === 'choose_innovation_books'">
-                Выберите книги, полученные за продвижение по навигации или лопате.
+                Выберите книги, полученные за инновацию.
+            </template>
+            <template v-else-if="game.data.pendingInteraction?.type === 'choose_shipping_books'">
+                Выберите книги, полученные за продвижение по навигации.
+            </template>
+            <template v-else-if="game.data.pendingInteraction?.type === 'choose_terraforming_books'">
+                Выберите книги, полученные за продвижение по терраформингу.
+            </template>
+            <template v-else-if="game.data.pendingInteraction?.type === 'choose_palace_books'">
+                Выберите книги, полученные за строительство Крепости.
             </template>
             <template v-else-if="game.data.pendingInteraction?.type === 'choose_competency'">
                 Выберите стартовую компетенцию.

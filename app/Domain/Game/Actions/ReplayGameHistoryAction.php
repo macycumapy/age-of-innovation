@@ -1024,6 +1024,13 @@ final class ReplayGameHistoryAction
 
         $playerState->palaceId = $palace->value;
         $playerState->victoryPoints += (int) ($action->payload['victory_points'] ?? 0);
+        $this->gainPower->execute($playerState, (int) ($action->payload['gained_power'] ?? 0));
+        $playerState->resources->books->unassigned += (int) ($action->payload['gained_books'] ?? 0);
+        $playerState->unassignedSpades += (int) ($action->payload['gained_spades'] ?? 0);
+        foreach ((array) ($action->payload['reward_book_counts'] ?? []) as $discipline => $count) {
+            $playerState->resources->books->{$discipline} += (int) $count;
+            $playerState->resources->books->unassigned -= (int) $count;
+        }
         $state->availablePalaceIds = array_values(array_filter(
             $state->availablePalaceIds,
             static fn (string $palaceId): bool => $palaceId !== $palace->value,

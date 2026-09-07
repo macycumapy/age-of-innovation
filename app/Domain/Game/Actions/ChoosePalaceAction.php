@@ -23,6 +23,7 @@ final class ChoosePalaceAction
     public function __construct(
         private AppendGameHistoryAction $appendGameHistory,
         private CreateTownChoiceAfterBuildingAction $createTownChoiceAfterBuilding,
+        private GainPowerAction $gainPower,
     ) {
     }
 
@@ -60,13 +61,39 @@ final class ChoosePalaceAction
             $victoryPoints = $palace->buildingVictoryPoints(BuildingType::Palace);
             $playerState->palaceId = $palace->value;
             $playerState->victoryPoints += $victoryPoints;
+            $gainedPower = 0;
+            $gainedBooks = 0;
+            $gainedSpades = 0;
+
+            if ($palace === PalaceAbility::Palace10) {
+                $gainedPower = $this->gainPower->execute($playerState, 12);
+                $gainedBooks = 2;
+                $playerState->resources->books->unassigned += $gainedBooks;
+            } elseif ($palace === PalaceAbility::Palace15) {
+                $gainedBooks = 2;
+                $gainedSpades = 2;
+                $playerState->resources->books->unassigned += $gainedBooks;
+                $playerState->unassignedSpades += $gainedSpades;
+            }
             $state->availablePalaceIds = array_values(array_filter(
                 $state->availablePalaceIds,
                 static fn (string $palaceId): bool => $palaceId !== $palace->value,
             ));
             $state->pendingInteraction = null;
 
-            if ($palace === PalaceAbility::Palace11) {
+            if ($gainedBooks > 0) {
+                $state->pendingInteraction = new PendingInteractionData(
+                    PendingInteractionType::ChoosePalaceBooks,
+                    $player->id,
+                    [],
+                    [
+                        'bookCount' => $gainedBooks,
+                        'source' => 'palace',
+                        'builtHexId' => $builtHexId,
+                    ],
+                );
+                $nextActiveUserId = $player->user_id;
+            } elseif ($palace === PalaceAbility::Palace11) {
                 $state->pendingInteraction = new PendingInteractionData(
                     PendingInteractionType::ChooseTown,
                     $player->id,
@@ -118,12 +145,18 @@ final class ChoosePalaceAction
                     'palace_id' => $palace->value,
                     'built_hex_id' => $builtHexId,
                     'victory_points' => $victoryPoints,
+                    'gained_power' => $gainedPower,
+                    'gained_books' => $gainedBooks,
+                    'gained_spades' => $gainedSpades,
                 ],
                 [[
                     'type' => 'palace_chosen',
                     'player_id' => $player->id,
                     'palace_id' => $palace->value,
                     'built_hex_id' => $builtHexId,
+                    'power' => $gainedPower,
+                    'books' => $gainedBooks,
+                    'spades' => $gainedSpades,
                 ]],
                 $stateVersionBefore,
                 $lockedGame->version,

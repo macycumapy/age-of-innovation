@@ -371,8 +371,23 @@ export type PendingInteraction =
           optionIds: never[];
           context: {
               bookCount: number;
-              innovation: Innovation;
+              innovation?: Innovation;
               source: 'development_tracks';
+          };
+      }
+    | {
+          type: 'choose_shipping_books' | 'choose_terraforming_books';
+          playerId: number;
+          optionIds: never[];
+          context: { bookCount: number };
+      }
+    | {
+          type: 'choose_palace_books';
+          playerId: number;
+          optionIds: never[];
+          context: {
+              bookCount: number;
+              builtHexId: string;
           };
       }
     | {

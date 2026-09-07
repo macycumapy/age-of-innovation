@@ -64,9 +64,9 @@ final class PerformAdvanceShippingAction
 
             if ($reward['books'] > 0) {
                 $state->pendingInteraction = new PendingInteractionData(
-                    PendingInteractionType::ChooseInnovationBooks,
+                    PendingInteractionType::ChooseShippingBooks,
                     $player->id,
-                    context: ['bookCount' => $reward['books'], 'source' => 'shipping'],
+                    context: ['bookCount' => $reward['books']],
                 );
             }
 

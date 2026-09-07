@@ -505,6 +505,9 @@ const pendingBookDistribution = computed(() => {
     if (
         interaction?.type !== 'choose_science_bonus_books' &&
         interaction?.type !== 'choose_innovation_books' &&
+        interaction?.type !== 'choose_shipping_books' &&
+        interaction?.type !== 'choose_terraforming_books' &&
+        interaction?.type !== 'choose_palace_books' &&
         interaction?.type !== 'choose_town_books'
     ) {
         return null;

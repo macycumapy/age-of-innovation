@@ -28,13 +28,18 @@ final class PerformPowerActionAction
             $lockedGame = Game::query()->lockForUpdate()->findOrFail($game->id);
             $state = $lockedGame->state;
             $player = $lockedGame->players()->whereBelongsTo($user)->first();
+            $createsInteraction = in_array($action, [
+                PowerAction::BuildBridge,
+                PowerAction::TerraformOneSpade,
+                PowerAction::TerraformTwoSpades,
+            ], true);
 
             if ($lockedGame->phase !== GamePhase::Actions
                 || $lockedGame->active_player_id !== $user->id
-                || $state->pendingInteraction !== null
+                || ($state->pendingInteraction !== null && $createsInteraction)
                 || $state->round->hasTakenMainAction
                 || ! $player instanceof GamePlayer) {
-                throw ValidationException::withMessages(['game' => 'Сейчас нельзя выполнять действие Силы.']);
+                throw ValidationException::withMessages(['action' => 'Сейчас нельзя выполнять действие Силы.']);
             }
 
             $playerState = collect($state->players)->firstWhere('playerId', $player->id);

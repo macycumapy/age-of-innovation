@@ -20,5 +20,8 @@ enum PendingInteractionType: string
     case PlaceBridge = 'place_bridge';
     case ChooseScienceBonusBooks = 'choose_science_bonus_books';
     case ChooseInnovationBooks = 'choose_innovation_books';
+    case ChooseShippingBooks = 'choose_shipping_books';
+    case ChooseTerraformingBooks = 'choose_terraforming_books';
+    case ChoosePalaceBooks = 'choose_palace_books';
     case PlaceNeutralBuilding = 'place_neutral_building';
 }

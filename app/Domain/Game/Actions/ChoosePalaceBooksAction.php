@@ -9,7 +9,7 @@ use App\Domain\Game\Enums\PendingInteractionType;
 use App\Models\Game;
 use App\Models\User;
 
-final class ChooseInnovationBooksAction
+final class ChoosePalaceBooksAction
 {
     public function __construct(private DistributeRewardBooksAction $distributeRewardBooks)
     {
@@ -22,11 +22,11 @@ final class ChooseInnovationBooksAction
             $game,
             $user,
             $bookCounts,
-            PendingInteractionType::ChooseInnovationBooks,
-            GameActionType::MakeInnovation,
-            'innovation_books_chosen',
-            'за инновацию',
-            false,
+            PendingInteractionType::ChoosePalaceBooks,
+            GameActionType::ChoosePalace,
+            'palace_books_chosen',
+            'Крепости',
+            true,
         );
     }
 }

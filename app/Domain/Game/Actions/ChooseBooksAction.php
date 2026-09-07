@@ -15,6 +15,9 @@ final class ChooseBooksAction
     public function __construct(
         private ChooseScienceBonusBooksAction $chooseScienceBonusBooks,
         private ChooseInnovationBooksAction $chooseInnovationBooks,
+        private ChooseShippingBooksAction $chooseShippingBooks,
+        private ChooseTerraformingBooksAction $chooseTerraformingBooks,
+        private ChoosePalaceBooksAction $choosePalaceBooks,
         private ChooseTownBooksAction $chooseTownBooks,
     ) {
     }
@@ -25,6 +28,9 @@ final class ChooseBooksAction
         return match ($game->state->pendingInteraction?->type) {
             PendingInteractionType::ChooseScienceBonusBooks => $this->chooseScienceBonusBooks->execute($game, $user, $this->disciplines($bookCounts)),
             PendingInteractionType::ChooseInnovationBooks => $this->chooseInnovationBooks->execute($game, $user, $bookCounts),
+            PendingInteractionType::ChooseShippingBooks => $this->chooseShippingBooks->execute($game, $user, $bookCounts),
+            PendingInteractionType::ChooseTerraformingBooks => $this->chooseTerraformingBooks->execute($game, $user, $bookCounts),
+            PendingInteractionType::ChoosePalaceBooks => $this->choosePalaceBooks->execute($game, $user, $bookCounts),
             PendingInteractionType::ChooseTownBooks => $this->chooseTownBooks->execute($game, $user, $this->disciplines($bookCounts)),
             default => throw ValidationException::withMessages(['book_counts' => 'Сейчас нельзя распределить книги.']),
         };

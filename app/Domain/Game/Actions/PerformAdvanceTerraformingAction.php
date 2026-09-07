@@ -68,9 +68,9 @@ final class PerformAdvanceTerraformingAction
 
             if ($reward['books'] > 0) {
                 $state->pendingInteraction = new PendingInteractionData(
-                    PendingInteractionType::ChooseInnovationBooks,
+                    PendingInteractionType::ChooseTerraformingBooks,
                     $player->id,
-                    context: ['bookCount' => $reward['books'], 'source' => 'terraforming'],
+                    context: ['bookCount' => $reward['books']],
                 );
             }
 

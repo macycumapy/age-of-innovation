@@ -3515,6 +3515,132 @@ class GameManagementTest extends TestCase
         ], $game->actions()->orderBy('sequence')->pluck('type')->all());
     }
 
+    public function test_palace_ten_grants_power_and_books_when_chosen(): void
+    {
+        $user = User::factory()->create();
+        $game = Game::factory()->create([
+            'status' => GameStatus::Active,
+            'phase' => GamePhase::Actions,
+            'active_player_id' => $user->id,
+        ]);
+        $player = GamePlayer::factory()->create([
+            'game_id' => $game->id,
+            'user_id' => $user->id,
+        ]);
+        $game->update(['state' => new GameStateData(
+            turnOrder: [$player->id],
+            board: new BoardStateData(hexes: [new BoardHexStateData(
+                id: '0:0',
+                q: 0,
+                r: 0,
+                initialTerrain: TerrainType::Forest,
+                terrain: TerrainType::Forest,
+                building: new BuildingStateData(BuildingType::Palace, $player->id),
+            )]),
+            round: new RoundStateData(phase: GamePhase::Actions),
+            players: [new GamePlayerStateData(
+                playerId: $player->id,
+                userId: $user->id,
+                color: PlayerColor::Green,
+                faction: Faction::Blessed,
+                homeland: TerrainType::Forest,
+                roundBonus: RoundBonus::Coins,
+                resources: new PlayerResourcesData(
+                    power: new PowerBowlsStateData(bowlOne: 6, bowlTwo: 6),
+                ),
+            )],
+            availablePalaceIds: [PalaceAbility::Palace10->value],
+            pendingInteraction: new PendingInteractionData(
+                PendingInteractionType::ChoosePalace,
+                $player->id,
+                [PalaceAbility::Palace10->value],
+                ['reason' => 'building', 'builtHexId' => '0:0'],
+            ),
+        )]);
+
+        $this->actingAs($user)->post(route('games.palace-choice', $game), [
+            'palace_id' => PalaceAbility::Palace10->value,
+        ])->assertNoContent();
+
+        $game->refresh();
+        $playerState = $game->state->players[0];
+        $this->assertSame(0, $playerState->resources->power->bowlOne);
+        $this->assertSame(6, $playerState->resources->power->bowlTwo);
+        $this->assertSame(6, $playerState->resources->power->bowlThree);
+        $this->assertSame(2, $playerState->resources->books->unassigned);
+        $this->assertSame(12, $game->actions()->sole()->payload['gained_power']);
+        $this->assertSame(2, $game->actions()->sole()->payload['gained_books']);
+        $this->assertSame(PendingInteractionType::ChoosePalaceBooks, $game->state->pendingInteraction?->type);
+
+        $this->post(route('games.books', $game), [
+            'book_counts' => ['banking' => 1, 'law' => 1, 'engineering' => 0, 'medicine' => 0],
+        ])->assertNoContent();
+        $game->refresh();
+        $this->assertSame(1, $game->state->players[0]->resources->books->banking);
+        $this->assertSame(1, $game->state->players[0]->resources->books->law);
+        $this->assertSame(0, $game->state->players[0]->resources->books->unassigned);
+    }
+
+    public function test_palace_fifteen_grants_spades_and_books_when_chosen(): void
+    {
+        $user = User::factory()->create();
+        $game = Game::factory()->create([
+            'status' => GameStatus::Active,
+            'phase' => GamePhase::Actions,
+            'active_player_id' => $user->id,
+        ]);
+        $player = GamePlayer::factory()->create([
+            'game_id' => $game->id,
+            'user_id' => $user->id,
+        ]);
+        $game->update(['state' => new GameStateData(
+            turnOrder: [$player->id],
+            board: new BoardStateData(hexes: [new BoardHexStateData(
+                id: '0:0',
+                q: 0,
+                r: 0,
+                initialTerrain: TerrainType::Forest,
+                terrain: TerrainType::Forest,
+                building: new BuildingStateData(BuildingType::Palace, $player->id),
+            )]),
+            round: new RoundStateData(phase: GamePhase::Actions),
+            players: [new GamePlayerStateData(
+                playerId: $player->id,
+                userId: $user->id,
+                color: PlayerColor::Green,
+                faction: Faction::Blessed,
+                homeland: TerrainType::Forest,
+                roundBonus: RoundBonus::Coins,
+            )],
+            availablePalaceIds: [PalaceAbility::Palace15->value],
+            pendingInteraction: new PendingInteractionData(
+                PendingInteractionType::ChoosePalace,
+                $player->id,
+                [PalaceAbility::Palace15->value],
+                ['reason' => 'building', 'builtHexId' => '0:0'],
+            ),
+        )]);
+
+        $this->actingAs($user)->post(route('games.palace-choice', $game), [
+            'palace_id' => PalaceAbility::Palace15->value,
+        ])->assertNoContent();
+
+        $game->refresh();
+        $this->assertSame(2, $game->state->players[0]->unassignedSpades);
+        $this->assertSame(2, $game->state->players[0]->resources->books->unassigned);
+        $this->assertSame(2, $game->actions()->sole()->payload['gained_spades']);
+        $this->assertSame(2, $game->actions()->sole()->payload['gained_books']);
+        $this->assertSame(PendingInteractionType::ChoosePalaceBooks, $game->state->pendingInteraction?->type);
+
+        $this->post(route('games.books', $game), [
+            'book_counts' => ['banking' => 0, 'law' => 0, 'engineering' => 1, 'medicine' => 1],
+        ])->assertNoContent();
+        $game->refresh();
+        $this->assertSame(1, $game->state->players[0]->resources->books->engineering);
+        $this->assertSame(1, $game->state->players[0]->resources->books->medicine);
+        $this->assertSame(0, $game->state->players[0]->resources->books->unassigned);
+    }
+
     public function test_palace_sixteen_places_a_free_guild_on_any_empty_homeland_hex(): void
     {
         $user = User::factory()->create();
@@ -4375,8 +4501,7 @@ class GameManagementTest extends TestCase
         $this->post(route('games.shipping', $game));
         $game->refresh();
         $this->assertSame(2, $game->state->players[0]->shippingLevel);
-        $this->assertSame(PendingInteractionType::ChooseInnovationBooks, $game->state->pendingInteraction?->type);
-        $this->assertSame('shipping', $game->state->pendingInteraction?->context['source']);
+        $this->assertSame(PendingInteractionType::ChooseShippingBooks, $game->state->pendingInteraction?->type);
 
         $this->post(route('games.books', $game), [
             'book_counts' => [
@@ -4457,8 +4582,7 @@ class GameManagementTest extends TestCase
         $this->assertSame(2, $game->state->players[0]->resources->books->unassigned);
         $this->assertSame(23, $game->state->players[0]->victoryPoints);
         $this->assertTrue($game->state->round->hasTakenMainAction);
-        $this->assertSame(PendingInteractionType::ChooseInnovationBooks, $game->state->pendingInteraction?->type);
-        $this->assertSame('terraforming', $game->state->pendingInteraction?->context['source']);
+        $this->assertSame(PendingInteractionType::ChooseTerraformingBooks, $game->state->pendingInteraction?->type);
         $this->assertSame(GameActionType::AdvanceTerraforming, $game->actions()->sole()->type);
 
         $this->post(route('games.books', $game), [

@@ -21,6 +21,9 @@ final class ChooseBooksRequest extends FormRequest
             && in_array($game->state->pendingInteraction?->type, [
                 PendingInteractionType::ChooseScienceBonusBooks,
                 PendingInteractionType::ChooseInnovationBooks,
+                PendingInteractionType::ChooseShippingBooks,
+                PendingInteractionType::ChooseTerraformingBooks,
+                PendingInteractionType::ChoosePalaceBooks,
                 PendingInteractionType::ChooseTownBooks,
             ], true);
     }

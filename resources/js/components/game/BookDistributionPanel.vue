@@ -12,7 +12,13 @@ import engineeringBookUrl from '../../../images/token_parts/engineering_book.png
 import lawBookUrl from '../../../images/token_parts/law_book.png';
 import medicineBookUrl from '../../../images/token_parts/medicine_book.png';
 
-type BookDistributionType = 'choose_science_bonus_books' | 'choose_innovation_books' | 'choose_town_books';
+type BookDistributionType =
+    | 'choose_science_bonus_books'
+    | 'choose_innovation_books'
+    | 'choose_shipping_books'
+    | 'choose_terraforming_books'
+    | 'choose_palace_books'
+    | 'choose_town_books';
 
 const props = defineProps<{
     gameId: number;
