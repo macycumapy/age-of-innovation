@@ -38,6 +38,7 @@ final class StartPaidTerraformingRequest extends FormRequest
         return [
             'hex_id' => ['required', 'string'],
             'use_available' => ['sometimes', 'boolean'],
+            'use_tunnel' => ['sometimes', 'boolean'],
         ];
     }
 
@@ -49,5 +50,10 @@ final class StartPaidTerraformingRequest extends FormRequest
     public function useAvailable(): bool
     {
         return (bool) $this->validated('use_available', false);
+    }
+
+    public function useTunnel(): bool
+    {
+        return (bool) $this->validated('use_tunnel', false);
     }
 }

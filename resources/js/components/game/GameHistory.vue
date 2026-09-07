@@ -363,6 +363,12 @@ function actionDetails(entry: GameHistoryEntry): string | null {
         details.push(`предложено ${entry.payload.offered_power} Силы`);
     }
 
+    if (entry.type === 'spend_starting_spade' && Number(entry.payload.tunnel_tools ?? 0) > 0) {
+        details.push(
+            `Туннель: потрачен 1 инструмент · получено ${String(entry.payload.tunnel_victory_points ?? 0)} ПО`,
+        );
+    }
+
     const developmentTrackReward = developmentTrackRewardDetails(entry);
 
     if (developmentTrackReward !== null) {

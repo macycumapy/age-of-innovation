@@ -338,6 +338,112 @@ class GameManagementTest extends TestCase
         ];
     }
 
+    public function test_moles_can_use_a_tunnel_for_paid_terraforming(): void
+    {
+        $user = User::factory()->create();
+        $otherUser = User::factory()->create();
+        $game = Game::factory()->create([
+            'status' => GameStatus::Active,
+            'phase' => GamePhase::Actions,
+            'active_player_id' => $user->id,
+        ]);
+        $player = GamePlayer::factory()->create(['game_id' => $game->id, 'user_id' => $user->id, 'seat' => 1]);
+        $otherPlayer = GamePlayer::factory()->create(['game_id' => $game->id, 'user_id' => $otherUser->id, 'seat' => 2]);
+        $game->update(['state' => new GameStateData(
+            turnOrder: [$player->id, $otherPlayer->id],
+            board: new BoardStateData(hexes: [
+                new BoardHexStateData(
+                    id: '7:3',
+                    q: 7,
+                    r: 3,
+                    initialTerrain: TerrainType::Mountain,
+                    terrain: TerrainType::Mountain,
+                    adjacentHexIds: ['7:4'],
+                    building: new BuildingStateData(BuildingType::Workshop, $player->id),
+                ),
+                new BoardHexStateData(
+                    id: '7:4',
+                    q: 7,
+                    r: 4,
+                    initialTerrain: TerrainType::Water,
+                    terrain: TerrainType::Water,
+                    adjacentHexIds: ['7:3', '6:5'],
+                ),
+                new BoardHexStateData(
+                    id: '6:5',
+                    q: 6,
+                    r: 5,
+                    initialTerrain: TerrainType::Forest,
+                    terrain: TerrainType::Forest,
+                    adjacentHexIds: ['7:4'],
+                ),
+            ]),
+            round: new RoundStateData(phase: GamePhase::Actions),
+            players: [
+                new GamePlayerStateData(
+                    playerId: $player->id,
+                    userId: $user->id,
+                    color: PlayerColor::Grey,
+                    faction: Faction::Moles,
+                    homeland: TerrainType::Mountain,
+                    roundBonus: RoundBonus::Coins,
+                    resources: new PlayerResourcesData(
+                        tools: 5,
+                        power: new PowerBowlsStateData(bowlThree: 4),
+                    ),
+                    victoryPoints: 20,
+                    shippingLevel: 1,
+                ),
+                new GamePlayerStateData(
+                    playerId: $otherPlayer->id,
+                    userId: $otherUser->id,
+                    color: PlayerColor::Blue,
+                    faction: Faction::Navigators,
+                    homeland: TerrainType::Lake,
+                    roundBonus: RoundBonus::Coins,
+                ),
+            ],
+        )]);
+
+        $this->actingAs($user)->post(route('games.power-action', $game), [
+            'action' => PowerAction::TerraformOneSpade->value,
+            'sacrifice_amount' => 0,
+        ])->assertNoContent();
+
+        $this->post(route('games.paid-terraforming', $game), [
+            'hex_id' => '6:5',
+            'use_tunnel' => true,
+        ])->assertNoContent();
+
+        $game->refresh();
+        $this->assertSame(4, $game->state->players[0]->resources->tools);
+        $this->assertSame(24, $game->state->players[0]->victoryPoints);
+        $this->assertSame(TerrainType::Mountain, $game->state->board->hexes[2]->terrain);
+
+        $this->delete(route('games.starting-spade.destroy', $game))->assertNoContent();
+        $game->refresh();
+        $this->assertSame(5, $game->state->players[0]->resources->tools);
+        $this->assertSame(20, $game->state->players[0]->victoryPoints);
+        $this->assertSame(TerrainType::Forest, $game->state->board->hexes[2]->terrain);
+
+        $this->post(route('games.paid-terraforming', $game), [
+            'hex_id' => '6:5',
+            'use_tunnel' => true,
+        ])->assertNoContent();
+
+        $this->post(route('games.starting-spade.finish', $game))->assertNoContent();
+        $game->refresh();
+        $action = $game->actions()->where('type', GameActionType::SpendStartingSpade)->sole();
+        $this->assertSame(1, $action->payload['tunnel_tools']);
+        $this->assertSame(4, $action->payload['tunnel_victory_points']);
+
+        $this->post(route('games.current-turn.restart', $game))->assertNoContent();
+        $game->refresh();
+        $this->assertSame(5, $game->state->players[0]->resources->tools);
+        $this->assertSame(20, $game->state->players[0]->victoryPoints);
+        $this->assertSame(TerrainType::Forest, $game->state->board->hexes[2]->terrain);
+    }
+
     public function test_player_income_is_calculated_from_buildings_and_owned_tiles(): void
     {
         $playerState = new GamePlayerStateData(

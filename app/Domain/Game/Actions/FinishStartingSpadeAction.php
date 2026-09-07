@@ -20,6 +20,7 @@ final class FinishStartingSpadeAction
     public function __construct(
         private AppendGameHistoryAction $appendGameHistory,
         private FindEligibleTerraformHexesAction $findEligibleTerraformHexes,
+        private FindEligibleMoleTunnelHexesAction $findEligibleMoleTunnelHexes,
         private OfferWorkshopAfterTerraformingAction $offerWorkshopAfterTerraforming,
         private ResolveCompletedStartingSetupAction $resolveCompletedStartingSetup,
         private ResolveScienceBonusPhaseAction $resolveScienceBonusPhase,
@@ -62,7 +63,13 @@ final class FinishStartingSpadeAction
             $remainingSpades = max(0, (int) ($interaction->context['remainingSpades'] ?? 1) - $spentSpades);
             $paidTools = (int) ($interaction->context['paidTools'] ?? 0);
             $paidSpadeCount = (int) ($interaction->context['paidSpadeCount'] ?? 0);
+            $tunnelTools = (int) ($interaction->context['tunnelTools'] ?? 0);
+            $tunnelVictoryPoints = (int) ($interaction->context['tunnelVictoryPoints'] ?? 0);
             $buildableHexIds = $interaction->context['buildableHexIds'] ?? [];
+
+            if ($tunnelTools > 0) {
+                $interaction->context['tunnelUsed'] = true;
+            }
 
             if ($interactionPhase === GamePhase::Actions
                 && $terrainAfter === $playerState->homeland->value) {
@@ -76,6 +83,9 @@ final class FinishStartingSpadeAction
                 $interaction->context['paidSpadeCount'],
                 $interaction->context['spadesToSpend'],
                 $interaction->context['spentSpades'],
+                $interaction->context['tunnelTools'],
+                $interaction->context['tunnelVictoryPoints'],
+                $interaction->context['optionIdsBeforeSelection'],
             );
             $interaction->context['remainingSpades'] = $remainingSpades;
             $interaction->context['buildableHexIds'] = array_values(array_unique($buildableHexIds));
@@ -92,6 +102,12 @@ final class FinishStartingSpadeAction
                     $playerState,
                     $targetTerrain,
                 );
+                if (! ($interaction->context['tunnelUsed'] ?? false)) {
+                    $interaction->optionIds = array_values(array_unique([
+                        ...$interaction->optionIds,
+                        ...$this->findEligibleMoleTunnelHexes->execute($state, $playerState),
+                    ]));
+                }
 
                 if ($interaction->optionIds !== []) {
                     $state->pendingInteraction = $interaction;
@@ -165,6 +181,8 @@ final class FinishStartingSpadeAction
                     'paid_tools' => $paidTools,
                     'paid_spade_count' => $paidSpadeCount,
                     'spades_spent' => $spentSpades,
+                    'tunnel_tools' => $tunnelTools,
+                    'tunnel_victory_points' => $tunnelVictoryPoints,
                     'income_receipts' => $incomeReceipts,
                     'final_scoring' => $finalScoring,
                 ],
@@ -176,6 +194,13 @@ final class FinishStartingSpadeAction
                         'player_id' => $player->id,
                         'hex_id' => $hexId,
                     ],
+                    ...($tunnelTools > 0 ? [[
+                        'type' => 'mole_tunnel_used',
+                        'player_id' => $player->id,
+                        'hex_id' => $hexId,
+                        'tools' => $tunnelTools,
+                        'victory_points' => $tunnelVictoryPoints,
+                    ]] : []),
                     ...($interactionPhase === GamePhase::Setup && $nextPhase !== GamePhase::Setup ? [[
                         'type' => 'income_phase_started',
                         'round' => $state->round->number,

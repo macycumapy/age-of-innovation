@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domain\Game\Actions;
 
+use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\PendingInteractionType;
 use App\Domain\Game\Enums\TerrainType;
@@ -39,11 +40,34 @@ final class UndoStartingSpadeAction
                 }
             }
 
+            $playerState = collect($state->players)->firstWhere('playerId', $interaction->playerId);
+
+            if ($playerState instanceof GamePlayerStateData) {
+                $paidTools = (int) ($interaction->context['paidTools'] ?? 0);
+                $paidSpadeCount = (int) ($interaction->context['paidSpadeCount'] ?? 0);
+                $tunnelVictoryPoints = (int) ($interaction->context['tunnelVictoryPoints'] ?? 0);
+                $playerState->resources->tools += $paidTools;
+                $playerState->unassignedSpades -= $paidSpadeCount;
+                $playerState->victoryPoints -= $tunnelVictoryPoints;
+                $interaction->context['remainingSpades'] = max(
+                    0,
+                    (int) ($interaction->context['remainingSpades'] ?? 0) - $paidSpadeCount,
+                );
+            }
+
+            $interaction->optionIds = $interaction->context['optionIdsBeforeSelection'] ?? $interaction->optionIds;
+
             unset(
                 $interaction->context['selectedHexId'],
                 $interaction->context['terrainBefore'],
                 $interaction->context['terrainAfter'],
                 $interaction->context['spentSpades'],
+                $interaction->context['paidTools'],
+                $interaction->context['paidSpadeCount'],
+                $interaction->context['spadesToSpend'],
+                $interaction->context['tunnelTools'],
+                $interaction->context['tunnelVictoryPoints'],
+                $interaction->context['optionIdsBeforeSelection'],
             );
             $state->pendingInteraction = $interaction;
             $lockedGame->update(['state' => $state]);

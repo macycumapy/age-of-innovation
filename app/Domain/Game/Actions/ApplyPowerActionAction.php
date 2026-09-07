@@ -17,6 +17,7 @@ final class ApplyPowerActionAction
     public function __construct(
         private CreateBridgeInteractionAction $createBridgeInteraction,
         private FindEligibleTerraformHexesAction $findEligibleTerraformHexes,
+        private FindEligibleMoleTunnelHexesAction $findEligibleMoleTunnelHexes,
     ) {
     }
 
@@ -70,6 +71,10 @@ final class ApplyPowerActionAction
                 $playerState,
                 $playerState->homeland,
             );
+            $eligibleHexIds = array_values(array_unique([
+                ...$eligibleHexIds,
+                ...$this->findEligibleMoleTunnelHexes->execute($state, $playerState),
+            ]));
 
             if ($eligibleHexIds !== []) {
                 $state->pendingInteraction = new PendingInteractionData(

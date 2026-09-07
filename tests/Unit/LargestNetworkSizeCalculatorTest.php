@@ -56,6 +56,44 @@ class LargestNetworkSizeCalculatorTest extends TestCase
         $this->assertSame(0, LargestNetworkSizeCalculator::calculate($player, new BoardStateData()));
     }
 
+    public function test_moles_buildings_are_connected_through_tunnels_for_final_network(): void
+    {
+        $board = new BoardStateData(hexes: [
+            new BoardHexStateData(
+                id: '7:3',
+                q: 7,
+                r: 3,
+                initialTerrain: TerrainType::Mountain,
+                terrain: TerrainType::Mountain,
+                adjacentHexIds: ['7:4'],
+                building: new BuildingStateData(BuildingType::Workshop, 1),
+            ),
+            new BoardHexStateData(
+                id: '7:4',
+                q: 7,
+                r: 4,
+                initialTerrain: TerrainType::Water,
+                terrain: TerrainType::Water,
+                adjacentHexIds: ['7:3', '6:5'],
+            ),
+            new BoardHexStateData(
+                id: '6:5',
+                q: 6,
+                r: 5,
+                initialTerrain: TerrainType::Mountain,
+                terrain: TerrainType::Mountain,
+                adjacentHexIds: ['7:4'],
+                building: new BuildingStateData(BuildingType::Workshop, 1),
+            ),
+        ]);
+
+        $this->assertSame(2, LargestNetworkSizeCalculator::calculate(
+            $this->player(shippingLevel: 0, faction: Faction::Moles),
+            $board,
+        ));
+        $this->assertSame(1, LargestNetworkSizeCalculator::calculate($this->player(shippingLevel: 0), $board));
+    }
+
     /** @param list<string> $adjacentHexIds */
     private function landHex(string $id, array $adjacentHexIds, int $ownerPlayerId): BoardHexStateData
     {
@@ -86,12 +124,13 @@ class LargestNetworkSizeCalculatorTest extends TestCase
     private function player(
         int $shippingLevel,
         RoundBonus $roundBonus = RoundBonus::Coins,
+        Faction $faction = Faction::Blessed,
     ): GamePlayerStateData {
         return new GamePlayerStateData(
             playerId: 1,
             userId: 1,
             color: PlayerColor::Yellow,
-            faction: Faction::Blessed,
+            faction: $faction,
             homeland: TerrainType::Desert,
             roundBonus: $roundBonus,
             shippingLevel: $shippingLevel,

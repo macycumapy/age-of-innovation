@@ -7,6 +7,7 @@ namespace App\Domain\Game\Services;
 use App\Domain\Game\Data\BoardHexStateData;
 use App\Domain\Game\Data\BoardStateData;
 use App\Domain\Game\Data\GamePlayerStateData;
+use App\Domain\Game\Enums\Faction;
 use App\Domain\Game\Enums\TerrainType;
 
 final class LargestNetworkSizeCalculator
@@ -51,6 +52,10 @@ final class LargestNetworkSizeCalculator
             }
         }
 
+        if ($player->faction === Faction::Moles) {
+            self::connectMoleTunnels($connections, $ownedHexIds, $hexesById);
+        }
+
         $navigationRange = $player->shippingLevel
             + ($includeRoundBonus ? $player->roundBonus->shippingBonus() : 0);
 
@@ -68,6 +73,37 @@ final class LargestNetworkSizeCalculator
     {
         $connections[$firstHexId][$secondHexId] = true;
         $connections[$secondHexId][$firstHexId] = true;
+    }
+
+    /**
+     * @param array<string, array<string, true>> $connections
+     * @param array<string, true> $ownedHexIds
+     * @param array<string, BoardHexStateData> $hexesById
+     */
+    private static function connectMoleTunnels(
+        array &$connections,
+        array $ownedHexIds,
+        array $hexesById,
+    ): void {
+        foreach (array_keys($ownedHexIds) as $fromHexId) {
+            $fromHex = $hexesById[$fromHexId];
+
+            foreach (array_keys($ownedHexIds) as $toHexId) {
+                $toHex = $hexesById[$toHexId];
+                $qDistance = $toHex->q - $fromHex->q;
+                $rDistance = $toHex->r - $fromHex->r;
+                $hexDistance = max(abs($qDistance), abs($rDistance), abs($qDistance + $rDistance));
+                $hasIntermediateHex = array_intersect(
+                    $fromHex->adjacentHexIds,
+                    $toHex->adjacentHexIds,
+                    array_keys($hexesById),
+                ) !== [];
+
+                if ($hexDistance === 2 && $hasIntermediateHex) {
+                    self::connect($connections, $fromHexId, $toHexId);
+                }
+            }
+        }
     }
 
     /**

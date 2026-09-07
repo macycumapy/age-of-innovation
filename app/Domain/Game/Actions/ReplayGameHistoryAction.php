@@ -90,6 +90,7 @@ final class ReplayGameHistoryAction
         private ApplyBookActionAction $applyBookAction,
         private ApplyMakeInnovationAction $applyMakeInnovation,
         private FindEligibleTerraformHexesAction $findEligibleTerraformHexes,
+        private FindEligibleMoleTunnelHexesAction $findEligibleMoleTunnelHexes,
         private CreateTownChoiceAfterBuildingAction $createTownChoiceAfterBuilding,
         private CreateBuildingFollowUpInteractionAction $createBuildingFollowUpInteraction,
         private ApplyPowerOfferDecisionAction $applyPowerOfferDecision,
@@ -703,6 +704,7 @@ final class ReplayGameHistoryAction
 
         $playerState = $this->playerState($state, $player->id);
         $playerState->resources->tools -= (int) ($action->payload['paid_tools'] ?? 0);
+        $playerState->victoryPoints += (int) ($action->payload['tunnel_victory_points'] ?? 0);
         $playerState->unassignedSpades += (int) ($action->payload['paid_spade_count'] ?? 0);
         $playerState->unassignedSpades -= (int) ($action->payload['spades_spent'] ?? 1);
         $remainingSpades = (int) ($action->payload['remaining_spades'] ?? 0);
@@ -716,6 +718,13 @@ final class ReplayGameHistoryAction
                 $this->playerState($state, $player->id),
                 $targetTerrain,
             );
+            $tunnelUsed = (int) ($action->payload['tunnel_tools'] ?? 0) > 0;
+            if (! $tunnelUsed) {
+                $eligibleHexIds = array_values(array_unique([
+                    ...$eligibleHexIds,
+                    ...$this->findEligibleMoleTunnelHexes->execute($state, $playerState),
+                ]));
+            }
             $state->pendingInteraction = new PendingInteractionData(
                 PendingInteractionType::SpendSpades,
                 $player->id,
@@ -726,6 +735,7 @@ final class ReplayGameHistoryAction
                     'targetTerrain' => $targetTerrain->value,
                     'phase' => $interactionPhase->value,
                     'buildableHexIds' => $action->payload['buildable_hex_ids'] ?? [],
+                    'tunnelUsed' => $tunnelUsed,
                 ],
             );
 

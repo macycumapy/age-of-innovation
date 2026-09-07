@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import Form from '@/components/game/GameActionForm.vue';
-import { computed } from 'vue';
+import { computed, ref, watch } from 'vue';
 import PaidTerraformingController from '@/actions/App/Http/Controllers/PaidTerraformingController';
 import NeutralInnovationBuildingController from '@/actions/App/Http/Controllers/NeutralInnovationBuildingController';
 import InputError from '@/components/InputError.vue';
@@ -25,9 +25,13 @@ const props = defineProps<{
     homeland: TerrainType;
     hasSpadeInteraction: boolean;
     buildsNeutralBuilding?: boolean;
+    tunnelAvailable?: boolean;
+    tunnelRequired?: boolean;
+    playerCount?: number;
 }>();
 
 const isOpen = defineModel<boolean>('open', { required: true });
+const useTunnel = ref(false);
 const toolCostPerSpade = computed(() => Math.max(1, 3 - props.playerState.terraformingLevel));
 const terrainCycle: TerrainType[] = ['desert', 'plains', 'swamp', 'lake', 'forest', 'mountain', 'wasteland'];
 const requiredSpades = computed(() => {
@@ -47,7 +51,7 @@ const availableSpades = computed(() =>
     props.buildsNeutralBuilding ? 0 : Math.min(requiredSpades.value, props.playerState.unassignedSpades),
 );
 const purchasedSpades = computed(() => Math.max(0, requiredSpades.value - availableSpades.value));
-const totalToolCost = computed(() => purchasedSpades.value * toolCostPerSpade.value);
+const totalToolCost = computed(() => purchasedSpades.value * toolCostPerSpade.value + (useTunnel.value ? 1 : 0));
 const canAffordFullTransformation = computed(() => totalToolCost.value <= props.playerState.tools);
 const canTransformAvailable = computed(
     () => props.hasSpadeInteraction && availableSpades.value > 0 && availableSpades.value < requiredSpades.value,
@@ -56,6 +60,12 @@ const canTransformAvailable = computed(
 function startSucceeded(): void {
     isOpen.value = false;
 }
+
+watch([isOpen, () => props.tunnelRequired, () => props.targetHex.id], ([open, tunnelRequired]) => {
+    if (open) {
+        useTunnel.value = tunnelRequired ?? false;
+    }
+}, { immediate: true });
 </script>
 
 <template>
@@ -91,6 +101,17 @@ function startSucceeded(): void {
                     </div>
 
                     <input type="hidden" name="hex_id" :value="targetHex.id" />
+                    <input type="hidden" name="use_tunnel" :value="useTunnel ? '1' : '0'" />
+
+                    <label
+                        v-if="tunnelAvailable && !buildsNeutralBuilding"
+                        class="flex items-center justify-between gap-4 rounded-lg border p-3 text-sm"
+                    >
+                        <span>
+                            Использовать Туннель: 1 инструмент, +{{ 2 + (playerCount ?? 0) }} ПО
+                        </span>
+                        <input v-model="useTunnel" type="checkbox" :disabled="tunnelRequired" class="size-4" />
+                    </label>
 
                     <div class="grid grid-cols-3 gap-3 text-sm">
                         <div class="grid gap-1 rounded-lg border p-3">

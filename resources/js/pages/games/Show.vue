@@ -320,7 +320,9 @@ const selectableStartingHexIds = computed(() => {
     }
 
     if (canSpendStartingSpade.value && props.game.data.pendingInteraction?.type === 'spend_spades') {
-        return pendingStartingSpadeHexId.value === null ? props.game.data.pendingInteraction.optionIds : [];
+        return pendingStartingSpadeHexId.value === null
+            ? [...new Set([...props.game.data.pendingInteraction.optionIds, ...moleTunnelTerraformHexIds.value])]
+            : [];
     }
 
     if (pendingWorkshopAfterTerraforming.value !== null) {
@@ -629,11 +631,61 @@ const reachableEmptyLandHexIds = computed(() => {
         return hex !== undefined && hex.building === null && hex.terrain !== 'water';
     });
 });
+const moleTunnelTerraformHexIds = computed(() => {
+    const player = currentPlayer.value;
+
+    if ((!canStartPaidTerraforming.value && !canSpendStartingSpade.value) || player?.faction !== 'moles') {
+        return [];
+    }
+
+    const hexesById = new Map(props.game.data.board.hexes.map((hex) => [hex.id, hex]));
+    const ownedBuildingHexIds = new Set(
+        props.game.data.board.hexes
+            .filter((hex) => hex.building?.ownerPlayerId === player.id)
+            .map((hex) => hex.id),
+    );
+    const eligibleHexIds = new Set<string>();
+
+    props.game.data.board.hexes.forEach((originHex) => {
+        if (!ownedBuildingHexIds.has(originHex.id)) {
+            return;
+        }
+
+        props.game.data.board.hexes.forEach((targetHex) => {
+            const qDistance = targetHex.q - originHex.q;
+            const rDistance = targetHex.r - originHex.r;
+            const hexDistance = Math.max(
+                Math.abs(qDistance),
+                Math.abs(rDistance),
+                Math.abs(qDistance + rDistance),
+            );
+            const hasIntermediateHex = originHex.adjacentHexIds.some(
+                (hexId) => targetHex.adjacentHexIds.includes(hexId) && hexesById.has(hexId),
+            );
+
+            if (
+                hexDistance === 2 &&
+                hasIntermediateHex &&
+                targetHex.building === null &&
+                targetHex.terrain !== 'water' &&
+                targetHex.terrain !== player.homeland &&
+                !targetHex.adjacentHexIds.some((hexId) => ownedBuildingHexIds.has(hexId))
+            ) {
+                eligibleHexIds.add(targetHex.id);
+            }
+        });
+    });
+
+    return [...eligibleHexIds];
+});
 const paidTerraformHexIds = computed(() =>
-    reachableEmptyLandHexIds.value.filter(
-        (hexId) =>
-            props.game.data.board.hexes.find((hex) => hex.id === hexId)?.terrain !== currentPlayer.value?.homeland,
-    ),
+    [...new Set([
+        ...reachableEmptyLandHexIds.value.filter(
+            (hexId) =>
+                props.game.data.board.hexes.find((hex) => hex.id === hexId)?.terrain !== currentPlayer.value?.homeland,
+        ),
+        ...moleTunnelTerraformHexIds.value,
+    ])],
 );
 const buildableWorkshopHexIds = computed(() => {
     const state = currentPlayerState.value;
@@ -1710,6 +1762,12 @@ function selectedCompetencyForHomeland(homeland: TerrainType): Competency | unde
                 :homeland="currentPlayer.homeland"
                 :has-spade-interaction="canSpendStartingSpade"
                 :builds-neutral-building="canPlaceNeutralBuilding"
+                :tunnel-available="moleTunnelTerraformHexIds.includes(selectedPaidTerraformHex.id)"
+                :tunnel-required="
+                    moleTunnelTerraformHexIds.includes(selectedPaidTerraformHex.id) &&
+                    !reachableEmptyLandHexIds.includes(selectedPaidTerraformHex.id)
+                "
+                :player-count="game.data.players.length"
             />
 
             <BuildWorkshopDialog

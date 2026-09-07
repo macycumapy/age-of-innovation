@@ -16,13 +16,15 @@ use Illuminate\Validation\ValidationException;
 
 final class StartPaidTerraformingAction
 {
-    public function __construct(private FindEligibleTerraformHexesAction $findEligibleTerraformHexes)
-    {
+    public function __construct(
+        private FindEligibleTerraformHexesAction $findEligibleTerraformHexes,
+        private FindEligibleMoleTunnelHexesAction $findEligibleMoleTunnelHexes,
+    ) {
     }
 
-    public function execute(Game $game, User $user, string $hexId, bool $useAvailable): Game
+    public function execute(Game $game, User $user, string $hexId, bool $useAvailable, bool $useTunnel = false): Game
     {
-        return DB::transaction(function () use ($game, $user, $hexId, $useAvailable): Game {
+        return DB::transaction(function () use ($game, $user, $hexId, $useAvailable, $useTunnel): Game {
             $lockedGame = Game::query()->lockForUpdate()->findOrFail($game->id);
             $state = $lockedGame->state;
             $player = $lockedGame->players()->whereBelongsTo($user)->first();
@@ -53,13 +55,30 @@ final class StartPaidTerraformingAction
             }
 
             $toolCostPerSpade = max(1, 3 - $playerState->terraformingLevel);
-            $eligibleHexIds = $isExistingSpadeInteraction
+            $regularEligibleHexIds = $isExistingSpadeInteraction
                 ? $interaction->optionIds
                 : $this->findEligibleTerraformHexes->execute($state, $playerState, $playerState->homeland);
+            $tunnelEligibleHexIds = $isExistingSpadeInteraction && ($interaction->context['tunnelUsed'] ?? false)
+                ? []
+                : $this->findEligibleMoleTunnelHexes->execute($state, $playerState);
+            $eligibleHexIds = array_values(array_unique([...$regularEligibleHexIds, ...$tunnelEligibleHexIds]));
             $targetHex = collect($state->board->hexes)->firstWhere('id', $hexId);
             $requiredSpadeCount = $targetHex?->terrain->spadesTo($playerState->homeland) ?? 0;
             $purchasedSpadeCount = max(0, $requiredSpadeCount - $playerState->unassignedSpades);
             $totalToolCost = $purchasedSpadeCount * $toolCostPerSpade;
+            $isTunnelEligible = in_array($hexId, $tunnelEligibleHexIds, true);
+
+            if ($useTunnel && ! $isTunnelEligible) {
+                throw ValidationException::withMessages(['hex_id' => 'Для этой клетки нельзя использовать Туннель.']);
+            }
+
+            if (! $useTunnel && ! in_array($hexId, $regularEligibleHexIds, true)) {
+                throw ValidationException::withMessages(['hex_id' => 'До этой клетки можно добраться только через Туннель.']);
+            }
+
+            $tunnelToolCost = $useTunnel ? 1 : 0;
+            $tunnelVictoryPoints = $useTunnel ? 2 + count($state->players) : 0;
+            $totalToolCost += $tunnelToolCost;
 
             if (! in_array($hexId, $eligibleHexIds, true) || $requiredSpadeCount < 1) {
                 throw ValidationException::withMessages(['hex_id' => 'Эта клетка недоступна для преобразования.']);
@@ -75,7 +94,7 @@ final class StartPaidTerraformingAction
                 }
 
                 $purchasedSpadeCount = 0;
-                $totalToolCost = 0;
+                $totalToolCost = $tunnelToolCost;
             }
 
             $spadesToSpend = $useAvailable
@@ -100,6 +119,7 @@ final class StartPaidTerraformingAction
             }
 
             if ($isExistingSpadeInteraction) {
+                $interaction->context['optionIdsBeforeSelection'] = $interaction->optionIds;
                 $interaction->optionIds = [$hexId];
                 $interaction->context['remainingSpades'] = (int) ($interaction->context['remainingSpades'] ?? 0)
                     + $purchasedSpadeCount;
@@ -108,6 +128,8 @@ final class StartPaidTerraformingAction
                 $interaction->context['paidSpadeCount'] = (int) ($interaction->context['paidSpadeCount'] ?? 0)
                     + $purchasedSpadeCount;
                 $interaction->context['spadesToSpend'] = $spadesToSpend;
+                $interaction->context['tunnelTools'] = $tunnelToolCost;
+                $interaction->context['tunnelVictoryPoints'] = $tunnelVictoryPoints;
                 $state->pendingInteraction = $interaction;
             } else {
                 $state->pendingInteraction = new PendingInteractionData(
@@ -122,9 +144,13 @@ final class StartPaidTerraformingAction
                         'paidTools' => $totalToolCost,
                         'paidSpadeCount' => $purchasedSpadeCount,
                         'spadesToSpend' => $spadesToSpend,
+                        'tunnelTools' => $tunnelToolCost,
+                        'tunnelVictoryPoints' => $tunnelVictoryPoints,
                     ],
                 );
             }
+
+            $playerState->victoryPoints += $tunnelVictoryPoints;
 
             $lockedGame->update([
                 'state' => $state,
