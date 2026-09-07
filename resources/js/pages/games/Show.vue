@@ -24,6 +24,7 @@ import CompetencyActionDialog from '@/components/game/CompetencyActionDialog.vue
 import CurrentTurnFinishDialog from '@/components/game/CurrentTurnFinishDialog.vue';
 import CurrentTurnPanel from '@/components/game/CurrentTurnPanel.vue';
 import IncomeDistributionPanel from '@/components/game/IncomeDistributionPanel.vue';
+import TownInteractionPanel from '@/components/game/TownInteractionPanel.vue';
 import FactionActionDialog from '@/components/game/FactionActionDialog.vue';
 import FinalLeaderboard from '@/components/game/FinalLeaderboard.vue';
 import CultBoard from '@/components/game/CultBoard.vue';
@@ -1063,6 +1064,15 @@ function selectedCompetencyForHomeland(homeland: TerrainType): Competency | unde
                 @reset-bridge-selection="selectedBridgeFromHexId = null"
                 @finish-turn="isCurrentTurnFinishDialogOpen = true"
                 @pass="isPassDialogOpen = true"
+            />
+
+            <TownInteractionPanel
+                v-if="
+                    game.data.pendingInteraction?.type === 'choose_town' &&
+                    game.data.pendingInteraction.playerId === currentPlayer?.id &&
+                    activePlayer?.user.id === page.props.auth.user.id
+                "
+                :game="game"
             />
 
             <BookDistributionPanel

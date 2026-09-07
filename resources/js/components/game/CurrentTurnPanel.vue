@@ -14,7 +14,6 @@ import StartingSpadeController from '@/actions/App/Http/Controllers/StartingSpad
 import StartingSpadeTurnController from '@/actions/App/Http/Controllers/StartingSpadeTurnController';
 import TownChoiceUndoController from '@/actions/App/Http/Controllers/TownChoiceUndoController';
 import Form from '@/components/game/GameActionForm.vue';
-import TownInteractionPanel from '@/components/game/TownInteractionPanel.vue';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import type { GamePlayerSummary, GameResource } from '@/types';
@@ -53,12 +52,6 @@ const powerOfferAmount = computed(() =>
         : 0,
 );
 const powerOfferVictoryPointCost = computed(() => Math.max(0, powerOfferAmount.value - 1));
-const canResolveTownInteraction = computed(
-    () =>
-        props.game.data.pendingInteraction?.type === 'choose_town' &&
-        props.game.data.pendingInteraction?.playerId === props.currentPlayer?.id &&
-        isCurrentUsersTurn.value,
-);
 const remainingSpades = computed(() => {
     const interaction = props.game.data.pendingInteraction;
 
@@ -137,6 +130,7 @@ function scrollToPageTop(event: MouseEvent): void {
                     game.data.pendingInteraction?.type === 'place_bridge' ||
                     game.data.pendingInteraction?.type === 'build_workshop_after_terraforming' ||
                     game.data.pendingInteraction?.type === 'choose_round_bonus' ||
+                    game.data.pendingInteraction?.type === 'choose_town' ||
                     game.data.pendingInteraction?.type === 'choose_science_bonus_books' ||
                     game.data.pendingInteraction?.type === 'choose_innovation_books' ||
                     game.data.pendingInteraction?.type === 'choose_shipping_books' ||
@@ -159,6 +153,9 @@ function scrollToPageTop(event: MouseEvent): void {
             </template>
             <template v-else-if="game.data.pendingInteraction?.type === 'choose_round_bonus'">
                 Выберите жетон бонуса
+            </template>
+            <template v-else-if="game.data.pendingInteraction?.type === 'choose_town'">
+                Выберите жетон города
             </template>
             <template v-else-if="game.data.pendingInteraction?.type === 'choose_science_bonus_books'">
                 Выберите книги, полученные за научную цель раунда.
@@ -231,9 +228,7 @@ function scrollToPageTop(event: MouseEvent): void {
             {{ remainingSpades }}
         </span>
 
-        <TownInteractionPanel v-if="canResolveTownInteraction" :game="game" />
-
-        <div v-else-if="canResolvePowerOffer" class="flex shrink-0 items-center gap-2">
+        <div v-if="canResolvePowerOffer" class="flex shrink-0 items-center gap-2">
             <Form v-bind="PowerOfferController.form(game.data.id)" #default="{ processing }">
                 <input type="hidden" name="accept" value="0" />
                 <Button type="submit" variant="outline" :disabled="processing">Отказаться</Button>

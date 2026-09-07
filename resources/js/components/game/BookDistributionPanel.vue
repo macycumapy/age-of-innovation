@@ -99,7 +99,7 @@ watch(counts, () => emit('change', { ...counts }), { deep: true, immediate: true
                         <input type="hidden" :name="`book_counts[${discipline}]`" :value="counts[discipline]" />
                     </div>
                 </div>
-                <div class="grid justify-items-center gap-1.5">
+                <div class="grid justify-items-end gap-1.5">
                     <InputError :message="errors.book_counts ?? errors.game" />
                     <Button type="submit" size="sm" :disabled="processing || remainingCount !== 0">
                         {{ processing ? 'Подтверждение…' : 'Подтвердить выбор' }}
