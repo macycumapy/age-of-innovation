@@ -503,12 +503,19 @@ function canSacrificeFromBowl(player: GamePlayerSummary, bowl: PowerBowl): boole
                 :key="player.id"
                 class="grid overflow-hidden rounded-xl bg-card shadow-sm xl:grid-cols-[calc(60%-0.6rem)_minmax(30rem,1fr)]"
             >
-                <div class="relative aspect-[1219/636] self-start overflow-hidden">
+                <div class="relative aspect-[1219/636] self-start overflow-hidden [container-type:inline-size]">
                     <img
                         :src="boardImage(player.color)"
                         :alt="`Планшет игрока ${player.user.name}`"
                         class="block h-auto w-full"
                     />
+
+                    <span
+                        class="absolute top-[3%] left-1/2 z-30 max-w-[25%] -translate-x-1/2 truncate text-[2cqw] leading-tight font-semibold text-amber-800"
+                        :title="player.user.name"
+                    >
+                        {{ player.user.name }}
+                    </span>
 
                     <img
                         v-if="player.faction"
