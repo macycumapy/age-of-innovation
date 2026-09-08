@@ -5576,14 +5576,14 @@ class GameManagementTest extends TestCase
     {
         $user = User::factory()->create();
 
-        $this->actingAs($user)
+        $response = $this->actingAs($user)
             ->post(route('games.store'), [
                 'map_variant' => MapVariant::OneToThreePlayers->value,
-            ])
-            ->assertRedirect(route('games.index'));
+            ]);
 
         $game = Game::query()->sole();
 
+        $response->assertRedirect(route('games.show', $game));
         $this->assertSame(MapVariant::OneToThreePlayers, $game->state->board->variant);
         $this->assertTrue($game->players()->whereBelongsTo($user)->where('seat', 1)->exists());
     }

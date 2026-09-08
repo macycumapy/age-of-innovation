@@ -56,13 +56,13 @@ class GameController extends Controller
         /** @var User $user */
         $user = $request->user();
 
-        $createGame->execute($user, $request->mapVariant());
+        $game = $createGame->execute($user, $request->mapVariant());
 
         Inertia::flash('toast', [
             'type' => 'success',
             'message' => 'Игра создана.',
         ]);
 
-        return to_route('games.index');
+        return to_route('games.show', $game);
     }
 }
