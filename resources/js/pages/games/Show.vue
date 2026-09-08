@@ -3,9 +3,6 @@ import { Head, Link, router, useHttp, usePage, usePoll } from '@inertiajs/vue3';
 import { useEcho } from '@laravel/echo-vue';
 import { ChevronDown } from '@lucide/vue';
 import { computed, reactive, ref, watch } from 'vue';
-import GamePlayerController from '@/actions/App/Http/Controllers/GamePlayerController';
-import GamePlayerReadinessController from '@/actions/App/Http/Controllers/GamePlayerReadinessController';
-import GameStartController from '@/actions/App/Http/Controllers/GameStartController';
 import BridgeController from '@/actions/App/Http/Controllers/BridgeController';
 import PalaceGuildController from '@/actions/App/Http/Controllers/PalaceGuildController';
 import NeutralInnovationBuildingController from '@/actions/App/Http/Controllers/NeutralInnovationBuildingController';
@@ -22,6 +19,7 @@ import CompetencySelector from '@/components/game/CompetencySelector.vue';
 import CompetencyActionDialog from '@/components/game/CompetencyActionDialog.vue';
 import CurrentTurnFinishDialog from '@/components/game/CurrentTurnFinishDialog.vue';
 import CurrentTurnPanel from '@/components/game/CurrentTurnPanel.vue';
+import GameLobby from '@/components/game/GameLobby.vue';
 import IncomeDistributionPanel from '@/components/game/IncomeDistributionPanel.vue';
 import TownInteractionPanel from '@/components/game/TownInteractionPanel.vue';
 import FactionActionDialog from '@/components/game/FactionActionDialog.vue';
@@ -50,7 +48,6 @@ import RoundBonusBoard from '@/components/game/RoundBonusBoard.vue';
 import TownTileBoard from '@/components/game/TownTileBoard.vue';
 import PalaceWaterTownDialog from '@/components/game/PalaceWaterTownDialog.vue';
 import InputError from '@/components/InputError.vue';
-import { Input } from '@/components/ui/input';
 import { NumberStepper } from '@/components/ui/number-stepper';
 import { factionNames, roundBonusNames, terrainNames } from '@/lib/gameDisplay';
 import { Button } from '@/components/ui/button';
@@ -970,93 +967,7 @@ function selectedCompetencyForHomeland(homeland: TerrainType): Competency | unde
 
     <div class="flex h-full min-w-0 flex-1">
         <div class="flex min-w-0 flex-1 flex-col gap-6 p-4">
-            <Card v-if="game.data.status === 'lobby'">
-                <CardHeader>
-                    <CardTitle>Участники</CardTitle>
-                    <CardDescription> Игроки занимают места в порядке присоединения. </CardDescription>
-                </CardHeader>
-                <CardContent class="grid gap-3">
-                    <div
-                        v-for="player in game.data.players"
-                        :key="player.id"
-                        class="flex items-center justify-between gap-4 rounded-lg border p-3"
-                    >
-                        <div>
-                            <p class="font-medium">{{ player.user.name }}</p>
-                            <p class="text-sm text-muted-foreground">Место {{ player.seat }}</p>
-                        </div>
-
-                        <span class="rounded-full bg-muted px-2.5 py-1 text-xs font-medium">
-                            {{ player.isReady ? 'Готов' : 'Не готов' }}
-                        </span>
-                    </div>
-
-                    <div
-                        v-for="seat in game.data.maxPlayers - game.data.playersCount"
-                        :key="`empty-${seat}`"
-                        class="rounded-lg border border-dashed p-3 text-sm text-muted-foreground"
-                    >
-                        Свободное место
-                    </div>
-
-                    <div
-                        v-if="currentPlayer || game.data.playersCount < game.data.maxPlayers || game.data.isOwner"
-                        class="flex flex-wrap items-start justify-end gap-3 border-t pt-3"
-                    >
-                        <Form
-                            v-if="currentPlayer"
-                            v-bind="
-                                GamePlayerReadinessController.update.form({
-                                    game: game.data.id,
-                                    gamePlayer: currentPlayer.id,
-                                })
-                            "
-                            #default="{ errors, processing }"
-                            class="grid gap-2"
-                        >
-                            <input type="hidden" name="is_ready" :value="currentPlayer.isReady ? '0' : '1'" />
-                            <InputError :message="errors.is_ready" />
-                            <Button
-                                type="submit"
-                                :variant="currentPlayer.isReady ? 'outline' : 'default'"
-                                :disabled="processing"
-                            >
-                                {{
-                                    processing
-                                        ? 'Сохранение…'
-                                        : currentPlayer.isReady
-                                          ? 'Отменить готовность'
-                                          : 'Я готов'
-                                }}
-                            </Button>
-                        </Form>
-
-                        <Form
-                            v-if="!currentPlayer && game.data.playersCount < game.data.maxPlayers"
-                            v-bind="GamePlayerController.store.form(game.data.id)"
-                            #default="{ errors, processing }"
-                            class="grid gap-2"
-                        >
-                            <InputError :message="errors.game" />
-                            <Button type="submit" :disabled="processing">
-                                {{ processing ? 'Присоединение…' : 'Присоединиться' }}
-                            </Button>
-                        </Form>
-
-                        <Form
-                            v-if="game.data.isOwner"
-                            v-bind="GameStartController.form(game.data.id)"
-                            #default="{ errors, processing }"
-                            class="grid gap-2"
-                        >
-                            <InputError :message="errors.game" />
-                            <Button type="submit" :disabled="processing || !game.data.canStart">
-                                {{ processing ? 'Запуск…' : 'Начать игру' }}
-                            </Button>
-                        </Form>
-                    </div>
-                </CardContent>
-            </Card>
+            <GameLobby v-if="game.data.status === 'lobby'" :game="game" :current-player="currentPlayer" />
 
             <CurrentTurnPanel
                 :game="game"
@@ -1699,7 +1610,9 @@ function selectedCompetencyForHomeland(homeland: TerrainType): Competency | unde
                 v-model:open="isInnovationActionDialogOpen"
                 :game-id="game.data.id"
                 :innovation="selectedInnovationAction"
-                :description="selectedInnovationAction ? game.data.innovationDescriptions[selectedInnovationAction] : ''"
+                :description="
+                    selectedInnovationAction ? game.data.innovationDescriptions[selectedInnovationAction] : ''
+                "
             />
 
             <ScholarActionDialog
