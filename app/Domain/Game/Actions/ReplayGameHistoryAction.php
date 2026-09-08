@@ -347,6 +347,28 @@ final class ReplayGameHistoryAction
                 is_string($action->payload['hex_id'] ?? null) ? $action->payload['hex_id'] : null,
             );
             $game->active_player_id = $result['nextActiveUserId'];
+        } elseif (isset($action->payload['innovation'])) {
+            $innovation = Innovation::from((string) $action->payload['innovation']);
+
+            if ($innovation === Innovation::Professor) {
+                $playerState->resources->scholars = min($playerState->scholarPoolSize, $playerState->resources->scholars + 1);
+                $playerState->victoryPoints += 3;
+            } else {
+                $playerState->unassignedSpades++;
+                $eligibleHexIds = $this->findEligibleTerraformHexes->execute($state, $playerState, $playerState->homeland);
+
+                if ($eligibleHexIds !== []) {
+                    $state->pendingInteraction = new PendingInteractionData(
+                        PendingInteractionType::SpendSpades,
+                        $player->id,
+                        $eligibleHexIds,
+                        ['phase' => GamePhase::Actions->value, 'spadeCount' => 1, 'remainingSpades' => 1, 'targetTerrain' => $playerState->homeland->value],
+                    );
+                }
+            }
+
+            $playerState->usedSpecialActionIds[] = $innovation->specialActionId();
+            $state->round->hasTakenMainAction = true;
         } elseif (isset($action->payload['faction'])) {
             $this->applyFactionAction->execute($state, $playerState, $discipline);
         } elseif (($action->payload['competency'] ?? null) === Competency::Competency07->value) {

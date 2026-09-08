@@ -147,6 +147,8 @@ export type GamePlayerBoardState = {
     availableBridges: number;
     competencyIds: Competency[];
     inventionIds: Innovation[];
+    availableInnovationActionIds: Innovation[];
+    usedInnovationActionIds: Innovation[];
     palaceId: PalaceAbility | null;
     canUsePalaceAction: boolean;
     activeTownKeys: number;

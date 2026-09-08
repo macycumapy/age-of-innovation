@@ -59,6 +59,7 @@ const props = defineProps<{
     canUseFactionAction: boolean;
     canUseCompetencyAction: boolean;
     canUsePalaceAction: boolean;
+    canUseInnovationAction: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -70,6 +71,7 @@ const emit = defineEmits<{
     useFactionAction: [];
     useCompetencyAction: [];
     usePalaceAction: [];
+    useInnovationAction: [innovation: Innovation];
 }>();
 
 const boardImages = import.meta.glob('../../../images/terrain_boards/*.webp', {
@@ -409,6 +411,16 @@ function innovationsForPlayer(playerId: number): Innovation[] {
     return playerState(playerId)?.inventionIds ?? [];
 }
 
+function isInnovationActionAvailable(player: GamePlayerSummary, innovation: Innovation): boolean {
+    return props.canUseInnovationAction
+        && player.user.id === props.currentUserId
+        && (playerState(player.id)?.availableInnovationActionIds.includes(innovation) ?? false);
+}
+
+function isInnovationActionUsed(playerId: number, innovation: Innovation): boolean {
+    return playerState(playerId)?.usedInnovationActionIds.includes(innovation) ?? false;
+}
+
 function roundBonusForPlayer(playerId: number): RoundBonus | undefined {
     const state = playerState(playerId);
 
@@ -674,13 +686,21 @@ function canSacrificeFromBowl(player: GamePlayerSummary, bowl: PowerBowl): boole
                             :key="innovation"
                         >
                             <TooltipTrigger as-child>
-                                <img
-                                    :src="innovationImage(innovation)"
-                                    :alt="`Инновация ${innovation}`"
+                                <button
+                                    type="button"
                                     :style="innovationTileStyle(innovationIndex)"
-                                    tabindex="0"
-                                    class="absolute z-20 h-auto cursor-help rounded-sm object-contain drop-shadow-md"
-                                />
+                                    class="absolute z-20 h-auto rounded-sm object-contain drop-shadow-md"
+                                    :class="isInnovationActionAvailable(player, innovation) ? 'cursor-pointer' : 'cursor-help'"
+                                    @click="isInnovationActionAvailable(player, innovation) && emit('useInnovationAction', innovation)"
+                                >
+                                    <img :src="innovationImage(innovation)" :alt="`Инновация ${innovation}`" class="block h-auto w-full rounded-sm" />
+                                    <img
+                                        v-if="isInnovationActionUsed(player.id, innovation)"
+                                        :src="goldCrossUrl"
+                                        alt="Действие инновации использовано"
+                                        class="pointer-events-none absolute top-1/2 left-1/2 size-[82%] -translate-x-1/2 -translate-y-1/2 object-contain drop-shadow-md"
+                                    />
+                                </button>
                             </TooltipTrigger>
                             <TooltipContent class="max-w-xs">
                                 <p class="font-semibold">Инновация</p>

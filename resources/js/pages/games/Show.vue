@@ -7,7 +7,6 @@ import GamePlayerController from '@/actions/App/Http/Controllers/GamePlayerContr
 import GamePlayerReadinessController from '@/actions/App/Http/Controllers/GamePlayerReadinessController';
 import GameStartController from '@/actions/App/Http/Controllers/GameStartController';
 import BridgeController from '@/actions/App/Http/Controllers/BridgeController';
-import PalaceChoiceController from '@/actions/App/Http/Controllers/PalaceChoiceController';
 import PalaceGuildController from '@/actions/App/Http/Controllers/PalaceGuildController';
 import NeutralInnovationBuildingController from '@/actions/App/Http/Controllers/NeutralInnovationBuildingController';
 import PlanningBundleController from '@/actions/App/Http/Controllers/PlanningBundleController';
@@ -30,12 +29,13 @@ import FinalLeaderboard from '@/components/game/FinalLeaderboard.vue';
 import CultBoard from '@/components/game/CultBoard.vue';
 import InnovationBoard from '@/components/game/InnovationBoard.vue';
 import InnovationPurchaseDialog from '@/components/game/InnovationPurchaseDialog.vue';
+import InnovationActionDialog from '@/components/game/InnovationActionDialog.vue';
 import PalaceBoard from '@/components/game/PalaceBoard.vue';
 import PalaceActionDialog from '@/components/game/PalaceActionDialog.vue';
 import PaidTerraformingDialog from '@/components/game/PaidTerraformingDialog.vue';
 import PassDialog from '@/components/game/PassDialog.vue';
 import BookDistributionPanel from '@/components/game/BookDistributionPanel.vue';
-import PalaceSelector from '@/components/game/PalaceSelector.vue';
+import PalaceChoicePanel from '@/components/game/PalaceChoicePanel.vue';
 import PlayerBoards from '@/components/game/PlayerBoards.vue';
 import PlayerStatsPanel from '@/components/game/PlayerStatsPanel.vue';
 import PowerActionDialog from '@/components/game/PowerActionDialog.vue';
@@ -86,7 +86,6 @@ import type {
     Innovation,
     InnovationPurchaseState,
     MapVariant,
-    PalaceAbility,
     PowerActionState,
     RoundBonus,
     TerrainType,
@@ -458,7 +457,6 @@ const startingKnowledgeCounts = reactive<Record<KnowledgeDiscipline, number>>({
 });
 const selectedStartingCompetency = ref<Competency | null>(null);
 const selectedMonkCompetency = ref<Competency | null>(null);
-const selectedPalace = ref<PalaceAbility | null>(null);
 const isPlanningBundleGroupOpen = ref(true);
 const isPowerSacrificeDialogOpen = ref(false);
 const isPowerActionDialogOpen = ref(false);
@@ -490,12 +488,19 @@ function openFactionActionDialog(): void {
 }
 const isBuildWorkshopDialogOpen = ref(false);
 const isInnovationPurchaseDialogOpen = ref(false);
+const isInnovationActionDialogOpen = ref(false);
 const selectedPaidTerraformHexId = ref<string | null>(null);
 const selectedBuildWorkshopHexId = ref<string | null>(null);
 const selectedBuildingUpgradeHexId = ref<string | null>(null);
 const selectedPowerAction = ref<PowerActionState | null>(null);
 const selectedBookAction = ref<BookActionState | null>(null);
 const selectedInnovation = ref<Innovation | null>(null);
+const selectedInnovationAction = ref<Innovation | null>(null);
+
+function openInnovationActionDialog(innovation: Innovation): void {
+    selectedInnovationAction.value = innovation;
+    isInnovationActionDialogOpen.value = true;
+}
 const selectedScholarDiscipline = ref<KnowledgeDiscipline | null>(null);
 
 const currentPlayerState = computed(() =>
@@ -752,6 +757,10 @@ const availableActionsBeforePass = computed(() => {
         actions.push('действие жетона Дворца');
     }
 
+    if (state.availableInnovationActionIds.length > 0) {
+        actions.push('действие инновации');
+    }
+
     return actions;
 });
 
@@ -842,7 +851,6 @@ watch(
 
         selectedStartingCompetency.value = null;
         selectedMonkCompetency.value = null;
-        selectedPalace.value = null;
     },
 );
 
@@ -1533,38 +1541,12 @@ function selectedCompetencyForHomeland(homeland: TerrainType): Competency | unde
                 </CardContent>
             </Card>
 
-            <Card
+            <PalaceChoicePanel
                 v-if="canChoosePalace && game.data.pendingInteraction?.type === 'choose_palace'"
-                class="mx-auto w-full max-w-5xl border-primary/40"
-            >
-                <CardHeader>
-                    <CardTitle>Жетон Дворца</CardTitle>
-                    <CardDescription> Выберите один из доступных жетонов для построенного Дворца. </CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <Form
-                        v-bind="PalaceChoiceController.form(game.data.id)"
-                        #default="{ errors, processing }"
-                        class="grid gap-4"
-                    >
-                        <input type="hidden" name="palace_id" :value="selectedPalace ?? ''" />
-                        <PalaceSelector
-                            v-model="selectedPalace"
-                            :palaces="game.data.pendingInteraction.optionIds"
-                            :descriptions="game.data.palaceDescriptions"
-                            :disabled="processing"
-                        />
-                        <InputError :message="errors.palace_id" />
-                        <Button
-                            type="submit"
-                            class="justify-self-end"
-                            :disabled="selectedPalace === null || processing"
-                        >
-                            {{ processing ? 'Подтверждение…' : 'Подтвердить выбор' }}
-                        </Button>
-                    </Form>
-                </CardContent>
-            </Card>
+                :game-id="game.data.id"
+                :palaces="game.data.pendingInteraction.optionIds"
+                :descriptions="game.data.palaceDescriptions"
+            />
 
             <section v-if="['active', 'finished'].includes(game.data.status)" class="grid gap-4">
                 <FinalLeaderboard
@@ -1635,6 +1617,7 @@ function selectedCompetencyForHomeland(homeland: TerrainType): Competency | unde
                             :can-use-faction-action="canExchangeResources"
                             :can-use-competency-action="canExchangeResources"
                             :can-use-palace-action="canExchangeResources"
+                            :can-use-innovation-action="canExchangeResources"
                             @sacrifice-power="isPowerSacrificeDialogOpen = true"
                             @exchange-resources="isResourceExchangeDialogOpen = true"
                             @advance-shipping="isShippingAdvancementDialogOpen = true"
@@ -1643,6 +1626,7 @@ function selectedCompetencyForHomeland(homeland: TerrainType): Competency | unde
                             @use-faction-action="openFactionActionDialog"
                             @use-competency-action="isCompetencyActionDialogOpen = true"
                             @use-palace-action="isPalaceActionDialogOpen = true"
+                            @use-innovation-action="openInnovationActionDialog"
                         />
                     </div>
 
@@ -1709,6 +1693,13 @@ function selectedCompetencyForHomeland(homeland: TerrainType): Competency | unde
                 :player-state="currentPlayerState"
                 :description="selectedInnovation ? game.data.innovationDescriptions[selectedInnovation] : ''"
                 :discipline-names="game.data.knowledgeDisciplineNames"
+            />
+
+            <InnovationActionDialog
+                v-model:open="isInnovationActionDialogOpen"
+                :game-id="game.data.id"
+                :innovation="selectedInnovationAction"
+                :description="selectedInnovationAction ? game.data.innovationDescriptions[selectedInnovationAction] : ''"
             />
 
             <ScholarActionDialog

@@ -72,6 +72,16 @@ enum Innovation: string
         return $this === self::TradeRoutes ? $guildCount * 2 : 0;
     }
 
+    public function hasSpecialAction(): bool
+    {
+        return in_array($this, [self::DeusExMachina, self::Professor], true);
+    }
+
+    public function specialActionId(): string
+    {
+        return 'innovation:'.$this->value;
+    }
+
     public function neutralBuildingType(): ?BuildingType
     {
         return match ($this) {

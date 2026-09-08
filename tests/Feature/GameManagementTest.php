@@ -2220,6 +2220,32 @@ class GameManagementTest extends TestCase
         );
     }
 
+    public function test_professor_innovation_action_grants_a_scholar_and_victory_points(): void
+    {
+        [$game, $user] = $this->gameForFactionAction(Faction::Blessed);
+        $state = $game->state;
+        $state->players[0]->inventionIds = [Innovation::Professor->value];
+        $game->update(['state' => $state]);
+
+        $this->actingAs($user)->post(route('games.innovation-action', $game), [
+            'innovation' => Innovation::Professor->value,
+        ])->assertNoContent();
+
+        $game->refresh();
+        $this->assertSame(1, $game->state->players[0]->resources->scholars);
+        $this->assertSame(23, $game->state->players[0]->victoryPoints);
+        $this->assertTrue($game->state->round->hasTakenMainAction);
+        $this->assertContains(
+            Innovation::Professor->specialActionId(),
+            $game->state->players[0]->usedSpecialActionIds,
+        );
+        $this->get(route('games.show', $game))->assertInertia(
+            fn (Assert $page) => $page
+                ->where('game.data.playerBoardStates.0.availableInnovationActionIds', [])
+                ->where('game.data.playerBoardStates.0.usedInnovationActionIds', [Innovation::Professor->value]),
+        );
+    }
+
     public function test_moles_power_bridge_still_requires_a_river(): void
     {
         [$game, $user] = $this->gameForBridgeAction();

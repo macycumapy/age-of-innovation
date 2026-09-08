@@ -18,6 +18,7 @@ use App\Http\Controllers\GameHistoryUndoController;
 use App\Http\Controllers\GamePlayerController;
 use App\Http\Controllers\GamePlayerReadinessController;
 use App\Http\Controllers\GameStartController;
+use App\Http\Controllers\InnovationActionController;
 use App\Http\Controllers\InnovationController;
 use App\Http\Controllers\NeutralInnovationBuildingController;
 use App\Http\Controllers\PaidTerraformingController;
@@ -88,6 +89,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('games.town-choice.destroy');
     Route::post('games/{game}/books', BookDistributionController::class)
         ->name('games.books');
+    Route::post('games/{game}/innovation-action', InnovationActionController::class)
+        ->name('games.innovation-action');
     Route::post('games/{game}/town/palace-water', PalaceWaterTownController::class)
         ->name('games.town.palace-water');
     Route::post('games/{game}/paid-terraforming', PaidTerraformingController::class)

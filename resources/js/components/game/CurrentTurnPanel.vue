@@ -131,6 +131,7 @@ function scrollToPageTop(event: MouseEvent): void {
                     game.data.pendingInteraction?.type === 'build_workshop_after_terraforming' ||
                     game.data.pendingInteraction?.type === 'choose_round_bonus' ||
                     game.data.pendingInteraction?.type === 'choose_town' ||
+                    game.data.pendingInteraction?.type === 'choose_palace' ||
                     game.data.pendingInteraction?.type === 'choose_science_bonus_books' ||
                     game.data.pendingInteraction?.type === 'choose_innovation_books' ||
                     game.data.pendingInteraction?.type === 'choose_shipping_books' ||
@@ -156,6 +157,9 @@ function scrollToPageTop(event: MouseEvent): void {
             </template>
             <template v-else-if="game.data.pendingInteraction?.type === 'choose_town'">
                 Выберите жетон города
+            </template>
+            <template v-else-if="game.data.pendingInteraction?.type === 'choose_palace'">
+                Выберите жетон Дворца
             </template>
             <template v-else-if="game.data.pendingInteraction?.type === 'choose_science_bonus_books'">
                 Выберите книги, полученные за научную цель раунда.

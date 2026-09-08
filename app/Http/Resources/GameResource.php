@@ -215,6 +215,19 @@ class GameResource extends JsonResource
                     'inventionIds' => $player->inventionIds,
                     'palaceId' => $player->palaceId,
                     'canUsePalaceAction' => $this->canUsePalaceAction($player),
+                    'availableInnovationActionIds' => array_values(array_filter(
+                        $player->inventionIds,
+                        fn (string $innovationId): bool => $this->phase === GamePhase::Actions
+                            && $this->state->pendingInteraction === null
+                            && ! $this->state->round->hasTakenMainAction
+                            && ($innovation = Innovation::tryFrom($innovationId))?->hasSpecialAction() === true
+                            && ! in_array($innovation->specialActionId(), $player->usedSpecialActionIds, true),
+                    )),
+                    'usedInnovationActionIds' => array_values(array_filter(
+                        $player->inventionIds,
+                        static fn (string $innovationId): bool => ($innovation = Innovation::tryFrom($innovationId))?->hasSpecialAction() === true
+                            && in_array($innovation->specialActionId(), $player->usedSpecialActionIds, true),
+                    )),
                     'activeTownKeys' => max(
                         0,
                         count($player->townTileIds)
