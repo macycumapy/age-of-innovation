@@ -8,10 +8,12 @@ import Form from '@/components/game/GameActionForm.vue';
 import { Button } from '@/components/ui/button';
 import { playerColorValues, roundBonusNames, terrainNames } from '@/lib/gameDisplay';
 import type {
+    BookAction,
     GameActionType,
     GameHistoryEntry,
     GameHistoryPage,
     GamePlayerSummary,
+    PowerAction,
     RoundBonus,
     TerrainType,
 } from '@/types';
@@ -344,6 +346,55 @@ function actionDescription(entry: GameHistoryEntry): string {
     return actionDescriptions[entry.type];
 }
 
+function powerActionReward(action: PowerAction): string {
+    return {
+        build_bridge: 'построен мост',
+        gain_scholar: 'получен 1 учёный',
+        gain_tools: 'получено 2 инструмента',
+        gain_coins: 'получено 7 золота',
+        terraform_one_spade: 'получена 1 лопата',
+        terraform_two_spades: 'получено 2 лопаты',
+    }[action];
+}
+
+function bookActionReward(entry: GameHistoryEntry, action: BookAction): string | null {
+    if (action === 'advance_knowledge') {
+        const discipline = payloadString(entry, 'discipline');
+        const disciplineNames: Record<string, string> = {
+            banking: 'банковском деле',
+            law: 'праве',
+            engineering: 'инженерном деле',
+            medicine: 'медицине',
+        };
+
+        return discipline === null
+            ? 'получено 2 шага знаний'
+            : `получено 2 шага в ${disciplineNames[discipline] ?? discipline}`;
+    }
+
+    return {
+        gain_power: 'получено 5 Силы',
+        gain_coins: 'получено 6 золота',
+        upgrade_to_guild: 'дом улучшен до рынка',
+        score_guilds: null,
+        terraform_three_spades: 'получено 3 лопаты',
+    }[action];
+}
+
+function actionRewardDetails(entry: GameHistoryEntry): string | null {
+    const action = payloadString(entry, 'action');
+
+    if (entry.type === 'power_action' && action !== null) {
+        return powerActionReward(action as PowerAction);
+    }
+
+    if (entry.type === 'book_action' && action !== null) {
+        return bookActionReward(entry, action as BookAction);
+    }
+
+    return null;
+}
+
 function checkpointDescription(entry: GameHistoryEntry): string {
     const phase = payloadString(entry, 'phase');
     const phaseNames: Record<string, string> = {
@@ -360,6 +411,12 @@ function checkpointDescription(entry: GameHistoryEntry): string {
 function actionDetails(entry: GameHistoryEntry): string | null {
     const details: string[] = [];
     const hexId = payloadString(entry, 'hex_id');
+
+    const actionReward = actionRewardDetails(entry);
+
+    if (actionReward !== null) {
+        details.push(actionReward);
+    }
 
     if (
         hexId !== null &&
