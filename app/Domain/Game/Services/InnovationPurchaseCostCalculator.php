@@ -89,19 +89,20 @@ final class InnovationPurchaseCostCalculator
      */
     public function slotColumns(int $playerCount): array
     {
-        $upper = $playerCount % 2 === 0 ? [0, 2] : [0, 1, 2, 3];
         $row = [0, 1, 2, 3];
 
-        return [
-            ...$upper,
-            ...$row,
-            ...($playerCount >= 4 ? $row : []),
-        ];
+        return match ($playerCount) {
+            2 => [0, 2, ...$row],
+            3 => [...$row, ...$row],
+            4 => [0, 2, ...$row, ...$row],
+            5 => [...$row, ...$row, ...$row],
+            default => throw new InvalidArgumentException('Неподдерживаемое число игроков.'),
+        };
     }
 
     private function upperSlotCount(int $playerCount): int
     {
-        return $playerCount % 2 === 0 ? 2 : 4;
+        return in_array($playerCount, [2, 4], true) ? 2 : 0;
     }
 
     /**

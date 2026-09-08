@@ -72,6 +72,56 @@ class InnovationPurchaseCostCalculatorTest extends TestCase
         );
     }
 
+    #[DataProvider('playerBoardDisciplineCountsProvider')]
+    public function test_player_board_has_the_expected_number_of_slots_for_each_discipline(
+        int $playerCount,
+        array $expectedDisciplineCounts,
+        int $expectedMixedSlotCount,
+    ): void {
+        $calculator = new InnovationPurchaseCostCalculator();
+        $costs = array_map(
+            fn (int $slotIndex): array => $calculator->requiredBooks($playerCount, $slotIndex),
+            array_keys($calculator->slotColumns($playerCount)),
+        );
+
+        foreach ($expectedDisciplineCounts as $discipline => $expectedCount) {
+            $this->assertSame(
+                $expectedCount,
+                count(array_filter($costs, static fn (array $cost): bool => $cost[$discipline] === 2)),
+            );
+        }
+
+        $this->assertSame(
+            $expectedMixedSlotCount,
+            count(array_filter($costs, static fn (array $cost): bool => array_sum($cost) === 4)),
+        );
+    }
+
+    /** @return iterable<string, array{int, array<string, int>, int}> */
+    public static function playerBoardDisciplineCountsProvider(): iterable
+    {
+        yield '2 игрока' => [
+            2,
+            ['banking' => 2, 'law' => 2, 'engineering' => 2, 'medicine' => 2],
+            2,
+        ];
+        yield '3 игрока' => [
+            3,
+            ['banking' => 2, 'law' => 2, 'engineering' => 2, 'medicine' => 2],
+            0,
+        ];
+        yield '4 игрока' => [
+            4,
+            ['banking' => 3, 'law' => 3, 'engineering' => 3, 'medicine' => 3],
+            2,
+        ];
+        yield '5 игроков' => [
+            5,
+            ['banking' => 3, 'law' => 3, 'engineering' => 3, 'medicine' => 3],
+            0,
+        ];
+    }
+
     public function test_player_without_a_palace_pays_five_coins(): void
     {
         $calculator = new InnovationPurchaseCostCalculator();

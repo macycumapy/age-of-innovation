@@ -5,7 +5,9 @@ import type { Competency, Innovation, InnovationPurchaseState } from '@/types';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import competencyBoardUrl from '../../../images/competency_board.png';
 import twoPlayerInventionBoardUrl from '../../../images/invention_board_2.jpg';
+import threePlayerInventionBoardUrl from '../../../images/invention_board_3.jpg';
 import fourPlayerInventionBoardUrl from '../../../images/invention_board_4.jpg';
+import fivePlayerInventionBoardUrl from '../../../images/invention_board_5.jpg';
 
 type InnovationSlot = {
     x: number;
@@ -13,6 +15,13 @@ type InnovationSlot = {
 };
 
 type CompetencySlot = InnovationSlot;
+
+type InventionBoard = {
+    url: string;
+    width: number;
+    height: number;
+    slots: InnovationSlot[];
+};
 
 const props = defineProps<{
     playerCount: number;
@@ -29,17 +38,11 @@ const emit = defineEmits<{
     innovationClick: [innovation: Innovation];
 }>();
 
-const boardWidth = 850;
 const tileWidth = 168;
+const competencyBoardWidth = 850;
 const competencyBoardHeight = 480;
 const competencyTileWidth = 100;
 const competencyLayerOffset = 2;
-
-const inventionBoardUrl = computed(() =>
-    props.playerCount >= 4 ? fourPlayerInventionBoardUrl : twoPlayerInventionBoardUrl,
-);
-
-const inventionBoardHeight = computed(() => (props.playerCount >= 4 ? 564 : 423));
 
 const innovationImages = import.meta.glob<string>('../../../images/innovations/*.jpg', {
     eager: true,
@@ -58,13 +61,6 @@ const upperEvenSlots: InnovationSlot[] = [
     { x: 554, y: 55 },
 ];
 
-const upperOddSlots: InnovationSlot[] = [
-    { x: 53, y: 55 },
-    { x: 132, y: 55 },
-    { x: 553, y: 55 },
-    { x: 632, y: 55 },
-];
-
 const firstRowSlots: InnovationSlot[] = [
     { x: 22, y: 285 },
     { x: 235, y: 285 },
@@ -78,6 +74,56 @@ const secondRowSlots: InnovationSlot[] = [
     { x: 447, y: 440 },
     { x: 660, y: 440 },
 ];
+
+const croppedBoardFirstRowSlots: InnovationSlot[] = [
+    { x: 20, y: 28 },
+    { x: 233, y: 28 },
+    { x: 445, y: 28 },
+    { x: 657, y: 28 },
+];
+
+const croppedBoardSecondRowSlots: InnovationSlot[] = [
+    { x: 20, y: 176 },
+    { x: 233, y: 176 },
+    { x: 445, y: 176 },
+    { x: 657, y: 176 },
+];
+
+const croppedBoardThirdRowSlots: InnovationSlot[] = [
+    { x: 20, y: 324 },
+    { x: 233, y: 324 },
+    { x: 445, y: 324 },
+    { x: 657, y: 324 },
+];
+
+const inventionBoards: Record<number, InventionBoard> = {
+    2: {
+        url: twoPlayerInventionBoardUrl,
+        width: 850,
+        height: 423,
+        slots: [...upperEvenSlots, ...firstRowSlots],
+    },
+    3: {
+        url: threePlayerInventionBoardUrl,
+        width: 850,
+        height: 307,
+        slots: [...croppedBoardFirstRowSlots, ...croppedBoardSecondRowSlots],
+    },
+    4: {
+        url: fourPlayerInventionBoardUrl,
+        width: 850,
+        height: 564,
+        slots: [...upperEvenSlots, ...firstRowSlots, ...secondRowSlots],
+    },
+    5: {
+        url: fivePlayerInventionBoardUrl,
+        width: 849,
+        height: 453,
+        slots: [...croppedBoardFirstRowSlots, ...croppedBoardSecondRowSlots, ...croppedBoardThirdRowSlots],
+    },
+};
+
+const inventionBoard = computed(() => inventionBoards[props.playerCount] ?? inventionBoards[2]);
 
 const competencySlots: CompetencySlot[] = [
     { x: 85, y: 94 },
@@ -94,12 +140,6 @@ const competencySlots: CompetencySlot[] = [
     { x: 721, y: 342 },
 ];
 
-const innovationSlots = computed(() => [
-    ...(props.playerCount % 2 === 0 ? upperEvenSlots : upperOddSlots),
-    ...firstRowSlots,
-    ...(props.playerCount >= 4 ? secondRowSlots : []),
-]);
-
 function innovationImage(innovation: Innovation): string {
     return innovationImages[`../../../images/innovations/${innovation}.jpg`] ?? '';
 }
@@ -110,9 +150,9 @@ function innovationStyle(slot: InnovationSlot | undefined): CSSProperties {
     }
 
     return {
-        left: `${(slot.x / boardWidth) * 100}%`,
-        top: `${(slot.y / inventionBoardHeight.value) * 100}%`,
-        width: `${(tileWidth / boardWidth) * 100}%`,
+        left: `${(slot.x / inventionBoard.value.width) * 100}%`,
+        top: `${(slot.y / inventionBoard.value.height) * 100}%`,
+        width: `${(tileWidth / inventionBoard.value.width) * 100}%`,
     };
 }
 
@@ -126,9 +166,9 @@ function competencyStyle(slot: CompetencySlot | undefined): CSSProperties {
     }
 
     return {
-        left: `${(slot.x / boardWidth) * 100}%`,
+        left: `${(slot.x / competencyBoardWidth) * 100}%`,
         top: `${(slot.y / competencyBoardHeight) * 100}%`,
-        width: `${(competencyTileWidth / boardWidth) * 100}%`,
+        width: `${(competencyTileWidth / competencyBoardWidth) * 100}%`,
     };
 }
 
@@ -144,7 +184,7 @@ function competencyLayerStyle(layer: number): CSSProperties {
 <template>
     <div class="overflow-hidden rounded-xl border border-border shadow-inner">
         <div class="relative overflow-hidden">
-            <img :src="inventionBoardUrl" alt="Планшет инноваций" class="block h-auto w-full" />
+            <img :src="inventionBoard.url" alt="Планшет инноваций" class="block h-auto w-full" />
 
             <TooltipProvider :delay-duration="150">
                 <template v-for="(innovation, index) in innovations" :key="innovation">
@@ -152,7 +192,7 @@ function competencyLayerStyle(layer: number): CSSProperties {
                         <TooltipTrigger as-child>
                             <button
                                 type="button"
-                                :style="innovationStyle(innovationSlots[index])"
+                                :style="innovationStyle(inventionBoard.slots[index])"
                                 class="absolute rounded-xs text-left drop-shadow-[-2px_2px_2px_rgba(0,0,0,0.45)] transition enabled:cursor-pointer enabled:hover:ring-4 enabled:hover:ring-primary/70 disabled:cursor-help"
                                 :disabled="!canMakeInnovation || !innovationStates[index]?.isAffordable"
                                 @click="emit('innovationClick', innovation)"
