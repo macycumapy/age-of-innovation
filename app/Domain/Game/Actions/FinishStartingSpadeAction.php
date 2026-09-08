@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domain\Game\Actions;
 
+use App\Domain\Game\Enums\Faction;
 use App\Domain\Game\Enums\GameActionType;
 use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\GameStatus;
@@ -60,6 +61,8 @@ final class FinishStartingSpadeAction
             }
 
             $playerState->unassignedSpades -= $spentSpades;
+            $goblinBonusCoins = $playerState->faction === Faction::Goblins ? $spentSpades * 2 : 0;
+            $playerState->resources->coins += $goblinBonusCoins;
             $terrainBefore = $interaction->context['terrainBefore'] ?? null;
             $terrainAfter = $interaction->context['terrainAfter'] ?? null;
             $remainingSpades = max(0, (int) ($interaction->context['remainingSpades'] ?? 1) - $spentSpades);
@@ -190,6 +193,7 @@ final class FinishStartingSpadeAction
                     'paid_tools' => $paidTools,
                     'paid_spade_count' => $paidSpadeCount,
                     'spades_spent' => $spentSpades,
+                    'bonus_coins' => $goblinBonusCoins,
                     'tunnel_tools' => $tunnelTools,
                     'tunnel_victory_points' => $tunnelVictoryPoints,
                     'victory_points' => $roundScoringVictoryPoints,
@@ -217,6 +221,12 @@ final class FinishStartingSpadeAction
                         'player_id' => $player->id,
                         'spades' => $spentSpades,
                         'victory_points' => $roundScoringVictoryPoints,
+                    ]] : []),
+                    ...($goblinBonusCoins > 0 ? [[
+                        'type' => 'goblin_spade_bonus_received',
+                        'player_id' => $player->id,
+                        'spades' => $spentSpades,
+                        'coins' => $goblinBonusCoins,
                     ]] : []),
                     ...($interactionPhase === GamePhase::Setup && $nextPhase !== GamePhase::Setup ? [[
                         'type' => 'income_phase_started',

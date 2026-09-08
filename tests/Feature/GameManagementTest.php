@@ -270,7 +270,7 @@ class GameManagementTest extends TestCase
                 playerId: $player->id,
                 userId: $user->id,
                 color: PlayerColor::Grey,
-                faction: Faction::Omar,
+                faction: Faction::Goblins,
                 homeland: TerrainType::Mountain,
                 roundBonus: RoundBonus::PowerCoins,
                 resources: new PlayerResourcesData(tools: 6),
@@ -330,6 +330,8 @@ class GameManagementTest extends TestCase
         $this->assertSame($toolCost * 2, $paidTerraformingAction->payload['paid_tools']);
         $this->assertSame(2, $paidTerraformingAction->payload['paid_spade_count']);
         $this->assertSame(2, $paidTerraformingAction->payload['spades_spent']);
+        $this->assertSame(4, $paidTerraformingAction->payload['bonus_coins']);
+        $this->assertSame(4, $game->state->players[0]->resources->coins);
         $this->assertSame(4, $paidTerraformingAction->payload['victory_points']);
         $this->assertSame(24, $game->state->players[0]->victoryPoints);
     }

@@ -742,6 +742,7 @@ final class ReplayGameHistoryAction
 
         $playerState = $this->playerState($state, $player->id);
         $playerState->resources->tools -= (int) ($action->payload['paid_tools'] ?? 0);
+        $playerState->resources->coins += (int) ($action->payload['bonus_coins'] ?? 0);
         $playerState->victoryPoints += (int) ($action->payload['tunnel_victory_points'] ?? 0);
         $playerState->victoryPoints += (int) ($action->payload['victory_points'] ?? 0);
         $playerState->unassignedSpades += (int) ($action->payload['paid_spade_count'] ?? 0);
