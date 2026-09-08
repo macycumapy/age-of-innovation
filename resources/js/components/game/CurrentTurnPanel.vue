@@ -38,6 +38,34 @@ const emit = defineEmits<{
 }>();
 
 const isCurrentUsersTurn = computed(() => props.activePlayer?.user.id === props.currentUserId);
+const isChoosingStartingBundle = computed(
+    () =>
+        props.game.data.phase === 'setup' &&
+        props.activePlayer !== undefined &&
+        props.activePlayer.faction === null &&
+        props.game.data.pendingInteraction?.type !== 'choose_starting_resources',
+);
+const otherPlayerStatusMessage = computed(() => {
+    const playerName = props.activePlayer?.user.name;
+
+    if (playerName === undefined) {
+        return 'Ход игрока определяется.';
+    }
+
+    if (props.isStartingBuildingStage) {
+        if (props.game.data.pendingInteraction?.type === 'spend_spades') {
+            return `${playerName} использует стартовую лопату.`;
+        }
+
+        if (props.isOmarStartingTowerTurn) {
+            return `${playerName} устанавливает стартовую вышку.`;
+        }
+
+        return `${playerName} устанавливает стартовый дом.`;
+    }
+
+    return `${playerName} ходит.`;
+});
 const undoStartingBuildingRequest = useHttp({});
 const finishStartingBuildingRequest = useHttp({});
 const canResolvePowerOffer = computed(
@@ -119,30 +147,42 @@ function scrollToPageTop(event: MouseEvent): void {
 
         <p
             v-if="
-                isCurrentUsersTurn &&
-                (isStartingBuildingStage ||
-                    canSpendStartingSpade ||
-                    canResolvePowerOffer ||
-                    (game.data.phase === 'income' &&
-                        game.data.pendingInteraction?.type === 'choose_starting_resources') ||
-                    game.data.pendingInteraction?.type === 'place_palace_guild' ||
-                    game.data.pendingInteraction?.type === 'place_neutral_building' ||
-                    game.data.pendingInteraction?.type === 'place_bridge' ||
-                    game.data.pendingInteraction?.type === 'build_workshop_after_terraforming' ||
-                    game.data.pendingInteraction?.type === 'choose_round_bonus' ||
-                    game.data.pendingInteraction?.type === 'choose_town' ||
-                    game.data.pendingInteraction?.type === 'choose_palace' ||
-                    game.data.pendingInteraction?.type === 'choose_science_bonus_books' ||
-                    game.data.pendingInteraction?.type === 'choose_innovation_books' ||
-                    game.data.pendingInteraction?.type === 'choose_shipping_books' ||
-                    game.data.pendingInteraction?.type === 'choose_terraforming_books' ||
-                    game.data.pendingInteraction?.type === 'choose_palace_books')
+                !isCurrentUsersTurn ||
+                isChoosingStartingBundle ||
+                (isCurrentUsersTurn &&
+                    (isStartingBuildingStage ||
+                        canSpendStartingSpade ||
+                        canResolvePowerOffer ||
+                        (game.data.phase === 'income' &&
+                            game.data.pendingInteraction?.type === 'choose_starting_resources') ||
+                        game.data.pendingInteraction?.type === 'place_palace_guild' ||
+                        game.data.pendingInteraction?.type === 'place_neutral_building' ||
+                        game.data.pendingInteraction?.type === 'place_bridge' ||
+                        game.data.pendingInteraction?.type === 'build_workshop_after_terraforming' ||
+                        game.data.pendingInteraction?.type === 'choose_round_bonus' ||
+                        game.data.pendingInteraction?.type === 'choose_town' ||
+                        game.data.pendingInteraction?.type === 'choose_palace' ||
+                        game.data.pendingInteraction?.type === 'choose_science_bonus_books' ||
+                        game.data.pendingInteraction?.type === 'choose_innovation_books' ||
+                        game.data.pendingInteraction?.type === 'choose_shipping_books' ||
+                        game.data.pendingInteraction?.type === 'choose_terraforming_books' ||
+                        game.data.pendingInteraction?.type === 'choose_palace_books'))
             "
             class="truncate text-sm font-medium"
             role="status"
             aria-live="polite"
         >
-            <template v-if="game.data.pendingInteraction?.type === 'power_offer'">
+            <template v-if="isChoosingStartingBundle">
+                {{
+                    isCurrentUsersTurn
+                        ? 'Выберите стартовый комплект.'
+                        : `${activePlayer?.user.name ?? 'Игрок'} выбирает стартовый комплект.`
+                }}
+            </template>
+            <template v-else-if="!isCurrentUsersTurn">
+                {{ otherPlayerStatusMessage }}
+            </template>
+            <template v-else-if="game.data.pendingInteraction?.type === 'power_offer'">
                 Получить {{ powerOfferAmount }} Силы за {{ powerOfferVictoryPointCost }} ПО?
             </template>
             <template
@@ -523,24 +563,6 @@ function scrollToPageTop(event: MouseEvent): void {
                 Завершить ход
             </Button>
             <Button v-if="game.data.canPass" type="button" variant="secondary" @click="emit('pass')"> Пас </Button>
-        </div>
-
-        <div v-else-if="!isCurrentUsersTurn" class="flex min-w-0 items-center gap-3" role="status" aria-live="polite">
-            <span class="size-2.5 shrink-0 rounded-full bg-primary shadow-sm" aria-hidden="true" />
-            <p class="truncate text-sm">
-                <span class="mr-2 text-muted-foreground">
-                    {{
-                        isStartingBuildingStage
-                            ? game.data.pendingInteraction?.type === 'spend_spades'
-                                ? 'Стартовую лопату использует:'
-                                : isOmarStartingTowerTurn
-                                  ? 'Стартовую вышку устанавливает:'
-                                  : 'Стартовый дом устанавливает:'
-                            : 'Сейчас ходит:'
-                    }}
-                </span>
-                <span class="font-semibold">{{ activePlayer?.user.name ?? 'ход игрока определяется' }}</span>
-            </p>
         </div>
     </div>
 </template>
