@@ -95,6 +95,7 @@ final class ReplayGameHistoryAction
         private FindEligibleTerraformHexesAction $findEligibleTerraformHexes,
         private FindEligibleMoleTunnelHexesAction $findEligibleMoleTunnelHexes,
         private CreateTownChoiceAfterBuildingAction $createTownChoiceAfterBuilding,
+        private CreateDesertStartingSpadeInteractionAction $createDesertStartingSpadeInteraction,
         private CreateBuildingFollowUpInteractionAction $createBuildingFollowUpInteraction,
         private ApplyPowerOfferDecisionAction $applyPowerOfferDecision,
         private AdvanceDevelopmentTrackAction $advanceDevelopmentTrack,
@@ -465,8 +466,7 @@ final class ReplayGameHistoryAction
         $state->planningSelections[] = new PlayerPlanningSelectionData($player->id, $bundle);
         $state->players[] = $playerState;
         $requiresChoice = $playerState->resources->books->unassigned > 0
-            || $playerState->knowledge->unassignedSteps > 0
-            || $playerState->faction === Faction::Inventors;
+            || $playerState->knowledge->unassignedSteps > 0;
         $state->pendingInteraction = $requiresChoice
             ? new PendingInteractionData(
                 PendingInteractionType::ChooseStartingResources,
@@ -475,9 +475,7 @@ final class ReplayGameHistoryAction
                 [
                     'bookCount' => $playerState->resources->books->unassigned,
                     'knowledgeStepCount' => $playerState->knowledge->unassignedSteps,
-                    'competencyIds' => $playerState->faction === Faction::Inventors
-                        ? $this->enumValues($state->setupPool?->competencies ?? [])
-                        : [],
+                    'competencyIds' => [],
                 ],
             )
             : null;
@@ -603,7 +601,38 @@ final class ReplayGameHistoryAction
         $state->startingBuildingTurnIndex++;
         $placementOrder = $this->startingBuildingOrder($state, $players);
 
+        $hasFinishedOwnStartingBuildings = ! in_array(
+            $player->id,
+            array_slice($placementOrder, $state->startingBuildingTurnIndex),
+            true,
+        );
+
         if ($player->faction === Faction::Monks) {
+            $playerState = $this->playerState($state, $player->id);
+            $state->pendingInteraction = new PendingInteractionData(
+                PendingInteractionType::ChooseCompetency,
+                $player->id,
+                array_values(array_filter(
+                    $this->enumValues($state->setupPool?->competencies ?? []),
+                    static fn (string $competencyId): bool => ! in_array(
+                        $competencyId,
+                        $playerState->competencyIds,
+                        true,
+                    ),
+                )),
+            );
+            $game->active_player_id = $player->user_id;
+        } elseif (! in_array(
+            $player->id,
+            array_slice($placementOrder, $state->startingBuildingTurnIndex),
+            true,
+        ) && $this->createDesertStartingSpadeInteraction->execute(
+            $state,
+            $this->playerState($state, $player->id),
+            $player->faction === Faction::Inventors,
+        )) {
+            $game->active_player_id = $player->user_id;
+        } elseif ($player->faction === Faction::Inventors && $hasFinishedOwnStartingBuildings) {
             $playerState = $this->playerState($state, $player->id);
             $state->pendingInteraction = new PendingInteractionData(
                 PendingInteractionType::ChooseCompetency,
@@ -643,18 +672,17 @@ final class ReplayGameHistoryAction
 
         $state = $game->state;
         $isBuildingChoice = ($action->payload['reason'] ?? null) === 'building';
+        $competency = Competency::from((string) $action->payload['competency_id']);
         $this->grantCompetency->execute(
             $state,
             $this->playerState($state, $player->id),
-            Competency::from((string) $action->payload['competency_id']),
+            $competency,
             $state->setupPool?->competencies ?? $state->availableCompetencyIds,
         );
         $state->pendingInteraction = null;
 
         if ($isBuildingChoice) {
             $playerState = $this->playerState($state, $player->id);
-            $competency = Competency::from((string) $action->payload['competency_id']);
-
             if ($competency === Competency::Competency05) {
                 $eligibleHexIds = $this->findEligibleTerraformHexes->execute(
                     $state,
@@ -707,7 +735,33 @@ final class ReplayGameHistoryAction
 
         $placementOrder = $this->startingBuildingOrder($state, $players);
 
-        if ($state->startingBuildingTurnIndex >= count($placementOrder)) {
+        if ($competency === Competency::Competency10 && isset($action->payload['neutral_building'])) {
+            $this->replayNeutralBuilding($game, $state, $this->playerState($state, $player->id), $player, $action);
+            $state->pendingInteraction = null;
+
+            if ($state->startingBuildingTurnIndex >= count($placementOrder)) {
+                [$nextPlayer, $nextPhase] = $this->resolveCompletedStartingSetup->execute($state, $players);
+                $game->phase = $nextPhase;
+                $game->active_player_id = $nextPlayer->user_id;
+            } else {
+                $game->phase = GamePhase::Setup;
+                $game->active_player_id = $players->firstWhere(
+                    'id',
+                    $placementOrder[$state->startingBuildingTurnIndex],
+                )?->user_id;
+            }
+
+            $game->state = $state;
+
+            return;
+        }
+
+        if ($this->createDesertStartingSpadeInteraction->execute(
+            $state,
+            $this->playerState($state, $player->id),
+        )) {
+            $game->active_player_id = $player->user_id;
+        } elseif ($state->startingBuildingTurnIndex >= count($placementOrder)) {
             [$nextPlayer, $nextPhase] = $this->resolveCompletedStartingSetup->execute($state, $players);
             $game->phase = $nextPhase;
             $game->active_player_id = $nextPlayer->user_id;
@@ -818,7 +872,34 @@ final class ReplayGameHistoryAction
             $game->phase = $nextPhase;
             $game->active_player_id = $nextPlayer?->user_id;
         } else {
-            $this->completeStartingInteraction($game, $state, $players);
+            if (($action->payload['choose_starting_competency_after_spade'] ?? false) === true) {
+                $playerState = $this->playerState($state, $player->id);
+                $state->pendingInteraction = new PendingInteractionData(
+                    PendingInteractionType::ChooseCompetency,
+                    $player->id,
+                    array_values(array_filter(
+                        $this->enumValues($state->setupPool?->competencies ?? []),
+                        static fn (string $competencyId): bool => ! in_array(
+                            $competencyId,
+                            $playerState->competencyIds,
+                            true,
+                        ),
+                    )),
+                );
+                $game->phase = GamePhase::Setup;
+                $game->active_player_id = $player->user_id;
+            } elseif (($action->payload['resume_starting_building_placement'] ?? false) === true
+                && $state->startingBuildingTurnIndex < count($this->startingBuildingOrder($state, $players))) {
+                $placementOrder = $this->startingBuildingOrder($state, $players);
+                $game->phase = GamePhase::Setup;
+                $game->active_player_id = $players->firstWhere(
+                    'id',
+                    $placementOrder[$state->startingBuildingTurnIndex],
+                )?->user_id;
+                $state->pendingInteraction = null;
+            } else {
+                $this->completeStartingInteraction($game, $state, $players);
+            }
         }
 
         $game->state = $state;

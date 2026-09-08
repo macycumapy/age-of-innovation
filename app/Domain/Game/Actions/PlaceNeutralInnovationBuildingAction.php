@@ -24,6 +24,8 @@ final class PlaceNeutralInnovationBuildingAction
         private ApplyBuildingBonusesAction $applyBuildingBonuses,
         private CreateBuildingFollowUpInteractionAction $createBuildingFollowUpInteraction,
         private CreateTownChoiceAfterBuildingAction $createTownChoiceAfterBuilding,
+        private DetermineStartingBuildingOrderAction $determineStartingBuildingOrder,
+        private ResolveCompletedStartingSetupAction $resolveCompletedStartingSetup,
     ) {
     }
 
@@ -40,7 +42,10 @@ final class PlaceNeutralInnovationBuildingAction
             $buildingType = BuildingType::tryFrom((string) ($interaction?->context['buildingType'] ?? ''));
             $hex = collect($state->board->hexes)->firstWhere('id', $hexId);
 
-            if ($lockedGame->phase !== GamePhase::Actions
+            $isStartingCompetency = $lockedGame->phase === GamePhase::Setup
+                && ($interaction?->context['reason'] ?? null) === 'starting_competency';
+
+            if ((! $isStartingCompetency && $lockedGame->phase !== GamePhase::Actions)
                 || $lockedGame->active_player_id !== $user->id
                 || $interaction?->type !== PendingInteractionType::PlaceNeutralBuilding
                 || ! $playerState instanceof GamePlayerStateData
@@ -60,10 +65,31 @@ final class PlaceNeutralInnovationBuildingAction
                 (array) ($interaction->context['queuedBuiltHexIds'] ?? []),
                 'is_string',
             ));
-            $nextActiveUserId = $buildingType === BuildingType::Tower
-                ? $this->createTownChoiceAfterBuilding->execute($state, $playerState, $hexId, $queuedBuiltHexIds)
-                : $this->createBuildingFollowUpInteraction->execute($state, $playerState, $hexId, $buildingType);
+            $nextPhase = $lockedGame->phase;
+            $incomeReceipts = [];
+
+            if ($isStartingCompetency) {
+                $placementOrder = $this->determineStartingBuildingOrder->execute($lockedGame);
+
+                if ($state->startingBuildingTurnIndex >= count($placementOrder)) {
+                    [$nextPlayer, $nextPhase, $incomeReceipts] = $this->resolveCompletedStartingSetup->execute(
+                        $state,
+                        $lockedGame->players()->get(),
+                    );
+                } else {
+                    $nextPlayer = $lockedGame->players()
+                        ->whereKey($placementOrder[$state->startingBuildingTurnIndex])
+                        ->firstOrFail();
+                }
+
+                $nextActiveUserId = $nextPlayer->user_id;
+            } else {
+                $nextActiveUserId = $buildingType === BuildingType::Tower
+                    ? $this->createTownChoiceAfterBuilding->execute($state, $playerState, $hexId, $queuedBuiltHexIds)
+                    : $this->createBuildingFollowUpInteraction->execute($state, $playerState, $hexId, $buildingType);
+            }
             $lockedGame->update([
+                'phase' => $nextPhase,
                 'active_player_id' => $nextActiveUserId,
                 'state' => $state,
                 'version' => $lockedGame->version + 1,
@@ -91,6 +117,7 @@ final class PlaceNeutralInnovationBuildingAction
                 'bonus_coins' => $bonuses['coins'],
                 'scoring_sources' => $bonuses['sources'],
             ];
+            $payload['income_receipts'] = $incomeReceipts;
             $events = $sourceAction->events ?? [];
             $events[] = ['type' => 'neutral_building_built', 'player_id' => $player->id, 'hex_id' => $hexId];
             $sourceAction->update([

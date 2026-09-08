@@ -6313,35 +6313,11 @@ class GameManagementTest extends TestCase
 
         $game->refresh();
         $inventorPlayer = $game->players()->whereBelongsTo($inventorUser)->sole();
-
-        $this->assertSame($inventorPlayer->id, $game->state->pendingInteraction?->playerId);
-        $this->assertSame(
-            array_map(
-                static fn (Competency|string $competency): string => $competency instanceof Competency
-                    ? $competency->value
-                    : $competency,
-                $game->state->setupPool->competencies,
-            ),
-            $game->state->pendingInteraction?->context['competencyIds'],
-        );
-
-        $this->post(route('games.starting-resources.store', $game))
-            ->assertSessionHasErrors('competency_id');
-
-        $this->post(route('games.starting-resources.store', $game), [
-            'competency_id' => Competency::Competency01->value,
-        ])->assertNoContent();
-
-        $game->refresh();
         $inventorState = collect($game->state->players)->firstWhere('playerId', $inventorPlayer->id);
 
         $this->assertInstanceOf(GamePlayerStateData::class, $inventorState);
-        $this->assertSame([Competency::Competency01->value], $inventorState->competencyIds);
-        $this->assertSame(3, $inventorState->knowledge->banking);
-        $this->assertSame(1, $inventorState->resources->books->banking);
-        $this->assertSame(3, $inventorState->resources->power->bowlOne);
-        $this->assertSame(9, $inventorState->resources->power->bowlTwo);
-        $this->assertSame(0, $inventorState->resources->power->bowlThree);
+        $this->assertSame([], $inventorState->competencyIds);
+        $this->assertNotSame($inventorUser->id, $game->active_player_id);
     }
 
     #[DataProvider('immediateStartingCompetencyEffects')]
@@ -6390,7 +6366,18 @@ class GameManagementTest extends TestCase
         $playerStateBeforeCompetency = collect($game->state->players)->firstWhere('playerId', $player->id);
         $this->assertInstanceOf(GamePlayerStateData::class, $playerStateBeforeCompetency);
 
-        $this->post(route('games.starting-resources.store', $game), [
+        $state = $game->state;
+        $state->pendingInteraction = new PendingInteractionData(
+            PendingInteractionType::ChooseCompetency,
+            $player->id,
+            [$competency->value],
+        );
+        $game->update([
+            'active_player_id' => $activeUser->id,
+            'state' => $state,
+        ]);
+
+        $this->post(route('games.starting-competency.store', $game), [
             'competency_id' => $competency->value,
         ])->assertNoContent();
 
@@ -6446,7 +6433,7 @@ class GameManagementTest extends TestCase
             'user_id' => $users[0]->id,
             'seat' => 1,
             'color' => PlayerColor::Yellow,
-            'faction' => Faction::Blessed,
+            'faction' => Faction::Inventors,
             'homeland' => TerrainType::Forest,
         ]);
         $secondPlayer = GamePlayer::factory()->create([
@@ -6562,7 +6549,7 @@ class GameManagementTest extends TestCase
         $this->assertSame(1, $actions[0]->state_version_after);
     }
 
-    public function test_desert_player_spends_starting_spade_after_all_starting_buildings_are_placed(): void
+    public function test_desert_player_spends_starting_spade_after_placing_their_own_starting_buildings(): void
     {
         $users = User::factory()->count(2)->create();
         $game = Game::factory()->create([
@@ -6575,7 +6562,7 @@ class GameManagementTest extends TestCase
             'user_id' => $users[0]->id,
             'seat' => 1,
             'color' => PlayerColor::Yellow,
-            'faction' => Faction::Blessed,
+            'faction' => Faction::Inventors,
             'homeland' => TerrainType::Desert,
         ]);
         $otherPlayer = GamePlayer::factory()->create([
@@ -6618,21 +6605,22 @@ class GameManagementTest extends TestCase
         $targetTerrainAfter = $targetTerrainBefore->stepTowards(TerrainType::Desert);
 
         $desertHex->building = new BuildingStateData(BuildingType::Workshop, $desertPlayer->id);
-        $desertBundle = new PlanningBundleData(TerrainType::Desert, Faction::Blessed, RoundBonus::Coins);
+        $desertBundle = new PlanningBundleData(TerrainType::Desert, Faction::Inventors, RoundBonus::Coins);
         $otherBundle = new PlanningBundleData(TerrainType::Forest, Faction::Felines, RoundBonus::PowerCoins);
 
         $game->update([
             'state' => new GameStateData(
-                turnOrder: [$desertPlayer->id, $otherPlayer->id],
+                turnOrder: [$otherPlayer->id, $desertPlayer->id],
                 board: $board,
                 players: [
                     new GamePlayerStateData(
                         playerId: $desertPlayer->id,
                         userId: $users[0]->id,
                         color: PlayerColor::Yellow,
-                        faction: Faction::Blessed,
+                        faction: Faction::Inventors,
                         homeland: TerrainType::Desert,
                         roundBonus: RoundBonus::Coins,
+                        resources: new PlayerResourcesData(tools: 10),
                         unassignedSpades: 1,
                     ),
                     new GamePlayerStateData(
@@ -6648,7 +6636,8 @@ class GameManagementTest extends TestCase
                     new PlayerPlanningSelectionData($desertPlayer->id, $desertBundle),
                     new PlayerPlanningSelectionData($otherPlayer->id, $otherBundle),
                 ],
-                startingBuildingTurnIndex: 3,
+                availableCompetencyIds: array_column(Competency::cases(), 'value'),
+                startingBuildingTurnIndex: 2,
                 pendingStartingBuildingHexId: $desertHex->id,
             ),
         ]);
@@ -6698,15 +6687,37 @@ class GameManagementTest extends TestCase
 
         $game->refresh();
         $desertPlayerState = collect($game->state->players)->firstWhere('playerId', $desertPlayer->id);
-        $this->assertSame(GamePhase::Actions, $game->phase);
-        $this->assertNull($game->state->pendingInteraction);
+        $this->assertSame(GamePhase::Setup, $game->phase);
+        $this->assertSame($users[0]->id, $game->active_player_id);
+        $this->assertSame(PendingInteractionType::ChooseCompetency, $game->state->pendingInteraction?->type);
         $this->assertSame($targetTerrainAfter, collect($game->state->board->hexes)->firstWhere('id', $targetHexId)?->terrain);
         $this->assertSame(0, $desertPlayerState?->unassignedSpades);
-        $this->assertCount($historyCountBeforeSelection + 3, $game->actions);
+        $this->assertCount($historyCountBeforeSelection + 1, $game->actions);
         $this->assertSame(
             GameActionType::SpendStartingSpade,
             $game->actions()->where('type', GameActionType::SpendStartingSpade)->latest('sequence')->firstOrFail()->type,
         );
+
+        $this->post(route('games.starting-competency.store', $game), [
+            'competency_id' => Competency::Competency10->value,
+        ])->assertNoContent();
+
+        $game->refresh();
+        $this->assertSame(PendingInteractionType::PlaceNeutralBuilding, $game->state->pendingInteraction?->type);
+        $this->assertSame(BuildingType::Tower->value, $game->state->pendingInteraction?->context['buildingType']);
+        $this->assertNotEmpty($game->state->pendingInteraction?->optionIds ?? []);
+        $towerHexId = collect($game->state->pendingInteraction->optionIds)
+            ->first(static fn (string $hexId): bool => $hexId !== $targetHexId);
+        $this->assertIsString($towerHexId);
+
+        $this->post(route('games.innovation.neutral-building', $game), [
+            'hex_id' => $towerHexId,
+        ])->assertNoContent();
+
+        $game->refresh();
+        $this->assertSame(GamePhase::Setup, $game->phase);
+        $this->assertSame($users[1]->id, $game->active_player_id);
+        $this->assertNull($game->state->pendingInteraction);
 
         $targetHexIndex = collect($game->state->board->hexes)->search(
             static fn (BoardHexStateData $hex): bool => $hex->id === $targetHexId,

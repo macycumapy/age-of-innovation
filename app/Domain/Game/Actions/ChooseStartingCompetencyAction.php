@@ -23,6 +23,7 @@ final class ChooseStartingCompetencyAction
 {
     public function __construct(
         private AppendGameHistoryAction $appendGameHistory,
+        private CreateDesertStartingSpadeInteractionAction $createDesertStartingSpadeInteraction,
         private CreateNeutralBuildingInteractionAction $createNeutralBuildingInteraction,
         private CreateTownChoiceAfterBuildingAction $createTownChoiceAfterBuilding,
         private DetermineStartingBuildingOrderAction $determineStartingBuildingOrder,
@@ -46,7 +47,7 @@ final class ChooseStartingCompetencyAction
             $isBuildingChoice = $lockedGame->phase === GamePhase::Actions
                 && ($interaction?->context['reason'] ?? null) === 'building';
             $isStartingChoice = $lockedGame->phase === GamePhase::Setup
-                && $player?->faction === Faction::Monks;
+                && in_array($player?->faction, [Faction::Monks, Faction::Inventors], true);
 
             if ($lockedGame->active_player_id !== $user->id
                 || $interaction?->type !== PendingInteractionType::ChooseCompetency
@@ -129,7 +130,23 @@ final class ChooseStartingCompetencyAction
             $placementOrder = $this->determineStartingBuildingOrder->execute($lockedGame);
             $incomeReceipts = [];
 
-            if ($state->startingBuildingTurnIndex >= count($placementOrder)) {
+            if ($competency === Competency::Competency10
+                && $this->createNeutralBuildingInteraction->execute(
+                    $state,
+                    $playerState,
+                    BuildingType::Tower,
+                    [
+                        'competency' => $competency->value,
+                        'source' => 'competency',
+                        'reason' => 'starting_competency',
+                    ],
+                )) {
+                $nextPlayer = $player;
+                $nextPhase = GamePhase::Setup;
+            } elseif ($this->createDesertStartingSpadeInteraction->execute($state, $playerState)) {
+                $nextPlayer = $player;
+                $nextPhase = GamePhase::Setup;
+            } elseif ($state->startingBuildingTurnIndex >= count($placementOrder)) {
                 [$nextPlayer, $nextPhase, $incomeReceipts] = $this->resolveCompletedStartingSetup->execute(
                     $state,
                     $lockedGame->players()->get(),
@@ -151,6 +168,7 @@ final class ChooseStartingCompetencyAction
                 GameActionType::ChooseCompetency,
                 [
                     'competency_id' => $competency->value,
+                    'reason' => 'starting',
                     'income_started' => $nextPhase !== GamePhase::Setup,
                     'round' => $state->round->number,
                     'income_receipts' => $incomeReceipts,

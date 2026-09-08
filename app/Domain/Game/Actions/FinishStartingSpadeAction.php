@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Domain\Game\Actions;
 
+use App\Domain\Game\Data\PendingInteractionData;
+use App\Domain\Game\Enums\Competency;
 use App\Domain\Game\Enums\Faction;
 use App\Domain\Game\Enums\GameActionType;
 use App\Domain\Game\Enums\GamePhase;
@@ -22,6 +24,7 @@ final class FinishStartingSpadeAction
 {
     public function __construct(
         private AppendGameHistoryAction $appendGameHistory,
+        private DetermineStartingBuildingOrderAction $determineStartingBuildingOrder,
         private FindEligibleTerraformHexesAction $findEligibleTerraformHexes,
         private FindEligibleMoleTunnelHexesAction $findEligibleMoleTunnelHexes,
         private OfferWorkshopAfterTerraformingAction $offerWorkshopAfterTerraforming,
@@ -162,10 +165,44 @@ final class FinishStartingSpadeAction
                 );
             } else {
                 $state->pendingInteraction = null;
-                [$nextPlayer, $nextPhase, $incomeReceipts] = $this->resolveCompletedStartingSetup->execute(
-                    $state,
-                    $lockedGame->players()->get(),
-                );
+                if (($interaction->context['chooseStartingCompetencyAfterSpade'] ?? false) === true) {
+                    $state->pendingInteraction = new PendingInteractionData(
+                        PendingInteractionType::ChooseCompetency,
+                        $player->id,
+                        array_values(array_unique(array_filter(
+                            array_map(
+                                static fn (Competency|string $competency): string => $competency instanceof Competency
+                                    ? $competency->value
+                                    : $competency,
+                                $state->availableCompetencyIds,
+                            ),
+                            static fn (string $competencyId): bool => ! in_array(
+                                $competencyId,
+                                $playerState->competencyIds,
+                                true,
+                            ),
+                        ))),
+                    );
+                    $nextPlayer = $player;
+                    $nextPhase = GamePhase::Setup;
+                } elseif (($interaction->context['resumeStartingBuildingPlacement'] ?? false) === true
+                    && $state->startingBuildingTurnIndex < count($this->determineStartingBuildingOrder->execute($lockedGame))) {
+                    $placementOrder = $this->determineStartingBuildingOrder->execute($lockedGame);
+                    $nextPlayer = $lockedGame->players()
+                        ->whereKey($placementOrder[$state->startingBuildingTurnIndex] ?? null)
+                        ->first();
+
+                    if (! $nextPlayer instanceof GamePlayer) {
+                        throw ValidationException::withMessages(['game' => 'Нарушен порядок стартового выставления.']);
+                    }
+
+                    $nextPhase = GamePhase::Setup;
+                } else {
+                    [$nextPlayer, $nextPhase, $incomeReceipts] = $this->resolveCompletedStartingSetup->execute(
+                        $state,
+                        $lockedGame->players()->get(),
+                    );
+                }
             }
 
             $lockedGame->update([
@@ -193,6 +230,8 @@ final class FinishStartingSpadeAction
                     'paid_tools' => $paidTools,
                     'paid_spade_count' => $paidSpadeCount,
                     'spades_spent' => $spentSpades,
+                    'resume_starting_building_placement' => (bool) ($interaction->context['resumeStartingBuildingPlacement'] ?? false),
+                    'choose_starting_competency_after_spade' => (bool) ($interaction->context['chooseStartingCompetencyAfterSpade'] ?? false),
                     'bonus_coins' => $goblinBonusCoins,
                     'tunnel_tools' => $tunnelTools,
                     'tunnel_victory_points' => $tunnelVictoryPoints,

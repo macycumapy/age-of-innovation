@@ -20,6 +20,7 @@ final class FinishStartingBuildingTurnAction
 {
     public function __construct(
         private AppendGameHistoryAction $appendGameHistory,
+        private CreateDesertStartingSpadeInteractionAction $createDesertStartingSpadeInteraction,
         private DetermineStartingBuildingOrderAction $determineStartingBuildingOrder,
         private ResolveCompletedStartingSetupAction $resolveCompletedStartingSetup,
     ) {
@@ -52,13 +53,26 @@ final class FinishStartingBuildingTurnAction
             $placementOrder = $this->determineStartingBuildingOrder->execute($lockedGame);
             $incomeReceipts = [];
 
-            if ($player->faction === Faction::Monks) {
-                $playerState = collect($state->players)->firstWhere('playerId', $player->id);
+            $playerState = collect($state->players)->firstWhere('playerId', $player->id);
+            if ($playerState === null) {
+                throw ValidationException::withMessages(['game' => 'Не найдено состояние игрока.']);
+            }
 
-                if ($playerState === null) {
-                    throw ValidationException::withMessages(['game' => 'Не найдено состояние игрока.']);
-                }
+            $hasFinishedOwnStartingBuildings = ! in_array(
+                $player->id,
+                array_slice($placementOrder, $state->startingBuildingTurnIndex),
+                true,
+            );
 
+            if ($hasFinishedOwnStartingBuildings
+                && $this->createDesertStartingSpadeInteraction->execute(
+                    $state,
+                    $playerState,
+                    $player->faction === Faction::Inventors,
+                )) {
+                $nextPlayer = $player;
+                $nextPhase = GamePhase::Setup;
+            } elseif (in_array($player->faction, [Faction::Inventors, Faction::Monks], true) && $hasFinishedOwnStartingBuildings) {
                 $availableCompetencyIds = array_values(array_unique(array_filter(
                     array_map(
                         static fn (Competency|string $competency): string => $competency instanceof Competency

@@ -7,8 +7,6 @@ namespace App\Domain\Game\Actions;
 use App\Domain\Game\Data\PendingInteractionData;
 use App\Domain\Game\Data\PlanningBundleData;
 use App\Domain\Game\Data\PlayerPlanningSelectionData;
-use App\Domain\Game\Enums\Competency;
-use App\Domain\Game\Enums\Faction;
 use App\Domain\Game\Enums\GameActionType;
 use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\GameStatus;
@@ -95,8 +93,7 @@ final class ChoosePlanningBundleAction
             ];
             $state->players = [...$state->players, $playerState];
             $requiresStartingChoice = $playerState->resources->books->unassigned > 0
-                || $playerState->knowledge->unassignedSteps > 0
-                || $playerState->faction === Faction::Inventors;
+                || $playerState->knowledge->unassignedSteps > 0;
 
             if ($requiresStartingChoice) {
                 $state->pendingInteraction = new PendingInteractionData(
@@ -106,14 +103,7 @@ final class ChoosePlanningBundleAction
                     context: [
                         'bookCount' => $playerState->resources->books->unassigned,
                         'knowledgeStepCount' => $playerState->knowledge->unassignedSteps,
-                        'competencyIds' => $playerState->faction === Faction::Inventors
-                            ? array_map(
-                                static fn (Competency|string $competency): string => $competency instanceof Competency
-                                    ? $competency->value
-                                    : $competency,
-                                $state->setupPool?->competencies ?? [],
-                            )
-                            : [],
+                        'competencyIds' => [],
                     ],
                 );
             }

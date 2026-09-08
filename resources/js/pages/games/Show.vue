@@ -1138,7 +1138,7 @@ function competencyImage(competency: Competency): string {
             >
                 <CardHeader>
                     <CardTitle>
-                        {{ isBuildingCompetencyChoice ? 'Компетенция нового здания' : 'Стартовая компетенция монахов' }}
+                        {{ isBuildingCompetencyChoice ? 'Компетенция нового здания' : 'Стартовая компетенция' }}
                     </CardTitle>
                     <CardDescription>
                         {{
@@ -1452,10 +1452,7 @@ function competencyImage(competency: Competency): string {
         </div>
 
         <PlayerStatsPanel
-            v-if="
-                game.data.status === 'finished' ||
-                (game.data.status === 'active' && (game.data.phase !== 'setup' || planningChoicesCompleted))
-            "
+            v-if="['active', 'finished'].includes(game.data.status)"
             :players="orderedPlayers"
             :player-states="game.data.playerBoardStates"
             :current-player-id="currentPlayer?.id ?? null"

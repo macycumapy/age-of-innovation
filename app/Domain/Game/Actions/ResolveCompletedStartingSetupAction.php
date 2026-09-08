@@ -9,7 +9,6 @@ use App\Domain\Game\Data\PendingInteractionData;
 use App\Domain\Game\Enums\Competency;
 use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\PendingInteractionType;
-use App\Domain\Game\Enums\TerrainType;
 use App\Models\GamePlayer;
 use Illuminate\Database\Eloquent\Collection;
 
@@ -53,27 +52,6 @@ final class ResolveCompletedStartingSetupAction
                     return [$competencyPlayer, GamePhase::Setup, []];
                 }
             }
-        }
-
-        $desertPlayer = $players->firstWhere('homeland', TerrainType::Desert);
-        $desertPlayerState = $desertPlayer instanceof GamePlayer
-            ? collect($state->players)->firstWhere('playerId', $desertPlayer->id)
-            : null;
-        $eligibleHexIds = $desertPlayerState !== null
-            ? $this->findEligibleTerraformHexes->execute($state, $desertPlayerState, TerrainType::Desert)
-            : [];
-
-        if ($desertPlayer instanceof GamePlayer
-            && $desertPlayerState?->unassignedSpades > 0
-            && $eligibleHexIds !== []) {
-            $state->pendingInteraction = new PendingInteractionData(
-                PendingInteractionType::SpendSpades,
-                $desertPlayer->id,
-                $eligibleHexIds,
-                ['spadeCount' => 1, 'targetTerrain' => TerrainType::Desert->value],
-            );
-
-            return [$desertPlayer, GamePhase::Setup, []];
         }
 
         $state->round->phase = GamePhase::Income;

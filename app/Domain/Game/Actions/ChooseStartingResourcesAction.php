@@ -7,7 +7,6 @@ namespace App\Domain\Game\Actions;
 use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Data\GameStateData;
 use App\Domain\Game\Enums\Competency;
-use App\Domain\Game\Enums\Faction;
 use App\Domain\Game\Enums\GameActionType;
 use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\GameStatus;
@@ -25,7 +24,6 @@ final class ChooseStartingResourcesAction
         private DetermineNextPlanningPlayerAction $determineNextPlanningPlayer,
         private AppendGameHistoryAction $appendGameHistory,
         private AdvanceKnowledgeAction $advanceKnowledge,
-        private GrantCompetencyAction $grantCompetency,
         private ResolveIncomePhaseAction $resolveIncomePhase,
     ) {
     }
@@ -86,13 +84,10 @@ final class ChooseStartingResourcesAction
             $playerState = $state->players[$playerStateIndex];
             $this->assignBooks($playerState, $bookDisciplines);
             $this->assignKnowledge($state, $playerState, $knowledgeDisciplines);
-            if ($interactionPhase === GamePhase::Setup) {
-                $this->assignCompetency(
-                    $state,
-                    $playerState,
-                    $competency,
-                    $state->setupPool?->competencies ?? [],
-                );
+            if ($interactionPhase === GamePhase::Setup && $competency instanceof Competency) {
+                throw ValidationException::withMessages([
+                    'competency_id' => 'Стартовая компетенция выбирается после расстановки зданий.',
+                ]);
             }
 
             $state->players[$playerStateIndex] = $playerState;
@@ -186,23 +181,4 @@ final class ChooseStartingResourcesAction
         $playerState->knowledge->unassignedSteps = 0;
     }
 
-    /** @param list<Competency|string> $availableCompetencies */
-    private function assignCompetency(
-        GameStateData $state,
-        GamePlayerStateData $playerState,
-        ?Competency $competency,
-        array $availableCompetencies,
-    ): void {
-        $requiresCompetency = $playerState->faction === Faction::Inventors;
-
-        if ($requiresCompetency !== ($competency instanceof Competency)) {
-            throw ValidationException::withMessages([
-                'competency_id' => 'Выберите стартовую компетенцию.',
-            ]);
-        }
-
-        if ($competency instanceof Competency) {
-            $this->grantCompetency->execute($state, $playerState, $competency, $availableCompetencies);
-        }
-    }
 }
