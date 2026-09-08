@@ -513,9 +513,9 @@ function canSacrificeFromBowl(player: GamePlayerSummary, bowl: PowerBowl): boole
             <figure
                 v-for="player in playersWithBoards"
                 :key="player.id"
-                class="grid overflow-hidden rounded-xl bg-card shadow-sm xl:grid-cols-[calc(60%-0.6rem)_minmax(30rem,1fr)]"
+                class="grid overflow-hidden bg-card shadow-sm xl:grid-cols-[calc(60%-0.6rem)_minmax(22rem,1fr)] gap-3"
             >
-                <div class="relative aspect-[1219/636] self-start overflow-hidden [container-type:inline-size]">
+                <div class="[container-type:inline-size] relative aspect-[1219/636] self-start overflow-hidden rounded-md">
                     <img
                         :src="boardImage(player.color)"
                         :alt="`Планшет игрока ${player.user.name}`"
@@ -690,10 +690,21 @@ function canSacrificeFromBowl(player: GamePlayerSummary, bowl: PowerBowl): boole
                                     type="button"
                                     :style="innovationTileStyle(innovationIndex)"
                                     class="absolute z-20 h-auto rounded-sm object-contain drop-shadow-md"
-                                    :class="isInnovationActionAvailable(player, innovation) ? 'cursor-pointer' : 'cursor-help'"
-                                    @click="isInnovationActionAvailable(player, innovation) && emit('useInnovationAction', innovation)"
+                                    :class="
+                                        isInnovationActionAvailable(player, innovation)
+                                            ? 'cursor-pointer'
+                                            : 'cursor-help'
+                                    "
+                                    @click="
+                                        isInnovationActionAvailable(player, innovation) &&
+                                        emit('useInnovationAction', innovation)
+                                    "
                                 >
-                                    <img :src="innovationImage(innovation)" :alt="`Инновация ${innovation}`" class="block h-auto w-full rounded-sm" />
+                                    <img
+                                        :src="innovationImage(innovation)"
+                                        :alt="`Инновация ${innovation}`"
+                                        class="block h-auto w-full rounded-sm"
+                                    />
                                     <img
                                         v-if="isInnovationActionUsed(player.id, innovation)"
                                         :src="goldCrossUrl"
@@ -710,7 +721,7 @@ function canSacrificeFromBowl(player: GamePlayerSummary, bowl: PowerBowl): boole
                     </TooltipProvider>
                 </div>
 
-                <figcaption class="flex items-start gap-3 border-t p-3 xl:border-t-0 xl:border-l">
+                <figcaption class="flex items-start gap-3">
                     <TooltipProvider v-if="roundBonusForPlayer(player.id)" :delay-duration="150">
                         <Tooltip>
                             <TooltipTrigger as-child>
@@ -762,9 +773,9 @@ function canSacrificeFromBowl(player: GamePlayerSummary, bowl: PowerBowl): boole
                             />
                         </span>
 
-                        <span class="flex items-center gap-3">
+                        <span class="flex items-center gap-3 flex-wrap">
                             <span
-                                class="relative grid size-10 place-items-center"
+                                class="relative grid size-10 shrink-0 place-items-center"
                                 :aria-label="`Монеты: ${coinsForPlayer(player.id)}`"
                             >
                                 <img :src="coinUrl" alt="" class="absolute inset-0 size-full drop-shadow-md" />
@@ -774,7 +785,7 @@ function canSacrificeFromBowl(player: GamePlayerSummary, bowl: PowerBowl): boole
                             </span>
 
                             <span
-                                class="relative grid size-10 place-items-center"
+                                class="relative grid size-10 shrink-0 place-items-center"
                                 :aria-label="`Инструменты: ${toolsForPlayer(player.id)}`"
                             >
                                 <img
@@ -797,7 +808,7 @@ function canSacrificeFromBowl(player: GamePlayerSummary, bowl: PowerBowl): boole
                                     :key="bridgeIndex"
                                     :src="bridgeImage(player.color)"
                                     alt=""
-                                    class="h-auto w-16 object-contain drop-shadow-md"
+                                    class="h-auto w-14 object-contain drop-shadow-md"
                                 />
                             </span>
 

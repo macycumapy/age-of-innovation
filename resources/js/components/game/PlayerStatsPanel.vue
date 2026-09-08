@@ -188,12 +188,12 @@ function levelCounters(state: GamePlayerBoardState): StatCounter[] {
         aria-label="Баланс и статистика игроков"
     >
         <div
-            class="absolute inset-y-0 right-0 w-[min(20rem,calc(100vw-3rem))] p-2 text-sidebar-foreground transition-transform duration-300"
+            class="absolute inset-y-0 right-0 w-[min(20rem,calc(100vw-3rem))] text-sidebar-foreground transition-transform duration-300"
             :class="isOpen ? 'translate-x-0' : 'translate-x-full'"
         >
             <button
                 type="button"
-                class="absolute top-4 left-2 grid size-9 -translate-x-full place-items-center rounded-l-lg border border-r-0 border-sidebar-border bg-sidebar text-sidebar-foreground shadow-sm transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:outline-none"
+                class="absolute top-4 grid size-9 -translate-x-full place-items-center rounded-l-lg border border-r-0 border-sidebar-border bg-sidebar text-sidebar-foreground shadow-sm transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:outline-none"
                 :aria-label="isOpen ? 'Скрыть статистику' : 'Показать статистику'"
                 :aria-expanded="isOpen"
                 @click="isOpen = !isOpen"
