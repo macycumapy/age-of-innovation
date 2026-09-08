@@ -116,15 +116,22 @@ final class PlayerIncomeCalculator
         };
     }
 
-    /** @param array{tools: int, coins: int, scholars: int, power: int, books: int, knowledgeSteps: int} $income */
+    /** @param array{tools: int, coins: int, scholars: int, power: int, books: int, knowledgeSteps: int, victoryPoints: int} $income */
     private static function addCompetencyIncome(array &$income, Competency $competency): void
     {
         match ($competency) {
             Competency::Competency01 => self::addToolsAndKnowledge($income),
-            Competency::Competency02 => $income['coins'] += 2,
+            Competency::Competency02 => self::addVictoryPointsAndCoins($income),
             Competency::Competency03 => self::addBooksAndPower($income),
             default => null,
         };
+    }
+
+    /** @param array{tools: int, coins: int, scholars: int, power: int, books: int, knowledgeSteps: int, victoryPoints: int} $income */
+    private static function addVictoryPointsAndCoins(array &$income): void
+    {
+        $income['victoryPoints'] += 3;
+        $income['coins'] += 2;
     }
 
     /** @param array{tools: int, coins: int, scholars: int, power: int, books: int, knowledgeSteps: int} $income */

@@ -506,7 +506,7 @@ class GameManagementTest extends TestCase
             'power' => 17,
             'books' => 1,
             'knowledgeSteps' => 1,
-            'victoryPoints' => 0,
+            'victoryPoints' => 3,
         ], PlayerIncomeCalculator::calculate($playerState, $board));
     }
 
@@ -693,6 +693,24 @@ class GameManagementTest extends TestCase
         app(ApplyIncomeAction::class)->execute(new GameStateData(players: [$playerState]), $playerState);
 
         $this->assertSame(22, $playerState->victoryPoints);
+    }
+
+    public function test_second_competency_grants_three_victory_points_and_two_coins_during_income(): void
+    {
+        $playerState = new GamePlayerStateData(
+            playerId: 15,
+            userId: 25,
+            color: PlayerColor::Green,
+            faction: Faction::Blessed,
+            homeland: TerrainType::Forest,
+            roundBonus: RoundBonus::RiverWorkshop,
+            competencyIds: [Competency::Competency02->value],
+        );
+
+        app(ApplyIncomeAction::class)->execute(new GameStateData(players: [$playerState]), $playerState);
+
+        $this->assertSame(23, $playerState->victoryPoints);
+        $this->assertSame(2, $playerState->resources->coins);
     }
 
     public function test_university_grants_a_scholar_during_income_except_when_it_is_neutral(): void
