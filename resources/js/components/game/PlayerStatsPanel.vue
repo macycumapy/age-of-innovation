@@ -3,6 +3,7 @@ import { ChevronLeft, ChevronRight } from '@lucide/vue';
 import { computed, ref } from 'vue';
 import type { GameHistoryPage, GamePlayerBoardState, GamePlayerSummary } from '@/types';
 import GameHistory from '@/components/game/GameHistory.vue';
+import { playerColorValues } from '@/lib/gameDisplay';
 import annexUrl from '../../../images/buildings/white/annex.png';
 import bankingBookUrl from '../../../images/token_parts/coin_book.png';
 import toolUrl from '../../../images/token_parts/cube.png';
@@ -34,6 +35,8 @@ type StatCounter = {
 const props = defineProps<{
     players: GamePlayerSummary[];
     playerStates: GamePlayerBoardState[];
+    currentPlayerId: number | null;
+    activePlayerId: number | null;
     gameId: number;
     history: GameHistoryPage;
     canUndoLastAction: boolean;
@@ -41,13 +44,39 @@ const props = defineProps<{
 
 const isOpen = ref(false);
 
-const playersWithStats = computed(() =>
-    props.players.flatMap((player) => {
-        const state = props.playerStates.find((candidate) => candidate.playerId === player.id);
+const playersWithStats = computed(() => {
+    const activePlayerIds = props.players
+        .filter((player) => {
+            const state = props.playerStates.find((candidate) => candidate.playerId === player.id);
 
-        return state === undefined ? [] : [{ player, state }];
-    }),
-);
+            return state?.passOrder === null;
+        })
+        .map((player) => player.id);
+    const orderedPlayers = [...props.players].sort((firstPlayer, secondPlayer) => {
+        if (firstPlayer.id === props.currentPlayerId) {
+            return -1;
+        }
+
+        if (secondPlayer.id === props.currentPlayerId) {
+            return 1;
+        }
+
+        return 0;
+    });
+
+    return orderedPlayers.flatMap((player) => {
+        const state = props.playerStates.find((candidate) => candidate.playerId === player.id);
+        const turnOrder = activePlayerIds.indexOf(player.id) + 1;
+
+        return state === undefined ? [] : [{ player, state, turnOrder }];
+    });
+});
+
+function playerBackgroundColor(player: GamePlayerSummary): string {
+    const color = player.color === null ? '#a1a1aa' : playerColorValues[player.color];
+
+    return `color-mix(in srgb, ${color} 18%, transparent)`;
+}
 
 function balanceCounters(state: GamePlayerBoardState): StatCounter[] {
     return [
@@ -176,27 +205,39 @@ function levelCounters(state: GamePlayerBoardState): StatCounter[] {
             <div
                 class="grid h-full grid-rows-[auto_1fr] overflow-hidden rounded-lg border border-sidebar-border bg-sidebar shadow-sm"
             >
-                <div class="grid content-start gap-4 overflow-y-auto p-4">
+                <div class="grid min-w-0 content-start gap-4 overflow-y-auto p-4">
                     <article
                         v-for="entry in playersWithStats"
                         :key="entry.player.id"
-                        class="grid gap-3 rounded-lg border border-sidebar-border bg-sidebar-accent/50 p-3"
+                        class="grid max-w-full min-w-0 gap-3 rounded-lg border border-sidebar-border p-3"
+                        :style="{ backgroundColor: playerBackgroundColor(entry.player) }"
                     >
-                        <h3 class="flex items-center gap-2 font-semibold">
-                            <span>{{ entry.player.user.name }}</span>
+                        <h3 class="flex min-w-0 items-center gap-2 font-semibold">
                             <span
-                                class="relative grid size-8 place-items-center"
-                                :title="'Победные очки'"
-                                :aria-label="`Победные очки: ${entry.state.victoryPoints}`"
+                                v-if="entry.state.passOrder === null"
+                                class="relative grid size-6 shrink-0 place-items-center rounded-full border border-sidebar-border bg-sidebar/70 text-xs font-bold shadow-sm"
+                                :class="{ 'ring-2 ring-emerald-400/80': entry.player.id === activePlayerId }"
+                                :title="
+                                    entry.player.id === activePlayerId
+                                        ? `Сейчас ходит. Порядок хода в текущем раунде: ${entry.turnOrder}`
+                                        : `Порядок хода в текущем раунде: ${entry.turnOrder}`
+                                "
+                                :aria-label="
+                                    entry.player.id === activePlayerId
+                                        ? `Сейчас ходит. Порядок хода в текущем раунде: ${entry.turnOrder}`
+                                        : `Порядок хода в текущем раунде: ${entry.turnOrder}`
+                                "
                             >
-                                <img :src="victoryPointsUrl" alt="" class="absolute object-contain drop-shadow-md" />
-                                <span class="relative z-10 text-xs font-bold">
-                                    {{ entry.state.victoryPoints }}
-                                </span>
+                                <span
+                                    v-if="entry.player.id === activePlayerId"
+                                    class="absolute inset-0 rounded-full border-2 border-emerald-400/70 motion-safe:animate-ping"
+                                    aria-hidden="true"
+                                />
+                                <span class="relative">{{ entry.turnOrder }}</span>
                             </span>
                             <span
-                                v-if="entry.state.passOrder !== null"
-                                class="relative grid size-8 place-items-center"
+                                v-else
+                                class="relative grid size-6 shrink-0 place-items-center"
                                 :title="`Порядок паса: ${entry.state.passOrder}`"
                                 :aria-label="`Порядок паса: ${entry.state.passOrder}`"
                             >
@@ -205,8 +246,21 @@ function levelCounters(state: GamePlayerBoardState): StatCounter[] {
                                     alt=""
                                     class="absolute size-full object-contain drop-shadow-md"
                                 />
-                                <span class="relative z-10 text-xs font-bold text-amber-950">
+                                <span class="relative z-10 text-xs font-bold">
                                     {{ entry.state.passOrder }}
+                                </span>
+                            </span>
+                            <span class="min-w-0 flex-1 truncate" :title="entry.player.user.name">
+                                {{ entry.player.user.name }}
+                            </span>
+                            <span
+                                class="relative grid size-8 shrink-0 place-items-center"
+                                :title="'Победные очки'"
+                                :aria-label="`Победные очки: ${entry.state.victoryPoints}`"
+                            >
+                                <img :src="victoryPointsUrl" alt="" class="absolute object-contain drop-shadow-md" />
+                                <span class="relative z-10 text-xs font-bold">
+                                    {{ entry.state.victoryPoints }}
                                 </span>
                             </span>
                         </h3>
@@ -231,7 +285,7 @@ function levelCounters(state: GamePlayerBoardState): StatCounter[] {
                                         "
                                     />
                                     <span
-                                        class="absolute top-1/2 right-3 grid min-w-6 -translate-y-1/2 place-items-center rounded-full px-1 text-sm font-bold shadow"
+                                        class="absolute top-1/2 right-2 grid min-w-6 -translate-y-1/2 place-items-center rounded-full px-1 text-sm font-bold shadow"
                                     >
                                         {{ counter.value }}
                                     </span>
@@ -250,7 +304,7 @@ function levelCounters(state: GamePlayerBoardState): StatCounter[] {
                                         class="h-full w-[40%] object-contain drop-shadow-md"
                                     />
                                     <span
-                                        class="absolute top-1/2 right-3 grid min-w-6 -translate-y-1/2 place-items-center rounded-full px-1 text-sm font-bold shadow"
+                                        class="absolute top-1/2 right-2 grid min-w-6 -translate-y-1/2 place-items-center rounded-full px-1 text-sm font-bold shadow"
                                         >{{ counter.value }}</span
                                     >
                                 </div>
@@ -258,7 +312,7 @@ function levelCounters(state: GamePlayerBoardState): StatCounter[] {
                                 <div
                                     v-for="counter in incomeCounters(entry.state)"
                                     :key="counter.label"
-                                    class="relative grid aspect-square rounded-lg"
+                                    class="relative -my-2 grid aspect-square rounded-lg"
                                     :title="counter.label"
                                     :aria-label="`${counter.label}: ${counter.value}`"
                                 >
@@ -273,7 +327,7 @@ function levelCounters(state: GamePlayerBoardState): StatCounter[] {
                                         class="absolute top-5 left-2 h-[25%] w-[25%] object-contain drop-shadow-md"
                                     />
                                     <span
-                                        class="absolute top-1/2 right-3 grid min-w-6 -translate-y-1/2 place-items-center rounded-full px-1 text-sm font-bold shadow"
+                                        class="absolute top-1/2 right-2 grid min-w-6 -translate-y-1/2 place-items-center rounded-full px-1 text-sm font-bold shadow"
                                         >{{ counter.value }}</span
                                     >
                                 </div>
@@ -291,7 +345,7 @@ function levelCounters(state: GamePlayerBoardState): StatCounter[] {
                                         class="h-full w-[50%] object-contain drop-shadow-md"
                                     />
                                     <span
-                                        class="absolute top-1/2 right-3 grid min-w-6 -translate-y-1/2 place-items-center rounded-full px-1 text-sm font-bold shadow"
+                                        class="absolute top-1/2 right-2 grid min-w-6 -translate-y-1/2 place-items-center rounded-full px-1 text-sm font-bold shadow"
                                         >{{ counter.value }}</span
                                     >
                                 </div>

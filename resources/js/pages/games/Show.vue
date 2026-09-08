@@ -1824,6 +1824,8 @@ function selectedCompetencyForHomeland(homeland: TerrainType): Competency | unde
             "
             :players="orderedPlayers"
             :player-states="game.data.playerBoardStates"
+            :current-player-id="currentPlayer?.id ?? null"
+            :active-player-id="activePlayer?.id ?? null"
             :game-id="game.data.id"
             :history="game.data.history"
             :can-undo-last-action="game.data.canUndoLastAction"
