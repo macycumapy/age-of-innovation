@@ -1194,6 +1194,69 @@ class GameManagementTest extends TestCase
         $this->assertSame(1, $game->actions()->count());
     }
 
+    #[DataProvider('illusionistPowerActionProvider')]
+    public function test_illusionists_pay_less_for_power_actions_and_gain_victory_points(
+        int $playerCount,
+        int $expectedVictoryPoints,
+    ): void {
+        $user = User::factory()->create();
+        $game = Game::factory()->create([
+            'status' => GameStatus::Active,
+            'phase' => GamePhase::Actions,
+            'active_player_id' => $user->id,
+        ]);
+        $player = GamePlayer::factory()->create([
+            'game_id' => $game->id,
+            'user_id' => $user->id,
+            'seat' => 1,
+        ]);
+        $game->update(['state' => new GameStateData(
+            turnOrder: [$player->id],
+            round: new RoundStateData(phase: GamePhase::Actions),
+            players: [new GamePlayerStateData(
+                playerId: $player->id,
+                userId: $user->id,
+                color: PlayerColor::Green,
+                faction: Faction::Illusionists,
+                homeland: TerrainType::Forest,
+                roundBonus: RoundBonus::Coins,
+                resources: new PlayerResourcesData(
+                    power: new PowerBowlsStateData(bowlThree: 3),
+                ),
+            )],
+            setupPool: app(GameSetupPoolFactory::class)->create($playerCount),
+        )]);
+
+        $this->actingAs($user)->get(route('games.show', $game))->assertInertia(
+            fn (Assert $page) => $page
+                ->where('game.data.powerActions.2.cost', 3)
+                ->where(
+                    'game.data.powerActions.2.description',
+                    'Потратить 3 силы, чтобы получить 2 инструмента.',
+                ),
+        );
+
+        $this->post(route('games.power-action', $game), [
+            'action' => PowerAction::GainTools->value,
+            'sacrifice_amount' => 0,
+        ])->assertNoContent();
+
+        $game->refresh();
+        $playerState = $game->state->players[0];
+        $this->assertSame(0, $playerState->resources->power->bowlThree);
+        $this->assertSame(3, $playerState->resources->power->bowlOne);
+        $this->assertSame(2, $playerState->resources->tools);
+        $this->assertSame(20 + $expectedVictoryPoints, $playerState->victoryPoints);
+        $this->assertSame($expectedVictoryPoints, $game->actions()->sole()->payload['victory_points']);
+    }
+
+    /** @return iterable<string, array{int, int}> */
+    public static function illusionistPowerActionProvider(): iterable
+    {
+        yield '3 игрока' => [3, 1];
+        yield '4 игрока' => [4, 2];
+    }
+
     public function test_player_can_activate_round_bonus_action_only_once_and_restart_the_turn(): void
     {
         $user = User::factory()->create();

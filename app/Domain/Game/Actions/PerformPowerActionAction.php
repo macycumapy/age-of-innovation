@@ -56,9 +56,15 @@ final class PerformPowerActionAction
             }
 
             $this->applyPowerAction->execute($state, $playerState, $action, $sacrificeAmount);
+            $victoryPoints = $action->victoryPoints(
+                $playerState->faction,
+                $state->setupPool?->playerCount ?? count($state->players),
+            );
+
             if ($action === PowerAction::BuildBridge && $state->pendingInteraction !== null) {
                 $state->pendingInteraction->context['source'] = 'power';
                 $state->pendingInteraction->context['sacrificeAmount'] = $sacrificeAmount;
+                $state->pendingInteraction->context['victoryPoints'] = $victoryPoints;
             }
             $lockedGame->update(['state' => $state, 'version' => $lockedGame->version + 1]);
 
@@ -67,12 +73,17 @@ final class PerformPowerActionAction
                     $lockedGame,
                     $user,
                     GameActionType::PowerAction,
-                    ['action' => $action->value, 'sacrifice_amount' => $sacrificeAmount],
+                    [
+                        'action' => $action->value,
+                        'sacrifice_amount' => $sacrificeAmount,
+                        'victory_points' => $victoryPoints,
+                    ],
                     [[
                         'type' => 'power_action_used',
                         'player_id' => $player->id,
                         'action' => $action->value,
                         'sacrifice_amount' => $sacrificeAmount,
+                        'victory_points' => $victoryPoints,
                     ]],
                     $stateVersionBefore,
                     $lockedGame->version,

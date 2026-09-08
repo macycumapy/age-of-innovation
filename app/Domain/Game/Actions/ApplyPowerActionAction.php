@@ -36,7 +36,8 @@ final class ApplyPowerActionAction
             throw ValidationException::withMessages(['action' => 'В пуле игрока нет доступной фигурки учёного.']);
         }
 
-        $requiredSacrifice = max(0, $action->cost() - $playerState->resources->power->bowlThree);
+        $cost = $action->cost($playerState->faction);
+        $requiredSacrifice = max(0, $cost - $playerState->resources->power->bowlThree);
 
         if ($sacrificeAmount !== $requiredSacrifice
             || $sacrificeAmount * 2 > $playerState->resources->power->bowlTwo) {
@@ -47,8 +48,12 @@ final class ApplyPowerActionAction
 
         $playerState->resources->power->bowlTwo -= $sacrificeAmount * 2;
         $playerState->resources->power->bowlThree += $sacrificeAmount;
-        $playerState->resources->power->bowlThree -= $action->cost();
-        $playerState->resources->power->bowlOne += $action->cost();
+        $playerState->resources->power->bowlThree -= $cost;
+        $playerState->resources->power->bowlOne += $cost;
+        $playerState->victoryPoints += $action->victoryPoints(
+            $playerState->faction,
+            $state->setupPool?->playerCount ?? count($state->players),
+        );
 
         match ($action) {
             PowerAction::BuildBridge => $this->createBridgeInteraction->execute($state, $playerState),

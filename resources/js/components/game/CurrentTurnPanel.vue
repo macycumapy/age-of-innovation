@@ -93,7 +93,7 @@ function scrollToPageTop(event: MouseEvent): void {
 <template>
     <div
         v-if="game.data.status === 'active'"
-        class="sticky top-0 z-30 -mx-4 flex cursor-pointer items-center justify-center gap-4 border-y border-border/80 bg-background/95 px-4 py-3 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-background/80"
+        class="sticky top-0 z-40 -mx-4 flex cursor-pointer items-center justify-center gap-4 border-y border-border/80 bg-background/95 px-4 py-3 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-background/80"
         @click="scrollToPageTop"
     >
         <span

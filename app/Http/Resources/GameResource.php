@@ -360,8 +360,8 @@ class GameResource extends JsonResource
             'powerActions' => array_map(
                 fn (PowerAction $action): array => [
                     'id' => $action->value,
-                    'cost' => $action->cost(),
-                    'description' => $action->description(),
+                    'cost' => $action->cost($currentPlayerState?->faction),
+                    'description' => $action->description($currentPlayerState?->faction),
                     'isUsed' => in_array($action->value, $this->state->round->usedSharedActionIds, true),
                 ],
                 PowerAction::cases(),

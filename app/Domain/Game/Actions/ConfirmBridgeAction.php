@@ -73,6 +73,7 @@ final class ConfirmBridgeAction
                 ? [
                     'action' => 'build_bridge',
                     'sacrifice_amount' => (int) ($interaction->context['sacrificeAmount'] ?? 0),
+                    'victory_points' => (int) ($interaction->context['victoryPoints'] ?? 0),
                     'from_hex_id' => $fromHexId,
                     'to_hex_id' => $toHexId,
                 ]

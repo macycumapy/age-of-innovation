@@ -60,6 +60,37 @@ final class GameEnumTest extends TestCase
         $this->assertSame(TerrainType::Water, TerrainType::Water->stepTowards(TerrainType::Desert));
     }
 
+    public function test_illusionists_pay_one_less_power_for_every_power_action(): void
+    {
+        foreach (PowerAction::cases() as $action) {
+            $this->assertSame($action->cost() - 1, $action->cost(Faction::Illusionists));
+            $this->assertSame($action->cost(), $action->cost(Faction::Blessed));
+        }
+    }
+
+    #[DataProvider('illusionistPowerActionVictoryPointsProvider')]
+    public function test_illusionists_gain_victory_points_from_power_actions(
+        int $playerCount,
+        int $expectedVictoryPoints,
+    ): void {
+        $action = PowerAction::GainTools;
+
+        $this->assertSame(
+            $expectedVictoryPoints,
+            $action->victoryPoints(Faction::Illusionists, $playerCount),
+        );
+        $this->assertSame(0, $action->victoryPoints(Faction::Blessed, $playerCount));
+    }
+
+    /** @return iterable<string, array{int, int}> */
+    public static function illusionistPowerActionVictoryPointsProvider(): iterable
+    {
+        yield '2 игрока' => [2, 1];
+        yield '3 игрока' => [3, 1];
+        yield '4 игрока' => [4, 2];
+        yield '5 игроков' => [5, 2];
+    }
+
     /** @return iterable<string, array{class-string<\BackedEnum>, list<string>}> */
     public static function gameEnumProvider(): iterable
     {

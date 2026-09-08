@@ -19,24 +19,37 @@ enum PowerAction: string
     /** Отдать 6 силы и преобразовать с 2 бесплатными лопатами. */
     case TerraformTwoSpades = 'terraform_two_spades';
 
-    public function cost(): int
+    public function cost(?Faction $faction = null): int
     {
-        return match ($this) {
+        $cost = match ($this) {
             self::BuildBridge, self::GainScholar => 3,
             self::GainTools, self::GainCoins, self::TerraformOneSpade => 4,
             self::TerraformTwoSpades => 6,
         };
+
+        return $faction === Faction::Illusionists ? $cost - 1 : $cost;
     }
 
-    public function description(): string
+    public function description(?Faction $faction = null): string
     {
+        $cost = $this->cost($faction);
+
         return match ($this) {
-            self::BuildBridge => 'Потратить 3 силы, чтобы построить мост.',
-            self::GainScholar => 'Потратить 3 силы, чтобы получить учёного.',
-            self::GainTools => 'Потратить 4 силы, чтобы получить 2 инструмента.',
-            self::GainCoins => 'Потратить 4 силы, чтобы получить 7 золота.',
-            self::TerraformOneSpade => 'Потратить 4 силы, чтобы получить 1 лопату.',
-            self::TerraformTwoSpades => 'Потратить 6 силы, чтобы получить 2 лопаты.',
+            self::BuildBridge => "Потратить {$cost} силы, чтобы построить мост.",
+            self::GainScholar => "Потратить {$cost} силы, чтобы получить учёного.",
+            self::GainTools => "Потратить {$cost} силы, чтобы получить 2 инструмента.",
+            self::GainCoins => "Потратить {$cost} силы, чтобы получить 7 золота.",
+            self::TerraformOneSpade => "Потратить {$cost} силы, чтобы получить 1 лопату.",
+            self::TerraformTwoSpades => "Потратить {$cost} силы, чтобы получить 2 лопаты.",
         };
+    }
+
+    public function victoryPoints(Faction $faction, int $playerCount): int
+    {
+        if ($faction !== Faction::Illusionists) {
+            return 0;
+        }
+
+        return $playerCount >= 4 ? 2 : 1;
     }
 }
