@@ -8,6 +8,7 @@ use App\Domain\Game\Data\BoardStateData;
 use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Enums\BuildingType;
 use App\Domain\Game\Enums\Competency;
+use App\Domain\Game\Enums\Faction;
 use App\Domain\Game\Enums\Innovation;
 use App\Domain\Game\Enums\KnowledgeDiscipline;
 use App\Domain\Game\Enums\PalaceAbility;
@@ -47,8 +48,10 @@ final class PlayerIncomeCalculator
         };
         $income['scholars'] += $buildingCounts[BuildingType::School->value]
             + $buildingCounts[BuildingType::University->value];
-        $income['coins'] += $buildingCounts[BuildingType::Tower->value] * 2;
-        $income['power'] += $buildingCounts[BuildingType::Tower->value] * 2;
+
+        if ($player->faction === Faction::Omar) {
+            self::addPowerCoins($income, 2, 2);
+        }
 
         self::addRoundBonusIncome($income, $player->roundBonus);
 
@@ -123,6 +126,7 @@ final class PlayerIncomeCalculator
             Competency::Competency01 => self::addToolsAndKnowledge($income),
             Competency::Competency02 => self::addVictoryPointsAndCoins($income),
             Competency::Competency03 => self::addBooksAndPower($income),
+            Competency::Competency10 => self::addPowerCoins($income, 2, 2),
             default => null,
         };
     }

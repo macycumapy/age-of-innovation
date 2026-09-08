@@ -592,7 +592,7 @@ class GameManagementTest extends TestCase
             playerId: 15,
             userId: 25,
             color: PlayerColor::Grey,
-            faction: Faction::Omar,
+            faction: Faction::Blessed,
             homeland: TerrainType::Mountain,
             roundBonus: RoundBonus::RiverWorkshop,
         );
@@ -600,13 +600,58 @@ class GameManagementTest extends TestCase
             playerId: 16,
             userId: 26,
             color: PlayerColor::Green,
-            faction: Faction::Blessed,
+            faction: Faction::Omar,
             homeland: TerrainType::Mountain,
             roundBonus: RoundBonus::RiverWorkshop,
         );
 
         $this->assertSame(2, PlayerIncomeCalculator::calculate($greyPlayer, new BoardStateData())['coins']);
-        $this->assertSame(0, PlayerIncomeCalculator::calculate($greenPlayer, new BoardStateData())['coins']);
+        $this->assertSame(0, PlayerIncomeCalculator::calculate($greyPlayer, new BoardStateData())['power']);
+        $this->assertSame(2, PlayerIncomeCalculator::calculate($greenPlayer, new BoardStateData())['coins']);
+        $this->assertSame(2, PlayerIncomeCalculator::calculate($greenPlayer, new BoardStateData())['power']);
+    }
+
+    public function test_tenth_competency_has_two_coin_and_two_power_income_without_a_tower(): void
+    {
+        $playerState = new GamePlayerStateData(
+            playerId: 15,
+            userId: 25,
+            color: PlayerColor::Green,
+            faction: Faction::Blessed,
+            homeland: TerrainType::Forest,
+            roundBonus: RoundBonus::RiverWorkshop,
+            competencyIds: [Competency::Competency10->value],
+        );
+
+        $income = PlayerIncomeCalculator::calculate($playerState, new BoardStateData());
+
+        $this->assertSame(2, $income['coins']);
+        $this->assertSame(2, $income['power']);
+    }
+
+    public function test_tower_does_not_have_its_own_income(): void
+    {
+        $playerState = new GamePlayerStateData(
+            playerId: 15,
+            userId: 25,
+            color: PlayerColor::Green,
+            faction: Faction::Blessed,
+            homeland: TerrainType::Forest,
+            roundBonus: RoundBonus::RiverWorkshop,
+        );
+        $board = new BoardStateData(hexes: [new BoardHexStateData(
+            id: '0:0',
+            q: 0,
+            r: 0,
+            initialTerrain: TerrainType::Forest,
+            terrain: TerrainType::Forest,
+            building: new BuildingStateData(BuildingType::Tower, 15),
+        )]);
+
+        $income = PlayerIncomeCalculator::calculate($playerState, $board);
+
+        $this->assertSame(0, $income['coins']);
+        $this->assertSame(0, $income['power']);
     }
 
     #[DataProvider('workshopToolIncomeProvider')]
