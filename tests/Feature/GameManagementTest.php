@@ -14,6 +14,7 @@ use App\Domain\Game\Actions\CreatePowerOffersAfterBuildingAction;
 use App\Domain\Game\Actions\DetermineStartingBuildingOrderAction;
 use App\Domain\Game\Actions\FindEligibleTerraformHexesAction;
 use App\Domain\Game\Actions\FindEligibleTownHexesAction;
+use App\Domain\Game\Actions\ReplayGameHistoryAction;
 use App\Domain\Game\Actions\ResolveCompletedStartingSetupAction;
 use App\Domain\Game\Actions\ResolveIncomePhaseAction;
 use App\Domain\Game\Data\BoardHexStateData;
@@ -2135,8 +2136,39 @@ class GameManagementTest extends TestCase
             adjacentHexIds: ['8:5'],
             building: new BuildingStateData(BuildingType::Workshop, $state->players[0]->playerId),
         );
-        $state->availableTownTileIds = [TownTile::Tools->value];
+        $state->availableTownTileIds = [TownTile::Books->value];
         $game->update(['state' => $state]);
+        $game->actions()->create([
+            'sequence' => 1,
+            'player_id' => null,
+            'type' => GameActionType::PhaseCheckpoint,
+            'payload' => [
+                'phase' => GamePhase::Actions->value,
+                'game' => [
+                    'status' => $game->status->value,
+                    'round' => $game->round,
+                    'phase' => $game->phase->value,
+                    'active_player_id' => $game->active_player_id,
+                    'version' => $game->version,
+                    'state' => $state->toArray(),
+                    'started_at' => null,
+                    'finished_at' => null,
+                ],
+                'players' => [[
+                    'id' => $game->players()->sole()->id,
+                    'color' => null,
+                    'faction' => null,
+                    'homeland' => null,
+                    'is_ready' => false,
+                    'result_place' => null,
+                    'final_score' => null,
+                ]],
+                'final_scoring' => [],
+            ],
+            'events' => [],
+            'state_version_before' => $game->version,
+            'state_version_after' => $game->version,
+        ]);
 
         $this->actingAs($user)->post(route('games.faction-action', $game))
             ->assertNoContent();
@@ -2154,14 +2186,6 @@ class GameManagementTest extends TestCase
             'fromHexId' => '7:7',
         ], $game->state->pendingInteraction?->context['pairs'] ?? []);
 
-        $this->post(route('games.current-turn.restart', $game))->assertNoContent();
-        $game->refresh();
-        $this->assertSame(1, $game->state->players[0]->resources->tools);
-        $this->assertFalse($game->state->round->hasTakenMainAction);
-        $this->assertNull($game->state->pendingInteraction);
-
-        $this->post(route('games.faction-action', $game))->assertNoContent();
-
         $this->post(route('games.bridge.store', $game), [
             'from_hex_id' => '7:7',
             'to_hex_id' => '8:5',
@@ -2175,9 +2199,25 @@ class GameManagementTest extends TestCase
             ['8:5', '9:5', '9:4', '7:7'],
             $game->state->pendingInteraction?->context['townHexIds'] ?? [],
         );
-        $bridgeAction = $game->actions()->firstOrFail();
+        $bridgeAction = $game->actions()->where('type', GameActionType::SpecialAction)->sole();
         $this->assertSame(Faction::Moles->value, $bridgeAction->payload['faction']);
         $this->assertSame(GameActionType::SpecialAction, $bridgeAction->type);
+
+        $this->post(route('games.town', $game), ['town_tile' => TownTile::Books->value])->assertNoContent();
+        $this->post(route('games.books', $game), [
+            'book_counts' => ['banking' => 1, 'law' => 1, 'engineering' => 0, 'medicine' => 0],
+        ])->assertNoContent();
+
+        app(ReplayGameHistoryAction::class)->execute($game, $game->actions()->orderBy('sequence')->get());
+        $game->refresh();
+
+        $this->assertNull($game->state->pendingInteraction);
+        $this->assertNotNull($game->state->round->turnStartVersion);
+        $this->get(route('games.show', $game))->assertInertia(
+            fn (Assert $page) => $page
+                ->where('game.data.canRestartCurrentTurn', true)
+                ->where('game.data.canFinishCurrentTurn', true),
+        );
     }
 
     public function test_moles_power_bridge_still_requires_a_river(): void

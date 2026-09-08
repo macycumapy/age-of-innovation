@@ -315,6 +315,12 @@ final class ReplayGameHistoryAction
         }
 
         $state = $game->state;
+
+        if ($state->turnStartSnapshot === null) {
+            $state->turnStartSnapshot = $state->toArray();
+            $state->round->turnStartVersion = $game->version;
+        }
+
         $disciplineValue = $action->payload['discipline'] ?? null;
         $discipline = is_string($disciplineValue) ? KnowledgeDiscipline::from($disciplineValue) : null;
         $knowledgeDisciplineValues = $action->payload['knowledge_disciplines'] ?? [];
