@@ -322,6 +322,20 @@ function innovationImage(innovation: Innovation): string {
     return innovationImages[`../../../images/innovations/${innovation}.jpg`];
 }
 
+function innovationCrossStyle(innovation: Innovation): CSSProperties {
+    if (innovation === 'deus_ex_machina') {
+        return {
+            left: `28%`,
+            top: `43%`,
+        };
+    }
+
+    return {
+        left: `50%`,
+        top: `50%`,
+    };
+}
+
 function innovationTileStyle(index: number): CSSProperties {
     return {
         left: `${(innovationTileX / boardWidth) * 100}%`,
@@ -412,9 +426,11 @@ function innovationsForPlayer(playerId: number): Innovation[] {
 }
 
 function isInnovationActionAvailable(player: GamePlayerSummary, innovation: Innovation): boolean {
-    return props.canUseInnovationAction
-        && player.user.id === props.currentUserId
-        && (playerState(player.id)?.availableInnovationActionIds.includes(innovation) ?? false);
+    return (
+        props.canUseInnovationAction &&
+        player.user.id === props.currentUserId &&
+        (playerState(player.id)?.availableInnovationActionIds.includes(innovation) ?? false)
+    );
 }
 
 function isInnovationActionUsed(playerId: number, innovation: Innovation): boolean {
@@ -513,9 +529,11 @@ function canSacrificeFromBowl(player: GamePlayerSummary, bowl: PowerBowl): boole
             <figure
                 v-for="player in playersWithBoards"
                 :key="player.id"
-                class="grid overflow-hidden bg-card shadow-sm xl:grid-cols-[calc(60%-0.6rem)_minmax(22rem,1fr)] gap-3"
+                class="grid gap-3 overflow-hidden bg-card shadow-sm xl:grid-cols-[calc(60%-0.6rem)_minmax(22rem,1fr)]"
             >
-                <div class="[container-type:inline-size] relative aspect-[1219/636] self-start overflow-hidden rounded-md">
+                <div
+                    class="[container-type:inline-size] relative aspect-[1219/636] self-start overflow-hidden rounded-md"
+                >
                     <img
                         :src="boardImage(player.color)"
                         :alt="`Планшет игрока ${player.user.name}`"
@@ -709,7 +727,8 @@ function canSacrificeFromBowl(player: GamePlayerSummary, bowl: PowerBowl): boole
                                         v-if="isInnovationActionUsed(player.id, innovation)"
                                         :src="goldCrossUrl"
                                         alt="Действие инновации использовано"
-                                        class="pointer-events-none absolute top-1/2 left-1/2 size-[82%] -translate-x-1/2 -translate-y-1/2 object-contain drop-shadow-md"
+                                        class="pointer-events-none absolute size-[75%] -translate-x-1/2 -translate-y-1/2 object-contain drop-shadow-md"
+                                        :style="innovationCrossStyle(innovation)"
                                     />
                                 </button>
                             </TooltipTrigger>
@@ -773,7 +792,7 @@ function canSacrificeFromBowl(player: GamePlayerSummary, bowl: PowerBowl): boole
                             />
                         </span>
 
-                        <span class="flex items-center gap-3 flex-wrap">
+                        <span class="flex flex-wrap items-center gap-3">
                             <span
                                 class="relative grid size-10 shrink-0 place-items-center"
                                 :aria-label="`Монеты: ${coinsForPlayer(player.id)}`"
