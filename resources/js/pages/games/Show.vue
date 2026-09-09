@@ -15,7 +15,6 @@ import BuildingUpgradeDialog from '@/components/game/BuildingUpgradeDialog.vue';
 import BuildWorkshopDialog from '@/components/game/BuildWorkshopDialog.vue';
 import CompetencyActionDialog from '@/components/game/CompetencyActionDialog.vue';
 import CompetencyChoicePanel from '@/components/game/CompetencyChoicePanel.vue';
-import CompetencySelector from '@/components/game/CompetencySelector.vue';
 import CurrentTurnFinishDialog from '@/components/game/CurrentTurnFinishDialog.vue';
 import CurrentTurnPanel from '@/components/game/CurrentTurnPanel.vue';
 import GameLobby from '@/components/game/GameLobby.vue';
@@ -72,7 +71,6 @@ import lawRoundUrl from '../../../images/token_parts/law_round.png';
 import medicineBookUrl from '../../../images/token_parts/medicine_book.png';
 import medicineRoundUrl from '../../../images/token_parts/medicine_round.png';
 import type {
-    Competency,
     BookActionState,
     GamePlayerSummary,
     GameResource,
@@ -441,7 +439,6 @@ const startingKnowledgeCounts = reactive<Record<KnowledgeDiscipline, number>>({
     engineering: 0,
     medicine: 0,
 });
-const selectedStartingCompetency = ref<Competency | null>(null);
 const isPlanningBundleGroupOpen = ref(true);
 const isPowerSacrificeDialogOpen = ref(false);
 const isPowerActionDialogOpen = ref(false);
@@ -822,10 +819,6 @@ const remainingStartingKnowledgeStepCount = computed(() =>
     Math.max(0, availableStartingKnowledgeStepCount.value - assignedStartingKnowledgeStepCount.value),
 );
 
-const requiresStartingCompetency = computed(
-    () => (props.game.data.pendingInteraction?.context.competencyIds?.length ?? 0) > 0,
-);
-
 watch(
     () => props.game.data.pendingInteraction?.playerId,
     () => {
@@ -833,8 +826,6 @@ watch(
             startingBookCounts[discipline] = 0;
             startingKnowledgeCounts[discipline] = 0;
         }
-
-        selectedStartingCompetency.value = null;
     },
 );
 
@@ -855,12 +846,6 @@ const mapVariantNames: Record<MapVariant, string> = {
     three_to_five_players: '3–5 игроков',
 };
 
-const competencyImages = import.meta.glob('../../../images/competencies/*.png', {
-    eager: true,
-    import: 'default',
-    query: '?url',
-}) as Record<string, string>;
-
 const knowledgeDisciplineNames = computed(() => props.game.data.knowledgeDisciplineNames);
 const bookImages: Record<KnowledgeDiscipline, string> = {
     banking: bankingBookUrl,
@@ -875,10 +860,6 @@ const knowledgeRoundImages: Record<KnowledgeDiscipline, string> = {
     engineering: engineeringRoundUrl,
     medicine: medicineRoundUrl,
 };
-
-function competencyImage(competency: Competency): string {
-    return competencyImages[`../../../images/competencies/${competency}.png`];
-}
 </script>
 
 <template>
@@ -987,24 +968,6 @@ function competencyImage(competency: Competency): string {
                                 </div>
 
                                 <div
-                                    v-if="(game.data.pendingInteraction?.context.competencyIds?.length ?? 0) > 0"
-                                    class="grid gap-3"
-                                >
-                                    <p class="text-sm font-medium">Выберите стартовую компетенцию</p>
-                                    <input
-                                        type="hidden"
-                                        name="competency_id"
-                                        :value="selectedStartingCompetency ?? ''"
-                                    />
-                                    <CompetencySelector
-                                        v-model="selectedStartingCompetency"
-                                        :competencies="game.data.pendingInteraction?.context.competencyIds ?? []"
-                                        :descriptions="game.data.competencyDescriptions"
-                                    />
-                                    <InputError :message="errors.competency_id" />
-                                </div>
-
-                                <div
                                     v-if="(game.data.pendingInteraction?.context.knowledgeStepCount ?? 0) > 0"
                                     class="grid gap-3"
                                 >
@@ -1051,8 +1014,7 @@ function competencyImage(competency: Competency): string {
                                             :disabled="
                                                 processing ||
                                                 remainingStartingBookCount !== 0 ||
-                                                remainingStartingKnowledgeStepCount !== 0 ||
-                                                (requiresStartingCompetency && selectedStartingCompetency === null)
+                                                remainingStartingKnowledgeStepCount !== 0
                                             "
                                         >
                                             Подтвердить выбор
@@ -1091,18 +1053,6 @@ function competencyImage(competency: Competency): string {
                                                     {{ knowledgeDisciplineNames[discipline] }}:
                                                     {{ startingKnowledgeCounts[discipline] }}
                                                 </p>
-                                            </div>
-
-                                            <div v-if="selectedStartingCompetency" class="grid gap-2">
-                                                <p class="font-medium">Компетенция</p>
-                                                <div class="flex items-center gap-3 text-muted-foreground">
-                                                    <img
-                                                        :src="competencyImage(selectedStartingCompetency)"
-                                                        :alt="`Компетенция ${selectedStartingCompetency}`"
-                                                        class="h-14 w-14 object-contain drop-shadow-md"
-                                                    />
-                                                    <span>Компетенция {{ selectedStartingCompetency.slice(-2) }}</span>
-                                                </div>
                                             </div>
                                         </div>
 
