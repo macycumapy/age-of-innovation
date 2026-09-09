@@ -2,7 +2,6 @@
 import { useHttp } from '@inertiajs/vue3';
 import { Check, RotateCcw } from '@lucide/vue';
 import { computed } from 'vue';
-import CurrentTurnRestartController from '@/actions/App/Http/Controllers/CurrentTurnRestartController';
 import BridgeConfirmationController from '@/actions/App/Http/Controllers/BridgeConfirmationController';
 import BridgeController from '@/actions/App/Http/Controllers/BridgeController';
 import PalaceGuildConfirmationController from '@/actions/App/Http/Controllers/PalaceGuildConfirmationController';
@@ -12,8 +11,10 @@ import StartingBuildingController from '@/actions/App/Http/Controllers/StartingB
 import StartingBuildingTurnController from '@/actions/App/Http/Controllers/StartingBuildingTurnController';
 import StartingSpadeController from '@/actions/App/Http/Controllers/StartingSpadeController';
 import StartingSpadeTurnController from '@/actions/App/Http/Controllers/StartingSpadeTurnController';
+import TerraformWorkshopController from '@/actions/App/Http/Controllers/TerraformWorkshopController';
 import TownChoiceUndoController from '@/actions/App/Http/Controllers/TownChoiceUndoController';
 import Form from '@/components/game/GameActionForm.vue';
+import CurrentTurnRestartDialog from '@/components/game/CurrentTurnRestartDialog.vue';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import type { GamePlayerSummary, GameResource } from '@/types';
@@ -102,12 +103,6 @@ const remainingSpades = computed(() => {
 
     return Math.max(0, availableSpades - stagedSpades);
 });
-function confirmRestartCurrentTurn(event: SubmitEvent): void {
-    if (!window.confirm('Отменить все действия текущего хода и начать его заново?')) {
-        event.preventDefault();
-    }
-}
-
 function undoStartingBuilding(): void {
     void undoStartingBuildingRequest.delete(StartingBuildingController.destroy.url(props.game.data.id));
 }
@@ -170,6 +165,8 @@ function scrollToPageTop(event: MouseEvent): void {
                         game.data.pendingInteraction?.type === 'build_workshop_after_terraforming' ||
                         game.data.pendingInteraction?.type === 'choose_round_bonus' ||
                         game.data.pendingInteraction?.type === 'choose_town' ||
+                        game.data.pendingInteraction?.type === 'choose_town_books' ||
+                        game.data.pendingInteraction?.type === 'choose_feline_town_bonus' ||
                         game.data.pendingInteraction?.type === 'choose_palace' ||
                         game.data.pendingInteraction?.type === 'choose_science_bonus_books' ||
                         game.data.pendingInteraction?.type === 'choose_innovation_books' ||
@@ -206,6 +203,9 @@ function scrollToPageTop(event: MouseEvent): void {
             </template>
             <template v-else-if="game.data.pendingInteraction?.type === 'choose_round_bonus'">
                 Выберите жетон бонуса
+            </template>
+            <template v-else-if="game.data.pendingInteraction?.type === 'choose_feline_town_bonus'">
+                Распределите бонус Кошачьих за основанный город.
             </template>
             <template v-else-if="game.data.pendingInteraction?.type === 'choose_town'">
                 Выберите жетон города
@@ -258,7 +258,7 @@ function scrollToPageTop(event: MouseEvent): void {
                 }}
             </template>
             <template v-else-if="game.data.pendingInteraction?.type === 'build_workshop_after_terraforming'">
-                Выберите перекопанную клетку для строительства дома или завершите ход.
+                Постройте дом на перекопанной клетке или откажитесь от строительства.
             </template>
             <template v-else-if="game.data.pendingStartingBuildingHexId">
                 {{
@@ -304,14 +304,7 @@ function scrollToPageTop(event: MouseEvent): void {
             :delay-duration="150"
         >
             <div class="flex shrink-0 items-center gap-2">
-                <Form
-                    v-if="game.data.canRestartCurrentTurn"
-                    v-bind="CurrentTurnRestartController.form(game.data.id)"
-                    #default="{ processing }"
-                    @submit="confirmRestartCurrentTurn"
-                >
-                    <Button type="submit" variant="outline" :disabled="processing"> Перезапустить ход </Button>
-                </Form>
+                <CurrentTurnRestartDialog v-if="game.data.canRestartCurrentTurn" :game-id="game.data.id" />
                 <Form v-bind="BridgeController.destroy.form(game.data.id)" #default="{ processing }">
                     <Tooltip>
                         <TooltipTrigger as-child>
@@ -352,27 +345,16 @@ function scrollToPageTop(event: MouseEvent): void {
             "
             class="flex shrink-0 items-center gap-2"
         >
-            <Form
-                v-if="game.data.canRestartCurrentTurn"
-                v-bind="CurrentTurnRestartController.form(game.data.id)"
-                #default="{ processing }"
-                @submit="confirmRestartCurrentTurn"
-            >
-                <Button type="submit" variant="outline" :disabled="processing">Перезапустить ход</Button>
-            </Form>
+            <CurrentTurnRestartDialog v-if="game.data.canRestartCurrentTurn" :game-id="game.data.id" />
             <Button type="button" variant="outline" size="sm" @click="emit('resetBridgeSelection')">
                 Выбрать другой берег
             </Button>
         </div>
 
-        <Form
+        <CurrentTurnRestartDialog
             v-else-if="isCurrentUsersTurn && game.data.pendingInteraction?.type === 'place_bridge'"
-            v-bind="CurrentTurnRestartController.form(game.data.id)"
-            #default="{ processing }"
-            @submit="confirmRestartCurrentTurn"
-        >
-            <Button type="submit" variant="outline" :disabled="processing">Перезапустить ход</Button>
-        </Form>
+            :game-id="game.data.id"
+        />
 
         <TooltipProvider
             v-else-if="
@@ -512,6 +494,17 @@ function scrollToPageTop(event: MouseEvent): void {
         </TooltipProvider>
 
         <Form
+            v-else-if="isCurrentUsersTurn && game.data.pendingInteraction?.type === 'build_workshop_after_terraforming'"
+            v-bind="TerraformWorkshopController.form(game.data.id)"
+            #default="{ processing }"
+        >
+            <input type="hidden" name="build" value="0" />
+            <Button type="submit" variant="outline" :disabled="processing">
+                {{ processing ? 'Сохранение…' : 'Не строить дом' }}
+            </Button>
+        </Form>
+
+        <Form
             v-else-if="game.data.canUndoTownChoice && game.data.pendingInteraction !== null"
             v-bind="TownChoiceUndoController.form(game.data.id)"
             #default="{ processing }"
@@ -522,17 +515,10 @@ function scrollToPageTop(event: MouseEvent): void {
             </Button>
         </Form>
 
-        <Form
+        <CurrentTurnRestartDialog
             v-else-if="canSpendStartingSpade && game.data.canRestartCurrentTurn"
-            v-bind="CurrentTurnRestartController.form(game.data.id)"
-            #default="{ processing }"
-            @submit="confirmRestartCurrentTurn"
-        >
-            <Button type="submit" variant="outline" :disabled="processing">
-                <RotateCcw class="size-4" :class="processing ? 'animate-spin' : ''" />
-                Перезапустить ход
-            </Button>
-        </Form>
+            :game-id="game.data.id"
+        />
 
         <Button
             v-else-if="isCurrentUsersTurn && isPalaceBuildingSelectionActive"
@@ -563,24 +549,7 @@ function scrollToPageTop(event: MouseEvent): void {
                     Изменить жетон города
                 </Button>
             </Form>
-            <Form
-                v-else-if="game.data.canRestartCurrentTurn"
-                v-bind="CurrentTurnRestartController.form(game.data.id)"
-                #default="{ processing }"
-                @submit="confirmRestartCurrentTurn"
-            >
-                <TooltipProvider :delay-duration="150">
-                    <Tooltip>
-                        <TooltipTrigger as-child>
-                            <Button type="submit" variant="outline" :disabled="processing">
-                                <RotateCcw class="size-4" :class="processing ? 'animate-spin' : ''" />
-                                Перезапустить ход
-                            </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>Отменить все действия текущего хода</TooltipContent>
-                    </Tooltip>
-                </TooltipProvider>
-            </Form>
+            <CurrentTurnRestartDialog v-else-if="game.data.canRestartCurrentTurn" :game-id="game.data.id" />
             <Button v-if="game.data.canFinishCurrentTurn" type="button" @click="emit('finishTurn')">
                 Завершить ход
             </Button>

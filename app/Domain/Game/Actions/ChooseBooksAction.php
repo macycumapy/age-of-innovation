@@ -19,11 +19,12 @@ final class ChooseBooksAction
         private ChooseTerraformingBooksAction $chooseTerraformingBooks,
         private ChoosePalaceBooksAction $choosePalaceBooks,
         private ChooseTownBooksAction $chooseTownBooks,
+        private ChooseFelineTownBonusAction $chooseFelineTownBonus,
     ) {
     }
 
     /** @param array<string, int> $bookCounts */
-    public function execute(Game $game, User $user, array $bookCounts): Game
+    public function execute(Game $game, User $user, array $bookCounts, array $knowledgeCounts = []): Game
     {
         return match ($game->state->pendingInteraction?->type) {
             PendingInteractionType::ChooseScienceBonusBooks => $this->chooseScienceBonusBooks->execute($game, $user, $this->disciplines($bookCounts)),
@@ -31,7 +32,8 @@ final class ChooseBooksAction
             PendingInteractionType::ChooseShippingBooks => $this->chooseShippingBooks->execute($game, $user, $bookCounts),
             PendingInteractionType::ChooseTerraformingBooks => $this->chooseTerraformingBooks->execute($game, $user, $bookCounts),
             PendingInteractionType::ChoosePalaceBooks => $this->choosePalaceBooks->execute($game, $user, $bookCounts),
-            PendingInteractionType::ChooseTownBooks => $this->chooseTownBooks->execute($game, $user, $this->disciplines($bookCounts)),
+            PendingInteractionType::ChooseTownBooks => $this->chooseTownBooks->execute($game, $user, $bookCounts, $knowledgeCounts),
+            PendingInteractionType::ChooseFelineTownBonus => $this->chooseFelineTownBonus->execute($game, $user, $bookCounts, $knowledgeCounts),
             default => throw ValidationException::withMessages(['book_counts' => 'Сейчас нельзя распределить книги.']),
         };
     }

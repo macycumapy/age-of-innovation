@@ -6,6 +6,7 @@ namespace App\Domain\Game\Actions;
 
 use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Data\PendingInteractionData;
+use App\Domain\Game\Enums\Faction;
 use App\Domain\Game\Enums\GameActionType;
 use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\KnowledgeDiscipline;
@@ -62,6 +63,12 @@ final class ChooseTownAction
             }
 
             $stateVersionBefore = $lockedGame->version;
+
+            if ($state->turnStartSnapshot === null) {
+                $state->turnStartSnapshot = $state->toArray();
+                $state->round->turnStartVersion = $stateVersionBefore;
+            }
+
             $townChoiceCheckpoint = $state->toArray();
             $townId = $isFreePalaceTownTile ? null : (string) Str::uuid();
 
@@ -83,7 +90,21 @@ final class ChooseTownAction
             $playerState->victoryPoints += $victoryPoints;
             $state->pendingInteraction = null;
 
-            if ($townTile === TownTile::Terraform) {
+            $isFelineTown = $playerState->faction === Faction::Felines;
+
+            if ($townTile === TownTile::Books) {
+                $state->pendingInteraction = new PendingInteractionData(
+                    PendingInteractionType::ChooseTownBooks,
+                    $player->id,
+                    [],
+                    [
+                        'bookCount' => 2,
+                        'builtHexId' => $builtHexId,
+                        'queuedBuiltHexIds' => $queuedBuiltHexIds,
+                        ...($isFelineTown ? ['felineBonusPending' => true] : []),
+                    ],
+                );
+            } elseif ($townTile === TownTile::Terraform) {
                 $playerState->unassignedSpades += 2;
                 $eligibleHexIds = $this->findEligibleTerraformHexes->execute($state, $playerState, $playerState->homeland);
                 $state->pendingInteraction = new PendingInteractionData(
@@ -95,24 +116,24 @@ final class ChooseTownAction
                         'spadeCount' => 2,
                         'remainingSpades' => 2,
                         'targetTerrain' => $playerState->homeland->value,
+                        ...($isFelineTown ? ['felineBonusPending' => true] : []),
                     ],
                 );
-                $nextActiveUserId = $player->user_id;
-            } elseif ($townTile === TownTile::Books) {
+            } elseif ($isFelineTown) {
+                $playerState->resources->books->unassigned++;
                 $state->pendingInteraction = new PendingInteractionData(
-                    PendingInteractionType::ChooseTownBooks,
+                    PendingInteractionType::ChooseFelineTownBonus,
                     $player->id,
                     [],
                     [
-                        'bookCount' => 2,
+                        'bookCount' => 1,
+                        'knowledgeStepCount' => 3,
                         'builtHexId' => $builtHexId,
                         'queuedBuiltHexIds' => $queuedBuiltHexIds,
                     ],
                 );
-                $nextActiveUserId = $player->user_id;
-            } else {
-                $nextActiveUserId = $player->user_id;
             }
+            $nextActiveUserId = $player->user_id;
 
             $state->townChoiceCheckpoint = $townChoiceCheckpoint;
 

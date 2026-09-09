@@ -79,6 +79,7 @@ final class ReplayGameHistoryAction
         GameActionType::ChooseScienceBonusBooks,
         GameActionType::ChooseTown,
         GameActionType::ChooseTownBooks,
+        GameActionType::ChooseFelineTownBonus,
         GameActionType::AcceptPalaceWaterTown,
         GameActionType::DeclinePalaceWaterTown,
     ];
@@ -97,6 +98,7 @@ final class ReplayGameHistoryAction
         private CreateTownChoiceAfterBuildingAction $createTownChoiceAfterBuilding,
         private CreateDesertStartingSpadeInteractionAction $createDesertStartingSpadeInteraction,
         private CreateBuildingFollowUpInteractionAction $createBuildingFollowUpInteraction,
+        private CreatePowerOffersAfterBuildingAction $createPowerOffersAfterBuilding,
         private ApplyPowerOfferDecisionAction $applyPowerOfferDecision,
         private AdvanceDevelopmentTrackAction $advanceDevelopmentTrack,
         private ApplyDevelopmentTrackRoundScoringAction $applyDevelopmentTrackRoundScoring,
@@ -194,6 +196,7 @@ final class ReplayGameHistoryAction
                 GameActionType::ChooseScienceBonusBooks => $this->replayScienceBonusBooks($game, $players, $action),
                 GameActionType::ChooseTown => $this->replayChooseTown($game, $players, $action),
                 GameActionType::ChooseTownBooks => $this->replayChooseTownBooks($game, $players, $action),
+                GameActionType::ChooseFelineTownBonus => $this->replayChooseTownBooks($game, $players, $action),
                 GameActionType::AcceptPalaceWaterTown, GameActionType::DeclinePalaceWaterTown => $this->replayPalaceWaterTownDecision($game, $players, $action),
                 default => null,
             };
@@ -830,6 +833,9 @@ final class ReplayGameHistoryAction
                     'phase' => $interactionPhase->value,
                     'buildableHexIds' => $action->payload['buildable_hex_ids'] ?? [],
                     'tunnelUsed' => $tunnelUsed,
+                    ...((bool) ($action->payload['feline_bonus_pending'] ?? false)
+                        ? ['felineBonusPending' => true]
+                        : []),
                 ],
             );
 
@@ -837,7 +843,41 @@ final class ReplayGameHistoryAction
                 $game->phase = $interactionPhase;
                 $game->active_player_id = $player->user_id;
             } elseif ($interactionPhase === GamePhase::Actions) {
-                $state->pendingInteraction = null;
+                $availableHexIds = $this->availableWorkshopHexIds(
+                    $state,
+                    $playerState,
+                    $action->payload['buildable_hex_ids'] ?? [],
+                );
+
+                if ($availableHexIds !== [] && (bool) ($action->payload['build_offered'] ?? false)) {
+                    $state->pendingInteraction = new PendingInteractionData(
+                        PendingInteractionType::BuildWorkshopAfterTerraforming,
+                        $player->id,
+                        $availableHexIds,
+                        [
+                            ...((bool) ($action->payload['feline_bonus_pending'] ?? false)
+                                ? ['felineBonusPending' => true]
+                                : []),
+                            'toolCost' => 1,
+                            'coinCost' => 2,
+                        ],
+                    );
+                    $game->active_player_id = $player->user_id;
+                } elseif ((bool) ($action->payload['feline_bonus_pending'] ?? false)) {
+                    $playerState->resources->books->unassigned++;
+                    $state->pendingInteraction = new PendingInteractionData(
+                        PendingInteractionType::ChooseFelineTownBonus,
+                        $player->id,
+                        [],
+                        [
+                            'bookCount' => 1,
+                            'knowledgeStepCount' => 3,
+                        ],
+                    );
+                    $game->active_player_id = $player->user_id;
+                } else {
+                    $state->pendingInteraction = null;
+                }
             } elseif ($interactionPhase === GamePhase::ScienceBonus) {
                 $state->pendingInteraction = null;
                 [$nextPlayer, $nextPhase] = $this->resolveScienceBonusPhase->execute($state, $players);
@@ -849,22 +889,22 @@ final class ReplayGameHistoryAction
         } elseif ($interactionPhase === GamePhase::Actions) {
             $buildableHexIds = $action->payload['buildable_hex_ids'] ?? [];
             $playerState = $this->playerState($state, $player->id);
-            $availableHexIds = array_values(array_filter(
-                $buildableHexIds,
-                static fn (string $hexId): bool => collect($state->board->hexes)->contains(
-                    static fn (BoardHexStateData $hex): bool => $hex->id === $hexId
-                        && $hex->terrain === $playerState->homeland
-                        && $hex->building === null,
-                ),
-            ));
+
+            $availableHexIds = $this->availableWorkshopHexIds($state, $playerState, $buildableHexIds);
             $state->pendingInteraction = $availableHexIds === []
                 || ! (bool) ($action->payload['build_offered'] ?? false)
-                    ? null
+                    ? $this->createReplayFelineBonusInteraction($playerState, $action)
                     : new PendingInteractionData(
                         PendingInteractionType::BuildWorkshopAfterTerraforming,
                         $player->id,
                         $availableHexIds,
-                        ['toolCost' => 1, 'coinCost' => 2],
+                        [
+                            ...((bool) ($action->payload['feline_bonus_pending'] ?? false)
+                                ? ['felineBonusPending' => true]
+                                : []),
+                            'toolCost' => 1,
+                            'coinCost' => 2,
+                        ],
                     );
         } elseif ($interactionPhase === GamePhase::ScienceBonus) {
             $state->pendingInteraction = null;
@@ -930,14 +970,42 @@ final class ReplayGameHistoryAction
             $playerState->resources->coins += (int) ($action->payload['bonus_coins'] ?? 0);
             $playerState->victoryPoints += (int) ($action->payload['victory_points'] ?? 0);
             $hex->building = new BuildingStateData(BuildingType::Workshop, $player->id);
-            $nextActiveUserId = $this->createTownChoiceAfterBuilding->execute(
-                $state,
-                $playerState,
-                $hex->id,
-            );
-            $game->active_player_id = $nextActiveUserId;
+            if ((bool) ($action->payload['feline_bonus_pending'] ?? false)) {
+                $game->active_player_id = $this->createPowerOffersAfterBuilding->execute(
+                    $state,
+                    $player->id,
+                    $hex->id,
+                );
+
+                if ($game->active_player_id !== null
+                    && $state->pendingInteraction?->type === PendingInteractionType::PowerOffer) {
+                    $state->pendingInteraction->context['felineBonusPending'] = true;
+                } else {
+                    $playerState->resources->books->unassigned++;
+                    $state->pendingInteraction = new PendingInteractionData(
+                        PendingInteractionType::ChooseFelineTownBonus,
+                        $player->id,
+                        [],
+                        [
+                            'bookCount' => 1,
+                            'knowledgeStepCount' => 3,
+                            'continueBuildingAfterPowerHexId' => $hex->id,
+                        ],
+                    );
+                    $game->active_player_id = $player->user_id;
+                }
+            } else {
+                $game->active_player_id = $this->createBuildingFollowUpInteraction->execute(
+                    $state,
+                    $playerState,
+                    $hex->id,
+                    BuildingType::Workshop,
+                );
+            }
         } else {
-            $state->pendingInteraction = null;
+            $state->pendingInteraction = (bool) ($action->payload['feline_bonus_pending'] ?? false)
+                ? $this->createReplayFelineBonusInteraction($this->playerState($state, $player->id), $action)
+                : null;
         }
 
         $game->state = $state;
@@ -987,6 +1055,12 @@ final class ReplayGameHistoryAction
         }
 
         $state = $game->state;
+
+        if ($state->turnStartSnapshot === null) {
+            $state->turnStartSnapshot = $state->toArray();
+            $state->round->turnStartVersion = $game->version;
+        }
+
         $playerState = $this->playerState($state, $player->id);
         $townHexIds = $action->payload['town_hex_ids'] ?? [];
         $markerHexId = (string) ($action->payload['marker_hex_id'] ?? '');
@@ -1021,7 +1095,21 @@ final class ReplayGameHistoryAction
             TownTile::Scholar => $playerState->resources->scholars++,
             TownTile::Terraform => $playerState->unassignedSpades += 2,
         };
-        if ($townTile === TownTile::Terraform) {
+
+        if ($townTile === TownTile::Books) {
+            $state->pendingInteraction = new PendingInteractionData(
+                PendingInteractionType::ChooseTownBooks,
+                $player->id,
+                [],
+                [
+                    'bookCount' => 2,
+                    'builtHexId' => $markerHexId,
+                    'queuedBuiltHexIds' => $queuedBuiltHexIds,
+                    ...($playerState->faction === Faction::Felines ? ['felineBonusPending' => true] : []),
+                ],
+            );
+            $game->active_player_id = $player->user_id;
+        } elseif ($townTile === TownTile::Terraform) {
             $state->pendingInteraction = new PendingInteractionData(
                 PendingInteractionType::SpendSpades,
                 $player->id,
@@ -1031,16 +1119,19 @@ final class ReplayGameHistoryAction
                     'spadeCount' => 2,
                     'remainingSpades' => 2,
                     'targetTerrain' => $playerState->homeland->value,
+                    ...($playerState->faction === Faction::Felines ? ['felineBonusPending' => true] : []),
                 ],
             );
             $game->active_player_id = $player->user_id;
-        } elseif ($townTile === TownTile::Books) {
+        } elseif ($playerState->faction === Faction::Felines) {
+            $playerState->resources->books->unassigned++;
             $state->pendingInteraction = new PendingInteractionData(
-                PendingInteractionType::ChooseTownBooks,
+                PendingInteractionType::ChooseFelineTownBonus,
                 $player->id,
                 [],
                 [
-                    'bookCount' => 2,
+                    'bookCount' => 1,
+                    'knowledgeStepCount' => 3,
                     'builtHexId' => $markerHexId,
                     'queuedBuiltHexIds' => $queuedBuiltHexIds,
                 ],
@@ -1059,8 +1150,12 @@ final class ReplayGameHistoryAction
     {
         $player = $players->firstWhere('user_id', $action->player_id);
 
+        $expectedInteractionType = $action->type === GameActionType::ChooseFelineTownBonus
+            ? PendingInteractionType::ChooseFelineTownBonus
+            : PendingInteractionType::ChooseTownBooks;
+
         if (! $player instanceof GamePlayer
-            || $game->state->pendingInteraction?->type !== PendingInteractionType::ChooseTownBooks) {
+            || $game->state->pendingInteraction?->type !== $expectedInteractionType) {
             $this->invalidHistory();
         }
 
@@ -1068,19 +1163,73 @@ final class ReplayGameHistoryAction
         $interaction = $state->pendingInteraction;
         $playerState = $this->playerState($state, $player->id);
 
-        foreach (($action->payload['disciplines'] ?? []) as $disciplineValue) {
+        if ($state->turnStartSnapshot === null) {
+            $state->turnStartSnapshot = $state->toArray();
+            $state->round->turnStartVersion = $game->version;
+        }
+
+        $bookCounts = $action->payload['book_counts'] ?? null;
+
+        if (is_array($bookCounts)) {
+            foreach ($bookCounts as $disciplineValue => $count) {
+                $discipline = KnowledgeDiscipline::tryFrom((string) $disciplineValue);
+
+                if ($discipline === null) {
+                    $this->invalidHistory();
+                }
+
+                $playerState->resources->books->{$discipline->value} += (int) $count;
+                $playerState->resources->books->unassigned -= (int) $count;
+            }
+        } else {
+            foreach (($action->payload['disciplines'] ?? []) as $disciplineValue) {
+                $discipline = KnowledgeDiscipline::tryFrom((string) $disciplineValue);
+
+                if ($discipline === null) {
+                    $this->invalidHistory();
+                }
+
+                $playerState->resources->books->{$discipline->value}++;
+                $playerState->resources->books->unassigned--;
+            }
+        }
+
+        foreach (($action->payload['knowledge_counts'] ?? []) as $disciplineValue => $count) {
             $discipline = KnowledgeDiscipline::tryFrom((string) $disciplineValue);
 
             if ($discipline === null) {
                 $this->invalidHistory();
             }
 
-            $playerState->resources->books->{$discipline->value}++;
-            $playerState->resources->books->unassigned--;
+            $this->advanceKnowledge->execute($state, $playerState, $discipline, (int) $count);
         }
 
+        $playerState->victoryPoints += (int) ($action->payload['victory_points'] ?? 0);
+
         $state->pendingInteraction = null;
-        $game->active_player_id = $player->user_id;
+
+        if (($interaction->context['felineBonusPending'] ?? false) === true) {
+            $playerState->resources->books->unassigned++;
+            $state->pendingInteraction = new PendingInteractionData(
+                PendingInteractionType::ChooseFelineTownBonus,
+                $player->id,
+                [],
+                [
+                    'bookCount' => 1,
+                    'knowledgeStepCount' => 3,
+                    'builtHexId' => (string) ($interaction->context['builtHexId'] ?? ''),
+                    'queuedBuiltHexIds' => $interaction->context['queuedBuiltHexIds'] ?? [],
+                ],
+            );
+        } elseif (is_string($interaction->context['continueBuildingAfterPowerHexId'] ?? null)) {
+            $game->active_player_id = $this->createTownChoiceAfterBuilding->execute(
+                $state,
+                $playerState,
+                $interaction->context['continueBuildingAfterPowerHexId'],
+                powerOffersResolved: true,
+            );
+        }
+        $game->active_player_id ??= $player->user_id;
         $game->state = $state;
     }
 
@@ -1342,6 +1491,13 @@ final class ReplayGameHistoryAction
             $player->id,
             $action->type === GameActionType::AcceptPower,
         );
+
+        if ($result['advanceTurnCheckpoint']) {
+            $state->round->isCurrentTurnIrrevocable = false;
+            $state->turnStartSnapshot = null;
+            $state->round->turnStartVersion = $action->state_version_after;
+        }
+
         $game->active_player_id = $result['nextActiveUserId'];
         $game->state = $state;
     }
@@ -1776,6 +1932,40 @@ final class ReplayGameHistoryAction
         }
 
         return $playerState;
+    }
+
+    /** @param list<string> $hexIds */
+    private function availableWorkshopHexIds(
+        GameStateData $state,
+        GamePlayerStateData $playerState,
+        array $hexIds,
+    ): array {
+        return array_values(array_filter(
+            array_unique($hexIds),
+            static fn (string $hexId): bool => collect($state->board->hexes)->contains(
+                static fn (BoardHexStateData $hex): bool => $hex->id === $hexId
+                    && $hex->terrain === $playerState->homeland
+                    && $hex->building === null,
+            ),
+        ));
+    }
+
+    private function createReplayFelineBonusInteraction(
+        GamePlayerStateData $playerState,
+        GameAction $action,
+    ): ?PendingInteractionData {
+        if (! (bool) ($action->payload['feline_bonus_pending'] ?? false)) {
+            return null;
+        }
+
+        $playerState->resources->books->unassigned++;
+
+        return new PendingInteractionData(
+            PendingInteractionType::ChooseFelineTownBonus,
+            $playerState->playerId,
+            [],
+            ['bookCount' => 1, 'knowledgeStepCount' => 3],
+        );
     }
 
     /**

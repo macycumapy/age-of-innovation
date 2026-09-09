@@ -10,7 +10,10 @@ enum PendingInteractionType: string
     case ChooseStartingResources = 'choose_starting_resources';
     case PowerOffer = 'power_offer';
     case ChooseTown = 'choose_town';
+    /** Распределение книг, полученных с жетона города. */
     case ChooseTownBooks = 'choose_town_books';
+    /** Распределение книги и шагов знаний за основание города Кошачьими. */
+    case ChooseFelineTownBonus = 'choose_feline_town_bonus';
     case OfferPalaceWaterTown = 'offer_palace_water_town';
     case ChoosePalace = 'choose_palace';
     case PlacePalaceGuild = 'place_palace_guild';

@@ -19,7 +19,7 @@ final class BookDistributionController extends Controller
     ): Response {
         /** @var User $user */
         $user = $request->user();
-        $chooseBooks->execute($game, $user, $request->bookCounts());
+        $chooseBooks->execute($game, $user, $request->bookCounts(), $request->knowledgeCounts());
 
         return $this->gameChanged($game);
     }

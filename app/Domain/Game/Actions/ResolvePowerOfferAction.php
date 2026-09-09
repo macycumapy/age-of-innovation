@@ -42,10 +42,18 @@ final class ResolvePowerOfferAction
             $offeredPower = (int) ($interaction->context['powerAmount'] ?? 0);
             $stateVersionBefore = $lockedGame->version;
             $result = $this->applyPowerOfferDecision->execute($state, $player->id, $accept);
+            $stateVersionAfter = $lockedGame->version + 1;
+
+            if ($result['advanceTurnCheckpoint']) {
+                $state->round->isCurrentTurnIrrevocable = false;
+                $state->turnStartSnapshot = null;
+                $state->round->turnStartVersion = $stateVersionAfter;
+            }
+
             $lockedGame->update([
                 'active_player_id' => $result['nextActiveUserId'],
                 'state' => $state,
-                'version' => $lockedGame->version + 1,
+                'version' => $stateVersionAfter,
             ]);
             $this->appendGameHistory->execute(
                 $lockedGame,

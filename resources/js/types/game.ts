@@ -98,6 +98,7 @@ export type GameActionType =
     | 'decline_power'
     | 'choose_town'
     | 'choose_town_books'
+    | 'choose_feline_town_bonus'
     | 'accept_palace_water_town'
     | 'decline_palace_water_town'
     | 'choose_palace'
@@ -472,7 +473,22 @@ export type PendingInteraction =
           optionIds: never[];
           context: {
               bookCount: number;
-              builtHexId: string;
+              townTile?: TownTile;
+              felineBonusPending?: boolean;
+              builtHexId?: string;
+              queuedBuiltHexIds?: string[];
+          };
+      }
+    | {
+          type: 'choose_feline_town_bonus';
+          playerId: number;
+          optionIds: never[];
+          context: {
+              bookCount: number;
+              knowledgeStepCount: number;
+              continueBuildingAfterPowerHexId?: string;
+              builtHexId?: string;
+              queuedBuiltHexIds?: string[];
           };
       }
     | {

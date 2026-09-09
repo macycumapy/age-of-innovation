@@ -7,6 +7,7 @@ namespace App\Domain\Game\Actions;
 use App\Domain\Game\Data\BoardHexStateData;
 use App\Domain\Game\Data\BuildingStateData;
 use App\Domain\Game\Data\GamePlayerStateData;
+use App\Domain\Game\Data\PendingInteractionData;
 use App\Domain\Game\Enums\BuildingType;
 use App\Domain\Game\Enums\GameActionType;
 use App\Domain\Game\Enums\GamePhase;
@@ -22,6 +23,7 @@ final class ResolveWorkshopAfterTerraformingAction
     public function __construct(
         private AppendGameHistoryAction $appendGameHistory,
         private CreateBuildingFollowUpInteractionAction $createBuildingFollowUpInteraction,
+        private CreatePowerOffersAfterBuildingAction $createPowerOffersAfterBuilding,
         private ApplyBuildingBonusesAction $applyBuildingBonuses,
     ) {
     }
@@ -50,6 +52,7 @@ final class ResolveWorkshopAfterTerraformingAction
             }
 
             $bonuses = ['victoryPoints' => 0, 'coins' => 0, 'sources' => []];
+            $felineBonusPending = ($interaction->context['felineBonusPending'] ?? false) === true;
 
             if ($build) {
                 $hex = collect($state->board->hexes)->firstWhere('id', $hexId);
@@ -82,14 +85,38 @@ final class ResolveWorkshopAfterTerraformingAction
             $stateVersionBefore = $lockedGame->version;
             $state->pendingInteraction = null;
             $state->round->hasTakenMainAction = true;
-            $nextActiveUserId = $build
-                ? $this->createBuildingFollowUpInteraction->execute(
-                    $state,
-                    $playerState,
-                    (string) $hexId,
-                    BuildingType::Workshop,
-                )
-                : null;
+            if ($felineBonusPending) {
+                $nextActiveUserId = $build
+                    ? $this->createPowerOffersAfterBuilding->execute($state, $player->id, (string) $hexId)
+                    : null;
+
+                if ($nextActiveUserId !== null
+                    && $state->pendingInteraction?->type === PendingInteractionType::PowerOffer) {
+                    $state->pendingInteraction->context['felineBonusPending'] = true;
+                } else {
+                    $playerState->resources->books->unassigned++;
+                    $state->pendingInteraction = new PendingInteractionData(
+                        PendingInteractionType::ChooseFelineTownBonus,
+                        $player->id,
+                        [],
+                        [
+                            'bookCount' => 1,
+                            'knowledgeStepCount' => 3,
+                            ...($build ? ['continueBuildingAfterPowerHexId' => (string) $hexId] : []),
+                        ],
+                    );
+                    $nextActiveUserId = $player->user_id;
+                }
+            } else {
+                $nextActiveUserId = $build
+                    ? $this->createBuildingFollowUpInteraction->execute(
+                        $state,
+                        $playerState,
+                        (string) $hexId,
+                        BuildingType::Workshop,
+                    )
+                    : null;
+            }
             $lockedGame->update([
                 'active_player_id' => $nextActiveUserId ?? $player->user_id,
                 'state' => $state,
@@ -105,6 +132,7 @@ final class ResolveWorkshopAfterTerraformingAction
                     'victory_points' => $bonuses['victoryPoints'],
                     'bonus_coins' => $bonuses['coins'],
                     'scoring_sources' => $bonuses['sources'],
+                    'feline_bonus_pending' => $felineBonusPending,
                 ],
                 [[
                     'type' => $build ? 'workshop_built_after_terraforming' : 'workshop_declined_after_terraforming',

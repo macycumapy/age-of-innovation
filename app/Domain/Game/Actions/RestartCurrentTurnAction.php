@@ -6,6 +6,7 @@ namespace App\Domain\Game\Actions;
 
 use App\Domain\Game\Data\GameStateData;
 use App\Domain\Game\Enums\GamePhase;
+use App\Domain\Game\Enums\PendingInteractionType;
 use App\Models\Game;
 use App\Models\GamePlayer;
 use App\Models\User;
@@ -25,12 +26,12 @@ final class RestartCurrentTurnAction
             if ($lockedGame->phase !== GamePhase::Actions
                 || $lockedGame->active_player_id !== $user->id
                 || ! $player instanceof GamePlayer
-                || $lockedGame->state->round->isCurrentTurnIrrevocable
+                || $lockedGame->state->pendingInteraction?->type === PendingInteractionType::PowerOffer
                 || $turnStartVersion === null
                 || ! is_array($turnStartSnapshot)) {
                 throw ValidationException::withMessages([
-                    'game' => $lockedGame->state->round->isCurrentTurnIrrevocable
-                        ? 'Ход нельзя перезапустить после принятия Силы другим игроком.'
+                    'game' => $lockedGame->state->pendingInteraction?->type === PendingInteractionType::PowerOffer
+                        ? 'Сначала сосед должен ответить на предложение Силы.'
                         : 'В текущем ходу пока нет действий для отката.',
                 ]);
             }

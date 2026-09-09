@@ -92,8 +92,8 @@ class GameResource extends JsonResource
                 && is_array($this->state->townChoiceCheckpoint),
             'canRestartCurrentTurn' => $this->phase === GamePhase::Actions
                 && $this->active_player_id === $request->user()?->id
-                && $this->state->round->turnStartVersion !== null
-                && ! $this->state->round->isCurrentTurnIrrevocable,
+                && $this->state->turnStartSnapshot !== null
+                && $this->state->pendingInteraction?->type !== PendingInteractionType::PowerOffer,
             'canFinishCurrentTurn' => $this->phase === GamePhase::Actions
                 && $this->active_player_id === $request->user()?->id
                 && ($this->state->pendingInteraction === null

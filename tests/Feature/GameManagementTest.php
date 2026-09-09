@@ -2924,6 +2924,220 @@ class GameManagementTest extends TestCase
         $this->assertSame(GameActionType::ChooseTownBooks, $game->actions()->sole()->type);
     }
 
+    public function test_felines_immediately_distribute_a_book_and_three_knowledge_steps_after_founding_a_town(): void
+    {
+        $user = User::factory()->create();
+        $game = Game::factory()->create([
+            'status' => GameStatus::Active,
+            'phase' => GamePhase::Actions,
+            'active_player_id' => $user->id,
+        ]);
+        $player = GamePlayer::factory()->create(['game_id' => $game->id, 'user_id' => $user->id]);
+        $game->update(['state' => new GameStateData(
+            board: new BoardStateData(hexes: [new BoardHexStateData(
+                id: '0:0',
+                q: 0,
+                r: 0,
+                initialTerrain: TerrainType::Forest,
+                terrain: TerrainType::Forest,
+                building: new BuildingStateData(BuildingType::Workshop, $player->id),
+            )]),
+            round: new RoundStateData(
+                phase: GamePhase::Actions,
+                scoringTileId: RoundScoringTile::KnowledgeMedicine->value,
+            ),
+            players: [new GamePlayerStateData(
+                playerId: $player->id,
+                userId: $user->id,
+                color: PlayerColor::Green,
+                faction: Faction::Felines,
+                homeland: TerrainType::Forest,
+                roundBonus: RoundBonus::Coins,
+                resources: new PlayerResourcesData(power: new PowerBowlsStateData(bowlOne: 3)),
+                knowledge: new KnowledgeStateData(law: 2),
+            )],
+            availableTownTileIds: [TownTile::Books->value],
+            pendingInteraction: new PendingInteractionData(
+                PendingInteractionType::ChooseTown,
+                $player->id,
+                [TownTile::Books->value],
+                ['townHexIds' => ['0:0'], 'builtHexId' => '0:0'],
+            ),
+        )]);
+
+        $this->actingAs($user)->post(route('games.town', $game), [
+            'town_tile' => TownTile::Books->value,
+        ])->assertNoContent();
+        $game->refresh();
+
+        $this->assertSame(PendingInteractionType::ChooseTownBooks, $game->state->pendingInteraction?->type);
+        $this->assertSame(2, $game->state->pendingInteraction?->context['bookCount']);
+        $this->assertArrayNotHasKey('knowledgeStepCount', $game->state->pendingInteraction?->context ?? []);
+
+        $this->post(route('games.books', $game), [
+            'book_counts' => ['banking' => 2, 'law' => 0, 'engineering' => 0, 'medicine' => 0],
+        ])->assertNoContent();
+        $game->refresh();
+
+        $this->assertSame(PendingInteractionType::ChooseFelineTownBonus, $game->state->pendingInteraction?->type);
+        $this->assertSame(1, $game->state->pendingInteraction?->context['bookCount']);
+        $this->assertSame(3, $game->state->pendingInteraction?->context['knowledgeStepCount']);
+
+        $this->post(route('games.books', $game), [
+            'book_counts' => ['banking' => 0, 'law' => 0, 'engineering' => 0, 'medicine' => 1],
+            'knowledge_counts' => ['banking' => 0, 'law' => 1, 'engineering' => 1, 'medicine' => 0],
+        ])->assertSessionHasErrors('knowledge_counts');
+
+        $this->post(route('games.books', $game), [
+            'book_counts' => ['banking' => 0, 'law' => 0, 'engineering' => 0, 'medicine' => 1],
+            'knowledge_counts' => ['banking' => 0, 'law' => 1, 'engineering' => 2, 'medicine' => 0],
+        ])->assertNoContent();
+        $game->refresh();
+
+        $this->assertNull($game->state->pendingInteraction);
+        $this->assertSame(2, $game->state->players[0]->resources->books->banking);
+        $this->assertSame(1, $game->state->players[0]->resources->books->medicine);
+        $this->assertSame(3, $game->state->players[0]->knowledge->law);
+        $this->assertSame(2, $game->state->players[0]->knowledge->engineering);
+        $this->assertSame(2, $game->state->players[0]->resources->power->bowlOne);
+        $this->assertSame(1, $game->state->players[0]->resources->power->bowlTwo);
+        $this->assertSame(28, $game->state->players[0]->victoryPoints);
+        $this->assertSame(GameActionType::ChooseFelineTownBonus, $game->actions()->latest('sequence')->first()?->type);
+        $this->assertSame(3, $game->actions()->latest('sequence')->first()?->payload['victory_points']);
+    }
+
+    public function test_felines_finish_the_terraform_town_reward_before_distributing_their_faction_bonus(): void
+    {
+        $user = User::factory()->create();
+        $game = Game::factory()->create([
+            'status' => GameStatus::Active,
+            'phase' => GamePhase::Actions,
+            'active_player_id' => $user->id,
+        ]);
+        $player = GamePlayer::factory()->create(['game_id' => $game->id, 'user_id' => $user->id, 'seat' => 1]);
+        $neighborUser = User::factory()->create();
+        $neighbor = GamePlayer::factory()->create([
+            'game_id' => $game->id,
+            'user_id' => $neighborUser->id,
+            'seat' => 2,
+        ]);
+        $game->update(['state' => new GameStateData(
+            turnOrder: [$player->id, $neighbor->id],
+            board: new BoardStateData(hexes: [
+                new BoardHexStateData(
+                    id: '0:0',
+                    q: 0,
+                    r: 0,
+                    initialTerrain: TerrainType::Forest,
+                    terrain: TerrainType::Forest,
+                    adjacentHexIds: ['1:0', '0:1'],
+                    building: new BuildingStateData(BuildingType::Workshop, $player->id),
+                ),
+                new BoardHexStateData(
+                    id: '1:0',
+                    q: 1,
+                    r: 0,
+                    initialTerrain: TerrainType::Mountain,
+                    terrain: TerrainType::Mountain,
+                    adjacentHexIds: ['0:0', '2:0'],
+                ),
+                new BoardHexStateData(
+                    id: '0:1',
+                    q: 0,
+                    r: 1,
+                    initialTerrain: TerrainType::Mountain,
+                    terrain: TerrainType::Mountain,
+                    adjacentHexIds: ['0:0'],
+                ),
+                new BoardHexStateData(
+                    id: '2:0',
+                    q: 2,
+                    r: 0,
+                    initialTerrain: TerrainType::Swamp,
+                    terrain: TerrainType::Swamp,
+                    adjacentHexIds: ['1:0'],
+                    building: new BuildingStateData(BuildingType::Workshop, $neighbor->id),
+                ),
+            ]),
+            round: new RoundStateData(phase: GamePhase::Actions, turnStartVersion: 0),
+            players: [new GamePlayerStateData(
+                playerId: $player->id,
+                userId: $user->id,
+                color: PlayerColor::Green,
+                faction: Faction::Felines,
+                homeland: TerrainType::Forest,
+                roundBonus: RoundBonus::Coins,
+                resources: new PlayerResourcesData(tools: 1, coins: 2),
+            ), new GamePlayerStateData(
+                playerId: $neighbor->id,
+                userId: $neighborUser->id,
+                color: PlayerColor::Red,
+                faction: Faction::Blessed,
+                homeland: TerrainType::Swamp,
+                roundBonus: RoundBonus::PowerCoins,
+                resources: new PlayerResourcesData(power: new PowerBowlsStateData(bowlOne: 1)),
+            )],
+            availableTownTileIds: [TownTile::Terraform->value],
+            pendingInteraction: new PendingInteractionData(
+                PendingInteractionType::ChooseTown,
+                $player->id,
+                [TownTile::Terraform->value],
+                ['townHexIds' => ['0:0'], 'builtHexId' => '0:0'],
+            ),
+        )]);
+
+        $this->actingAs($user)->post(route('games.town', $game), [
+            'town_tile' => TownTile::Terraform->value,
+        ])->assertNoContent();
+        $game->refresh();
+
+        $this->assertSame(PendingInteractionType::SpendSpades, $game->state->pendingInteraction?->type);
+        $this->assertSame(2, $game->state->players[0]->unassignedSpades);
+        $this->assertSame(0, $game->state->players[0]->resources->books->unassigned);
+
+        foreach (['1:0', '0:1'] as $hexId) {
+            $this->post(route('games.starting-spade.store', $game), ['hex_id' => $hexId])->assertNoContent();
+            $this->post(route('games.starting-spade.finish', $game))->assertNoContent();
+        }
+        $game->refresh();
+
+        $this->assertSame(PendingInteractionType::BuildWorkshopAfterTerraforming, $game->state->pendingInteraction?->type);
+        $this->assertSame(0, $game->state->players[0]->unassignedSpades);
+        $this->assertSame(TerrainType::Forest, $game->state->board->hexes[1]->terrain);
+        $this->assertSame(TerrainType::Forest, $game->state->board->hexes[2]->terrain);
+        $this->assertSame(0, $game->state->players[0]->resources->books->unassigned);
+
+        $this->post(route('games.terraform-workshop', $game), [
+            'build' => true,
+            'hex_id' => '1:0',
+        ])->assertNoContent();
+        $game->refresh();
+
+        $this->assertSame(BuildingType::Workshop, $game->state->board->hexes[1]->building?->type);
+        $this->assertSame(PendingInteractionType::PowerOffer, $game->state->pendingInteraction?->type);
+        $this->assertSame($neighborUser->id, $game->active_player_id);
+        $this->assertSame(0, $game->state->players[0]->resources->books->unassigned);
+
+        $this->actingAs($neighborUser)->post(route('games.power-offer', $game), [
+            'accept' => false,
+        ])->assertNoContent();
+        $game->refresh();
+
+        $this->assertSame(PendingInteractionType::ChooseFelineTownBonus, $game->state->pendingInteraction?->type);
+        $this->assertSame($user->id, $game->active_player_id);
+        $this->assertSame(1, $game->state->players[0]->resources->books->unassigned);
+        $this->actingAs($user);
+
+        $this->post(route('games.books', $game), [
+            'book_counts' => ['banking' => 1, 'law' => 0, 'engineering' => 0, 'medicine' => 0],
+            'knowledge_counts' => ['banking' => 0, 'law' => 1, 'engineering' => 1, 'medicine' => 1],
+        ])->assertNoContent();
+        $game->refresh();
+
+        $this->assertNull($game->state->pendingInteraction);
+        $this->assertSame(GameActionType::ChooseFelineTownBonus, $game->actions()->latest('sequence')->first()?->type);
+    }
+
     public function test_palace_fourteen_player_may_accept_or_decline_a_town_through_water(): void
     {
         $createGame = function (): array {
@@ -3307,7 +3521,11 @@ class GameManagementTest extends TestCase
                     faction: Faction::Navigators,
                     homeland: TerrainType::Mountain,
                     roundBonus: RoundBonus::RiverWorkshop,
-                    resources: new PlayerResourcesData(coins: 2, tools: 1),
+                    resources: new PlayerResourcesData(
+                        coins: 2,
+                        tools: 1,
+                        power: new PowerBowlsStateData(bowlThree: 1),
+                    ),
                     palaceId: PalaceAbility::Palace12->value,
                     competencyIds: [Competency::Competency11->value],
                     inventionIds: [Innovation::TradeRoutes->value],
@@ -3377,7 +3595,9 @@ class GameManagementTest extends TestCase
         $this->assertSame(20, $game->state->players[2]->victoryPoints);
         $this->assertNull($game->state->pendingInteraction);
         $this->assertSame($builderUser->id, $game->active_player_id);
-        $this->assertTrue($game->state->round->isCurrentTurnIrrevocable);
+        $this->assertFalse($game->state->round->isCurrentTurnIrrevocable);
+        $this->assertSame($game->version, $game->state->round->turnStartVersion);
+        $this->assertNull($game->state->turnStartSnapshot);
         $this->assertSame([
             GameActionType::TerraformAndBuild,
             GameActionType::AcceptPower,
@@ -3392,6 +3612,26 @@ class GameManagementTest extends TestCase
                     ->where('game.data.canUndoLastAction', true),
             );
         $this->post(route('games.current-turn.restart', $game))->assertForbidden();
+        $coinsAtPowerCheckpoint = $game->state->players[0]->resources->coins;
+        $this->post(route('games.resource-exchange', $game), [
+            'exchanges' => $this->resourceExchanges(powerToCoin: 1),
+        ])->assertNoContent();
+        $game->refresh();
+        $this->assertSame(0, $game->state->players[0]->resources->power->bowlThree);
+        $this->assertSame($coinsAtPowerCheckpoint + 1, $game->state->players[0]->resources->coins);
+        $this->get(route('games.show', $game))->assertInertia(
+            fn (Assert $page) => $page->where('game.data.canRestartCurrentTurn', true),
+        );
+
+        $this->post(route('games.current-turn.restart', $game))->assertNoContent();
+        $game->refresh();
+        $this->assertSame(1, $game->state->players[0]->resources->power->bowlThree);
+        $this->assertSame($coinsAtPowerCheckpoint, $game->state->players[0]->resources->coins);
+        $this->assertSame([
+            GameActionType::TerraformAndBuild,
+            GameActionType::AcceptPower,
+            GameActionType::DeclinePower,
+        ], $game->actions()->orderBy('sequence')->pluck('type')->all());
 
         $this->post(route('games.current-turn.finish', $game))
             ->assertNoContent();

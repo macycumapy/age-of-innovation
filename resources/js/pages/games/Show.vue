@@ -20,6 +20,7 @@ import IncomeDistributionPanel from '@/components/game/IncomeDistributionPanel.v
 import TownInteractionPanel from '@/components/game/TownInteractionPanel.vue';
 import FactionActionDialog from '@/components/game/FactionActionDialog.vue';
 import FinalLeaderboard from '@/components/game/FinalLeaderboard.vue';
+import FelineTownBonusPanel from '@/components/game/FelineTownBonusPanel.vue';
 import CultBoard from '@/components/game/CultBoard.vue';
 import InnovationBoard from '@/components/game/InnovationBoard.vue';
 import InnovationPurchaseDialog from '@/components/game/InnovationPurchaseDialog.vue';
@@ -493,6 +494,11 @@ const pendingBookDistribution = computed(() => {
         bookCount: interaction.context.bookCount,
     };
 });
+const pendingFelineTownBonus = computed(() => {
+    const interaction = props.game.data.pendingInteraction;
+
+    return interaction?.type === 'choose_feline_town_bonus' ? interaction : null;
+});
 const currentRoundBonusDescription = computed(() =>
     currentPlayerState.value ? props.game.data.roundBonusDescriptions[currentPlayerState.value.roundBonus] : '',
 );
@@ -862,11 +868,24 @@ defineOptions({
             />
 
             <BookDistributionPanel
-                v-if="pendingBookDistribution !== null && game.data.pendingInteraction?.playerId === currentPlayer?.id"
+                v-if="
+                    pendingBookDistribution !== null &&
+                    pendingFelineTownBonus === null &&
+                    game.data.pendingInteraction?.playerId === currentPlayer?.id
+                "
                 :game-id="game.data.id"
                 :book-count="pendingBookDistribution.bookCount"
                 :type="pendingBookDistribution.type"
                 :discipline-names="game.data.knowledgeDisciplineNames"
+            />
+
+            <FelineTownBonusPanel
+                v-if="pendingFelineTownBonus !== null && pendingFelineTownBonus.playerId === currentPlayer?.id"
+                :game-id="game.data.id"
+                :book-count="pendingFelineTownBonus.context.bookCount"
+                :knowledge-step-count="pendingFelineTownBonus.context.knowledgeStepCount ?? 0"
+                :discipline-names="game.data.knowledgeDisciplineNames"
+                :can-restart-current-turn="game.data.canRestartCurrentTurn"
             />
 
             <IncomeDistributionPanel

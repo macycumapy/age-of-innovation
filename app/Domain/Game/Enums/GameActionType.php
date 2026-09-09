@@ -37,6 +37,7 @@ enum GameActionType: string
     case DeclinePower = 'decline_power';
     case ChooseTown = 'choose_town';
     case ChooseTownBooks = 'choose_town_books';
+    case ChooseFelineTownBonus = 'choose_feline_town_bonus';
     case AcceptPalaceWaterTown = 'accept_palace_water_town';
     case DeclinePalaceWaterTown = 'decline_palace_water_town';
     case ChoosePalace = 'choose_palace';

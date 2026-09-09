@@ -57,6 +57,7 @@ const actionDescriptions: Record<GameActionType, string> = {
     decline_power: 'отказался от силы',
     choose_town: 'выбрал жетон города',
     choose_town_books: 'распределил книги города',
+    choose_feline_town_bonus: 'распределил бонус Кошачьих за город',
     accept_palace_water_town: 'решил основать город через воду',
     decline_palace_water_town: 'отказался основывать город через воду',
     choose_palace: 'выбрал жетон Дворца',
@@ -464,6 +465,33 @@ function actionDetails(entry: GameHistoryEntry): string | null {
         if (advancements.length > 0) {
             details.push(`шаги знаний за школы: ${advancements.join(', ')}`);
         }
+    }
+
+    if (entry.type === 'choose_town_books' || entry.type === 'choose_feline_town_bonus') {
+        const disciplineNames: Record<string, string> = {
+            banking: 'банковское дело',
+            law: 'право',
+            engineering: 'инженерия',
+            medicine: 'медицина',
+        };
+        const distributionDetails = [
+            ['book_counts', 'книги'],
+            ['knowledge_counts', 'шаги знаний'],
+        ].flatMap(([payloadKey, label]) => {
+            const counts = entry.payload[payloadKey];
+
+            if (typeof counts !== 'object' || counts === null) {
+                return [];
+            }
+
+            const values = Object.entries(counts)
+                .filter(([, count]) => Number(count) > 0)
+                .map(([discipline, count]) => `${disciplineNames[discipline] ?? discipline} +${Number(count)}`);
+
+            return values.length > 0 ? [`${label}: ${values.join(', ')}`] : [];
+        });
+
+        details.push(...distributionDetails);
     }
 
     if (

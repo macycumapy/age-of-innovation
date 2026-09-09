@@ -36,7 +36,7 @@ watch(counts, () => emit('change', { ...counts }), { deep: true, immediate: true
 </script>
 
 <template>
-    <Card class="mx-auto w-full max-w-3xl border-primary/40">
+    <Card class="mx-auto w-full max-w-3xl border-none p-0">
         <CardHeader class="gap-0.5 px-4 py-3">
             <CardTitle class="text-base">Выберите продвижения по дисциплинам</CardTitle>
             <CardDescription class="text-xs">

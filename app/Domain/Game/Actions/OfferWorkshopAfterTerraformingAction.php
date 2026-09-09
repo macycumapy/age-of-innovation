@@ -13,9 +13,16 @@ use App\Domain\Game\Enums\PendingInteractionType;
 
 final class OfferWorkshopAfterTerraformingAction
 {
-    /** @param list<string> $hexIds */
-    public function execute(GameStateData $state, GamePlayerStateData $playerState, array $hexIds): bool
-    {
+    /**
+     * @param list<string> $hexIds
+     * @param array<string, mixed> $context
+     */
+    public function execute(
+        GameStateData $state,
+        GamePlayerStateData $playerState,
+        array $hexIds,
+        array $context = [],
+    ): bool {
         $availableHexIds = array_values(array_filter(
             array_unique($hexIds),
             static fn (string $hexId): bool => collect($state->board->hexes)->contains(
@@ -40,7 +47,7 @@ final class OfferWorkshopAfterTerraformingAction
             PendingInteractionType::BuildWorkshopAfterTerraforming,
             $playerState->playerId,
             $availableHexIds,
-            ['toolCost' => 1, 'coinCost' => 2],
+            [...$context, 'toolCost' => 1, 'coinCost' => 2],
         );
 
         return true;

@@ -19,7 +19,7 @@ final class ApplyPowerOfferDecisionAction
     ) {
     }
 
-    /** @return array{receivedPower: int, victoryPointsSpent: int, nextActiveUserId: int} */
+    /** @return array{receivedPower: int, victoryPointsSpent: int, nextActiveUserId: int, advanceTurnCheckpoint: bool} */
     public function execute(GameStateData $state, int $playerId, bool $accept): array
     {
         $interaction = $state->pendingInteraction;
@@ -36,10 +36,8 @@ final class ApplyPowerOfferDecisionAction
             : 0;
         $victoryPointsSpent = $accept ? max(0, $receivedPower - 1) : 0;
         $playerState->victoryPoints -= $victoryPointsSpent;
-
-        if ($receivedPower > 0) {
-            $state->round->isCurrentTurnIrrevocable = true;
-        }
+        $powerAcceptedDuringOfferChain = ($interaction->context['powerAcceptedDuringOfferChain'] ?? false) === true
+            || $receivedPower > 0;
 
         $remainingOffers = $interaction->context['remainingOffers'] ?? [];
         $nextOffer = array_shift($remainingOffers);
@@ -60,6 +58,10 @@ final class ApplyPowerOfferDecisionAction
                     ...(isset($interaction->context['townBuiltHexId'])
                         ? ['townBuiltHexId' => $interaction->context['townBuiltHexId']]
                         : []),
+                    ...(isset($interaction->context['felineBonusPending'])
+                        ? ['felineBonusPending' => $interaction->context['felineBonusPending']]
+                        : []),
+                    ...($powerAcceptedDuringOfferChain ? ['powerAcceptedDuringOfferChain' => true] : []),
                 ],
             );
             $nextActiveUserId = (int) $nextOffer['userId'];
@@ -90,16 +92,37 @@ final class ApplyPowerOfferDecisionAction
                 $state->pendingInteraction->context['townBuiltHexId'] = $interaction->context['townBuiltHexId'];
             }
 
+            if ($nextActiveUserId !== null
+                && $state->pendingInteraction?->type === PendingInteractionType::PowerOffer
+                && $powerAcceptedDuringOfferChain) {
+                $state->pendingInteraction->context['powerAcceptedDuringOfferChain'] = true;
+            }
+
             if ($nextActiveUserId === null) {
-                $townBuiltHexId = $interaction->context['townBuiltHexId'] ?? null;
-                $nextActiveUserId = is_string($townBuiltHexId)
-                    ? $this->createTownChoiceAfterBuilding->execute(
-                        $state,
-                        $buildingPlayer,
-                        $townBuiltHexId,
-                        powerOffersResolved: true,
-                    )
-                    : $buildingPlayer->userId;
+                if (($interaction->context['felineBonusPending'] ?? false) === true) {
+                    $buildingPlayer->resources->books->unassigned++;
+                    $state->pendingInteraction = new PendingInteractionData(
+                        PendingInteractionType::ChooseFelineTownBonus,
+                        $buildingPlayer->playerId,
+                        [],
+                        [
+                            'bookCount' => 1,
+                            'knowledgeStepCount' => 3,
+                            'continueBuildingAfterPowerHexId' => (string) $interaction->context['builtHexId'],
+                        ],
+                    );
+                    $nextActiveUserId = $buildingPlayer->userId;
+                } else {
+                    $townBuiltHexId = $interaction->context['townBuiltHexId'] ?? null;
+                    $nextActiveUserId = is_string($townBuiltHexId)
+                        ? $this->createTownChoiceAfterBuilding->execute(
+                            $state,
+                            $buildingPlayer,
+                            $townBuiltHexId,
+                            powerOffersResolved: true,
+                        )
+                        : $buildingPlayer->userId;
+                }
             }
         }
 
@@ -107,6 +130,8 @@ final class ApplyPowerOfferDecisionAction
             'receivedPower' => $receivedPower,
             'victoryPointsSpent' => $victoryPointsSpent,
             'nextActiveUserId' => $nextActiveUserId,
+            'advanceTurnCheckpoint' => $powerAcceptedDuringOfferChain
+                && $state->pendingInteraction?->type !== PendingInteractionType::PowerOffer,
         ];
     }
 }

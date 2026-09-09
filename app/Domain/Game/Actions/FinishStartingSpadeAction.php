@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Domain\Game\Actions;
 
+use App\Domain\Game\Data\GamePlayerStateData;
+use App\Domain\Game\Data\GameStateData;
 use App\Domain\Game\Data\PendingInteractionData;
 use App\Domain\Game\Enums\Competency;
 use App\Domain\Game\Enums\Faction;
@@ -129,10 +131,11 @@ final class FinishStartingSpadeAction
                     $nextPlayer = $player;
                     $nextPhase = $interactionPhase;
                 } elseif ($interactionPhase === GamePhase::Actions) {
-                    $buildOffered = $this->offerWorkshopAfterTerraforming->execute(
+                    $buildOffered = $this->continueAfterActionSpades(
                         $state,
                         $playerState,
                         $buildableHexIds,
+                        $interaction,
                     );
                     $nextPlayer = $player;
                     $nextPhase = GamePhase::Actions;
@@ -150,10 +153,11 @@ final class FinishStartingSpadeAction
                     );
                 }
             } elseif ($interactionPhase === GamePhase::Actions) {
-                $buildOffered = $this->offerWorkshopAfterTerraforming->execute(
+                $buildOffered = $this->continueAfterActionSpades(
                     $state,
                     $playerState,
                     $buildableHexIds,
+                    $interaction,
                 );
                 $nextPlayer = $player;
                 $nextPhase = GamePhase::Actions;
@@ -236,6 +240,7 @@ final class FinishStartingSpadeAction
                     'tunnel_tools' => $tunnelTools,
                     'tunnel_victory_points' => $tunnelVictoryPoints,
                     'victory_points' => $roundScoringVictoryPoints,
+                    'feline_bonus_pending' => (bool) ($interaction->context['felineBonusPending'] ?? false),
                     'income_receipts' => $incomeReceipts,
                     'science_bonus_receipts' => $scienceBonusReceipts,
                     'final_scoring' => $finalScoring,
@@ -279,5 +284,41 @@ final class FinishStartingSpadeAction
 
             return $lockedGame->refresh();
         });
+    }
+
+    /** @param list<string> $buildableHexIds */
+    private function continueAfterActionSpades(
+        GameStateData $state,
+        GamePlayerStateData $playerState,
+        array $buildableHexIds,
+        PendingInteractionData $interaction,
+    ): bool {
+        if (($interaction->context['felineBonusPending'] ?? false) === true) {
+            $buildOffered = $this->offerWorkshopAfterTerraforming->execute(
+                $state,
+                $playerState,
+                $buildableHexIds,
+                ['felineBonusPending' => true],
+            );
+
+            if ($buildOffered) {
+                return true;
+            }
+
+            $playerState->resources->books->unassigned++;
+            $state->pendingInteraction = new PendingInteractionData(
+                PendingInteractionType::ChooseFelineTownBonus,
+                $playerState->playerId,
+                [],
+                [
+                    'bookCount' => 1,
+                    'knowledgeStepCount' => 3,
+                ],
+            );
+
+            return false;
+        }
+
+        return $this->offerWorkshopAfterTerraforming->execute($state, $playerState, $buildableHexIds);
     }
 }
