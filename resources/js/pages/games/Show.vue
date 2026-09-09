@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Head,router, useHttp, usePage } from '@inertiajs/vue3';
+import { Head, router, useHttp, usePage } from '@inertiajs/vue3';
 import { useEcho } from '@laravel/echo-vue';
 import { computed, ref, watch } from 'vue';
 import BridgeController from '@/actions/App/Http/Controllers/BridgeController';
@@ -413,6 +413,7 @@ const isRoundBonusActionDialogOpen = ref(false);
 const isFactionActionDialogOpen = ref(false);
 const isCompetencyActionDialogOpen = ref(false);
 const isPalaceActionDialogOpen = ref(false);
+const isPalaceBuildingSelectionActive = ref(false);
 const isPassDialogOpen = ref(false);
 const isPaidTerraformingDialogOpen = ref(false);
 
@@ -434,6 +435,7 @@ const isInnovationActionDialogOpen = ref(false);
 const selectedPaidTerraformHexId = ref<string | null>(null);
 const selectedBuildWorkshopHexId = ref<string | null>(null);
 const selectedBuildingUpgradeHexId = ref<string | null>(null);
+const selectedPalaceActionHexId = ref<string | null>(null);
 const selectedPowerAction = ref<PowerActionState | null>(null);
 const selectedBookAction = ref<BookActionState | null>(null);
 const selectedInnovation = ref<Innovation | null>(null);
@@ -442,6 +444,22 @@ const selectedInnovationAction = ref<Innovation | null>(null);
 function openInnovationActionDialog(innovation: Innovation): void {
     selectedInnovationAction.value = innovation;
     isInnovationActionDialogOpen.value = true;
+}
+
+function openPalaceAction(): void {
+    if (currentPlayerState.value?.palaceId === 'palace_04') {
+        selectedPalaceActionHexId.value = null;
+        isPalaceBuildingSelectionActive.value = true;
+
+        return;
+    }
+
+    isPalaceActionDialogOpen.value = true;
+}
+
+function cancelPalaceBuildingSelection(): void {
+    isPalaceBuildingSelectionActive.value = false;
+    selectedPalaceActionHexId.value = null;
 }
 const selectedScholarDiscipline = ref<KnowledgeDiscipline | null>(null);
 
@@ -748,11 +766,41 @@ const annexableBuildingHexIds = computed(() => {
         .map((hex) => hex.id);
 });
 
-const interactiveBuildingHexIds = computed(() => [
-    ...new Set([...props.game.data.buildingUpgrades.map((option) => option.hexId), ...annexableBuildingHexIds.value]),
-]);
+const palaceActionBuildingHexIds = computed(() => {
+    if (!isPalaceBuildingSelectionActive.value || currentPlayer.value === undefined) {
+        return [];
+    }
+
+    return props.game.data.board.hexes
+        .filter(
+            (hex) =>
+                hex.building?.ownerPlayerId === currentPlayer.value?.id &&
+                hex.building?.isNeutral === false &&
+                hex.building?.type === 'workshop',
+        )
+        .map((hex) => hex.id);
+});
+
+const interactiveBuildingHexIds = computed(() =>
+    isPalaceBuildingSelectionActive.value
+        ? palaceActionBuildingHexIds.value
+        : [
+              ...new Set([
+                  ...props.game.data.buildingUpgrades.map((option) => option.hexId),
+                  ...annexableBuildingHexIds.value,
+              ]),
+          ],
+);
 
 function selectBuildingUpgrade(hexId: string): void {
+    if (isPalaceBuildingSelectionActive.value && palaceActionBuildingHexIds.value.includes(hexId)) {
+        selectedPalaceActionHexId.value = hexId;
+        isPalaceBuildingSelectionActive.value = false;
+        isPalaceActionDialogOpen.value = true;
+
+        return;
+    }
+
     selectedBuildingUpgradeHexId.value = hexId;
     isBuildingUpgradeDialogOpen.value = true;
 }
@@ -768,7 +816,6 @@ defineOptions({
         ],
     },
 });
-
 </script>
 
 <template>
@@ -789,7 +836,9 @@ defineOptions({
                 :pending-starting-spade-hex-id="pendingStartingSpadeHexId"
                 :pending-palace-guild-hex-id="pendingPalaceGuildHexId"
                 :selected-bridge-from-hex-id="selectedBridgeFromHexId"
+                :is-palace-building-selection-active="isPalaceBuildingSelectionActive"
                 @reset-bridge-selection="selectedBridgeFromHexId = null"
+                @cancel-palace-building-selection="cancelPalaceBuildingSelection"
                 @finish-turn="isCurrentTurnFinishDialogOpen = true"
                 @pass="isPassDialogOpen = true"
             />
@@ -935,7 +984,7 @@ defineOptions({
                             @use-round-bonus-action="isRoundBonusActionDialogOpen = true"
                             @use-faction-action="openFactionActionDialog"
                             @use-competency-action="isCompetencyActionDialogOpen = true"
-                            @use-palace-action="isPalaceActionDialogOpen = true"
+                            @use-palace-action="openPalaceAction"
                             @use-innovation-action="openInnovationActionDialog"
                         />
                     </div>
@@ -1048,6 +1097,7 @@ defineOptions({
                 :board="game.data.board"
                 :player-id="currentPlayer?.id ?? null"
                 :player-color="currentPlayer?.color ?? null"
+                :selected-hex-id="selectedPalaceActionHexId"
                 :discipline-names="game.data.knowledgeDisciplineNames"
             />
 

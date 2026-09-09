@@ -7,6 +7,7 @@ namespace App\Domain\Game\Actions;
 use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Data\GameStateData;
 use App\Domain\Game\Enums\Competency;
+use App\Domain\Game\Enums\Faction;
 use App\Domain\Game\Enums\KnowledgeDiscipline;
 use App\Domain\Game\Services\CompetencySupply;
 use Illuminate\Validation\ValidationException;
@@ -52,7 +53,8 @@ final class GrantCompetencyAction
         unset($state->availableCompetencyIds[$availableCompetencyIndex]);
         $state->availableCompetencyIds = array_values($state->availableCompetencyIds);
         $this->advanceKnowledge->execute($state, $playerState, $discipline, 3 - $competencyRow);
-        $playerState->resources->books->{$discipline->value} += $competencyRow;
+        $philosopherBonusBooks = $playerState->faction === Faction::Philosophers ? 1 : 0;
+        $playerState->resources->books->{$discipline->value} += $competencyRow + $philosopherBonusBooks;
         $this->applyImmediateEffect($playerState, $competency);
     }
 

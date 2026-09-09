@@ -4,7 +4,15 @@ import { computed, reactive, ref, watch } from 'vue';
 import PalaceActionController from '@/actions/App/Http/Controllers/PalaceActionController';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+    Dialog,
+    DialogClose,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
 import { NumberStepper } from '@/components/ui/number-stepper';
 import type { BoardState, KnowledgeDiscipline, PalaceAbility, PlayerColor } from '@/types';
 import bankingBookUrl from '../../../images/token_parts/coin_book.png';
@@ -22,6 +30,7 @@ const props = defineProps<{
     board: BoardState;
     playerId: number | null;
     playerColor: PlayerColor | null;
+    selectedHexId?: string | null;
     disciplineNames: Record<KnowledgeDiscipline, string>;
 }>();
 const isOpen = defineModel<boolean>('open', { required: true });
@@ -54,23 +63,38 @@ const actionQuestions: Partial<Record<PalaceAbility, string>> = {
     palace_06: 'Распределите 2 шага между любыми дисциплинами.',
     palace_13: 'Получить 3 золота и выбранную книгу?',
 };
-const buildingImages = import.meta.glob<string>('../../../images/buildings/*/{workshop,school}.png', { eager: true, import: 'default', query: '?url' });
+const buildingImages = import.meta.glob<string>('../../../images/buildings/*/{workshop,school}.png', {
+    eager: true,
+    import: 'default',
+    query: '?url',
+});
 const needsDiscipline = computed(() => props.palace === 'palace_13');
 const distributesKnowledge = computed(() => props.palace === 'palace_06');
 const assignedKnowledgeSteps = computed(() => Object.values(knowledgeSteps).reduce((sum, steps) => sum + steps, 0));
 const remainingKnowledgeSteps = computed(() => 2 - assignedKnowledgeSteps.value);
-const sourceBuilding = computed(() => props.palace === 'palace_03' ? 'school' : props.palace === 'palace_04' ? 'workshop' : null);
-const buildingOptions = computed(() => props.board.hexes.filter((hex) => hex.building?.ownerPlayerId === props.playerId
-    && !hex.building.isNeutral && hex.building.type === sourceBuilding.value));
-const canSubmit = computed(() => (!needsDiscipline.value || discipline.value !== null)
-    && (!distributesKnowledge.value || remainingKnowledgeSteps.value === 0)
-    && (sourceBuilding.value === null || hexId.value !== null));
+const sourceBuilding = computed(() =>
+    props.palace === 'palace_03' ? 'school' : props.palace === 'palace_04' ? 'workshop' : null,
+);
+const buildingOptions = computed(() =>
+    props.board.hexes.filter(
+        (hex) =>
+            hex.building?.ownerPlayerId === props.playerId &&
+            !hex.building.isNeutral &&
+            hex.building.type === sourceBuilding.value,
+    ),
+);
+const canSubmit = computed(
+    () =>
+        (!needsDiscipline.value || discipline.value !== null) &&
+        (!distributesKnowledge.value || remainingKnowledgeSteps.value === 0) &&
+        (sourceBuilding.value === null || hexId.value !== null),
+);
 const question = computed(() => actionQuestions[props.palace ?? 'palace_01'] ?? 'Выполнить действие жетона Дворца?');
 
 watch(isOpen, (open) => {
     if (open) {
         discipline.value = null;
-        hexId.value = null;
+        hexId.value = props.selectedHexId ?? null;
 
         for (const item of disciplines) {
             knowledgeSteps[item] = 0;
@@ -87,14 +111,21 @@ function maximumKnowledgeSteps(disciplineId: KnowledgeDiscipline): number {
 }
 
 function buildingImage(): string {
-    return buildingImages[`../../../images/buildings/${props.playerColor ?? 'white'}/${sourceBuilding.value}.png`] ?? '';
+    return (
+        buildingImages[`../../../images/buildings/${props.playerColor ?? 'white'}/${sourceBuilding.value}.png`] ?? ''
+    );
 }
 </script>
 
 <template>
     <Dialog v-model:open="isOpen">
         <DialogContent class="sm:max-w-2xl">
-            <Form v-bind="PalaceActionController.form(gameId)" class="contents" #default="{ errors, processing }" @success="isOpen = false">
+            <Form
+                v-bind="PalaceActionController.form(gameId)"
+                class="contents"
+                #default="{ errors, processing }"
+                @success="isOpen = false"
+            >
                 <input type="hidden" name="discipline" :value="discipline ?? ''" />
                 <input
                     v-for="item in disciplines"
@@ -109,8 +140,20 @@ function buildingImage(): string {
                     <DialogDescription>{{ question }}</DialogDescription>
                 </DialogHeader>
                 <div v-if="needsDiscipline" class="grid grid-cols-4 gap-2">
-                    <button v-for="item in disciplines" :key="item" type="button" class="grid gap-1 rounded-lg border-2 p-2 text-xs" :class="discipline === item ? 'border-primary ring-2 ring-primary' : 'border-muted'" :aria-pressed="discipline === item" @click="discipline = item">
-                        <img :src="image(item)" :alt="disciplineNames[item]" class="mx-auto size-14 object-contain" /><span>{{ disciplineNames[item] }}</span>
+                    <button
+                        v-for="item in disciplines"
+                        :key="item"
+                        type="button"
+                        class="grid gap-1 rounded-lg border-2 p-2 text-xs"
+                        :class="discipline === item ? 'border-primary ring-2 ring-primary' : 'border-muted'"
+                        :aria-pressed="discipline === item"
+                        @click="discipline = item"
+                    >
+                        <img
+                            :src="image(item)"
+                            :alt="disciplineNames[item]"
+                            class="mx-auto size-14 object-contain"
+                        /><span>{{ disciplineNames[item] }}</span>
                     </button>
                 </div>
                 <div v-if="distributesKnowledge" class="grid grid-cols-2 gap-2 sm:grid-cols-4">
@@ -121,20 +164,33 @@ function buildingImage(): string {
                     >
                         <img :src="roundImages[item]" :alt="disciplineNames[item]" class="size-14 object-contain" />
                         <span>{{ disciplineNames[item] }}</span>
-                        <NumberStepper
-                            v-model="knowledgeSteps[item]"
-                            :min="0"
-                            :max="maximumKnowledgeSteps(item)"
-                        />
+                        <NumberStepper v-model="knowledgeSteps[item]" :min="0" :max="maximumKnowledgeSteps(item)" />
                     </label>
                 </div>
-                <div v-if="sourceBuilding" class="grid gap-2 sm:grid-cols-2">
-                    <button v-for="hex in buildingOptions" :key="hex.id" type="button" class="flex items-center gap-3 rounded-lg border-2 p-3" :class="hexId === hex.id ? 'border-primary ring-2 ring-primary' : 'border-muted'" :aria-pressed="hexId === hex.id" @click="hexId = hex.id">
-                        <img :src="buildingImage()" alt="" class="size-14 object-contain" /><span>Ячейка {{ hex.id }}</span>
+                <div v-if="sourceBuilding && palace !== 'palace_04'" class="grid gap-2 sm:grid-cols-2">
+                    <button
+                        v-for="hex in buildingOptions"
+                        :key="hex.id"
+                        type="button"
+                        class="flex items-center gap-3 rounded-lg border-2 p-3"
+                        :class="hexId === hex.id ? 'border-primary ring-2 ring-primary' : 'border-muted'"
+                        :aria-pressed="hexId === hex.id"
+                        @click="hexId = hex.id"
+                    >
+                        <img :src="buildingImage()" alt="" class="size-14 object-contain" /><span
+                            >Ячейка {{ hex.id }}</span
+                        >
                     </button>
                     <p v-if="buildingOptions.length === 0" class="text-sm text-destructive">Нет подходящих зданий.</p>
                 </div>
-                <InputError :message="errors.knowledge_steps ?? errors.discipline ?? errors.hex_id ?? errors.palace ?? errors.game" />
+                <p v-if="palace === 'palace_04' && hexId" class="text-sm text-muted-foreground">
+                    Выбран дом на ячейке {{ hexId }}.
+                </p>
+                <InputError
+                    :message="
+                        errors.knowledge_steps ?? errors.discipline ?? errors.hex_id ?? errors.palace ?? errors.game
+                    "
+                />
                 <DialogFooter>
                     <DialogClose as-child>
                         <Button type="button" variant="outline">Отмена</Button>

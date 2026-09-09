@@ -455,7 +455,8 @@ function closedActionTokenX(actionX: number, actionWidth: number): number {
                     :fill="terrainColors[hex.terrain]"
                     class="board-hex"
                     :class="{
-                        'board-hex-selectable': selectableHexIds.includes(hex.id),
+                        'board-hex-selectable':
+                            selectableHexIds.includes(hex.id) || upgradeableBuildingHexIds.includes(hex.id),
                         'board-hex-pending': pendingHexId === hex.id,
                     }"
                     stroke-opacity="0.8"

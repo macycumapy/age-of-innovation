@@ -3626,7 +3626,7 @@ class GameManagementTest extends TestCase
                     playerId: $player->id,
                     userId: $user->id,
                     color: PlayerColor::Green,
-                    faction: Faction::Blessed,
+                    faction: Faction::Philosophers,
                     homeland: TerrainType::Forest,
                     roundBonus: RoundBonus::Coins,
                     resources: new PlayerResourcesData(coins: $coinCost, tools: $toolCost),
@@ -3670,6 +3670,7 @@ class GameManagementTest extends TestCase
         $this->assertSame(1, $game->state->players[0]->resources->tools);
         $this->assertSame(2, $game->state->players[0]->resources->coins);
         $this->assertSame(25, $game->state->players[0]->victoryPoints);
+        $this->assertSame(1, $game->state->players[0]->resources->books->banking);
         $this->assertSame(PendingInteractionType::PowerOffer, $game->state->pendingInteraction?->type);
         $this->assertSame($neighborUser->id, $game->active_player_id);
         $this->assertSame([

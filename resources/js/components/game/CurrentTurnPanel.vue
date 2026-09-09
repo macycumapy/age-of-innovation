@@ -29,12 +29,14 @@ const props = defineProps<{
     pendingStartingSpadeHexId: string | null;
     pendingPalaceGuildHexId: string | null;
     selectedBridgeFromHexId: string | null;
+    isPalaceBuildingSelectionActive: boolean;
 }>();
 
 const emit = defineEmits<{
     finishTurn: [];
     pass: [];
     resetBridgeSelection: [];
+    cancelPalaceBuildingSelection: [];
 }>();
 
 const isCurrentUsersTurn = computed(() => props.activePlayer?.user.id === props.currentUserId);
@@ -159,6 +161,7 @@ function scrollToPageTop(event: MouseEvent): void {
                     (isStartingBuildingStage ||
                         canSpendStartingSpade ||
                         canResolvePowerOffer ||
+                        isPalaceBuildingSelectionActive ||
                         game.data.pendingInteraction?.type === 'choose_starting_resources' ||
                         game.data.pendingInteraction?.type === 'place_palace_guild' ||
                         game.data.pendingInteraction?.type === 'place_neutral_building' ||
@@ -186,6 +189,9 @@ function scrollToPageTop(event: MouseEvent): void {
             </template>
             <template v-else-if="!isCurrentUsersTurn">
                 {{ otherPlayerStatusMessage }}
+            </template>
+            <template v-else-if="isPalaceBuildingSelectionActive">
+                Выберите дом для бесплатного улучшения до рынка или отмените действие.
             </template>
             <template v-else-if="game.data.pendingInteraction?.type === 'power_offer'">
                 Получить {{ powerOfferAmount }} Силы за {{ powerOfferVictoryPointCost }} ПО?
@@ -522,6 +528,16 @@ function scrollToPageTop(event: MouseEvent): void {
                 Перезапустить ход
             </Button>
         </Form>
+
+        <Button
+            v-else-if="isCurrentUsersTurn && isPalaceBuildingSelectionActive"
+            type="button"
+            variant="outline"
+            @click="emit('cancelPalaceBuildingSelection')"
+        >
+            <RotateCcw class="size-4" />
+            Отменить действие
+        </Button>
 
         <div
             v-else-if="
