@@ -7,15 +7,15 @@ import BridgeController from '@/actions/App/Http/Controllers/BridgeController';
 import PalaceGuildController from '@/actions/App/Http/Controllers/PalaceGuildController';
 import NeutralInnovationBuildingController from '@/actions/App/Http/Controllers/NeutralInnovationBuildingController';
 import StartingBuildingController from '@/actions/App/Http/Controllers/StartingBuildingController';
-import StartingCompetencyController from '@/actions/App/Http/Controllers/StartingCompetencyController';
 import StartingResourcesController from '@/actions/App/Http/Controllers/StartingResourcesController';
 import Form from '@/components/game/GameActionForm.vue';
 import BoardMap from '@/components/game/BoardMap.vue';
 import BookActionDialog from '@/components/game/BookActionDialog.vue';
 import BuildingUpgradeDialog from '@/components/game/BuildingUpgradeDialog.vue';
 import BuildWorkshopDialog from '@/components/game/BuildWorkshopDialog.vue';
-import CompetencySelector from '@/components/game/CompetencySelector.vue';
 import CompetencyActionDialog from '@/components/game/CompetencyActionDialog.vue';
+import CompetencyChoicePanel from '@/components/game/CompetencyChoicePanel.vue';
+import CompetencySelector from '@/components/game/CompetencySelector.vue';
 import CurrentTurnFinishDialog from '@/components/game/CurrentTurnFinishDialog.vue';
 import CurrentTurnPanel from '@/components/game/CurrentTurnPanel.vue';
 import GameLobby from '@/components/game/GameLobby.vue';
@@ -217,12 +217,6 @@ const canPlaceNeutralBuilding = computed(
 
 const pendingNeutralBuilding = computed(() =>
     props.game.data.pendingInteraction?.type === 'place_neutral_building' ? props.game.data.pendingInteraction : null,
-);
-
-const isBuildingCompetencyChoice = computed(
-    () =>
-        props.game.data.pendingInteraction?.type === 'choose_competency' &&
-        props.game.data.pendingInteraction.context.reason === 'building',
 );
 
 const canSpendStartingSpade = computed(
@@ -448,7 +442,6 @@ const startingKnowledgeCounts = reactive<Record<KnowledgeDiscipline, number>>({
     medicine: 0,
 });
 const selectedStartingCompetency = ref<Competency | null>(null);
-const selectedMonkCompetency = ref<Competency | null>(null);
 const isPlanningBundleGroupOpen = ref(true);
 const isPowerSacrificeDialogOpen = ref(false);
 const isPowerActionDialogOpen = ref(false);
@@ -842,7 +835,6 @@ watch(
         }
 
         selectedStartingCompetency.value = null;
-        selectedMonkCompetency.value = null;
     },
 );
 
@@ -1132,46 +1124,13 @@ function competencyImage(competency: Competency): string {
                 </Card>
             </Collapsible>
 
-            <Card
+            <CompetencyChoicePanel
                 v-if="canChooseStartingCompetency && game.data.pendingInteraction?.type === 'choose_competency'"
-                class="mx-auto w-full max-w-3xl border-primary/40"
-            >
-                <CardHeader>
-                    <CardTitle>
-                        {{ isBuildingCompetencyChoice ? 'Компетенция нового здания' : 'Стартовая компетенция' }}
-                    </CardTitle>
-                    <CardDescription>
-                        {{
-                            isBuildingCompetencyChoice
-                                ? 'Выберите компетенцию для построенной школы или университета.'
-                                : 'Выберите компетенцию. Вы сразу получите её книги, продвижение по дисциплине и ресурсы.'
-                        }}
-                    </CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <Form
-                        v-bind="StartingCompetencyController.store.form(game.data.id)"
-                        #default="{ errors, processing }"
-                        class="grid gap-4"
-                    >
-                        <input type="hidden" name="competency_id" :value="selectedMonkCompetency ?? ''" />
-                        <CompetencySelector
-                            v-model="selectedMonkCompetency"
-                            :competencies="game.data.pendingInteraction.optionIds"
-                            :descriptions="game.data.competencyDescriptions"
-                            :disabled="!canChooseStartingCompetency || processing"
-                        />
-                        <InputError :message="errors.competency_id" />
-                        <Button
-                            type="submit"
-                            class="justify-self-end"
-                            :disabled="!canChooseStartingCompetency || selectedMonkCompetency === null || processing"
-                        >
-                            {{ processing ? 'Подтверждение…' : 'Подтвердить выбор' }}
-                        </Button>
-                    </Form>
-                </CardContent>
-            </Card>
+                :game-id="game.data.id"
+                :competencies="game.data.pendingInteraction.optionIds"
+                :descriptions="game.data.competencyDescriptions"
+                :is-building-choice="game.data.pendingInteraction.context.reason === 'building'"
+            />
 
             <PalaceChoicePanel
                 v-if="canChoosePalace && game.data.pendingInteraction?.type === 'choose_palace'"
