@@ -133,7 +133,6 @@ class ApplyInnovationRewardAction
         return count(array_filter(
             $state->board->hexes,
             static fn (BoardHexStateData $hex): bool => $hex->building?->ownerPlayerId === $player->playerId
-                && ! $hex->building->isNeutral
                 && ($type === null || $hex->building->type === $type),
         ));
     }
@@ -143,7 +142,7 @@ class ApplyInnovationRewardAction
         $types = [];
 
         foreach ($state->board->hexes as $hex) {
-            if ($hex->building?->ownerPlayerId === $player->playerId && ! $hex->building->isNeutral) {
+            if ($hex->building?->ownerPlayerId === $player->playerId) {
                 $types[$hex->building->type->value] = true;
             }
         }
@@ -234,8 +233,7 @@ class ApplyInnovationRewardAction
             static fn (BoardHexStateData $hex): string => $hex->id,
             array_filter(
                 $state->board->hexes,
-                static fn (BoardHexStateData $hex): bool => $hex->building?->ownerPlayerId === $player->playerId
-                    && ! $hex->building->isNeutral,
+                static fn (BoardHexStateData $hex): bool => $hex->building?->ownerPlayerId === $player->playerId,
             ),
         ));
     }

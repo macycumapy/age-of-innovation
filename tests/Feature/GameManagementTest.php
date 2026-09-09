@@ -4973,7 +4973,7 @@ class GameManagementTest extends TestCase
                 r: 0,
                 initialTerrain: TerrainType::Forest,
                 terrain: TerrainType::Forest,
-                building: new BuildingStateData($type, 15),
+                building: new BuildingStateData($type, 15, isNeutral: true),
             ),
             $buildingTypes,
             array_keys($buildingTypes),
@@ -4994,6 +4994,10 @@ class GameManagementTest extends TestCase
 
         $this->assertSame($expectedVictoryPoints, $reward['victoryPoints']);
         $this->assertSame(20 + $expectedVictoryPoints, $playerState->victoryPoints);
+
+        if ($innovation === Innovation::Architecture) {
+            $this->assertSame(3, $reward['knowledgeSteps']);
+        }
     }
 
     /** @return array<string, array{Innovation, int}> */
