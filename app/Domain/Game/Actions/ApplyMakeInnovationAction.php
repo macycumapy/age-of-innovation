@@ -74,14 +74,14 @@ final class ApplyMakeInnovationAction
         $playerState->victoryPoints += $roundVictoryPoints;
         $state->round->hasTakenMainAction = true;
 
-        if ($reward['developmentTrackBooks'] > 0) {
+        if ($reward['books'] > 0) {
             $state->pendingInteraction = new PendingInteractionData(
                 PendingInteractionType::ChooseInnovationBooks,
                 $playerState->playerId,
                 context: [
-                    'bookCount' => $reward['developmentTrackBooks'],
+                    'bookCount' => $reward['books'],
                     'innovation' => $innovation->value,
-                    'source' => 'development_tracks',
+                    'source' => 'innovation',
                 ],
             );
         }

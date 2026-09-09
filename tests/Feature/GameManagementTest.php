@@ -4779,7 +4779,7 @@ class GameManagementTest extends TestCase
         $game->refresh();
         $this->assertSame(PendingInteractionType::ChooseInnovationBooks, $game->state->pendingInteraction?->type);
         $this->assertSame(2, $game->state->pendingInteraction?->context['bookCount']);
-        $this->assertSame('development_tracks', $game->state->pendingInteraction?->context['source']);
+        $this->assertSame('innovation', $game->state->pendingInteraction?->context['source']);
         $this->assertSame(2, $game->state->players[0]->resources->books->unassigned);
         $this->assertSame(1, $game->actions()->count());
 

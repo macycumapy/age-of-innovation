@@ -383,7 +383,7 @@ export type PendingInteraction =
           context: {
               bookCount: number;
               innovation?: Innovation;
-              source: 'development_tracks';
+              source: 'innovation';
           };
       }
     | {
