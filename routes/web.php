@@ -45,7 +45,6 @@ use App\Http\Controllers\StartingSpadeController;
 use App\Http\Controllers\StartingSpadeTurnController;
 use App\Http\Controllers\TerraformingAdvancementController;
 use App\Http\Controllers\TerraformWorkshopController;
-use App\Http\Controllers\TownChoiceUndoController;
 use App\Http\Controllers\TownController;
 use App\Http\Controllers\WorkshopController;
 use Illuminate\Support\Facades\Route;
@@ -85,8 +84,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('games.workshop');
     Route::post('games/{game}/town', TownController::class)
         ->name('games.town');
-    Route::delete('games/{game}/town-choice', TownChoiceUndoController::class)
-        ->name('games.town-choice.destroy');
     Route::post('games/{game}/books', BookDistributionController::class)
         ->name('games.books');
     Route::post('games/{game}/innovation-action', InnovationActionController::class)

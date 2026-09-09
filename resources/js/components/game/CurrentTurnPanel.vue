@@ -12,7 +12,6 @@ import StartingBuildingTurnController from '@/actions/App/Http/Controllers/Start
 import StartingSpadeController from '@/actions/App/Http/Controllers/StartingSpadeController';
 import StartingSpadeTurnController from '@/actions/App/Http/Controllers/StartingSpadeTurnController';
 import TerraformWorkshopController from '@/actions/App/Http/Controllers/TerraformWorkshopController';
-import TownChoiceUndoController from '@/actions/App/Http/Controllers/TownChoiceUndoController';
 import Form from '@/components/game/GameActionForm.vue';
 import CurrentTurnRestartDialog from '@/components/game/CurrentTurnRestartDialog.vue';
 import { Button } from '@/components/ui/button';
@@ -209,6 +208,9 @@ function scrollToPageTop(event: MouseEvent): void {
             </template>
             <template v-else-if="game.data.pendingInteraction?.type === 'choose_town'">
                 Выберите жетон города
+            </template>
+            <template v-else-if="game.data.pendingInteraction?.type === 'choose_town_books'">
+                Распределите книги, полученные за жетон города.
             </template>
             <template v-else-if="game.data.pendingInteraction?.type === 'choose_palace'">
                 Выберите жетон Дворца
@@ -504,17 +506,6 @@ function scrollToPageTop(event: MouseEvent): void {
             </Button>
         </Form>
 
-        <Form
-            v-else-if="game.data.canUndoTownChoice && game.data.pendingInteraction !== null"
-            v-bind="TownChoiceUndoController.form(game.data.id)"
-            #default="{ processing }"
-        >
-            <Button type="submit" variant="outline" :disabled="processing">
-                <RotateCcw class="size-4" :class="processing ? 'animate-spin' : ''" />
-                Изменить жетон города
-            </Button>
-        </Form>
-
         <CurrentTurnRestartDialog
             v-else-if="canSpendStartingSpade && game.data.canRestartCurrentTurn"
             :game-id="game.data.id"
@@ -539,17 +530,7 @@ function scrollToPageTop(event: MouseEvent): void {
             "
             class="flex shrink-0 items-center gap-2"
         >
-            <Form
-                v-if="game.data.canUndoTownChoice"
-                v-bind="TownChoiceUndoController.form(game.data.id)"
-                #default="{ processing }"
-            >
-                <Button type="submit" variant="outline" :disabled="processing">
-                    <RotateCcw class="size-4" :class="processing ? 'animate-spin' : ''" />
-                    Изменить жетон города
-                </Button>
-            </Form>
-            <CurrentTurnRestartDialog v-else-if="game.data.canRestartCurrentTurn" :game-id="game.data.id" />
+            <CurrentTurnRestartDialog v-if="game.data.canRestartCurrentTurn" :game-id="game.data.id" />
             <Button v-if="game.data.canFinishCurrentTurn" type="button" @click="emit('finishTurn')">
                 Завершить ход
             </Button>

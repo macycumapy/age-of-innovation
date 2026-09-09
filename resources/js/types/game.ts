@@ -23,7 +23,6 @@ export type GameResource = {
         playerBoardStates: GamePlayerBoardState[];
         isOwner: boolean;
         canUndoLastAction: boolean;
-        canUndoTownChoice: boolean;
         canRestartCurrentTurn: boolean;
         canFinishCurrentTurn: boolean;
         canPass: boolean;

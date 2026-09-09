@@ -85,11 +85,6 @@ class GameResource extends JsonResource
             'canUndoLastAction' => $isOwner
                 && $hasActions
                 && ! $hasUnsupportedActions,
-            'canUndoTownChoice' => $this->phase === GamePhase::Actions
-                && $this->active_player_id === $request->user()?->id
-                && $latestAction?->type === GameActionType::ChooseTown
-                && $latestAction->player_id === $request->user()?->id
-                && is_array($this->state->townChoiceCheckpoint),
             'canRestartCurrentTurn' => $this->phase === GamePhase::Actions
                 && $this->active_player_id === $request->user()?->id
                 && $this->state->turnStartSnapshot !== null
