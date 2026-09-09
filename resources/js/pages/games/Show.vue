@@ -254,6 +254,10 @@ watch(
 );
 
 const selectableStartingHexIds = computed(() => {
+    if (isPalaceBuildingSelectionActive.value) {
+        return [];
+    }
+
     if (pendingBridgeInteraction.value !== null) {
         if (pendingBridgeInteraction.value.context.selectedFromHexId !== undefined) {
             return [];
