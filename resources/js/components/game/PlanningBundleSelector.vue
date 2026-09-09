@@ -66,9 +66,7 @@ function buttonLabel(processing: boolean): string {
 }
 
 function terrainTileImage(terrain: TerrainType): string {
-    const fileName = terrain === 'wasteland' ? 'westland' : terrain;
-
-    return terrainTileImages[`../../../images/terrain_tiles/${fileName}.webp`];
+    return terrainTileImages[`../../../images/terrain_tiles/${terrain}.webp`];
 }
 
 function factionImage(faction: Faction): string {
