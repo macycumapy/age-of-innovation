@@ -446,8 +446,16 @@ function openInnovationActionDialog(innovation: Innovation): void {
     isInnovationActionDialogOpen.value = true;
 }
 
+const palaceActionBuildingSource = computed<'workshop' | 'school' | null>(() => {
+    if (currentPlayerState.value?.palaceId === 'palace_03') {
+        return 'school';
+    }
+
+    return currentPlayerState.value?.palaceId === 'palace_04' ? 'workshop' : null;
+});
+
 function openPalaceAction(): void {
-    if (currentPlayerState.value?.palaceId === 'palace_04') {
+    if (palaceActionBuildingSource.value !== null) {
         selectedPalaceActionHexId.value = null;
         isPalaceBuildingSelectionActive.value = true;
 
@@ -776,7 +784,7 @@ const palaceActionBuildingHexIds = computed(() => {
             (hex) =>
                 hex.building?.ownerPlayerId === currentPlayer.value?.id &&
                 hex.building?.isNeutral === false &&
-                hex.building?.type === 'workshop',
+                hex.building?.type === palaceActionBuildingSource.value,
         )
         .map((hex) => hex.id);
 });
@@ -837,6 +845,7 @@ defineOptions({
                 :pending-palace-guild-hex-id="pendingPalaceGuildHexId"
                 :selected-bridge-from-hex-id="selectedBridgeFromHexId"
                 :is-palace-building-selection-active="isPalaceBuildingSelectionActive"
+                :palace-building-selection-source="palaceActionBuildingSource"
                 @reset-bridge-selection="selectedBridgeFromHexId = null"
                 @cancel-palace-building-selection="cancelPalaceBuildingSelection"
                 @finish-turn="isCurrentTurnFinishDialogOpen = true"
@@ -1094,9 +1103,6 @@ defineOptions({
                 v-model:open="isPalaceActionDialogOpen"
                 :game-id="game.data.id"
                 :palace="currentPlayerState?.palaceId ?? null"
-                :board="game.data.board"
-                :player-id="currentPlayer?.id ?? null"
-                :player-color="currentPlayer?.color ?? null"
                 :selected-hex-id="selectedPalaceActionHexId"
                 :discipline-names="game.data.knowledgeDisciplineNames"
             />

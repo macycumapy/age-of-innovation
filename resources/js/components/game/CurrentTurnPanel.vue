@@ -30,6 +30,7 @@ const props = defineProps<{
     pendingPalaceGuildHexId: string | null;
     selectedBridgeFromHexId: string | null;
     isPalaceBuildingSelectionActive: boolean;
+    palaceBuildingSelectionSource: 'workshop' | 'school' | null;
 }>();
 
 const emit = defineEmits<{
@@ -191,7 +192,11 @@ function scrollToPageTop(event: MouseEvent): void {
                 {{ otherPlayerStatusMessage }}
             </template>
             <template v-else-if="isPalaceBuildingSelectionActive">
-                Выберите дом для бесплатного улучшения до рынка или отмените действие.
+                {{
+                    palaceBuildingSelectionSource === 'school'
+                        ? 'Выберите школу для замены рынком или отмените действие.'
+                        : 'Выберите дом для бесплатного улучшения до рынка или отмените действие.'
+                }}
             </template>
             <template v-else-if="game.data.pendingInteraction?.type === 'power_offer'">
                 Получить {{ powerOfferAmount }} Силы за {{ powerOfferVictoryPointCost }} ПО?

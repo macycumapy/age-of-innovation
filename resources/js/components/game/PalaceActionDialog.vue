@@ -14,7 +14,7 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import { NumberStepper } from '@/components/ui/number-stepper';
-import type { BoardState, KnowledgeDiscipline, PalaceAbility, PlayerColor } from '@/types';
+import type { KnowledgeDiscipline, PalaceAbility } from '@/types';
 import bankingBookUrl from '../../../images/token_parts/coin_book.png';
 import bankingRoundUrl from '../../../images/token_parts/coin_round.png';
 import engineeringBookUrl from '../../../images/token_parts/engineering_book.png';
@@ -27,9 +27,6 @@ import medicineRoundUrl from '../../../images/token_parts/medicine_round.png';
 const props = defineProps<{
     gameId: number;
     palace: PalaceAbility | null;
-    board: BoardState;
-    playerId: number | null;
-    playerColor: PlayerColor | null;
     selectedHexId?: string | null;
     disciplineNames: Record<KnowledgeDiscipline, string>;
 }>();
@@ -63,25 +60,12 @@ const actionQuestions: Partial<Record<PalaceAbility, string>> = {
     palace_06: 'Распределите 2 шага между любыми дисциплинами.',
     palace_13: 'Получить 3 золота и выбранную книгу?',
 };
-const buildingImages = import.meta.glob<string>('../../../images/buildings/*/{workshop,school}.png', {
-    eager: true,
-    import: 'default',
-    query: '?url',
-});
 const needsDiscipline = computed(() => props.palace === 'palace_13');
 const distributesKnowledge = computed(() => props.palace === 'palace_06');
 const assignedKnowledgeSteps = computed(() => Object.values(knowledgeSteps).reduce((sum, steps) => sum + steps, 0));
 const remainingKnowledgeSteps = computed(() => 2 - assignedKnowledgeSteps.value);
 const sourceBuilding = computed(() =>
     props.palace === 'palace_03' ? 'school' : props.palace === 'palace_04' ? 'workshop' : null,
-);
-const buildingOptions = computed(() =>
-    props.board.hexes.filter(
-        (hex) =>
-            hex.building?.ownerPlayerId === props.playerId &&
-            !hex.building.isNeutral &&
-            hex.building.type === sourceBuilding.value,
-    ),
 );
 const canSubmit = computed(
     () =>
@@ -108,12 +92,6 @@ function image(disciplineId: KnowledgeDiscipline): string {
 
 function maximumKnowledgeSteps(disciplineId: KnowledgeDiscipline): number {
     return knowledgeSteps[disciplineId] + remainingKnowledgeSteps.value;
-}
-
-function buildingImage(): string {
-    return (
-        buildingImages[`../../../images/buildings/${props.playerColor ?? 'white'}/${sourceBuilding.value}.png`] ?? ''
-    );
 }
 </script>
 
@@ -167,24 +145,11 @@ function buildingImage(): string {
                         <NumberStepper v-model="knowledgeSteps[item]" :min="0" :max="maximumKnowledgeSteps(item)" />
                     </label>
                 </div>
-                <div v-if="sourceBuilding && palace !== 'palace_04'" class="grid gap-2 sm:grid-cols-2">
-                    <button
-                        v-for="hex in buildingOptions"
-                        :key="hex.id"
-                        type="button"
-                        class="flex items-center gap-3 rounded-lg border-2 p-3"
-                        :class="hexId === hex.id ? 'border-primary ring-2 ring-primary' : 'border-muted'"
-                        :aria-pressed="hexId === hex.id"
-                        @click="hexId = hex.id"
-                    >
-                        <img :src="buildingImage()" alt="" class="size-14 object-contain" /><span
-                            >Ячейка {{ hex.id }}</span
-                        >
-                    </button>
-                    <p v-if="buildingOptions.length === 0" class="text-sm text-destructive">Нет подходящих зданий.</p>
-                </div>
-                <p v-if="palace === 'palace_04' && hexId" class="text-sm text-muted-foreground">
-                    Выбран дом на ячейке {{ hexId }}.
+                <p
+                    v-if="['palace_03', 'palace_04'].includes(palace ?? '') && hexId"
+                    class="text-sm text-muted-foreground"
+                >
+                    {{ palace === 'palace_03' ? 'Выбрана школа' : 'Выбран дом' }} на ячейке {{ hexId }}.
                 </p>
                 <InputError
                     :message="
