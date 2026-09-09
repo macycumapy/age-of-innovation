@@ -52,6 +52,12 @@ const otherPlayerStatusMessage = computed(() => {
         return 'Ход игрока определяется.';
     }
 
+    if (props.game.data.pendingInteraction?.type === 'choose_starting_resources') {
+        return props.game.data.phase === 'income'
+            ? `${playerName} распределяет получаемый доход.`
+            : `${playerName} распределяет стартовые ресурсы.`;
+    }
+
     if (props.isStartingBuildingStage) {
         if (props.game.data.pendingInteraction?.type === 'spend_spades') {
             return `${playerName} использует стартовую лопату.`;
@@ -153,8 +159,7 @@ function scrollToPageTop(event: MouseEvent): void {
                     (isStartingBuildingStage ||
                         canSpendStartingSpade ||
                         canResolvePowerOffer ||
-                        (game.data.phase === 'income' &&
-                            game.data.pendingInteraction?.type === 'choose_starting_resources') ||
+                        game.data.pendingInteraction?.type === 'choose_starting_resources' ||
                         game.data.pendingInteraction?.type === 'place_palace_guild' ||
                         game.data.pendingInteraction?.type === 'place_neutral_building' ||
                         game.data.pendingInteraction?.type === 'place_bridge' ||
@@ -185,12 +190,8 @@ function scrollToPageTop(event: MouseEvent): void {
             <template v-else-if="game.data.pendingInteraction?.type === 'power_offer'">
                 Получить {{ powerOfferAmount }} Силы за {{ powerOfferVictoryPointCost }} ПО?
             </template>
-            <template
-                v-else-if="
-                    game.data.phase === 'income' && game.data.pendingInteraction?.type === 'choose_starting_resources'
-                "
-            >
-                Распределите получаемый доход
+            <template v-else-if="game.data.pendingInteraction?.type === 'choose_starting_resources'">
+                {{ game.data.phase === 'income' ? 'Распределите получаемый доход' : 'Распределите стартовые ресурсы' }}
             </template>
             <template v-else-if="game.data.pendingInteraction?.type === 'choose_round_bonus'">
                 Выберите жетон бонуса

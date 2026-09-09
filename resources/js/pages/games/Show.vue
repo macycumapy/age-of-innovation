@@ -1,18 +1,16 @@
 <script setup lang="ts">
-import { Head, Link, router, useHttp, usePage, usePoll } from '@inertiajs/vue3';
+import { Head,router, useHttp, usePage } from '@inertiajs/vue3';
 import { useEcho } from '@laravel/echo-vue';
-import { ChevronDown } from '@lucide/vue';
-import { computed, reactive, ref, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 import BridgeController from '@/actions/App/Http/Controllers/BridgeController';
 import PalaceGuildController from '@/actions/App/Http/Controllers/PalaceGuildController';
 import NeutralInnovationBuildingController from '@/actions/App/Http/Controllers/NeutralInnovationBuildingController';
 import StartingBuildingController from '@/actions/App/Http/Controllers/StartingBuildingController';
-import StartingResourcesController from '@/actions/App/Http/Controllers/StartingResourcesController';
-import Form from '@/components/game/GameActionForm.vue';
 import BoardMap from '@/components/game/BoardMap.vue';
 import BookActionDialog from '@/components/game/BookActionDialog.vue';
 import BuildingUpgradeDialog from '@/components/game/BuildingUpgradeDialog.vue';
 import BuildWorkshopDialog from '@/components/game/BuildWorkshopDialog.vue';
+import BookDistributionPanel from '@/components/game/BookDistributionPanel.vue';
 import CompetencyActionDialog from '@/components/game/CompetencyActionDialog.vue';
 import CompetencyChoicePanel from '@/components/game/CompetencyChoicePanel.vue';
 import CurrentTurnFinishDialog from '@/components/game/CurrentTurnFinishDialog.vue';
@@ -30,7 +28,6 @@ import PalaceBoard from '@/components/game/PalaceBoard.vue';
 import PalaceActionDialog from '@/components/game/PalaceActionDialog.vue';
 import PaidTerraformingDialog from '@/components/game/PaidTerraformingDialog.vue';
 import PassDialog from '@/components/game/PassDialog.vue';
-import BookDistributionPanel from '@/components/game/BookDistributionPanel.vue';
 import PalaceChoicePanel from '@/components/game/PalaceChoicePanel.vue';
 import PlanningBundleSelector from '@/components/game/PlanningBundleSelector.vue';
 import PlayerBoards from '@/components/game/PlayerBoards.vue';
@@ -42,34 +39,14 @@ import RoundBonusActionDialog from '@/components/game/RoundBonusActionDialog.vue
 import RoundBonusChoiceDialog from '@/components/game/RoundBonusChoiceDialog.vue';
 import ScholarActionDialog from '@/components/game/ScholarActionDialog.vue';
 import ShippingAdvancementDialog from '@/components/game/ShippingAdvancementDialog.vue';
+import StartingResourcesPanel from '@/components/game/StartingResourcesPanel.vue';
 import TerraformingAdvancementDialog from '@/components/game/TerraformingAdvancementDialog.vue';
 import RoundBonusBoard from '@/components/game/RoundBonusBoard.vue';
 import TownTileBoard from '@/components/game/TownTileBoard.vue';
 import PalaceWaterTownDialog from '@/components/game/PalaceWaterTownDialog.vue';
-import InputError from '@/components/InputError.vue';
-import { NumberStepper } from '@/components/ui/number-stepper';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import {
-    Dialog,
-    DialogClose,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-    DialogTrigger,
-} from '@/components/ui/dialog';
+import { Card, CardContent } from '@/components/ui/card';
+import { Collapsible, CollapsibleContent } from '@/components/ui/collapsible';
 import { index } from '@/routes/games';
-import bankingBookUrl from '../../../images/token_parts/coin_book.png';
-import bankingRoundUrl from '../../../images/token_parts/coin_round.png';
-import engineeringBookUrl from '../../../images/token_parts/engineering_book.png';
-import engineeringRoundUrl from '../../../images/token_parts/engineering_round.png';
-import lawBookUrl from '../../../images/token_parts/law_book.png';
-import lawRoundUrl from '../../../images/token_parts/law_round.png';
-import medicineBookUrl from '../../../images/token_parts/medicine_book.png';
-import medicineRoundUrl from '../../../images/token_parts/medicine_round.png';
 import type {
     BookActionState,
     GamePlayerSummary,
@@ -77,7 +54,6 @@ import type {
     KnowledgeDiscipline,
     Innovation,
     InnovationPurchaseState,
-    MapVariant,
     PowerActionState,
 } from '@/types';
 
@@ -97,10 +73,6 @@ const currentPlayer = computed(() =>
 
 const activePlayer = computed(() =>
     props.game.data.players.find((player) => player.user.id === props.game.data.activePlayerId),
-);
-
-const pendingInteractionPlayer = computed(() =>
-    props.game.data.players.find((player) => player.id === props.game.data.pendingInteraction?.playerId),
 );
 
 const orderedPlayers = computed(() =>
@@ -427,18 +399,6 @@ function placeStartingBuilding(hexId: string): void {
     });
 }
 
-const startingBookCounts = reactive<Record<KnowledgeDiscipline, number>>({
-    banking: 0,
-    law: 0,
-    engineering: 0,
-    medicine: 0,
-});
-const startingKnowledgeCounts = reactive<Record<KnowledgeDiscipline, number>>({
-    banking: 0,
-    law: 0,
-    engineering: 0,
-    medicine: 0,
-});
 const isPlanningBundleGroupOpen = ref(true);
 const isPowerSacrificeDialogOpen = ref(false);
 const isPowerActionDialogOpen = ref(false);
@@ -797,38 +757,6 @@ function selectBuildingUpgrade(hexId: string): void {
     isBuildingUpgradeDialogOpen.value = true;
 }
 
-const availableStartingBookCount = computed(() => props.game.data.pendingInteraction?.context.bookCount ?? 0);
-
-const assignedStartingBookCount = computed(() =>
-    Object.values(startingBookCounts).reduce((total, count) => total + count, 0),
-);
-
-const remainingStartingBookCount = computed(() =>
-    Math.max(0, availableStartingBookCount.value - assignedStartingBookCount.value),
-);
-
-const availableStartingKnowledgeStepCount = computed(
-    () => props.game.data.pendingInteraction?.context.knowledgeStepCount ?? 0,
-);
-
-const assignedStartingKnowledgeStepCount = computed(() =>
-    Object.values(startingKnowledgeCounts).reduce((total, count) => total + count, 0),
-);
-
-const remainingStartingKnowledgeStepCount = computed(() =>
-    Math.max(0, availableStartingKnowledgeStepCount.value - assignedStartingKnowledgeStepCount.value),
-);
-
-watch(
-    () => props.game.data.pendingInteraction?.playerId,
-    () => {
-        for (const discipline of Object.keys(startingBookCounts) as KnowledgeDiscipline[]) {
-            startingBookCounts[discipline] = 0;
-            startingKnowledgeCounts[discipline] = 0;
-        }
-    },
-);
-
 defineOptions({
     layout: {
         fullWidth: true,
@@ -841,25 +769,6 @@ defineOptions({
     },
 });
 
-const mapVariantNames: Record<MapVariant, string> = {
-    one_to_three_players: '1–3 игрока',
-    three_to_five_players: '3–5 игроков',
-};
-
-const knowledgeDisciplineNames = computed(() => props.game.data.knowledgeDisciplineNames);
-const bookImages: Record<KnowledgeDiscipline, string> = {
-    banking: bankingBookUrl,
-    law: lawBookUrl,
-    engineering: engineeringBookUrl,
-    medicine: medicineBookUrl,
-};
-
-const knowledgeRoundImages: Record<KnowledgeDiscipline, string> = {
-    banking: bankingRoundUrl,
-    law: lawRoundUrl,
-    engineering: engineeringRoundUrl,
-    medicine: medicineRoundUrl,
-};
 </script>
 
 <template>
@@ -917,156 +826,16 @@ const knowledgeRoundImages: Record<KnowledgeDiscipline, string> = {
                 <Card>
                     <CollapsibleContent>
                         <CardContent>
-                            <Form
-                                v-if="canChooseStartingResources"
-                                v-bind="StartingResourcesController.store.form(game.data.id)"
-                                id="starting-resources-form"
-                                #default="{ errors, processing }"
-                                class="mb-6 grid w-xl gap-5 rounded-xl border border-primary/40 bg-primary/5 p-5"
-                            >
-                                <div class="grid gap-1">
-                                    <h3 class="font-semibold">Распределите стартовые ресурсы</h3>
-                                    <p class="text-sm text-muted-foreground">
-                                        Этот выбор завершает получение вашего стартового комплекта.
-                                    </p>
-                                </div>
-
-                                <div
-                                    v-if="(game.data.pendingInteraction?.context.bookCount ?? 0) > 0"
-                                    class="grid gap-3"
-                                >
-                                    <div class="flex flex-wrap items-center justify-between gap-2 text-sm">
-                                        <p class="font-medium">Распределение книг</p>
-                                        <p class="rounded-md bg-background/75 px-3 py-1.5 font-medium">
-                                            Доступно: {{ availableStartingBookCount }}
-                                        </p>
-                                    </div>
-                                    <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                                        <div
-                                            v-for="discipline in game.data.pendingInteraction?.optionIds"
-                                            :key="discipline"
-                                            class="grid h-full grid-rows-[auto_minmax(2.5rem,1fr)_auto_auto] justify-items-center gap-2 rounded-lg border bg-background/70 p-3 text-center text-sm font-medium"
-                                        >
-                                            <img
-                                                :src="bookImages[discipline]"
-                                                :alt="`Книга: ${knowledgeDisciplineNames[discipline]}`"
-                                                class="h-16 w-auto object-contain drop-shadow-md"
-                                            />
-                                            <span>{{ knowledgeDisciplineNames[discipline] }}</span>
-                                            <NumberStepper
-                                                v-model="startingBookCounts[discipline]"
-                                                :name="`book_counts[${discipline}]`"
-                                                :min="0"
-                                                :max="startingBookCounts[discipline] + remainingStartingBookCount"
-                                                required
-                                                class="w-28 self-end"
-                                            />
-                                            <InputError :message="errors[`book_counts.${discipline}`]" />
-                                        </div>
-                                    </div>
-                                    <InputError :message="errors.book_counts" />
-                                </div>
-
-                                <div
-                                    v-if="(game.data.pendingInteraction?.context.knowledgeStepCount ?? 0) > 0"
-                                    class="grid gap-3"
-                                >
-                                    <div class="flex flex-wrap items-center justify-between gap-2 text-sm">
-                                        <p class="font-medium">Распределение шагов знаний</p>
-                                        <p class="rounded-md bg-background/75 px-3 py-1.5 font-medium">
-                                            Доступно: {{ availableStartingKnowledgeStepCount }}
-                                        </p>
-                                    </div>
-                                    <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                                        <div
-                                            v-for="discipline in game.data.pendingInteraction?.optionIds"
-                                            :key="discipline"
-                                            class="grid h-full grid-rows-[auto_minmax(2.5rem,1fr)_auto_auto] justify-items-center gap-2 rounded-lg border bg-background/70 p-3 text-center text-sm font-medium"
-                                        >
-                                            <img
-                                                :src="knowledgeRoundImages[discipline]"
-                                                :alt="`Дисциплина: ${knowledgeDisciplineNames[discipline]}`"
-                                                class="h-16 w-auto object-contain drop-shadow-md"
-                                            />
-                                            <span>{{ knowledgeDisciplineNames[discipline] }}</span>
-                                            <NumberStepper
-                                                v-model="startingKnowledgeCounts[discipline]"
-                                                :name="`knowledge_counts[${discipline}]`"
-                                                :min="0"
-                                                :max="
-                                                    startingKnowledgeCounts[discipline] +
-                                                    remainingStartingKnowledgeStepCount
-                                                "
-                                                required
-                                                class="w-28 self-end"
-                                            />
-                                            <InputError :message="errors[`knowledge_counts.${discipline}`]" />
-                                        </div>
-                                    </div>
-                                    <InputError :message="errors.knowledge_counts" />
-                                </div>
-
-                                <InputError :message="errors.game" />
-                                <Dialog>
-                                    <DialogTrigger as-child>
-                                        <Button
-                                            type="button"
-                                            :disabled="
-                                                processing ||
-                                                remainingStartingBookCount !== 0 ||
-                                                remainingStartingKnowledgeStepCount !== 0
-                                            "
-                                        >
-                                            Подтвердить выбор
-                                        </Button>
-                                    </DialogTrigger>
-                                    <DialogContent>
-                                        <DialogHeader>
-                                            <DialogTitle>Подтвердите распределение ресурсов</DialogTitle>
-                                            <DialogDescription>
-                                                Проверьте выбранные стартовые ресурсы перед сохранением.
-                                            </DialogDescription>
-                                        </DialogHeader>
-
-                                        <div class="grid gap-4 rounded-lg bg-muted p-4 text-sm">
-                                            <div v-if="availableStartingBookCount > 0" class="grid gap-1">
-                                                <p class="font-medium">Книги</p>
-                                                <p
-                                                    v-for="discipline in game.data.pendingInteraction?.optionIds ?? []"
-                                                    v-show="startingBookCounts[discipline] > 0"
-                                                    :key="`book-${discipline}`"
-                                                    class="text-muted-foreground"
-                                                >
-                                                    {{ knowledgeDisciplineNames[discipline] }}:
-                                                    {{ startingBookCounts[discipline] }}
-                                                </p>
-                                            </div>
-
-                                            <div v-if="availableStartingKnowledgeStepCount > 0" class="grid gap-1">
-                                                <p class="font-medium">Шаги знаний</p>
-                                                <p
-                                                    v-for="discipline in game.data.pendingInteraction?.optionIds ?? []"
-                                                    v-show="startingKnowledgeCounts[discipline] > 0"
-                                                    :key="`knowledge-${discipline}`"
-                                                    class="text-muted-foreground"
-                                                >
-                                                    {{ knowledgeDisciplineNames[discipline] }}:
-                                                    {{ startingKnowledgeCounts[discipline] }}
-                                                </p>
-                                            </div>
-                                        </div>
-
-                                        <DialogFooter class="gap-2">
-                                            <DialogClose as-child>
-                                                <Button type="button" variant="outline">Отмена</Button>
-                                            </DialogClose>
-                                            <Button type="submit" form="starting-resources-form" :disabled="processing">
-                                                {{ processing ? 'Сохранение…' : 'Подтвердить' }}
-                                            </Button>
-                                        </DialogFooter>
-                                    </DialogContent>
-                                </Dialog>
-                            </Form>
+                            <StartingResourcesPanel
+                                v-if="
+                                    canChooseStartingResources &&
+                                    game.data.pendingInteraction?.type === 'choose_starting_resources'
+                                "
+                                :key="game.data.pendingInteraction.playerId"
+                                :game-id="game.data.id"
+                                :interaction="game.data.pendingInteraction"
+                                :discipline-names="game.data.knowledgeDisciplineNames"
+                            />
 
                             <PlanningBundleSelector :game="game" :can-choose="canChoosePlanningBundle" />
                         </CardContent>
