@@ -56,6 +56,7 @@ import type {
     Innovation,
     InnovationPurchaseState,
     PowerActionState,
+    TerrainType,
 } from '@/types';
 import gameBackgroundImage from '../../../images/background_game.jpg';
 
@@ -662,15 +663,57 @@ const moleTunnelTerraformHexIds = computed(() => {
 
     return [...eligibleHexIds];
 });
-const paidTerraformHexIds = computed(() => [
-    ...new Set([
-        ...reachableEmptyLandHexIds.value.filter(
-            (hexId) =>
-                props.game.data.board.hexes.find((hex) => hex.id === hexId)?.terrain !== currentPlayer.value?.homeland,
-        ),
-        ...moleTunnelTerraformHexIds.value,
-    ]),
-]);
+const terrainCycle: TerrainType[] = ['desert', 'plains', 'swamp', 'lake', 'forest', 'mountain', 'wasteland'];
+
+function requiredTerraformingSpades(source: TerrainType, target: TerrainType): number {
+    const sourceIndex = terrainCycle.indexOf(source);
+    const targetIndex = terrainCycle.indexOf(target);
+
+    if (sourceIndex < 0 || targetIndex < 0) {
+        return 0;
+    }
+
+    const clockwiseDistance = (targetIndex - sourceIndex + terrainCycle.length) % terrainCycle.length;
+    const counterclockwiseDistance = (sourceIndex - targetIndex + terrainCycle.length) % terrainCycle.length;
+
+    return Math.min(clockwiseDistance, counterclockwiseDistance);
+}
+
+const paidTerraformHexIds = computed(() => {
+    const player = currentPlayer.value;
+    const state = currentPlayerState.value;
+
+    if (player === undefined || player.homeland === null || state === undefined) {
+        return [];
+    }
+
+    const homeland = player.homeland;
+    const eligibleHexIds = [
+        ...new Set([
+            ...reachableEmptyLandHexIds.value.filter(
+                (hexId) => props.game.data.board.hexes.find((hex) => hex.id === hexId)?.terrain !== homeland,
+            ),
+            ...moleTunnelTerraformHexIds.value,
+        ]),
+    ];
+    const toolCostPerSpade = Math.max(1, 3 - state.terraformingLevel);
+
+    return eligibleHexIds.filter((hexId) => {
+        const hex = props.game.data.board.hexes.find((candidate) => candidate.id === hexId);
+
+        if (hex === undefined) {
+            return false;
+        }
+
+        const requiredSpades = requiredTerraformingSpades(hex.terrain, homeland);
+        const purchasedSpades = Math.max(0, requiredSpades - state.unassignedSpades);
+        const requiresTunnel =
+            moleTunnelTerraformHexIds.value.includes(hexId) && !reachableEmptyLandHexIds.value.includes(hexId);
+        const totalToolCost = purchasedSpades * toolCostPerSpade + (requiresTunnel ? 1 : 0);
+
+        return totalToolCost <= state.tools;
+    });
+});
 const buildableWorkshopHexIds = computed(() => {
     const state = currentPlayerState.value;
 
