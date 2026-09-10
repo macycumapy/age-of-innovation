@@ -13,7 +13,8 @@ final class UndoLastGameActionRequest extends FormRequest
     {
         $game = $this->route('game');
 
-        return $game instanceof Game
+        return app()->environment('local', 'testing')
+            && $game instanceof Game
             && $game->players()
                 ->where('seat', 1)
                 ->where('user_id', $this->user()?->id)

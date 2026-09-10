@@ -5949,6 +5949,24 @@ class GameManagementTest extends TestCase
         $this->assertSame(0, $game->actions()->count());
     }
 
+    public function test_owner_cannot_undo_the_latest_action_outside_development(): void
+    {
+        $this->withoutMiddleware(\Illuminate\Foundation\Http\Middleware\PreventRequestForgery::class);
+        $this->app->detectEnvironment(static fn (): string => 'production');
+
+        $owner = User::factory()->create();
+        $game = Game::factory()->create();
+        GamePlayer::factory()->create([
+            'game_id' => $game->id,
+            'user_id' => $owner->id,
+            'seat' => 1,
+        ]);
+
+        $this->actingAs($owner)
+            ->delete(route('games.history.latest.destroy', $game))
+            ->assertForbidden();
+    }
+
     public function test_game_cannot_start_until_all_players_are_ready(): void
     {
         $owner = User::factory()->create();

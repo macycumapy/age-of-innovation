@@ -81,7 +81,8 @@ class GameResource extends JsonResource
             'playersCount' => (int) $this->getAttribute('players_count'),
             'isJoined' => (bool) $this->getAttribute('is_joined'),
             'isOwner' => $isOwner,
-            'canUndoLastAction' => $isOwner
+            'canUndoLastAction' => app()->environment('local', 'testing')
+                && $isOwner
                 && $hasActions
                 && ! $hasUnsupportedActions,
             'canRestartCurrentTurn' => $this->phase === GamePhase::Actions
