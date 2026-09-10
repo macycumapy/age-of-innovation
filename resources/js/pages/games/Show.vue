@@ -573,7 +573,7 @@ const reachableEmptyLandHexIds = computed(() => {
         }
     });
 
-    props.game.data.board.bridges.forEach((bridge) => {
+    (props.game.data.board.bridges ?? []).forEach((bridge) => {
         if (bridge.ownerPlayerId !== player.id) {
             return;
         }

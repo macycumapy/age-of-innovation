@@ -71,9 +71,11 @@ const knowledgeMarkers = computed<KnowledgeMarker[]>(() => {
             return [];
         }
 
+        const color = player.color;
+
         return disciplines.map((discipline) => ({
             playerId: state.playerId,
-            color: player.color,
+            color,
             discipline,
             level: Math.max(0, Math.min(state.knowledge[discipline], 12)),
         }));
@@ -103,11 +105,13 @@ const scholarMarkers = computed<ScholarMarker[]>(() =>
                 return [];
             }
 
+            const color = player.color;
+
             return state.scholarDisciplineIds
                 .filter((disciplineId) => disciplineId === discipline)
                 .map(() => ({
                     playerId: state.playerId,
-                    color: player.color,
+                    color,
                     discipline,
                     slotIndex: slotIndex++,
                 }));

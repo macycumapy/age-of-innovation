@@ -14,12 +14,7 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import { NumberStepper } from '@/components/ui/number-stepper';
-import type {
-    BoardState,
-    BookActionState,
-    GamePlayerBoardState,
-    KnowledgeDiscipline,
-} from '@/types';
+import type { BoardState, BookActionState, GamePlayerBoardState, KnowledgeDiscipline } from '@/types';
 import bankingBookUrl from '../../../images/token_parts/coin_book.png';
 import bankingCultUrl from '../../../images/token_parts/coin_round.png';
 import engineeringBookUrl from '../../../images/token_parts/engineering_book.png';
@@ -63,11 +58,20 @@ const bookImages: Record<BookType, string> = {
     medicine: medicineBookUrl,
 };
 const selectedBookCount = computed(() => Object.values(bookCounts).reduce((sum, count) => sum + count, 0));
-const workshopHexIds = computed(() => props.board.hexes
-    .filter((hex) => hex.building?.ownerPlayerId === props.playerState?.playerId
-        && hex.building.type === 'workshop'
-        && !hex.building.isNeutral)
-    .map((hex) => hex.id));
+const workshopHexIds = computed(() =>
+    props.board.hexes
+        .filter((hex) => {
+            const building = hex.building;
+
+            return (
+                building !== null &&
+                building.ownerPlayerId === props.playerState?.playerId &&
+                building.type === 'workshop' &&
+                !building.isNeutral
+            );
+        })
+        .map((hex) => hex.id),
+);
 const hasRequiredChoice = computed(() => {
     if (props.action?.id === 'advance_knowledge') {
         return selectedDiscipline.value !== null;
@@ -79,9 +83,9 @@ const hasRequiredChoice = computed(() => {
 
     return true;
 });
-const canConfirm = computed(() => props.action !== null
-    && selectedBookCount.value === props.action.cost
-    && hasRequiredChoice.value);
+const canConfirm = computed(
+    () => props.action !== null && selectedBookCount.value === props.action.cost && hasRequiredChoice.value,
+);
 
 watch([isOpen, () => props.action], ([open]) => {
     if (!open) {
@@ -131,8 +135,16 @@ function actionSucceeded(): void {
                 </DialogHeader>
 
                 <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                    <div v-for="bookType in bookTypes" :key="bookType" class="grid justify-items-center gap-2 rounded-lg border p-3 text-center text-sm">
-                        <img :src="bookImages[bookType]" :alt="disciplineNames[bookType]" class="h-12 w-auto object-contain" />
+                    <div
+                        v-for="bookType in bookTypes"
+                        :key="bookType"
+                        class="grid justify-items-center gap-2 rounded-lg border p-3 text-center text-sm"
+                    >
+                        <img
+                            :src="bookImages[bookType]"
+                            :alt="disciplineNames[bookType]"
+                            class="h-12 w-auto object-contain"
+                        />
                         <span class="min-h-10">{{ disciplineNames[bookType] }}</span>
                         <NumberStepper
                             v-model="bookCounts[bookType]"
@@ -185,7 +197,9 @@ function actionSucceeded(): void {
                     <p v-if="workshopHexIds.length === 0" class="text-sm text-destructive">Нет доступных мастерских.</p>
                 </div>
 
-                <InputError :message="errors.book_counts ?? errors.discipline ?? errors.hex_id ?? errors.action ?? errors.game" />
+                <InputError
+                    :message="errors.book_counts ?? errors.discipline ?? errors.hex_id ?? errors.action ?? errors.game"
+                />
 
                 <DialogFooter class="gap-2">
                     <DialogClose as-child>

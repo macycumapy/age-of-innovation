@@ -28,16 +28,12 @@ function finishSucceeded(): void {
         <DialogContent :show-close-button="false">
             <DialogHeader>
                 <DialogTitle>Завершить ход?</DialogTitle>
-                <DialogDescription>
-                    После подтверждения ход перейдёт к следующему игроку.
-                </DialogDescription>
+                <DialogDescription>После подтверждения ход перейдёт к следующему игроку.</DialogDescription>
             </DialogHeader>
 
             <DialogFooter class="gap-2 sm:gap-0">
                 <DialogClose as-child>
-                    <Button type="button" variant="outline">
-                        Отмена
-                    </Button>
+                    <Button type="button" variant="outline">Отмена</Button>
                 </DialogClose>
 
                 <Form
