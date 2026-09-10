@@ -1249,6 +1249,8 @@ final class ReplayGameHistoryAction
         $queuedBuiltHexIds = is_array($action->payload['queued_built_hex_ids'] ?? null)
             ? $action->payload['queued_built_hex_ids']
             : [];
+        $state->turnStartSnapshot = $state->toArray();
+        $state->round->turnStartVersion = $action->state_version_before;
 
         if ($action->type === GameActionType::AcceptPalaceWaterTown) {
             $waterHexId = (string) ($action->payload['water_hex_id'] ?? '');

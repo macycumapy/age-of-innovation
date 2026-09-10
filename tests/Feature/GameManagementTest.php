@@ -3172,6 +3172,12 @@ class GameManagementTest extends TestCase
         $this->assertNull($decliningGame->state->pendingInteraction);
         $this->assertSame(GameActionType::DeclinePalaceWaterTown, $decliningGame->actions()->latest('sequence')->first()?->type);
 
+        $this->post(route('games.current-turn.restart', $decliningGame))->assertNoContent();
+        $decliningGame->refresh();
+        $this->assertSame(PendingInteractionType::OfferPalaceWaterTown, $decliningGame->state->pendingInteraction?->type);
+        $this->assertSame(BuildingType::Workshop, $decliningGame->state->board->hexes[4]->building?->type);
+        $this->assertSame(GameActionType::BuildWorkshop, $decliningGame->actions()->latest('sequence')->first()?->type);
+
         [$acceptingUser, $acceptingGame] = $createGame();
         $this->actingAs($acceptingUser)->post(route('games.workshop', $acceptingGame), ['hex_id' => '4:0']);
         $this->post(route('games.town.palace-water', $acceptingGame), [
@@ -3180,6 +3186,18 @@ class GameManagementTest extends TestCase
         ]);
         $acceptingGame->refresh();
         $this->assertSame(PendingInteractionType::ChooseTown, $acceptingGame->state->pendingInteraction?->type);
+        $this->assertNotNull($acceptingGame->state->turnStartSnapshot);
+
+        $this->post(route('games.current-turn.restart', $acceptingGame))->assertNoContent();
+        $acceptingGame->refresh();
+        $this->assertSame(PendingInteractionType::OfferPalaceWaterTown, $acceptingGame->state->pendingInteraction?->type);
+        $this->assertSame(BuildingType::Workshop, $acceptingGame->state->board->hexes[4]->building?->type);
+        $this->assertSame(GameActionType::BuildWorkshop, $acceptingGame->actions()->latest('sequence')->first()?->type);
+
+        $this->post(route('games.town.palace-water', $acceptingGame), [
+            'accept' => true,
+            'water_hex_id' => '1:0',
+        ])->assertNoContent();
 
         $this->post(route('games.town', $acceptingGame), ['town_tile' => TownTile::Coins->value]);
         $acceptingGame->refresh();

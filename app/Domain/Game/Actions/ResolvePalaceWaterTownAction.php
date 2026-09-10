@@ -51,6 +51,8 @@ final class ResolvePalaceWaterTownAction
             $queuedBuiltHexIds = is_array($interaction->context['queuedBuiltHexIds'] ?? null)
                 ? $interaction->context['queuedBuiltHexIds']
                 : [];
+            $state->turnStartSnapshot = $state->toArray();
+            $state->round->turnStartVersion = $stateVersionBefore;
 
             if ($accept) {
                 $townHexIds = $townsByWaterHexId[$waterHexId];

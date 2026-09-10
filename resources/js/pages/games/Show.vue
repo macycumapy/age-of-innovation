@@ -44,7 +44,6 @@ import StartingResourcesPanel from '@/components/game/StartingResourcesPanel.vue
 import TerraformingAdvancementDialog from '@/components/game/TerraformingAdvancementDialog.vue';
 import RoundBonusBoard from '@/components/game/RoundBonusBoard.vue';
 import TownTileBoard from '@/components/game/TownTileBoard.vue';
-import PalaceWaterTownDialog from '@/components/game/PalaceWaterTownDialog.vue';
 import { Card, CardContent } from '@/components/ui/card';
 import { Collapsible, CollapsibleContent } from '@/components/ui/collapsible';
 import { index } from '@/routes/games';
@@ -1230,15 +1229,6 @@ defineOptions({
                 v-model:open="isTerraformingAdvancementDialogOpen"
                 :game-id="game.data.id"
                 :player-color="currentPlayer?.color ?? null"
-            />
-
-            <PalaceWaterTownDialog
-                v-if="
-                    game.data.pendingInteraction?.type === 'offer_palace_water_town' &&
-                    game.data.pendingInteraction.playerId === currentPlayer?.id
-                "
-                :game-id="game.data.id"
-                :water-hex-ids="game.data.pendingInteraction.optionIds"
             />
 
             <CurrentTurnFinishDialog v-model:open="isCurrentTurnFinishDialogOpen" :game-id="game.data.id" />

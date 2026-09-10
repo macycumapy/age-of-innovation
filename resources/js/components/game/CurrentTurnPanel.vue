@@ -3,7 +3,6 @@ import { useHttp } from '@inertiajs/vue3';
 import { Check, RotateCcw } from '@lucide/vue';
 import { computed } from 'vue';
 import BridgeConfirmationController from '@/actions/App/Http/Controllers/BridgeConfirmationController';
-import BridgeController from '@/actions/App/Http/Controllers/BridgeController';
 import PalaceGuildConfirmationController from '@/actions/App/Http/Controllers/PalaceGuildConfirmationController';
 import PalaceGuildController from '@/actions/App/Http/Controllers/PalaceGuildController';
 import PowerOfferController from '@/actions/App/Http/Controllers/PowerOfferController';
@@ -14,6 +13,7 @@ import StartingSpadeTurnController from '@/actions/App/Http/Controllers/Starting
 import TerraformWorkshopController from '@/actions/App/Http/Controllers/TerraformWorkshopController';
 import Form from '@/components/game/GameActionForm.vue';
 import CurrentTurnRestartDialog from '@/components/game/CurrentTurnRestartDialog.vue';
+import PalaceWaterTownForm from '@/components/game/PalaceWaterTownForm.vue';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import type { GamePlayerSummary, GameResource } from '@/types';
@@ -59,6 +59,14 @@ const otherPlayerStatusMessage = computed(() => {
         return `${playerName} решает, получать ли Силу.`;
     }
 
+    if (props.game.data.pendingInteraction?.type === 'offer_palace_water_town') {
+        return `${playerName} решает, основывать ли город через воду.`;
+    }
+
+    if (props.game.data.pendingInteraction?.type === 'choose_town') {
+        return `${playerName} выбирает жетон города.`;
+    }
+
     if (props.game.data.pendingInteraction?.type === 'choose_starting_resources') {
         return props.game.data.phase === 'income'
             ? `${playerName} распределяет получаемый доход.`
@@ -93,6 +101,12 @@ const powerOfferAmount = computed(() =>
         : 0,
 );
 const powerOfferVictoryPointCost = computed(() => Math.max(0, powerOfferAmount.value - 1));
+const palaceWaterTownInteraction = computed(() =>
+    props.game.data.pendingInteraction?.type === 'offer_palace_water_town' ? props.game.data.pendingInteraction : null,
+);
+const canResolvePalaceWaterTown = computed(
+    () => palaceWaterTownInteraction.value?.playerId === props.currentPlayer?.id && isCurrentUsersTurn.value,
+);
 const remainingSpades = computed(() => {
     const interaction = props.game.data.pendingInteraction;
 
@@ -160,6 +174,7 @@ function scrollToPageTop(event: MouseEvent): void {
                     (isStartingBuildingStage ||
                         canSpendStartingSpade ||
                         canResolvePowerOffer ||
+                        canResolvePalaceWaterTown ||
                         isPalaceBuildingSelectionActive ||
                         game.data.pendingInteraction?.type === 'choose_starting_resources' ||
                         game.data.pendingInteraction?.type === 'place_palace_guild' ||
@@ -200,6 +215,9 @@ function scrollToPageTop(event: MouseEvent): void {
             </template>
             <template v-else-if="game.data.pendingInteraction?.type === 'power_offer'">
                 Получить {{ powerOfferAmount }} Силы за {{ powerOfferVictoryPointCost }} ПО?
+            </template>
+            <template v-else-if="game.data.pendingInteraction?.type === 'offer_palace_water_town'">
+                Основать город через одну водную клетку?
             </template>
             <template v-else-if="game.data.pendingInteraction?.type === 'choose_starting_resources'">
                 {{ game.data.phase === 'income' ? 'Распределите получаемый доход' : 'Распределите стартовые ресурсы' }}
@@ -301,10 +319,16 @@ function scrollToPageTop(event: MouseEvent): void {
             </Form>
         </div>
 
+        <PalaceWaterTownForm
+            v-else-if="canResolvePalaceWaterTown"
+            :game-id="game.data.id"
+            :water-hex-ids="palaceWaterTownInteraction?.optionIds ?? []"
+        />
+
         <CurrentTurnRestartDialog
             v-else-if="
                 isCurrentUsersTurn &&
-                game.data.pendingInteraction?.type === 'choose_round_bonus' &&
+                ['choose_round_bonus', 'choose_town'].includes(game.data.pendingInteraction?.type ?? '') &&
                 game.data.canRestartCurrentTurn
             "
             :game-id="game.data.id"
