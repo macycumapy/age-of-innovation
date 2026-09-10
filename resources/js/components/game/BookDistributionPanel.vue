@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import Form from '@/components/game/GameActionForm.vue';
-import { computed, reactive, watch } from 'vue';
+import { computed, reactive, ref, watch } from 'vue';
 import BookDistributionController from '@/actions/App/Http/Controllers/BookDistributionController';
 import InputError from '@/components/InputError.vue';
+import KnowledgeStepDistributionPanel from '@/components/game/KnowledgeStepDistributionPanel.vue';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { NumberStepper } from '@/components/ui/number-stepper';
@@ -18,21 +19,32 @@ type BookDistributionType =
     | 'choose_shipping_books'
     | 'choose_terraforming_books'
     | 'choose_palace_books'
-    | 'choose_town_books';
+    | 'choose_town_books'
+    | 'choose_feline_town_bonus';
 
-const props = defineProps<{
-    gameId: number;
-    bookCount: number;
-    type?: BookDistributionType;
-    disciplineNames: Record<KnowledgeDiscipline, string>;
-    embedded?: boolean;
-    errors?: Record<string, string>;
-}>();
+const props = withDefaults(
+    defineProps<{
+        gameId: number;
+        bookCount: number;
+        knowledgeStepCount?: number;
+        type?: BookDistributionType;
+        disciplineNames: Record<KnowledgeDiscipline, string>;
+        embedded?: boolean;
+        errors?: Record<string, string>;
+    }>(),
+    { knowledgeStepCount: 0 },
+);
 const emit = defineEmits<{
     change: [counts: Record<KnowledgeDiscipline, number>];
 }>();
 const disciplines: KnowledgeDiscipline[] = ['banking', 'law', 'engineering', 'medicine'];
 const counts = reactive<Record<KnowledgeDiscipline, number>>({ banking: 0, law: 0, engineering: 0, medicine: 0 });
+const knowledgeCounts = ref<Record<KnowledgeDiscipline, number>>({
+    banking: 0,
+    law: 0,
+    engineering: 0,
+    medicine: 0,
+});
 const images: Record<KnowledgeDiscipline, string> = {
     banking: bankingBookUrl,
     law: lawBookUrl,
@@ -41,7 +53,14 @@ const images: Record<KnowledgeDiscipline, string> = {
 };
 const assignedCount = computed(() => Object.values(counts).reduce((sum, count) => sum + count, 0));
 const remainingCount = computed(() => props.bookCount - assignedCount.value);
-const title = computed(() => 'Выберите получаемые книги');
+const title = computed(() =>
+    props.knowledgeStepCount > 0 ? 'Распределите полученную награду' : 'Выберите получаемые книги',
+);
+const isComplete = computed(
+    () =>
+        remainingCount.value === 0 &&
+        Object.values(knowledgeCounts.value).reduce((total, count) => total + count, 0) === props.knowledgeStepCount,
+);
 
 function maximumFor(discipline: KnowledgeDiscipline): number {
     return counts[discipline] + remainingCount.value;
@@ -55,7 +74,7 @@ watch(counts, () => emit('change', { ...counts }), { deep: true, immediate: true
         class="mx-auto w-full max-w-3xl border-none bg-background/0 p-0 shadow-none"
         :class="{ 'bg-background/50 shadow-none': !embedded }"
     >
-        <CardHeader class="gap-0.5 px-4 py-3">
+        <CardHeader v-if="bookCount > 0" class="gap-0.5 px-4 py-3">
             <CardTitle class="text-base">{{ title }}</CardTitle>
             <CardDescription class="text-xs">
                 Распределите все полученные книги по дисциплинам. Осталось: {{ remainingCount }}
@@ -86,7 +105,15 @@ watch(counts, () => emit('change', { ...counts }), { deep: true, immediate: true
                 class="grid gap-3"
                 #default="{ errors, processing }"
             >
-                <div class="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                <template v-for="discipline in disciplines" :key="`values-${discipline}`">
+                    <input type="hidden" :name="`book_counts[${discipline}]`" :value="counts[discipline]" />
+                    <input
+                        type="hidden"
+                        :name="`knowledge_counts[${discipline}]`"
+                        :value="knowledgeCounts[discipline]"
+                    />
+                </template>
+                <div v-if="bookCount > 0" class="grid grid-cols-2 gap-2 sm:grid-cols-4">
                     <div
                         v-for="discipline in disciplines"
                         :key="discipline"
@@ -99,13 +126,19 @@ watch(counts, () => emit('change', { ...counts }), { deep: true, immediate: true
                             class="size-12 shrink-0 object-contain"
                         />
                         <NumberStepper v-model="counts[discipline]" :min="0" :max="maximumFor(discipline)" />
-                        <input type="hidden" :name="`book_counts[${discipline}]`" :value="counts[discipline]" />
                     </div>
                 </div>
+                <KnowledgeStepDistributionPanel
+                    v-if="knowledgeStepCount > 0"
+                    :step-count="knowledgeStepCount"
+                    :discipline-names="disciplineNames"
+                    :errors="errors"
+                    @change="knowledgeCounts = $event"
+                />
                 <div class="grid justify-items-end gap-1.5">
                     <InputError :message="errors.book_counts ?? errors.game" />
-                    <Button type="submit" size="sm" :disabled="processing || remainingCount !== 0">
-                        {{ processing ? 'Подтверждение…' : 'Подтвердить выбор' }}
+                    <Button type="submit" size="sm" :disabled="processing || !isComplete">
+                        {{ processing ? 'Подтверждение…' : 'Подтвердить распределение' }}
                     </Button>
                 </div>
             </Form>

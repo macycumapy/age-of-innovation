@@ -67,6 +67,10 @@ const otherPlayerStatusMessage = computed(() => {
         return `${playerName} выбирает жетон города.`;
     }
 
+    if (props.game.data.pendingInteraction?.type === 'choose_innovation_books') {
+        return `${playerName} распределяет награду инновации.`;
+    }
+
     if (props.game.data.pendingInteraction?.type === 'choose_starting_resources') {
         return props.game.data.phase === 'income'
             ? `${playerName} распределяет получаемый доход.`
@@ -241,7 +245,7 @@ function scrollToPageTop(event: MouseEvent): void {
                 Выберите книги, полученные за научную цель раунда.
             </template>
             <template v-else-if="game.data.pendingInteraction?.type === 'choose_innovation_books'">
-                Выберите книги, полученные за инновацию.
+                Распределите награду, полученную за инновацию.
             </template>
             <template v-else-if="game.data.pendingInteraction?.type === 'choose_shipping_books'">
                 Выберите книги, полученные за продвижение по навигации.

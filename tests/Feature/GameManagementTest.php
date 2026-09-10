@@ -4727,6 +4727,96 @@ class GameManagementTest extends TestCase
         $this->assertSame(10, $game->actions()->sole()->payload['reward']['victoryPoints']);
     }
 
+    public function test_architecture_innovation_grants_a_knowledge_step_for_each_owned_building_type(): void
+    {
+        $user = User::factory()->create();
+        $game = Game::factory()->create([
+            'status' => GameStatus::Active,
+            'phase' => GamePhase::Actions,
+            'active_player_id' => $user->id,
+        ]);
+        $player = GamePlayer::factory()->create(['game_id' => $game->id, 'user_id' => $user->id]);
+        $setupPool = app(GameSetupPoolFactory::class)->createFromSeed(2, 'architecture-knowledge');
+        $setupPool->innovations[0] = Innovation::Architecture;
+        $game->update(['state' => new GameStateData(
+            turnOrder: [$player->id],
+            board: new BoardStateData(hexes: [
+                new BoardHexStateData(
+                    id: '0:0',
+                    q: 0,
+                    r: 0,
+                    initialTerrain: TerrainType::Forest,
+                    terrain: TerrainType::Forest,
+                    building: new BuildingStateData(BuildingType::Workshop, $player->id),
+                ),
+                new BoardHexStateData(
+                    id: '1:0',
+                    q: 1,
+                    r: 0,
+                    initialTerrain: TerrainType::Forest,
+                    terrain: TerrainType::Forest,
+                    building: new BuildingStateData(BuildingType::Guild, $player->id),
+                ),
+                new BoardHexStateData(
+                    id: '2:0',
+                    q: 2,
+                    r: 0,
+                    initialTerrain: TerrainType::Forest,
+                    terrain: TerrainType::Forest,
+                    building: new BuildingStateData(BuildingType::Tower, $player->id, isNeutral: true),
+                ),
+                new BoardHexStateData(
+                    id: '3:0',
+                    q: 3,
+                    r: 0,
+                    initialTerrain: TerrainType::Forest,
+                    terrain: TerrainType::Forest,
+                    building: new BuildingStateData(BuildingType::Monument, $player->id + 1, isNeutral: true),
+                ),
+            ]),
+            players: [new GamePlayerStateData(
+                playerId: $player->id,
+                userId: $user->id,
+                color: PlayerColor::Green,
+                faction: Faction::Blessed,
+                homeland: TerrainType::Forest,
+                roundBonus: RoundBonus::Coins,
+                resources: new PlayerResourcesData(
+                    coins: 10,
+                    books: new BookSupplyData(banking: 2, law: 2, medicine: 1),
+                ),
+            )],
+            round: new RoundStateData(phase: GamePhase::Actions),
+            availableInventionIds: [Innovation::Architecture->value],
+            setupPool: $setupPool,
+        )]);
+
+        $this->actingAs($user)->post(route('games.innovation', $game), [
+            'innovation' => Innovation::Architecture->value,
+            'book_counts' => ['banking' => 2, 'law' => 2, 'engineering' => 0, 'medicine' => 1],
+        ])->assertNoContent();
+
+        $game->refresh();
+        $this->assertSame(PendingInteractionType::ChooseInnovationBooks, $game->state->pendingInteraction?->type);
+        $this->assertSame(3, $game->state->pendingInteraction?->context['knowledgeStepCount']);
+        $this->assertSame(3, $game->state->players[0]->knowledge->unassignedSteps);
+
+        $this->post(route('games.books', $game), [
+            'book_counts' => ['banking' => 0, 'law' => 0, 'engineering' => 0, 'medicine' => 0],
+            'knowledge_counts' => ['banking' => 2, 'law' => 1, 'engineering' => 0, 'medicine' => 0],
+        ])->assertNoContent();
+
+        $game->refresh();
+        $this->assertNull($game->state->pendingInteraction);
+        $this->assertSame(2, $game->state->players[0]->knowledge->banking);
+        $this->assertSame(1, $game->state->players[0]->knowledge->law);
+        $this->assertSame(0, $game->state->players[0]->knowledge->unassignedSteps);
+        $this->assertEquals(
+            ['banking' => 2, 'law' => 1, 'engineering' => 0, 'medicine' => 0],
+            $game->actions()->sole()->payload['reward_knowledge_counts'],
+        );
+    }
+
     public function test_innovation_purchase_is_unavailable_without_required_resources(): void
     {
         $user = User::factory()->create();

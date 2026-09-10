@@ -74,12 +74,15 @@ final class ApplyMakeInnovationAction
         $playerState->victoryPoints += $roundVictoryPoints;
         $state->round->hasTakenMainAction = true;
 
-        if ($reward['books'] > 0) {
+        $unassignedKnowledgeStepCount = $innovation === Innovation::Architecture ? $reward['knowledgeSteps'] : 0;
+
+        if ($reward['books'] > 0 || $unassignedKnowledgeStepCount > 0) {
             $state->pendingInteraction = new PendingInteractionData(
                 PendingInteractionType::ChooseInnovationBooks,
                 $playerState->playerId,
                 context: [
                     'bookCount' => $reward['books'],
+                    'knowledgeStepCount' => $unassignedKnowledgeStepCount,
                     'innovation' => $innovation->value,
                     'source' => 'innovation',
                 ],

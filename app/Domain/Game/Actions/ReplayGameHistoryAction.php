@@ -1418,13 +1418,18 @@ final class ReplayGameHistoryAction
 
         if ($state->pendingInteraction?->type === PendingInteractionType::ChooseInnovationBooks) {
             $rewardBookCounts = (array) ($action->payload['reward_book_counts'] ?? []);
+            $rewardKnowledgeCounts = (array) ($action->payload['reward_knowledge_counts'] ?? []);
 
             foreach (KnowledgeDiscipline::cases() as $discipline) {
-                $count = (int) ($rewardBookCounts[$discipline->value] ?? 0);
-                $playerState->resources->books->{$discipline->value} += $count;
-                $playerState->resources->books->unassigned -= $count;
+                $bookCount = (int) ($rewardBookCounts[$discipline->value] ?? 0);
+                $knowledgeCount = (int) ($rewardKnowledgeCounts[$discipline->value] ?? 0);
+                $playerState->resources->books->{$discipline->value} += $bookCount;
+                $playerState->resources->books->unassigned -= $bookCount;
+                $this->advanceKnowledge->execute($state, $playerState, $discipline, $knowledgeCount);
+                $playerState->knowledge->unassignedSteps -= $knowledgeCount;
             }
 
+            $playerState->victoryPoints += (int) ($action->payload['reward_knowledge_victory_points'] ?? 0);
             $state->pendingInteraction = null;
         }
 

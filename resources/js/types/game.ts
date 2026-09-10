@@ -384,6 +384,7 @@ export type PendingInteraction =
           optionIds: never[];
           context: {
               bookCount: number;
+              knowledgeStepCount?: number;
               innovation?: Innovation;
               source: 'innovation';
           };

@@ -28,7 +28,7 @@ final class ChooseBooksAction
     {
         return match ($game->state->pendingInteraction?->type) {
             PendingInteractionType::ChooseScienceBonusBooks => $this->chooseScienceBonusBooks->execute($game, $user, $this->disciplines($bookCounts)),
-            PendingInteractionType::ChooseInnovationBooks => $this->chooseInnovationBooks->execute($game, $user, $bookCounts),
+            PendingInteractionType::ChooseInnovationBooks => $this->chooseInnovationBooks->execute($game, $user, $bookCounts, $knowledgeCounts),
             PendingInteractionType::ChooseShippingBooks => $this->chooseShippingBooks->execute($game, $user, $bookCounts),
             PendingInteractionType::ChooseTerraformingBooks => $this->chooseTerraformingBooks->execute($game, $user, $bookCounts),
             PendingInteractionType::ChoosePalaceBooks => $this->choosePalaceBooks->execute($game, $user, $bookCounts),
