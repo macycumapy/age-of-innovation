@@ -131,7 +131,9 @@ export type GamePlayerBoardState = {
     roundBonus: RoundBonus;
     canUseFactionAction: boolean;
     canUseCompetencyAction: boolean;
+    isCompetencyActionUsed: boolean;
     canUseRoundBonusAction: boolean;
+    isRoundBonusActionUsed: boolean;
     scholars: number;
     scholarPoolSize: number;
     scholarDisciplineIds: KnowledgeDiscipline[];

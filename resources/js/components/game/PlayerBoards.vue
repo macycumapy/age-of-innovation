@@ -285,7 +285,7 @@ function isCompetencyActionAvailable(player: GamePlayerSummary, competency: Comp
 }
 
 function isCompetencyActionUsed(player: GamePlayerSummary, competency: Competency): boolean {
-    return competency === 'competency_07' && !(playerState(player.id)?.canUseCompetencyAction ?? false);
+    return competency === 'competency_07' && (playerState(player.id)?.isCompetencyActionUsed ?? false);
 }
 
 function factionActionTokenStyle(faction: Faction): CSSProperties {
@@ -457,7 +457,7 @@ function isRoundBonusActionUsed(playerId: number): boolean {
     return (
         state !== undefined &&
         ['spade', 'bridge', 'knowledge'].includes(state.roundBonus) &&
-        !state.canUseRoundBonusAction
+        state.isRoundBonusActionUsed
     );
 }
 

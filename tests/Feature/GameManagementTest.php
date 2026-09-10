@@ -1344,7 +1344,7 @@ class GameManagementTest extends TestCase
 
         $this->post(route('games.round-bonus-action', $game), [
             'discipline' => KnowledgeDiscipline::Law->value,
-        ])->assertSessionHasErrors('round_bonus');
+        ])->assertForbidden();
 
         $this->post(route('games.current-turn.restart', $game))
             ->assertNoContent();
@@ -1352,6 +1352,52 @@ class GameManagementTest extends TestCase
         $game->refresh();
         $this->assertSame(0, $game->state->players[0]->knowledge->law);
         $this->assertSame([], $game->state->players[0]->usedSpecialActionIds);
+    }
+
+    public function test_player_cannot_activate_round_bonus_action_after_taking_a_main_action(): void
+    {
+        $user = User::factory()->create();
+        $game = Game::factory()->create([
+            'status' => GameStatus::Active,
+            'phase' => GamePhase::Actions,
+            'active_player_id' => $user->id,
+        ]);
+        $player = GamePlayer::factory()->create([
+            'game_id' => $game->id,
+            'user_id' => $user->id,
+            'seat' => 1,
+        ]);
+        $game->update([
+            'state' => new GameStateData(
+                turnOrder: [$player->id],
+                round: new RoundStateData(phase: GamePhase::Actions, hasTakenMainAction: true),
+                players: [new GamePlayerStateData(
+                    playerId: $player->id,
+                    userId: $user->id,
+                    color: PlayerColor::Green,
+                    faction: Faction::Blessed,
+                    homeland: TerrainType::Forest,
+                    roundBonus: RoundBonus::Knowledge,
+                )],
+            ),
+        ]);
+
+        $this->actingAs($user)
+            ->get(route('games.show', $game))
+            ->assertInertia(
+                fn (Assert $page) => $page
+                    ->where('game.data.playerBoardStates.0.canUseRoundBonusAction', false)
+                    ->where('game.data.playerBoardStates.0.isRoundBonusActionUsed', false),
+            );
+
+        $this->post(route('games.round-bonus-action', $game), [
+            'discipline' => KnowledgeDiscipline::Law->value,
+        ])->assertForbidden();
+
+        $game->refresh();
+        $this->assertSame(0, $game->state->players[0]->knowledge->law);
+        $this->assertSame([], $game->state->players[0]->usedSpecialActionIds);
+        $this->assertCount(0, $game->actions);
     }
 
     public function test_round_bonus_knowledge_action_requires_a_discipline(): void
@@ -2029,15 +2075,20 @@ class GameManagementTest extends TestCase
         $this->assertSame(1, $game->state->players[0]->resources->power->bowlOne);
         $this->assertSame(4, $game->state->players[0]->resources->power->bowlTwo);
         $this->assertSame(0, $game->state->players[0]->resources->power->bowlThree);
-        $this->assertFalse($game->state->round->hasTakenMainAction);
+        $this->assertTrue($game->state->round->hasTakenMainAction);
         $this->assertSame(
             [Competency::Competency07->value],
             $game->state->players[0]->usedSpecialActionIds,
         );
         $this->assertSame(Competency::Competency07->value, $game->actions()->sole()->payload['competency']);
+        $this->get(route('games.show', $game))->assertInertia(
+            fn (Assert $page) => $page
+                ->where('game.data.playerBoardStates.0.canUseCompetencyAction', false)
+                ->where('game.data.playerBoardStates.0.isCompetencyActionUsed', true),
+        );
 
         $this->post(route('games.competency-action', $game))
-            ->assertSessionHasErrors('competency');
+            ->assertForbidden();
 
         $this->post(route('games.current-turn.restart', $game))
             ->assertNoContent();
@@ -2045,6 +2096,22 @@ class GameManagementTest extends TestCase
         $game->refresh();
         $this->assertSame(5, $game->state->players[0]->resources->power->bowlOne);
         $this->assertSame(0, $game->state->players[0]->resources->power->bowlTwo);
+        $this->assertSame([], $game->state->players[0]->usedSpecialActionIds);
+        $this->assertFalse($game->state->round->hasTakenMainAction);
+
+        $state = $game->state;
+        $state->round->hasTakenMainAction = true;
+        $game->update(['state' => $state]);
+
+        $this->get(route('games.show', $game))->assertInertia(
+            fn (Assert $page) => $page
+                ->where('game.data.playerBoardStates.0.canUseCompetencyAction', false)
+                ->where('game.data.playerBoardStates.0.isCompetencyActionUsed', false),
+        );
+        $this->post(route('games.competency-action', $game))->assertForbidden();
+
+        $game->refresh();
+        $this->assertSame(5, $game->state->players[0]->resources->power->bowlOne);
         $this->assertSame([], $game->state->players[0]->usedSpecialActionIds);
     }
 

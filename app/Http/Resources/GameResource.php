@@ -184,9 +184,13 @@ class GameResource extends JsonResource
                                 )) < 3
                             : ! in_array($player->faction->specialActionId(), $player->usedSpecialActionIds, true)),
                     'canUseCompetencyAction' => in_array(Competency::Competency07->value, $player->competencyIds, true)
+                        && ! $this->state->round->hasTakenMainAction
                         && ! in_array(Competency::Competency07->value, $player->usedSpecialActionIds, true),
+                    'isCompetencyActionUsed' => in_array(Competency::Competency07->value, $player->usedSpecialActionIds, true),
                     'canUseRoundBonusAction' => $player->roundBonus->hasAvailableSpecialAction()
+                        && ! $this->state->round->hasTakenMainAction
                         && ! in_array($player->roundBonus->value, $player->usedSpecialActionIds, true),
+                    'isRoundBonusActionUsed' => in_array($player->roundBonus->value, $player->usedSpecialActionIds, true),
                     'scholars' => $player->resources->scholars,
                     'scholarPoolSize' => $player->scholarPoolSize,
                     'scholarDisciplineIds' => $player->scholarDisciplineIds,

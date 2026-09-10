@@ -33,6 +33,7 @@ final class PerformRoundBonusAction
             if ($lockedGame->phase !== GamePhase::Actions
                 || $lockedGame->active_player_id !== $user->id
                 || $state->pendingInteraction !== null
+                || $state->round->hasTakenMainAction
                 || ! $player instanceof GamePlayer) {
                 throw ValidationException::withMessages(['game' => 'Сейчас нельзя использовать бонус раунда.']);
             }

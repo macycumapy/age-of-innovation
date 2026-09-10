@@ -32,6 +32,7 @@ final class PerformCompetencyAction
             if ($lockedGame->phase !== GamePhase::Actions
                 || $lockedGame->active_player_id !== $user->id
                 || $state->pendingInteraction !== null
+                || $state->round->hasTakenMainAction
                 || ! $player instanceof GamePlayer) {
                 throw ValidationException::withMessages(['game' => 'Сейчас нельзя использовать действие компетенции.']);
             }
@@ -50,6 +51,7 @@ final class PerformCompetencyAction
             }
 
             $this->applyCompetencyAction->execute($playerState);
+            $state->round->hasTakenMainAction = true;
             $lockedGame->update(['state' => $state, 'version' => $lockedGame->version + 1]);
             $this->appendGameHistory->execute(
                 $lockedGame,

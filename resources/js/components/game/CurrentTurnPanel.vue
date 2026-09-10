@@ -320,22 +320,6 @@ function scrollToPageTop(event: MouseEvent): void {
         >
             <div class="flex shrink-0 items-center gap-2">
                 <CurrentTurnRestartDialog v-if="game.data.canRestartCurrentTurn" :game-id="game.data.id" />
-                <Form v-bind="BridgeController.destroy.form(game.data.id)" #default="{ processing }">
-                    <Tooltip>
-                        <TooltipTrigger as-child>
-                            <Button
-                                type="submit"
-                                variant="outline"
-                                size="icon"
-                                :disabled="processing"
-                                aria-label="Отменить размещение моста"
-                            >
-                                <RotateCcw class="size-4" :class="processing ? 'animate-spin' : ''" />
-                            </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>Отменить размещение моста</TooltipContent>
-                    </Tooltip>
-                </Form>
                 <Form v-bind="BridgeConfirmationController.form(game.data.id)" #default="{ processing }">
                     <Tooltip>
                         <TooltipTrigger as-child>

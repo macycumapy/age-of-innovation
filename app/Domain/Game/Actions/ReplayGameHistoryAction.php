@@ -377,6 +377,7 @@ final class ReplayGameHistoryAction
             $this->applyFactionAction->execute($state, $playerState, $discipline);
         } elseif (($action->payload['competency'] ?? null) === Competency::Competency07->value) {
             $this->applyCompetencyAction->execute($playerState);
+            $state->round->hasTakenMainAction = true;
         } else {
             $this->applyRoundBonusAction->execute($state, $playerState, $discipline);
         }
