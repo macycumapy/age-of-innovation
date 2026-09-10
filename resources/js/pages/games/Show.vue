@@ -540,6 +540,9 @@ const canSacrificePower = computed(
 const canExchangeResources = computed(
     () => props.game.data.phase === 'actions' && props.game.data.activePlayerId === page.props.auth.user.id,
 );
+const canUseActionsBlockedByPendingInteraction = computed(
+    () => canExchangeResources.value && props.game.data.pendingInteraction === null,
+);
 
 const canStartPaidTerraforming = computed(() => {
     const state = currentPlayerState.value;
@@ -1006,11 +1009,11 @@ defineOptions({
                             :can-advance-terraforming="
                                 game.data.canPass && (currentPlayerState?.canAdvanceTerraforming ?? false)
                             "
-                            :can-use-round-bonus-action="canExchangeResources"
-                            :can-use-faction-action="canExchangeResources"
-                            :can-use-competency-action="canExchangeResources"
-                            :can-use-palace-action="canExchangeResources"
-                            :can-use-innovation-action="canExchangeResources"
+                            :can-use-round-bonus-action="canUseActionsBlockedByPendingInteraction"
+                            :can-use-faction-action="canUseActionsBlockedByPendingInteraction"
+                            :can-use-competency-action="canUseActionsBlockedByPendingInteraction"
+                            :can-use-palace-action="canUseActionsBlockedByPendingInteraction"
+                            :can-use-innovation-action="canUseActionsBlockedByPendingInteraction"
                             @sacrifice-power="isPowerSacrificeDialogOpen = true"
                             @exchange-resources="isResourceExchangeDialogOpen = true"
                             @advance-shipping="isShippingAdvancementDialogOpen = true"

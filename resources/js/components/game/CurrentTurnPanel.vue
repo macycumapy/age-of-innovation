@@ -297,6 +297,15 @@ function scrollToPageTop(event: MouseEvent): void {
             </Form>
         </div>
 
+        <CurrentTurnRestartDialog
+            v-else-if="
+                isCurrentUsersTurn &&
+                game.data.pendingInteraction?.type === 'choose_round_bonus' &&
+                game.data.canRestartCurrentTurn
+            "
+            :game-id="game.data.id"
+        />
+
         <TooltipProvider
             v-else-if="
                 isCurrentUsersTurn &&
