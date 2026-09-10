@@ -50,7 +50,8 @@ final class ResolveScienceBonusPhaseAction
             }
 
             $knowledgeLevel = $playerState->knowledge->{$scoringTile->knowledgeDiscipline()->value};
-            $reward = $scoringTile->scienceBonus($knowledgeLevel);
+            $scienceBonusKnowledgeLevel = $playerState->faction->scienceBonusKnowledgeLevel($knowledgeLevel);
+            $reward = $scoringTile->scienceBonus($scienceBonusKnowledgeLevel);
             $scholarsBefore = $playerState->resources->scholars;
             $playerState->resources->coins += $reward['coins'];
             $playerState->resources->tools += $reward['tools'];

@@ -1895,19 +1895,25 @@ class GameManagementTest extends TestCase
         $this->assertSame(GamePhase::ScienceBonus, $game->phase);
         $this->assertSame($firstUser->id, $game->active_player_id);
         $this->assertSame(PendingInteractionType::ChooseScienceBonusBooks, $game->state->pendingInteraction?->type);
-        $this->assertSame(2, $game->state->pendingInteraction?->context['bookCount']);
+        $this->assertSame(3, $game->state->pendingInteraction?->context['bookCount']);
 
         $this->actingAs($firstUser)->post(route('games.books', $game), [
             'book_counts' => ['banking' => 3, 'law' => 0, 'engineering' => 0, 'medicine' => 0],
-        ])->assertSessionHasErrors('book_counts.banking');
-
-        $this->actingAs($firstUser)->post(route('games.books', $game), [
-            'book_counts' => ['banking' => 1, 'law' => 0, 'engineering' => 0, 'medicine' => 1],
         ])->assertNoContent()->assertSessionHasNoErrors();
 
         $game->refresh();
-        $this->assertSame(1, $game->state->players[0]->resources->books->banking);
-        $this->assertSame(1, $game->state->players[0]->resources->books->medicine);
+        $this->assertSame(3, $game->state->players[0]->resources->books->banking);
+        $this->assertSame(0, $game->state->players[0]->resources->books->medicine);
+        $this->assertSame($secondUser->id, $game->active_player_id);
+        $this->assertSame(PendingInteractionType::ChooseScienceBonusBooks, $game->state->pendingInteraction?->type);
+        $this->assertSame(1, $game->state->pendingInteraction?->context['bookCount']);
+
+        $this->actingAs($secondUser)->post(route('games.books', $game), [
+            'book_counts' => ['banking' => 0, 'law' => 1, 'engineering' => 0, 'medicine' => 0],
+        ])->assertNoContent()->assertSessionHasNoErrors();
+
+        $game->refresh();
+        $this->assertSame(1, $game->state->players[1]->resources->books->law);
         $this->assertSame(2, $game->state->round->number);
         $this->assertSame(GamePhase::Actions, $game->phase);
         $this->assertSame($firstUser->id, $game->active_player_id);
@@ -1933,8 +1939,8 @@ class GameManagementTest extends TestCase
         ]);
 
         $game->refresh();
-        $this->assertSame(3, $game->state->players[0]->resources->tools);
-        $this->assertSame(4, $game->state->players[1]->resources->tools);
+        $this->assertSame(4, $game->state->players[0]->resources->tools);
+        $this->assertSame(5, $game->state->players[1]->resources->tools);
         $this->assertSame(2, $game->state->round->number);
         $this->assertSame(GamePhase::Actions, $game->phase);
     }
@@ -1970,7 +1976,7 @@ class GameManagementTest extends TestCase
         );
 
         $this->assertSame([7, 2], array_column($receipts, 'knowledge_level'));
-        $this->assertSame([7, 2], array_column($receipts, 'coins'));
+        $this->assertSame([10, 5], array_column($receipts, 'coins'));
         $this->assertSame(
             [KnowledgeDiscipline::Engineering->value, KnowledgeDiscipline::Engineering->value],
             array_column($receipts, 'discipline'),

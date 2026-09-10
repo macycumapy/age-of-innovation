@@ -73,4 +73,9 @@ enum Faction: string
     {
         return "faction:{$this->value}";
     }
+
+    public function scienceBonusKnowledgeLevel(int $knowledgeLevel): int
+    {
+        return $knowledgeLevel + ($this === self::Blessed ? 3 : 0);
+    }
 }
