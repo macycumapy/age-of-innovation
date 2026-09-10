@@ -39,7 +39,7 @@ const remainingKnowledgeCount = computed(() =>
     <Form
         v-bind="StartingResourcesController.store.form(gameId)"
         #default="{ errors, processing }"
-        class="mb-6 grid w-xl gap-5 rounded-xl"
+        class="mb-6 grid w-xl gap-5 rounded-xl bg-background/50 p-2 m-auto"
     >
         <template v-for="discipline in disciplines" :key="discipline">
             <input

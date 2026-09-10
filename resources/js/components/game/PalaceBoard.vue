@@ -17,17 +17,14 @@ function palaceImage(palace: PalaceAbility): string {
 </script>
 
 <template>
-    <section
-        v-if="palaces.length"
-        class="grid gap-3 rounded-xl bg-card shadow-sm"
-    >
+    <section v-if="palaces.length" class="grid gap-3 rounded-xl bg-card/50 p-2 shadow-sm">
         <div class="grid grid-cols-4 gap-2">
             <img
                 v-for="palace in palaces"
                 :key="palace"
                 :src="palaceImage(palace)"
                 :alt="`Крепость ${Number(palace.slice(-2))}`"
-                class="h-auto w-full rounded-md border border-border shadow-sm"
+                class="h-auto w-full rounded-md shadow-sm drop-shadow-[-2px_2px_2px_rgba(0,0,0,0.45)]"
             />
         </div>
     </section>

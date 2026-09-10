@@ -23,14 +23,14 @@ const props = defineProps<{
 }>();
 
 const terrainBundleClasses: Record<TerrainType, string> = {
-    desert: 'border-yellow-500/60 bg-yellow-400/25 dark:bg-yellow-400/20',
-    plains: 'border-amber-800/60 bg-amber-800/20 dark:bg-amber-600/20',
-    swamp: 'border-zinc-700/60 bg-zinc-900/20 dark:bg-zinc-400/15',
-    lake: 'border-blue-500/60 bg-blue-500/20 dark:bg-blue-500/20',
-    forest: 'border-green-600/60 bg-green-600/20 dark:bg-green-500/20',
-    mountain: 'border-gray-500/60 bg-gray-500/20 dark:bg-gray-400/15',
-    wasteland: 'border-red-500/60 bg-red-500/20 dark:bg-red-500/20',
-    water: 'border-cyan-500/60 bg-cyan-500/20 dark:bg-cyan-500/20',
+    desert: 'border-yellow-500/60 bg-yellow-400/25 dark:bg-yellow-400/30',
+    plains: 'border-amber-800/60 bg-amber-800/20 dark:bg-amber-600/30',
+    swamp: 'border-zinc-700/60 bg-zinc-900/40 dark:bg-zinc-900/40',
+    lake: 'border-blue-500/60 bg-blue-500/20 dark:bg-blue-500/30',
+    forest: 'border-green-600/60 bg-green-600/20 dark:bg-green-700/30',
+    mountain: 'border-gray-500/60 bg-gray-500/20 dark:bg-gray-400/30',
+    wasteland: 'border-red-500/60 bg-red-500/20 dark:bg-red-500/30',
+    water: 'border-cyan-500/60 bg-cyan-500/20 dark:bg-cyan-500/30',
 };
 
 const terrainTileImages = import.meta.glob('../../../images/terrain_tiles/*.webp', {

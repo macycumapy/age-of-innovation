@@ -567,7 +567,7 @@ function actionTime(createdAt: string | null): string {
 
 <template>
     <section
-        class="grid h-80 grid-rows-[auto_minmax(0,1fr)] gap-3 rounded-lg border border-sidebar-border bg-sidebar-accent/30 p-3"
+        class="grid h-80 grid-rows-[auto_minmax(0,1fr)] gap-3 rounded-lg border border-sidebar-border bg-sidebar-accent/55 p-3"
     >
         <div class="flex items-center justify-between gap-2">
             <h3 class="flex items-center gap-2 font-semibold">

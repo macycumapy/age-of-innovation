@@ -145,7 +145,7 @@ function disciplineOverlayStyle(discipline: KnowledgeDiscipline): CSSProperties 
 </script>
 
 <template>
-    <div class="relative overflow-hidden rounded-xl border border-border shadow-inner">
+    <div class="relative overflow-hidden rounded-xl drop-shadow-[-2px_2px_2px_rgba(0,0,0,0.45)]">
         <img :src="cultBoardUrl" alt="Поле культов" class="block h-auto w-full" />
 
         <img

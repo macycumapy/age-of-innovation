@@ -35,7 +35,7 @@ function placeLabel(place: number): string {
 
 <template>
     <section
-        class="w-full max-w-2xl justify-self-center overflow-hidden rounded-xl border border-amber-300/60 bg-linear-to-br from-amber-50 via-background to-orange-50 shadow-md shadow-amber-950/10 dark:border-yellow-700/50 dark:from-amber-950/40 dark:via-background dark:to-orange-950/30"
+        class="w-full max-w-2xl justify-self-center overflow-hidden rounded-xl bg-linear-to-br from-amber-50 via-background to-orange-50 shadow-md shadow-amber-950/10 dark:border-yellow-700/50 dark:from-amber-950/60 dark:via-background/60 dark:to-orange-950/60"
         aria-labelledby="final-leaderboard-title"
     >
         <header class="flex items-center justify-center gap-2 border-b border-amber-300/40 px-4 py-2">

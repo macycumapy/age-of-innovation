@@ -34,7 +34,7 @@ function townTileLayerStyle(layer: number): CSSProperties {
 <template>
     <section
         v-if="townTiles.length"
-        class="grid grid-cols-7 gap-3 rounded-xl bg-card p-3 shadow-sm"
+        class="grid grid-cols-7 gap-3 rounded-xl bg-card/50 p-3 shadow-sm"
     >
         <span
             v-for="stack in townTileStacks"

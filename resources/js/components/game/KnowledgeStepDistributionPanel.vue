@@ -36,7 +36,7 @@ watch(counts, () => emit('change', { ...counts }), { deep: true, immediate: true
 </script>
 
 <template>
-    <Card class="mx-auto w-full max-w-3xl border-none p-0">
+    <Card class="mx-auto w-full max-w-3xl border-none p-0 bg-card/0">
         <CardHeader class="gap-0.5 px-4 py-3">
             <CardTitle class="text-base">Выберите продвижения по дисциплинам</CardTitle>
             <CardDescription class="text-xs">
@@ -48,7 +48,7 @@ watch(counts, () => emit('change', { ...counts }), { deep: true, immediate: true
                 <div
                     v-for="discipline in disciplines"
                     :key="discipline"
-                    class="grid justify-items-center gap-1 rounded-md border px-2 py-1.5 text-xs font-medium"
+                    class="grid justify-items-center gap-1 rounded-md border px-2 py-1.5 text-xs font-medium bg-background/40"
                     :title="disciplineNames[discipline]"
                 >
                     <img

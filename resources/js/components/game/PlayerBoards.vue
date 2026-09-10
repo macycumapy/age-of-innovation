@@ -529,7 +529,7 @@ function canSacrificeFromBowl(player: GamePlayerSummary, bowl: PowerBowl): boole
             <figure
                 v-for="player in playersWithBoards"
                 :key="player.id"
-                class="grid gap-3 overflow-hidden bg-card shadow-sm xl:grid-cols-[calc(60%-0.6rem)_minmax(22rem,1fr)]"
+                class="grid gap-3 overflow-hidden rounded-xl bg-card/50 p-2 shadow-sm xl:grid-cols-[calc(60%-0.6rem)_minmax(22rem,1fr)]"
             >
                 <div
                     class="[container-type:inline-size] relative aspect-[1219/636] self-start overflow-hidden rounded-md"
@@ -566,7 +566,7 @@ function canSacrificeFromBowl(player: GamePlayerSummary, bowl: PowerBowl): boole
                         :src="goldCrossUrl"
                         alt="Действие расы использовано"
                         :style="factionActionTokenStyle(player.faction)"
-                        class="pointer-events-none absolute z-10 h-auto drop-shadow-md"
+                        class="pointer-events-none absolute z-10 h-auto drop-shadow-[-2px_2px_2px_rgba(0,0,0,0.45)]"
                     />
 
                     <div
@@ -588,7 +588,7 @@ function canSacrificeFromBowl(player: GamePlayerSummary, bowl: PowerBowl): boole
                             :src="manaUrl"
                             alt=""
                             :style="manaStyle(manaIndex - 1)"
-                            class="absolute w-[18%] -translate-x-1/2 -translate-y-1/2 drop-shadow-md"
+                            class="absolute w-[18%] -translate-x-1/2 -translate-y-1/2 drop-shadow-[-2px_2px_2px_rgba(0,0,0,0.45)]"
                         />
                     </div>
 
@@ -631,7 +631,7 @@ function canSacrificeFromBowl(player: GamePlayerSummary, bowl: PowerBowl): boole
                         <img
                             :src="buildingImage(player.color, slot.type)"
                             alt=""
-                            class="h-full w-full object-contain drop-shadow-md transition-transform duration-500 ease-in-out group-hover:translate-x-[25px] group-hover:-translate-y-[25px]"
+                            class="h-full w-full object-contain drop-shadow-[-2px_2px_2px_rgba(0,0,0,0.45)] transition-transform duration-500 ease-in-out group-hover:translate-x-[25px] group-hover:-translate-y-[25px]"
                         />
                     </span>
 
@@ -658,7 +658,7 @@ function canSacrificeFromBowl(player: GamePlayerSummary, bowl: PowerBowl): boole
                                         :src="goldCrossUrl"
                                         alt="Действие Дворца использовано"
                                         :style="palaceActionCrossStyle(playerState(player.id)?.palaceId)"
-                                        class="pointer-events-none absolute -translate-x-1/2 -translate-y-1/2 drop-shadow-md"
+                                        class="pointer-events-none absolute -translate-x-1/2 -translate-y-1/2 drop-shadow-[-2px_2px_2px_rgba(0,0,0,0.45)]"
                                     />
                                 </span>
                             </TooltipTrigger>
@@ -707,7 +707,7 @@ function canSacrificeFromBowl(player: GamePlayerSummary, bowl: PowerBowl): boole
                                 <button
                                     type="button"
                                     :style="innovationTileStyle(innovationIndex)"
-                                    class="absolute z-20 h-auto rounded-sm object-contain drop-shadow-md"
+                                    class="absolute z-20 h-auto rounded-sm object-contain drop-shadow-[-2px_2px_2px_rgba(0,0,0,0.45)]"
                                     :class="
                                         isInnovationActionAvailable(player, innovation)
                                             ? 'cursor-pointer'
@@ -727,7 +727,7 @@ function canSacrificeFromBowl(player: GamePlayerSummary, bowl: PowerBowl): boole
                                         v-if="isInnovationActionUsed(player.id, innovation)"
                                         :src="goldCrossUrl"
                                         alt="Действие инновации использовано"
-                                        class="pointer-events-none absolute size-[75%] -translate-x-1/2 -translate-y-1/2 object-contain drop-shadow-md"
+                                        class="pointer-events-none absolute size-[75%] -translate-x-1/2 -translate-y-1/2 object-contain drop-shadow-[-2px_2px_2px_rgba(0,0,0,0.45)]"
                                         :style="innovationCrossStyle(innovation)"
                                     />
                                 </button>
@@ -758,13 +758,13 @@ function canSacrificeFromBowl(player: GamePlayerSummary, bowl: PowerBowl): boole
                                     <img
                                         :src="roundBonusImage(roundBonusForPlayer(player.id))"
                                         :alt="`Выбранный бонус раунда игрока ${player.user.name}`"
-                                        class="block h-auto w-full rounded-md"
+                                        class="block h-auto w-full rounded-md drop-shadow-[-2px_2px_2px_rgba(0,0,0,0.45)]"
                                     />
                                     <img
                                         v-if="isRoundBonusActionUsed(player.id)"
                                         :src="goldCrossUrl"
                                         alt="Действие использовано"
-                                        class="pointer-events-none absolute top-[26%] left-1/2 w-16 -translate-x-1/2 -translate-y-1/2 object-contain drop-shadow-md"
+                                        class="pointer-events-none absolute top-[26%] left-1/2 w-16 -translate-x-1/2 -translate-y-1/2 object-contain drop-shadow-[-2px_2px_2px_rgba(0,0,0,0.45)]"
                                     />
                                 </span>
                             </TooltipTrigger>
@@ -785,7 +785,7 @@ function canSacrificeFromBowl(player: GamePlayerSummary, bowl: PowerBowl): boole
                                 :key="scholarIndex"
                                 :src="scientistImage(player.color)"
                                 alt=""
-                                class="h-auto w-12 object-contain drop-shadow-md transition-opacity"
+                                class="h-auto w-12 object-contain drop-shadow-[-2px_2px_2px_rgba(0,0,0,0.45)] transition-opacity"
                                 :class="{
                                     'opacity-35': scholarIndex > scholarsForPlayer(player.id),
                                 }"
@@ -797,7 +797,11 @@ function canSacrificeFromBowl(player: GamePlayerSummary, bowl: PowerBowl): boole
                                 class="relative grid size-10 shrink-0 place-items-center"
                                 :aria-label="`Монеты: ${coinsForPlayer(player.id)}`"
                             >
-                                <img :src="coinUrl" alt="" class="absolute inset-0 size-full drop-shadow-md" />
+                                <img
+                                    :src="coinUrl"
+                                    alt=""
+                                    class="absolute inset-0 size-full drop-shadow-[-2px_2px_2px_rgba(0,0,0,0.45)]"
+                                />
                                 <span class="relative z-10 font-bold text-amber-950">
                                     {{ coinsForPlayer(player.id) }}
                                 </span>
@@ -810,7 +814,7 @@ function canSacrificeFromBowl(player: GamePlayerSummary, bowl: PowerBowl): boole
                                 <img
                                     :src="handUrl"
                                     alt=""
-                                    class="absolute inset-0 size-full object-contain drop-shadow-md"
+                                    class="absolute inset-0 size-full object-contain drop-shadow-[-2px_2px_2px_rgba(0,0,0,0.45)]"
                                 />
                                 <span class="relative z-10 font-bold text-amber-950 drop-shadow-md">
                                     {{ toolsForPlayer(player.id) }}
@@ -827,7 +831,7 @@ function canSacrificeFromBowl(player: GamePlayerSummary, bowl: PowerBowl): boole
                                     :key="bridgeIndex"
                                     :src="bridgeImage(player.color)"
                                     alt=""
-                                    class="h-auto w-14 object-contain drop-shadow-md"
+                                    class="h-auto w-14 object-contain drop-shadow-[-2px_2px_2px_rgba(0,0,0,0.45)]"
                                 />
                             </span>
 
@@ -841,7 +845,7 @@ function canSacrificeFromBowl(player: GamePlayerSummary, bowl: PowerBowl): boole
                                     :key="annexIndex"
                                     :src="annexUrl"
                                     alt=""
-                                    class="h-auto w-12 object-contain drop-shadow-md"
+                                    class="h-auto w-12 object-contain drop-shadow-[-2px_2px_2px_rgba(0,0,0,0.45)]"
                                 />
                             </span>
                         </span>
@@ -881,13 +885,13 @@ function canSacrificeFromBowl(player: GamePlayerSummary, bowl: PowerBowl): boole
                                             <img
                                                 :src="competencyImage(competency)"
                                                 :alt="`Компетенция ${competency}`"
-                                                class="size-16 object-contain drop-shadow-md"
+                                                class="size-16 object-contain drop-shadow-[-2px_2px_2px_rgba(0,0,0,0.45)]"
                                             />
                                             <img
                                                 v-if="isCompetencyActionUsed(player, competency)"
                                                 :src="goldCrossUrl"
                                                 alt="Действие компетенции использовано"
-                                                class="pointer-events-none absolute inset-0 size-16 object-contain drop-shadow-md"
+                                                class="pointer-events-none absolute inset-0 size-16 object-contain drop-shadow-[-2px_2px_2px_rgba(0,0,0,0.45)]"
                                             />
                                         </span>
                                     </TooltipTrigger>
@@ -909,7 +913,7 @@ function canSacrificeFromBowl(player: GamePlayerSummary, bowl: PowerBowl): boole
                                 :key="bookIndex"
                                 :src="bookImageUrl"
                                 alt=""
-                                class="h-auto w-10 object-contain drop-shadow-md"
+                                class="h-auto w-10 object-contain drop-shadow-[-2px_2px_2px_rgba(0,0,0,0.45)]"
                             />
                         </span>
 
@@ -921,7 +925,7 @@ function canSacrificeFromBowl(player: GamePlayerSummary, bowl: PowerBowl): boole
                                     townTileImage(townTile, townTileIndex < (playerState(player.id)?.usedTownKeys ?? 0))
                                 "
                                 alt="Жетон города"
-                                class="h-auto w-14 object-contain drop-shadow-md"
+                                class="h-auto w-14 object-contain drop-shadow-[-2px_2px_2px_rgba(0,0,0,0.45)]"
                             />
                         </span>
                     </span>

@@ -57,6 +57,7 @@ import type {
     InnovationPurchaseState,
     PowerActionState,
 } from '@/types';
+import gameBackgroundImage from '../../../images/background_game.jpg';
 
 const props = defineProps<{
     game: GameResource;
@@ -825,6 +826,7 @@ function selectBuildingUpgrade(hexId: string): void {
 
 defineOptions({
     layout: {
+        backgroundImage: gameBackgroundImage,
         fullWidth: true,
         breadcrumbs: [
             {

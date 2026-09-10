@@ -51,7 +51,10 @@ watch(counts, () => emit('change', { ...counts }), { deep: true, immediate: true
 </script>
 
 <template>
-    <Card class="mx-auto w-full max-w-3xl border-none p-0">
+    <Card
+        class="mx-auto w-full max-w-3xl border-none bg-background/0 p-0 shadow-none"
+        :class="{ 'bg-background/50 shadow-none': !embedded }"
+    >
         <CardHeader class="gap-0.5 px-4 py-3">
             <CardTitle class="text-base">{{ title }}</CardTitle>
             <CardDescription class="text-xs">
@@ -64,7 +67,7 @@ watch(counts, () => emit('change', { ...counts }), { deep: true, immediate: true
                     <div
                         v-for="discipline in disciplines"
                         :key="discipline"
-                        class="grid justify-items-center gap-1 rounded-md px-2 py-1.5 text-xs font-medium"
+                        class="grid justify-items-center gap-1 rounded-md bg-background/40 px-2 py-1.5 text-xs font-medium"
                         :title="disciplineNames[discipline]"
                     >
                         <img
@@ -87,7 +90,7 @@ watch(counts, () => emit('change', { ...counts }), { deep: true, immediate: true
                     <div
                         v-for="discipline in disciplines"
                         :key="discipline"
-                        class="grid justify-items-center gap-1 rounded-md border px-2 py-1.5 text-xs font-medium"
+                        class="grid justify-items-center gap-1 rounded-md border bg-background/40 px-2 py-1.5 text-xs font-medium"
                         :title="disciplineNames[discipline]"
                     >
                         <img

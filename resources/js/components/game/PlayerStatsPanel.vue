@@ -75,7 +75,7 @@ const playersWithStats = computed(() => {
 function playerBackgroundColor(player: GamePlayerSummary): string {
     const color = player.color === null ? '#a1a1aa' : playerColorValues[player.color];
 
-    return `color-mix(in srgb, ${color} 18%, transparent)`;
+    return `color-mix(in srgb, ${color} 35%, transparent)`;
 }
 
 function balanceCounters(state: GamePlayerBoardState): StatCounter[] {
@@ -203,7 +203,7 @@ function levelCounters(state: GamePlayerBoardState): StatCounter[] {
             </button>
 
             <div
-                class="grid h-full grid-rows-[auto_1fr] overflow-hidden rounded-lg border border-sidebar-border bg-sidebar shadow-sm"
+                class="grid h-full grid-rows-[auto_1fr] overflow-hidden rounded-lg border border-sidebar-border bg-sidebar/70 shadow-sm"
             >
                 <div class="grid min-w-0 content-start gap-4 overflow-y-auto p-4">
                     <article

@@ -311,7 +311,7 @@ function closedActionTokenX(actionX: number, actionWidth: number): number {
 </script>
 
 <template>
-    <div class="overflow-x-auto rounded-xl border border-border bg-black shadow-inner">
+    <div class="overflow-x-auto rounded-xl shadow-inner drop-shadow-[-2px_2px_2px_rgba(0,0,0,0.45)]">
         <svg
             :viewBox="`0 0 ${boardWidth} ${boardHeight}`"
             class="block h-auto w-full min-w-[48rem]"

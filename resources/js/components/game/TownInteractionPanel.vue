@@ -22,7 +22,7 @@ function townTileImage(townTile: TownTile): string {
 </script>
 
 <template>
-    <Card v-if="game.data.pendingInteraction?.type === 'choose_town'" class="mx-auto w-full max-w-5xl border-0 p-0">
+    <Card v-if="game.data.pendingInteraction?.type === 'choose_town'" class="mx-auto w-full max-w-5xl border-0 p-2">
         <CardContent>
         <Form
             v-bind="TownController.form(game.data.id)"

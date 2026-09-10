@@ -182,7 +182,7 @@ function competencyLayerStyle(layer: number): CSSProperties {
 </script>
 
 <template>
-    <div class="overflow-hidden rounded-xl border border-border shadow-inner">
+    <div class="overflow-hidden rounded-xl shadow-inner drop-shadow-[-2px_2px_2px_rgba(0,0,0,0.45)]">
         <div class="relative overflow-hidden">
             <img :src="inventionBoard.url" alt="Планшет инноваций" class="block h-auto w-full" />
 

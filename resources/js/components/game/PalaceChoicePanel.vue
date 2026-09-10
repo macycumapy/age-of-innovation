@@ -18,7 +18,7 @@ const selectedPalace = ref<PalaceAbility | null>(null);
 </script>
 
 <template>
-    <Card class="mx-auto w-full max-w-5xl p-0 border-none">
+    <Card class="mx-auto w-full max-w-5xl border-none">
         <CardContent>
             <Form v-bind="PalaceChoiceController.form(gameId)" class="grid gap-4" #default="{ errors, processing }">
                 <input type="hidden" name="palace_id" :value="selectedPalace ?? ''" />

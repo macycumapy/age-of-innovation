@@ -8,58 +8,47 @@ defineProps<{
     descriptions: Record<RoundBonus, string>;
 }>();
 
-const roundBonusImages = import.meta.glob(
-    '../../../images/round_bonus_cards/*_top.png',
-    {
-        eager: true,
-        import: 'default',
-        query: '?url',
-    },
-) as Record<string, string>;
+const roundBonusImages = import.meta.glob('../../../images/round_bonus_cards/*_top.png', {
+    eager: true,
+    import: 'default',
+    query: '?url',
+}) as Record<string, string>;
 
 function roundBonusImage(roundBonus: RoundBonus): string {
-    return roundBonusImages[
-        `../../../images/round_bonus_cards/${roundBonus}_top.png`
-    ];
+    return roundBonusImages[`../../../images/round_bonus_cards/${roundBonus}_top.png`];
 }
 </script>
 
 <template>
-    <section
-        v-if="offers.length"
-        class="grid gap-3 rounded-xl bg-card shadow-sm w-xs"
-    >
+    <section v-if="offers.length" class="grid w-xs gap-3 rounded-xl bg-card/50 p-2 shadow-sm">
         <TooltipProvider :delay-duration="150">
             <div class="grid grid-cols-3 gap-2">
-            <Tooltip
-                v-for="offer in offers"
-                :key="offer.roundBonus"
-            >
-                <TooltipTrigger as-child>
-                    <figure tabindex="0" class="relative cursor-help">
-                        <img
-                            :src="roundBonusImage(offer.roundBonus)"
-                            :alt="`Бонус раунда ${offer.roundBonus}`"
-                            class="h-auto w-full rounded-md shadow-sm"
-                        />
+                <Tooltip v-for="offer in offers" :key="offer.roundBonus">
+                    <TooltipTrigger as-child>
+                        <figure tabindex="0" class="relative cursor-help">
+                            <img
+                                :src="roundBonusImage(offer.roundBonus)"
+                                :alt="`Бонус раунда ${offer.roundBonus}`"
+                                class="h-auto w-full rounded-md shadow-sm drop-shadow-[-2px_2px_2px_rgba(0,0,0,0.45)]"
+                            />
 
-                        <figcaption
-                            v-if="offer.coins > 0"
-                            class="absolute top-2 right-2 grid size-9 place-items-center drop-shadow-md"
-                            :aria-label="`Монет на карточке: ${offer.coins}`"
-                        >
-                            <img :src="goldMedallionUrl" alt="" class="absolute inset-0 size-full" />
-                            <span class="relative z-10 text-sm font-bold text-amber-950">
-                                {{ offer.coins }}
-                            </span>
-                        </figcaption>
-                    </figure>
-                </TooltipTrigger>
-                <TooltipContent class="max-w-xs">
-                    <p class="font-semibold">Бонус раунда</p>
-                    <p>{{ descriptions[offer.roundBonus] }}</p>
-                </TooltipContent>
-            </Tooltip>
+                            <figcaption
+                                v-if="offer.coins > 0"
+                                class="absolute top-2 right-2 grid size-9 place-items-center drop-shadow-md"
+                                :aria-label="`Монет на карточке: ${offer.coins}`"
+                            >
+                                <img :src="goldMedallionUrl" alt="" class="absolute inset-0 size-full" />
+                                <span class="relative z-10 text-sm font-bold text-amber-950">
+                                    {{ offer.coins }}
+                                </span>
+                            </figcaption>
+                        </figure>
+                    </TooltipTrigger>
+                    <TooltipContent class="max-w-xs">
+                        <p class="font-semibold">Бонус раунда</p>
+                        <p>{{ descriptions[offer.roundBonus] }}</p>
+                    </TooltipContent>
+                </Tooltip>
             </div>
         </TooltipProvider>
     </section>

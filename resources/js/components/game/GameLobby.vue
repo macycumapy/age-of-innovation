@@ -15,7 +15,7 @@ defineProps<{
 </script>
 
 <template>
-    <Card>
+    <Card class="bg-background/80">
         <CardHeader>
             <CardTitle>Участники</CardTitle>
             <CardDescription>Игроки занимают места в порядке присоединения.</CardDescription>
@@ -24,7 +24,7 @@ defineProps<{
             <div
                 v-for="player in game.data.players"
                 :key="player.id"
-                class="flex items-center justify-between gap-4 rounded-lg border p-3"
+                class="flex items-center justify-between gap-4 rounded-lg border p-3 dark:border-gray-500"
             >
                 <div>
                     <p class="font-medium">{{ player.user.name }}</p>
@@ -38,7 +38,7 @@ defineProps<{
             <div
                 v-for="seat in game.data.maxPlayers - game.data.playersCount"
                 :key="`empty-${seat}`"
-                class="rounded-lg border border-dashed p-3 text-sm text-muted-foreground"
+                class="rounded-lg border border-dashed p-3 text-sm text-muted-foreground dark:border-gray-500"
             >
                 Свободное место
             </div>

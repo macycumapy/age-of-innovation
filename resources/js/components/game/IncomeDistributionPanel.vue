@@ -46,7 +46,7 @@ const remainingKnowledgeCount = computed(() =>
 </script>
 
 <template>
-    <Card class="mx-auto w-full max-w-5xl border-0 p-0">
+    <Card class="mx-auto w-full max-w-5xl border-0">
         <CardContent>
             <Form
                 v-bind="StartingResourcesController.store.form(gameId)"

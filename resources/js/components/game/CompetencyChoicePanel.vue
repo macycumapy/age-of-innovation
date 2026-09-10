@@ -19,7 +19,7 @@ const selectedCompetency = ref<Competency | null>(null);
 </script>
 
 <template>
-    <Card class="mx-auto w-full max-w-3xl border-none">
+    <Card class="mx-auto w-full max-w-3xl border-none bg-background/50">
         <CardHeader>
             <CardTitle>
                 {{ isBuildingChoice ? 'Компетенция нового здания' : 'Стартовая компетенция' }}

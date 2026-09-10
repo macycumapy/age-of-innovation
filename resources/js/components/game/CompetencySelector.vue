@@ -39,7 +39,7 @@ function competencyImage(competency: Competency): string {
                 <TooltipTrigger as-child>
                     <button
                         type="button"
-                        class="grid rounded-lg border bg-background/70 p-2 transition hover:border-primary disabled:cursor-not-allowed disabled:opacity-60"
+                        class="grid rounded-lg bg-background/40 p-2 transition hover:border-primary disabled:cursor-not-allowed disabled:opacity-60"
                         :class="modelValue === competency ? 'border-primary ring-2 ring-primary/40' : ''"
                         :disabled="disabled"
                         :aria-pressed="modelValue === competency"

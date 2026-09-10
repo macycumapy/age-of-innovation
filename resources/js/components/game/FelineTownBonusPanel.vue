@@ -33,7 +33,7 @@ const isComplete = computed(
 </script>
 
 <template>
-    <Card class="mx-auto w-full max-w-5xl border-none p-0">
+    <Card class="mx-auto w-full max-w-5xl border-none bg-background/50 p-2">
         <CardContent class="pt-4">
             <Form v-bind="BookDistributionController.form(gameId)" class="grid gap-4" #default="{ errors, processing }">
                 <template v-for="discipline in disciplines" :key="discipline">
