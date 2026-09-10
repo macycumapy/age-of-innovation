@@ -1296,7 +1296,22 @@ final class ReplayGameHistoryAction
         $playerState->palaceId = $palace->value;
         $playerState->victoryPoints += (int) ($action->payload['victory_points'] ?? 0);
         $this->gainPower->execute($playerState, (int) ($action->payload['gained_power'] ?? 0));
-        $playerState->resources->books->unassigned += (int) ($action->payload['gained_books'] ?? 0);
+        $shippingReward = (array) ($action->payload['shipping_reward'] ?? []);
+        $shippingBooks = 0;
+
+        if ($palace === PalaceAbility::Palace14) {
+            $replayedShippingReward = $this->advanceDevelopmentTrack->advanceShipping(
+                $playerState,
+                (int) ($shippingReward['steps'] ?? 0),
+            );
+            $this->applyDevelopmentTrackRoundScoring->execute($state, $playerState, $replayedShippingReward['steps']);
+            $shippingBooks = $replayedShippingReward['books'];
+        }
+
+        $playerState->resources->books->unassigned += max(
+            0,
+            (int) ($action->payload['gained_books'] ?? 0) - $shippingBooks,
+        );
         $playerState->unassignedSpades += (int) ($action->payload['gained_spades'] ?? 0);
         foreach ((array) ($action->payload['reward_book_counts'] ?? []) as $discipline => $count) {
             $playerState->resources->books->{$discipline} += (int) $count;

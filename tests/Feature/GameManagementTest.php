@@ -4171,6 +4171,76 @@ class GameManagementTest extends TestCase
         $this->assertSame(0, $game->state->players[0]->resources->books->unassigned);
     }
 
+    public function test_palace_fourteen_advances_shipping_twice_and_grants_track_rewards_when_chosen(): void
+    {
+        $user = User::factory()->create();
+        $game = Game::factory()->create([
+            'status' => GameStatus::Active,
+            'phase' => GamePhase::Actions,
+            'active_player_id' => $user->id,
+        ]);
+        $player = GamePlayer::factory()->create([
+            'game_id' => $game->id,
+            'user_id' => $user->id,
+        ]);
+        $game->update(['state' => new GameStateData(
+            turnOrder: [$player->id],
+            board: new BoardStateData(hexes: [new BoardHexStateData(
+                id: '0:0',
+                q: 0,
+                r: 0,
+                initialTerrain: TerrainType::Forest,
+                terrain: TerrainType::Forest,
+                building: new BuildingStateData(BuildingType::Palace, $player->id),
+            )]),
+            round: new RoundStateData(
+                phase: GamePhase::Actions,
+                scoringTileId: RoundScoringTile::TrackEngineering->value,
+            ),
+            players: [new GamePlayerStateData(
+                playerId: $player->id,
+                userId: $user->id,
+                color: PlayerColor::Green,
+                faction: Faction::Blessed,
+                homeland: TerrainType::Forest,
+                roundBonus: RoundBonus::Coins,
+            )],
+            availablePalaceIds: [PalaceAbility::Palace14->value],
+            pendingInteraction: new PendingInteractionData(
+                PendingInteractionType::ChoosePalace,
+                $player->id,
+                [PalaceAbility::Palace14->value],
+                ['reason' => 'building', 'builtHexId' => '0:0'],
+            ),
+        )]);
+
+        $this->actingAs($user)->post(route('games.palace-choice', $game), [
+            'palace_id' => PalaceAbility::Palace14->value,
+        ])->assertNoContent();
+
+        $game->refresh();
+        $playerState = $game->state->players[0];
+        $this->assertSame(2, $playerState->shippingLevel);
+        $this->assertSame(28, $playerState->victoryPoints);
+        $this->assertSame(2, $playerState->resources->books->unassigned);
+        $this->assertSame(PendingInteractionType::ChoosePalaceBooks, $game->state->pendingInteraction?->type);
+        $this->assertEquals([
+            'steps' => 2,
+            'books' => 2,
+            'victoryPoints' => 8,
+        ], $game->actions()->sole()->payload['shipping_reward']);
+
+        $this->post(route('games.books', $game), [
+            'book_counts' => ['banking' => 1, 'law' => 0, 'engineering' => 1, 'medicine' => 0],
+        ])->assertNoContent();
+
+        $game->refresh();
+        $this->assertSame(1, $game->state->players[0]->resources->books->banking);
+        $this->assertSame(1, $game->state->players[0]->resources->books->engineering);
+        $this->assertSame(0, $game->state->players[0]->resources->books->unassigned);
+        $this->assertNull($game->state->pendingInteraction);
+    }
+
     public function test_palace_fifteen_grants_spades_and_books_when_chosen(): void
     {
         $user = User::factory()->create();

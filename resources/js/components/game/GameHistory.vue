@@ -235,15 +235,19 @@ function scienceBonusDetails(entry: GameHistoryEntry): string[] {
 }
 
 function developmentTrackRewardDetails(entry: GameHistoryEntry): string | null {
-    if (
-        !['advance_shipping', 'advance_terraforming'].includes(entry.type) ||
-        typeof entry.payload.reward !== 'object' ||
-        entry.payload.reward === null
-    ) {
+    const rewardPayloadKey = entry.type === 'choose_palace' ? 'shipping_reward' : 'reward';
+    const rewardPayload = entry.payload[rewardPayloadKey];
+
+    if (!['advance_shipping', 'advance_terraforming', 'choose_palace'].includes(entry.type)) {
         return null;
     }
 
-    const reward = entry.payload.reward as Record<string, unknown>;
+    if (typeof rewardPayload !== 'object' || rewardPayload === null) {
+        return null;
+    }
+
+    const reward = rewardPayload as Record<string, unknown>;
+    const steps = Number(reward.steps ?? 0);
     const victoryPoints = Number(reward.victoryPoints ?? 0);
     const books = Number(reward.books ?? 0);
     const rewards: string[] = [];
@@ -269,6 +273,10 @@ function developmentTrackRewardDetails(entry: GameHistoryEntry): string | null {
         rewards.push(
             selectedBooks.length > 0 ? `${books} книги (${selectedBooks.join(', ')})` : `${books} книги на выбор`,
         );
+    }
+
+    if (entry.type === 'choose_palace' && Number.isFinite(steps) && steps > 0) {
+        return `навигация +${steps}${rewards.length > 0 ? `, получено ${rewards.join(', ')}` : ''}`;
     }
 
     return rewards.length > 0 ? `получено ${rewards.join(', ')}` : null;

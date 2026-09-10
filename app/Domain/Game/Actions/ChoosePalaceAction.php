@@ -21,6 +21,8 @@ use Illuminate\Validation\ValidationException;
 final class ChoosePalaceAction
 {
     public function __construct(
+        private AdvanceDevelopmentTrackAction $advanceDevelopmentTrack,
+        private ApplyDevelopmentTrackRoundScoringAction $applyDevelopmentTrackRoundScoring,
         private AppendGameHistoryAction $appendGameHistory,
         private CreateTownChoiceAfterBuildingAction $createTownChoiceAfterBuilding,
         private GainPowerAction $gainPower,
@@ -64,6 +66,7 @@ final class ChoosePalaceAction
             $gainedPower = 0;
             $gainedBooks = 0;
             $gainedSpades = 0;
+            $shippingReward = ['steps' => 0, 'books' => 0, 'victoryPoints' => 0];
 
             if ($palace === PalaceAbility::Palace10) {
                 $gainedPower = $this->gainPower->execute($playerState, 12);
@@ -74,6 +77,14 @@ final class ChoosePalaceAction
                 $gainedSpades = 2;
                 $playerState->resources->books->unassigned += $gainedBooks;
                 $playerState->unassignedSpades += $gainedSpades;
+            } elseif ($palace === PalaceAbility::Palace14) {
+                $shippingReward = $this->advanceDevelopmentTrack->advanceShipping($playerState, 2);
+                $shippingReward['victoryPoints'] += $this->applyDevelopmentTrackRoundScoring->execute(
+                    $state,
+                    $playerState,
+                    $shippingReward['steps'],
+                );
+                $gainedBooks = $shippingReward['books'];
             }
             $state->availablePalaceIds = array_values(array_filter(
                 $state->availablePalaceIds,
@@ -148,6 +159,7 @@ final class ChoosePalaceAction
                     'gained_power' => $gainedPower,
                     'gained_books' => $gainedBooks,
                     'gained_spades' => $gainedSpades,
+                    'shipping_reward' => $shippingReward,
                 ],
                 [[
                     'type' => 'palace_chosen',
@@ -157,6 +169,7 @@ final class ChoosePalaceAction
                     'power' => $gainedPower,
                     'books' => $gainedBooks,
                     'spades' => $gainedSpades,
+                    'shipping_steps' => $shippingReward['steps'],
                 ]],
                 $stateVersionBefore,
                 $lockedGame->version,
