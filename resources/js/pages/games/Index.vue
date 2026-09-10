@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { index, show } from '@/routes/games';
 import type { GameCollection, GameStatus, GameSummary, MapVariant } from '@/types';
+import gamesBackgroundImage from '../../../images/background.jpg';
 
 defineProps<{
     games: GameCollection;
@@ -12,6 +13,7 @@ defineProps<{
 
 defineOptions({
     layout: {
+        backgroundImage: gamesBackgroundImage,
         breadcrumbs: [
             {
                 title: 'Игры',
@@ -62,7 +64,9 @@ function gameButtonLabel(game: GameSummary): string {
     <Head title="Игры" />
 
     <div class="flex h-full flex-1 flex-col gap-6 p-4">
-        <div class="flex flex-wrap items-start justify-between gap-4">
+        <div
+            class="sticky top-0 z-20 flex flex-wrap items-start justify-between gap-4 rounded-xl bg-background/80 p-4 shadow-sm backdrop-blur-sm"
+        >
             <div>
                 <h1 class="text-2xl font-semibold">Игры</h1>
                 <p class="text-sm text-muted-foreground">Создайте новую партию или вернитесь к существующей.</p>
@@ -71,9 +75,7 @@ function gameButtonLabel(game: GameSummary): string {
             <CreateGameDialog />
         </div>
 
-        <section class="grid gap-3">
-            <h2 class="text-lg font-semibold">Мои игры</h2>
-
+        <section class="grid gap-3 rounded-xl p-4 shadow-sm">
             <div
                 v-if="games.data.length === 0"
                 class="rounded-xl border border-dashed p-8 text-center text-sm text-muted-foreground"
@@ -82,7 +84,7 @@ function gameButtonLabel(game: GameSummary): string {
             </div>
 
             <div v-else class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                <Card v-for="game in games.data" :key="game.id" class="gap-3">
+                <Card v-for="game in games.data" :key="game.id" class="gap-3 bg-card/70">
                     <CardHeader>
                         <CardTitle>Игра №{{ game.id }}</CardTitle>
                         <CardDescription>

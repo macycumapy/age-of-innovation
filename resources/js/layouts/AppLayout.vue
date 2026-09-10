@@ -4,12 +4,13 @@ import type { BreadcrumbItem } from '@/types';
 
 const { breadcrumbs = [] } = defineProps<{
     breadcrumbs?: BreadcrumbItem[];
+    backgroundImage?: string;
     fullWidth?: boolean;
 }>();
 </script>
 
 <template>
-    <AppLayout :breadcrumbs="breadcrumbs">
+    <AppLayout :breadcrumbs="breadcrumbs" :background-image="backgroundImage">
         <slot />
     </AppLayout>
 </template>
