@@ -55,6 +55,10 @@ const otherPlayerStatusMessage = computed(() => {
         return 'Ход игрока определяется.';
     }
 
+    if (props.game.data.pendingInteraction?.type === 'power_offer') {
+        return `${playerName} решает, получать ли Силу.`;
+    }
+
     if (props.game.data.pendingInteraction?.type === 'choose_starting_resources') {
         return props.game.data.phase === 'income'
             ? `${playerName} распределяет получаемый доход.`
