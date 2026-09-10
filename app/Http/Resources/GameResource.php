@@ -16,7 +16,6 @@ use App\Domain\Game\Enums\BookAction;
 use App\Domain\Game\Enums\BuildingType;
 use App\Domain\Game\Enums\Competency;
 use App\Domain\Game\Enums\Faction;
-use App\Domain\Game\Enums\GameActionType;
 use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\GameStatus;
 use App\Domain\Game\Enums\Innovation;
@@ -170,7 +169,7 @@ class GameResource extends JsonResource
                 fn (GamePlayerStateData $player): array => [
                     'playerId' => $player->playerId,
                     'victoryPoints' => $player->victoryPoints,
-                    'passOrder' => ($passIndex = array_search($player->playerId, $this->state->round->passOrder, true)) === false
+                    'passOrder' => ($passIndex = array_search($player->playerId, $this->state->passedPlayerIds, true)) === false
                         ? null
                         : $passIndex + 1,
                     'roundBonus' => $player->roundBonus->value,

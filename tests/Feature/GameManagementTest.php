@@ -1772,6 +1772,12 @@ class GameManagementTest extends TestCase
         $this->assertSame(6, $game->actions()->count());
         $this->assertSame(1, $game->actions()->where('type', GameActionType::ScienceBonusPhase)->count());
         $this->assertSame(1, $game->actions()->where('type', GameActionType::IncomePhase)->count());
+
+        $this->get(route('games.show', $game))->assertInertia(
+            fn (Assert $page) => $page
+                ->where('game.data.playerBoardStates.0.passOrder', null)
+                ->where('game.data.playerBoardStates.1.passOrder', null),
+        );
     }
 
     public function test_pass_awards_victory_points_from_all_pass_bonus_sources(): void
