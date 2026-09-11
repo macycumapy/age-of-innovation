@@ -998,7 +998,7 @@ class GameManagementTest extends TestCase
         $state->round->incomeReceipts = [];
         $game->update(['state' => $state]);
 
-        $this->actingAs($users[0])->post(route('games.starting-resources.store', $game), [
+        $this->actingAs($users[0])->post(route('games.rewards', $game), [
             'book_counts' => [
                 'banking' => 1,
                 'law' => 0,
@@ -1089,7 +1089,7 @@ class GameManagementTest extends TestCase
         $this->assertSame(0, $playerState->resources->coins);
         $this->assertSame(1, $playerState->knowledge->unassignedSteps);
 
-        $this->actingAs($user)->post(route('games.starting-resources.store', $game), [
+        $this->actingAs($user)->post(route('games.rewards', $game), [
             'knowledge_counts' => [
                 'banking' => 1,
                 'law' => 0,
@@ -1897,7 +1897,7 @@ class GameManagementTest extends TestCase
         $this->assertSame(PendingInteractionType::ChooseScienceBonusBooks, $game->state->pendingInteraction?->type);
         $this->assertSame(3, $game->state->pendingInteraction?->context['bookCount']);
 
-        $this->actingAs($firstUser)->post(route('games.books', $game), [
+        $this->actingAs($firstUser)->post(route('games.rewards', $game), [
             'book_counts' => ['banking' => 3, 'law' => 0, 'engineering' => 0, 'medicine' => 0],
         ])->assertNoContent()->assertSessionHasNoErrors();
 
@@ -1908,7 +1908,7 @@ class GameManagementTest extends TestCase
         $this->assertSame(PendingInteractionType::ChooseScienceBonusBooks, $game->state->pendingInteraction?->type);
         $this->assertSame(1, $game->state->pendingInteraction?->context['bookCount']);
 
-        $this->actingAs($secondUser)->post(route('games.books', $game), [
+        $this->actingAs($secondUser)->post(route('games.rewards', $game), [
             'book_counts' => ['banking' => 0, 'law' => 1, 'engineering' => 0, 'medicine' => 0],
         ])->assertNoContent()->assertSessionHasNoErrors();
 
@@ -2411,7 +2411,7 @@ class GameManagementTest extends TestCase
         $this->assertSame(GameActionType::SpecialAction, $bridgeAction->type);
 
         $this->post(route('games.town', $game), ['town_tile' => TownTile::Books->value])->assertNoContent();
-        $this->post(route('games.books', $game), [
+        $this->post(route('games.rewards', $game), [
             'book_counts' => ['banking' => 1, 'law' => 1, 'engineering' => 0, 'medicine' => 0],
         ])->assertNoContent();
 
@@ -2858,11 +2858,11 @@ class GameManagementTest extends TestCase
             ),
         )]);
 
-        $this->actingAs($user)->post(route('games.books', $game), [
+        $this->actingAs($user)->post(route('games.rewards', $game), [
             'book_counts' => ['banking' => 1, 'law' => 0, 'engineering' => 0, 'medicine' => 0],
         ])->assertSessionHasErrors('book_counts');
 
-        $this->post(route('games.books', $game), [
+        $this->post(route('games.rewards', $game), [
             'book_counts' => ['banking' => 1, 'law' => 0, 'engineering' => 0, 'medicine' => 1],
         ])->assertNoContent();
         $game->refresh();
@@ -2923,7 +2923,7 @@ class GameManagementTest extends TestCase
         $this->assertSame(2, $game->state->pendingInteraction?->context['bookCount']);
         $this->assertArrayNotHasKey('knowledgeStepCount', $game->state->pendingInteraction?->context ?? []);
 
-        $this->post(route('games.books', $game), [
+        $this->post(route('games.rewards', $game), [
             'book_counts' => ['banking' => 2, 'law' => 0, 'engineering' => 0, 'medicine' => 0],
         ])->assertNoContent();
         $game->refresh();
@@ -2932,12 +2932,12 @@ class GameManagementTest extends TestCase
         $this->assertSame(1, $game->state->pendingInteraction?->context['bookCount']);
         $this->assertSame(3, $game->state->pendingInteraction?->context['knowledgeStepCount']);
 
-        $this->post(route('games.books', $game), [
+        $this->post(route('games.rewards', $game), [
             'book_counts' => ['banking' => 0, 'law' => 0, 'engineering' => 0, 'medicine' => 1],
             'knowledge_counts' => ['banking' => 0, 'law' => 1, 'engineering' => 1, 'medicine' => 0],
         ])->assertSessionHasErrors('knowledge_counts');
 
-        $this->post(route('games.books', $game), [
+        $this->post(route('games.rewards', $game), [
             'book_counts' => ['banking' => 0, 'law' => 0, 'engineering' => 0, 'medicine' => 1],
             'knowledge_counts' => ['banking' => 0, 'law' => 1, 'engineering' => 2, 'medicine' => 0],
         ])->assertNoContent();
@@ -3077,7 +3077,7 @@ class GameManagementTest extends TestCase
         $this->assertSame(1, $game->state->players[0]->resources->books->unassigned);
         $this->actingAs($user);
 
-        $this->post(route('games.books', $game), [
+        $this->post(route('games.rewards', $game), [
             'book_counts' => ['banking' => 1, 'law' => 0, 'engineering' => 0, 'medicine' => 0],
             'knowledge_counts' => ['banking' => 0, 'law' => 1, 'engineering' => 1, 'medicine' => 1],
         ])->assertNoContent();
@@ -3868,7 +3868,7 @@ class GameManagementTest extends TestCase
         $this->assertSame([Competency::Competency04->value], $game->state->pendingInteraction?->optionIds);
         $this->assertSame($user->id, $game->active_player_id);
 
-        $this->post(route('games.starting-competency.store', $game), [
+        $this->post(route('games.rewards', $game), [
             'competency_id' => Competency::Competency04->value,
         ])->assertNoContent();
 
@@ -3951,7 +3951,7 @@ class GameManagementTest extends TestCase
             availableCompetencyIds: [Competency::Competency05->value],
         )]);
 
-        $this->actingAs($user)->post(route('games.starting-competency.store', $game), [
+        $this->actingAs($user)->post(route('games.rewards', $game), [
             'competency_id' => Competency::Competency05->value,
         ])->assertNoContent();
 
@@ -4016,7 +4016,7 @@ class GameManagementTest extends TestCase
             ),
         )]);
 
-        $this->actingAs($user)->post(route('games.starting-competency.store', $game), [
+        $this->actingAs($user)->post(route('games.rewards', $game), [
             'competency_id' => Competency::Competency10->value,
         ])->assertNoContent();
 
@@ -4180,7 +4180,7 @@ class GameManagementTest extends TestCase
         $this->assertSame(2, $game->actions()->sole()->payload['gained_books']);
         $this->assertSame(PendingInteractionType::ChoosePalaceBooks, $game->state->pendingInteraction?->type);
 
-        $this->post(route('games.books', $game), [
+        $this->post(route('games.rewards', $game), [
             'book_counts' => ['banking' => 1, 'law' => 1, 'engineering' => 0, 'medicine' => 0],
         ])->assertNoContent();
         $game->refresh();
@@ -4248,7 +4248,7 @@ class GameManagementTest extends TestCase
             'victoryPoints' => 8,
         ], $game->actions()->sole()->payload['shipping_reward']);
 
-        $this->post(route('games.books', $game), [
+        $this->post(route('games.rewards', $game), [
             'book_counts' => ['banking' => 1, 'law' => 0, 'engineering' => 1, 'medicine' => 0],
         ])->assertNoContent();
 
@@ -4310,7 +4310,7 @@ class GameManagementTest extends TestCase
         $this->assertSame(2, $game->actions()->sole()->payload['gained_books']);
         $this->assertSame(PendingInteractionType::ChoosePalaceBooks, $game->state->pendingInteraction?->type);
 
-        $this->post(route('games.books', $game), [
+        $this->post(route('games.rewards', $game), [
             'book_counts' => ['banking' => 0, 'law' => 0, 'engineering' => 1, 'medicine' => 1],
         ])->assertNoContent();
         $game->refresh();
@@ -4801,7 +4801,7 @@ class GameManagementTest extends TestCase
         $this->assertSame(3, $game->state->pendingInteraction?->context['knowledgeStepCount']);
         $this->assertSame(3, $game->state->players[0]->knowledge->unassignedSteps);
 
-        $this->post(route('games.books', $game), [
+        $this->post(route('games.rewards', $game), [
             'book_counts' => ['banking' => 0, 'law' => 0, 'engineering' => 0, 'medicine' => 0],
             'knowledge_counts' => ['banking' => 2, 'law' => 1, 'engineering' => 0, 'medicine' => 0],
         ])->assertNoContent();
@@ -5040,7 +5040,7 @@ class GameManagementTest extends TestCase
         $this->assertSame(2, $game->state->players[0]->resources->books->unassigned);
         $this->assertSame(1, $game->actions()->count());
 
-        $this->actingAs($user)->post(route('games.books', $game), [
+        $this->actingAs($user)->post(route('games.rewards', $game), [
             'book_counts' => ['banking' => 1, 'law' => 0, 'engineering' => 0, 'medicine' => 0],
         ])->assertSessionHasErrors('book_counts');
 
@@ -5049,7 +5049,7 @@ class GameManagementTest extends TestCase
         $this->assertSame(2, $game->state->players[0]->resources->books->unassigned);
         $this->assertSame(1, $game->actions()->count());
 
-        $this->actingAs($user)->post(route('games.books', $game), [
+        $this->actingAs($user)->post(route('games.rewards', $game), [
             'book_counts' => ['banking' => 1, 'law' => 0, 'engineering' => 1, 'medicine' => 0],
         ])->assertNoContent();
 
@@ -5275,7 +5275,7 @@ class GameManagementTest extends TestCase
         $this->assertSame(2, $game->state->players[0]->shippingLevel);
         $this->assertSame(PendingInteractionType::ChooseShippingBooks, $game->state->pendingInteraction?->type);
 
-        $this->post(route('games.books', $game), [
+        $this->post(route('games.rewards', $game), [
             'book_counts' => [
                 'banking' => 0,
                 'law' => 2,
@@ -5357,7 +5357,7 @@ class GameManagementTest extends TestCase
         $this->assertSame(PendingInteractionType::ChooseTerraformingBooks, $game->state->pendingInteraction?->type);
         $this->assertSame(GameActionType::AdvanceTerraforming, $game->actions()->sole()->type);
 
-        $this->post(route('games.books', $game), [
+        $this->post(route('games.rewards', $game), [
             'book_counts' => [
                 'banking' => 1,
                 'law' => 0,
@@ -6588,12 +6588,12 @@ class GameManagementTest extends TestCase
         $this->assertSame(1, $game->state->players[0]->resources->books->unassigned);
         $this->assertSame(2, $game->state->players[0]->knowledge->unassignedSteps);
 
-        $this->post(route('games.starting-resources.store', $game))
+        $this->post(route('games.rewards', $game))
             ->assertSessionHasErrors(['book_counts', 'knowledge_counts']);
 
         $this->assertNotNull($game->refresh()->state->pendingInteraction);
 
-        $this->post(route('games.starting-resources.store', $game), [
+        $this->post(route('games.rewards', $game), [
             'book_counts' => [
                 'banking' => 1,
                 'law' => 1,
@@ -6616,7 +6616,7 @@ class GameManagementTest extends TestCase
         $this->assertSame(0, $game->state->players[0]->resources->books->law);
         $this->assertSame(2, $game->state->players[0]->knowledge->unassignedSteps);
 
-        $this->post(route('games.starting-resources.store', $game), [
+        $this->post(route('games.rewards', $game), [
             'book_counts' => [
                 'banking' => 1,
                 'law' => 0,
@@ -6644,7 +6644,7 @@ class GameManagementTest extends TestCase
         $state->players[0]->resources->power->bowlThree = 0;
         $game->update(['state' => $state]);
 
-        $this->post(route('games.starting-resources.store', $game), [
+        $this->post(route('games.rewards', $game), [
             'book_counts' => [
                 'banking' => 1,
                 'law' => 0,
@@ -6767,7 +6767,7 @@ class GameManagementTest extends TestCase
             'state' => $state,
         ]);
 
-        $this->post(route('games.starting-competency.store', $game), [
+        $this->post(route('games.rewards', $game), [
             'competency_id' => $competency->value,
         ])->assertNoContent();
 
@@ -7088,7 +7088,7 @@ class GameManagementTest extends TestCase
             $game->actions()->where('type', GameActionType::SpendStartingSpade)->latest('sequence')->firstOrFail()->type,
         );
 
-        $this->post(route('games.starting-competency.store', $game), [
+        $this->post(route('games.rewards', $game), [
             'competency_id' => Competency::Competency10->value,
         ])->assertNoContent();
 
@@ -7570,11 +7570,11 @@ class GameManagementTest extends TestCase
 
         $monkStateBefore = collect($game->state->players)->firstWhere('playerId', $monkPlayer->id);
 
-        $this->post(route('games.starting-competency.store', $game), [
+        $this->post(route('games.rewards', $game), [
             'competency_id' => Competency::Competency01->value,
         ])->assertSessionHasErrors('competency_id');
 
-        $this->post(route('games.starting-competency.store', $game), [
+        $this->post(route('games.rewards', $game), [
             'competency_id' => Competency::Competency04->value,
         ])->assertNoContent();
 

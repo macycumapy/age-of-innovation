@@ -16,7 +16,7 @@ use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
-final class ChooseInnovationBooksAction
+final class ChooseInnovationRewardAction
 {
     public function __construct(private AdvanceKnowledgeAction $advanceKnowledge)
     {

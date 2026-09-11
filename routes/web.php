@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 use App\Http\Controllers\AnnexPlacementController;
 use App\Http\Controllers\BookActionController;
-use App\Http\Controllers\BookDistributionController;
 use App\Http\Controllers\BridgeConfirmationController;
 use App\Http\Controllers\BridgeController;
 use App\Http\Controllers\BuildingUpgradeController;
@@ -33,14 +32,13 @@ use App\Http\Controllers\PowerActionController;
 use App\Http\Controllers\PowerOfferController;
 use App\Http\Controllers\PowerSacrificeController;
 use App\Http\Controllers\ResourceExchangeController;
+use App\Http\Controllers\RewardDistributionController;
 use App\Http\Controllers\RoundBonusActionController;
 use App\Http\Controllers\RoundBonusChoiceController;
 use App\Http\Controllers\ScholarController;
 use App\Http\Controllers\ShippingAdvancementController;
 use App\Http\Controllers\StartingBuildingController;
 use App\Http\Controllers\StartingBuildingTurnController;
-use App\Http\Controllers\StartingCompetencyController;
-use App\Http\Controllers\StartingResourcesController;
 use App\Http\Controllers\StartingSpadeController;
 use App\Http\Controllers\StartingSpadeTurnController;
 use App\Http\Controllers\TerraformingAdvancementController;
@@ -62,16 +60,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('games/{game}/start', GameStartController::class)->name('games.start');
     Route::post('games/{game}/planning-bundle', [PlanningBundleController::class, 'store'])
         ->name('games.planning-bundle.store');
-    Route::post('games/{game}/starting-resources', [StartingResourcesController::class, 'store'])
-        ->name('games.starting-resources.store');
     Route::post('games/{game}/starting-building', [StartingBuildingController::class, 'store'])
         ->name('games.starting-building.store');
     Route::delete('games/{game}/starting-building', [StartingBuildingController::class, 'destroy'])
         ->name('games.starting-building.destroy');
     Route::post('games/{game}/starting-building/finish', StartingBuildingTurnController::class)
         ->name('games.starting-building.finish');
-    Route::post('games/{game}/starting-competency', [StartingCompetencyController::class, 'store'])
-        ->name('games.starting-competency.store');
     Route::post('games/{game}/starting-spade', [StartingSpadeController::class, 'store'])
         ->name('games.starting-spade.store');
     Route::delete('games/{game}/starting-spade', [StartingSpadeController::class, 'destroy'])
@@ -84,8 +78,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('games.workshop');
     Route::post('games/{game}/town', TownController::class)
         ->name('games.town');
-    Route::post('games/{game}/books', BookDistributionController::class)
-        ->name('games.books');
+    Route::post('games/{game}/rewards', RewardDistributionController::class)
+        ->name('games.rewards');
     Route::post('games/{game}/innovation-action', InnovationActionController::class)
         ->name('games.innovation-action');
     Route::post('games/{game}/town/palace-water', PalaceWaterTownController::class)

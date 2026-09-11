@@ -19,7 +19,7 @@ use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
-final class ChooseStartingCompetencyAction
+final class ChooseCompetencyAction
 {
     public function __construct(
         private AppendGameHistoryAction $appendGameHistory,

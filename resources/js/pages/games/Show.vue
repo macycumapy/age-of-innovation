@@ -10,13 +10,11 @@ import BoardMap from '@/components/game/BoardMap.vue';
 import BookActionDialog from '@/components/game/BookActionDialog.vue';
 import BuildingUpgradeDialog from '@/components/game/BuildingUpgradeDialog.vue';
 import BuildWorkshopDialog from '@/components/game/BuildWorkshopDialog.vue';
-import BookDistributionPanel from '@/components/game/BookDistributionPanel.vue';
+import RewardDistributionPanel from '@/components/game/RewardDistributionPanel.vue';
 import CompetencyActionDialog from '@/components/game/CompetencyActionDialog.vue';
-import CompetencyChoicePanel from '@/components/game/CompetencyChoicePanel.vue';
 import CurrentTurnFinishDialog from '@/components/game/CurrentTurnFinishDialog.vue';
 import CurrentTurnPanel from '@/components/game/CurrentTurnPanel.vue';
 import GameLobby from '@/components/game/GameLobby.vue';
-import IncomeDistributionPanel from '@/components/game/IncomeDistributionPanel.vue';
 import TownInteractionPanel from '@/components/game/TownInteractionPanel.vue';
 import FactionActionDialog from '@/components/game/FactionActionDialog.vue';
 import FinalLeaderboard from '@/components/game/FinalLeaderboard.vue';
@@ -39,7 +37,6 @@ import RoundBonusActionDialog from '@/components/game/RoundBonusActionDialog.vue
 import RoundBonusChoiceDialog from '@/components/game/RoundBonusChoiceDialog.vue';
 import ScholarActionDialog from '@/components/game/ScholarActionDialog.vue';
 import ShippingAdvancementDialog from '@/components/game/ShippingAdvancementDialog.vue';
-import StartingResourcesPanel from '@/components/game/StartingResourcesPanel.vue';
 import TerraformingAdvancementDialog from '@/components/game/TerraformingAdvancementDialog.vue';
 import RoundBonusBoard from '@/components/game/RoundBonusBoard.vue';
 import TownTileBoard from '@/components/game/TownTileBoard.vue';
@@ -479,7 +476,7 @@ const selectedScholarDiscipline = ref<KnowledgeDiscipline | null>(null);
 const currentPlayerState = computed(() =>
     props.game.data.playerBoardStates.find((state) => state.playerId === currentPlayer.value?.id),
 );
-const pendingBookDistribution = computed(() => {
+const pendingRewardDistribution = computed(() => {
     const interaction = props.game.data.pendingInteraction;
 
     if (
@@ -915,39 +912,49 @@ defineOptions({
                 :game="game"
             />
 
-            <BookDistributionPanel
-                v-if="pendingBookDistribution !== null && game.data.pendingInteraction?.playerId === currentPlayer?.id"
+            <RewardDistributionPanel
+                v-if="
+                    pendingRewardDistribution !== null && game.data.pendingInteraction?.playerId === currentPlayer?.id
+                "
                 :game-id="game.data.id"
-                :book-count="pendingBookDistribution.bookCount"
-                :knowledge-step-count="pendingBookDistribution.knowledgeStepCount"
-                :type="pendingBookDistribution.type"
+                :book-count="pendingRewardDistribution.bookCount"
+                :knowledge-step-count="pendingRewardDistribution.knowledgeStepCount"
+                :type="pendingRewardDistribution.type"
                 :discipline-names="game.data.knowledgeDisciplineNames"
+                :competency-descriptions="game.data.competencyDescriptions"
             />
 
-            <IncomeDistributionPanel
+            <RewardDistributionPanel
                 v-if="
                     isIncomeResourceDistribution &&
                     canChooseStartingResources &&
                     game.data.pendingInteraction?.type === 'choose_starting_resources'
                 "
                 :game-id="game.data.id"
-                :interaction="game.data.pendingInteraction"
+                :book-count="game.data.pendingInteraction.context.bookCount"
+                :knowledge-step-count="game.data.pendingInteraction.context.knowledgeStepCount"
+                :competency-ids="game.data.pendingInteraction.context.competencyIds ?? []"
                 :discipline-names="game.data.knowledgeDisciplineNames"
+                :competency-descriptions="game.data.competencyDescriptions"
+                requires-confirmation
             />
 
             <Collapsible v-if="shouldShowPlanningBundleGroup" v-model:open="isPlanningBundleGroupOpen">
                 <Card>
                     <CollapsibleContent>
                         <CardContent>
-                            <StartingResourcesPanel
+                            <RewardDistributionPanel
                                 v-if="
                                     canChooseStartingResources &&
                                     game.data.pendingInteraction?.type === 'choose_starting_resources'
                                 "
                                 :key="game.data.pendingInteraction.playerId"
                                 :game-id="game.data.id"
-                                :interaction="game.data.pendingInteraction"
+                                :book-count="game.data.pendingInteraction.context.bookCount"
+                                :knowledge-step-count="game.data.pendingInteraction.context.knowledgeStepCount"
+                                :competency-ids="game.data.pendingInteraction.context.competencyIds ?? []"
                                 :discipline-names="game.data.knowledgeDisciplineNames"
+                                :competency-descriptions="game.data.competencyDescriptions"
                             />
 
                             <PlanningBundleSelector :game="game" :can-choose="canChoosePlanningBundle" />
@@ -956,12 +963,14 @@ defineOptions({
                 </Card>
             </Collapsible>
 
-            <CompetencyChoicePanel
+            <RewardDistributionPanel
                 v-if="canChooseStartingCompetency && game.data.pendingInteraction?.type === 'choose_competency'"
                 :game-id="game.data.id"
-                :competencies="game.data.pendingInteraction.optionIds"
-                :descriptions="game.data.competencyDescriptions"
-                :is-building-choice="game.data.pendingInteraction.context.reason === 'building'"
+                :book-count="0"
+                :knowledge-step-count="0"
+                :competency-ids="game.data.pendingInteraction.optionIds"
+                :discipline-names="game.data.knowledgeDisciplineNames"
+                :competency-descriptions="game.data.competencyDescriptions"
             />
 
             <PalaceChoicePanel
