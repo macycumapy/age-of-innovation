@@ -98,7 +98,6 @@ final class ReplayGameHistoryAction
         private FindEligiblePalaceFlightHexesAction $findEligiblePalaceFlightHexes,
         private StartLizardTownBonusAction $startLizardTownBonus,
         private CreateTownChoiceAfterBuildingAction $createTownChoiceAfterBuilding,
-        private CreateDesertStartingSpadeInteractionAction $createDesertStartingSpadeInteraction,
         private CreateBuildingFollowUpInteractionAction $createBuildingFollowUpInteraction,
         private CreatePowerOffersAfterBuildingAction $createPowerOffersAfterBuilding,
         private ApplyPowerOfferDecisionAction $applyPowerOfferDecision,
@@ -628,16 +627,6 @@ final class ReplayGameHistoryAction
                 )),
             );
             $game->active_player_id = $player->user_id;
-        } elseif (! in_array(
-            $player->id,
-            array_slice($placementOrder, $state->startingBuildingTurnIndex),
-            true,
-        ) && $this->createDesertStartingSpadeInteraction->execute(
-            $state,
-            $this->playerState($state, $player->id),
-            $player->faction === Faction::Inventors,
-        )) {
-            $game->active_player_id = $player->user_id;
         } elseif ($player->faction === Faction::Inventors && $hasFinishedOwnStartingBuildings) {
             $playerState = $this->playerState($state, $player->id);
             $state->pendingInteraction = new PendingInteractionData(
@@ -743,6 +732,37 @@ final class ReplayGameHistoryAction
 
         $placementOrder = $this->startingBuildingOrder($state, $players);
 
+        if ($competency === Competency::Competency05) {
+            $playerState = $this->playerState($state, $player->id);
+            $eligibleHexIds = $this->findEligibleTerraformHexes->execute(
+                $state,
+                $playerState,
+                $playerState->homeland,
+            );
+
+            if ($eligibleHexIds !== []) {
+                $state->pendingInteraction = new PendingInteractionData(
+                    PendingInteractionType::SpendSpades,
+                    $player->id,
+                    $eligibleHexIds,
+                    [
+                        'phase' => GamePhase::Setup->value,
+                        'spadeCount' => 2,
+                        'remainingSpades' => 2,
+                        'targetTerrain' => $playerState->homeland->value,
+                        ...($state->startingBuildingTurnIndex < count($placementOrder)
+                            ? ['resumeStartingBuildingPlacement' => true]
+                            : []),
+                    ],
+                );
+                $game->phase = GamePhase::Setup;
+                $game->active_player_id = $player->user_id;
+                $game->state = $state;
+
+                return;
+            }
+        }
+
         if ($competency === Competency::Competency10 && isset($action->payload['neutral_building'])) {
             $this->replayNeutralBuilding($game, $state, $this->playerState($state, $player->id), $player, $action);
             $state->pendingInteraction = null;
@@ -764,12 +784,7 @@ final class ReplayGameHistoryAction
             return;
         }
 
-        if ($this->createDesertStartingSpadeInteraction->execute(
-            $state,
-            $this->playerState($state, $player->id),
-        )) {
-            $game->active_player_id = $player->user_id;
-        } elseif ($state->startingBuildingTurnIndex >= count($placementOrder)) {
+        if ($state->startingBuildingTurnIndex >= count($placementOrder)) {
             [$nextPlayer, $nextPhase] = $this->resolveCompletedStartingSetup->execute($state, $players);
             $game->phase = $nextPhase;
             $game->active_player_id = $nextPlayer->user_id;

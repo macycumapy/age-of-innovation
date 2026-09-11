@@ -23,7 +23,6 @@ final class ChooseCompetencyAction
 {
     public function __construct(
         private AppendGameHistoryAction $appendGameHistory,
-        private CreateDesertStartingSpadeInteractionAction $createDesertStartingSpadeInteraction,
         private CreateNeutralBuildingInteractionAction $createNeutralBuildingInteraction,
         private CreateTownChoiceAfterBuildingAction $createTownChoiceAfterBuilding,
         private DetermineStartingBuildingOrderAction $determineStartingBuildingOrder,
@@ -133,8 +132,18 @@ final class ChooseCompetencyAction
 
             $placementOrder = $this->determineStartingBuildingOrder->execute($lockedGame);
             $incomeReceipts = [];
+            $hasRemainingStartingBuildingPlacements = $state->startingBuildingTurnIndex < count($placementOrder);
 
-            if ($competency === Competency::Competency10
+            if ($competency === Competency::Competency05
+                && $this->createTerraformingInteraction(
+                    $state,
+                    $playerState,
+                    GamePhase::Setup,
+                    $hasRemainingStartingBuildingPlacements,
+                )) {
+                $nextPlayer = $player;
+                $nextPhase = GamePhase::Setup;
+            } elseif ($competency === Competency::Competency10
                 && $this->createNeutralBuildingInteraction->execute(
                     $state,
                     $playerState,
@@ -145,9 +154,6 @@ final class ChooseCompetencyAction
                         'reason' => 'starting_competency',
                     ],
                 )) {
-                $nextPlayer = $player;
-                $nextPhase = GamePhase::Setup;
-            } elseif ($this->createDesertStartingSpadeInteraction->execute($state, $playerState)) {
                 $nextPlayer = $player;
                 $nextPhase = GamePhase::Setup;
             } elseif ($state->startingBuildingTurnIndex >= count($placementOrder)) {
@@ -199,8 +205,12 @@ final class ChooseCompetencyAction
         });
     }
 
-    private function createTerraformingInteraction(GameStateData $state, GamePlayerStateData $playerState): bool
-    {
+    private function createTerraformingInteraction(
+        GameStateData $state,
+        GamePlayerStateData $playerState,
+        GamePhase $phase = GamePhase::Actions,
+        bool $resumeStartingBuildingPlacement = false,
+    ): bool {
         $eligibleHexIds = $this->findEligibleTerraformHexes->execute($state, $playerState, $playerState->homeland);
 
         if ($eligibleHexIds === []) {
@@ -212,10 +222,11 @@ final class ChooseCompetencyAction
             $playerState->playerId,
             $eligibleHexIds,
             [
-                'phase' => GamePhase::Actions->value,
+                'phase' => $phase->value,
                 'spadeCount' => 2,
                 'remainingSpades' => 2,
                 'targetTerrain' => $playerState->homeland->value,
+                ...($resumeStartingBuildingPlacement ? ['resumeStartingBuildingPlacement' => true] : []),
             ],
         );
 

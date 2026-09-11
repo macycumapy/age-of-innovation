@@ -20,7 +20,6 @@ final class FinishStartingBuildingTurnAction
 {
     public function __construct(
         private AppendGameHistoryAction $appendGameHistory,
-        private CreateDesertStartingSpadeInteractionAction $createDesertStartingSpadeInteraction,
         private DetermineStartingBuildingOrderAction $determineStartingBuildingOrder,
         private ResolveCompletedStartingSetupAction $resolveCompletedStartingSetup,
     ) {
@@ -64,15 +63,7 @@ final class FinishStartingBuildingTurnAction
                 true,
             );
 
-            if ($hasFinishedOwnStartingBuildings
-                && $this->createDesertStartingSpadeInteraction->execute(
-                    $state,
-                    $playerState,
-                    $player->faction === Faction::Inventors,
-                )) {
-                $nextPlayer = $player;
-                $nextPhase = GamePhase::Setup;
-            } elseif (in_array($player->faction, [Faction::Inventors, Faction::Monks], true) && $hasFinishedOwnStartingBuildings) {
+            if (in_array($player->faction, [Faction::Inventors, Faction::Monks], true) && $hasFinishedOwnStartingBuildings) {
                 $availableCompetencyIds = array_values(array_unique(array_filter(
                     array_map(
                         static fn (Competency|string $competency): string => $competency instanceof Competency

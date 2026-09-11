@@ -15,6 +15,7 @@ use Illuminate\Database\Eloquent\Collection;
 final class ResolveCompletedStartingSetupAction
 {
     public function __construct(
+        private CreateDesertStartingSpadeInteractionAction $createDesertStartingSpadeInteraction,
         private FindEligibleTerraformHexesAction $findEligibleTerraformHexes,
         private ResolveIncomePhaseAction $resolveIncomePhase,
     ) {
@@ -51,6 +52,15 @@ final class ResolveCompletedStartingSetupAction
 
                     return [$competencyPlayer, GamePhase::Setup, []];
                 }
+            }
+        }
+
+        foreach ($players as $desertPlayer) {
+            $desertPlayerState = collect($state->players)->firstWhere('playerId', $desertPlayer->id);
+
+            if ($desertPlayerState !== null
+                && $this->createDesertStartingSpadeInteraction->execute($state, $desertPlayerState)) {
+                return [$desertPlayer, GamePhase::Setup, []];
             }
         }
 
