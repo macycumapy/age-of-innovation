@@ -19,12 +19,19 @@ final class StartPaidTerraformingAction
     public function __construct(
         private FindEligibleTerraformHexesAction $findEligibleTerraformHexes,
         private FindEligibleMoleTunnelHexesAction $findEligibleMoleTunnelHexes,
+        private FindEligiblePalaceFlightHexesAction $findEligiblePalaceFlightHexes,
     ) {
     }
 
-    public function execute(Game $game, User $user, string $hexId, bool $useAvailable, bool $useTunnel = false): Game
-    {
-        return DB::transaction(function () use ($game, $user, $hexId, $useAvailable, $useTunnel): Game {
+    public function execute(
+        Game $game,
+        User $user,
+        string $hexId,
+        bool $useAvailable,
+        bool $useTunnel = false,
+        bool $useFlight = false,
+    ): Game {
+        return DB::transaction(function () use ($game, $user, $hexId, $useAvailable, $useTunnel, $useFlight): Game {
             $lockedGame = Game::query()->lockForUpdate()->findOrFail($game->id);
             $state = $lockedGame->state;
             $player = $lockedGame->players()->whereBelongsTo($user)->first();
@@ -55,29 +62,52 @@ final class StartPaidTerraformingAction
             }
 
             $toolCostPerSpade = max(1, 3 - $playerState->terraformingLevel);
+            $regularTerraformHexIds = $this->findEligibleTerraformHexes->execute(
+                $state,
+                $playerState,
+                $playerState->homeland,
+            );
             $regularEligibleHexIds = $isExistingSpadeInteraction
-                ? $interaction->optionIds
-                : $this->findEligibleTerraformHexes->execute($state, $playerState, $playerState->homeland);
+                ? array_values(array_intersect($interaction->optionIds, $regularTerraformHexIds))
+                : $regularTerraformHexIds;
             $tunnelEligibleHexIds = $isExistingSpadeInteraction && ($interaction->context['tunnelUsed'] ?? false)
                 ? []
                 : $this->findEligibleMoleTunnelHexes->execute($state, $playerState);
-            $eligibleHexIds = array_values(array_unique([...$regularEligibleHexIds, ...$tunnelEligibleHexIds]));
+            $flightEligibleHexIds = $isExistingSpadeInteraction && ($interaction->context['flightUsed'] ?? false)
+                ? []
+                : $this->findEligiblePalaceFlightHexes->execute($state, $playerState);
+            $eligibleHexIds = array_values(array_unique([
+                ...$regularEligibleHexIds,
+                ...$tunnelEligibleHexIds,
+                ...$flightEligibleHexIds,
+            ]));
             $targetHex = collect($state->board->hexes)->firstWhere('id', $hexId);
             $requiredSpadeCount = $targetHex?->terrain->spadesTo($playerState->homeland) ?? 0;
             $purchasedSpadeCount = max(0, $requiredSpadeCount - $playerState->unassignedSpades);
             $totalToolCost = $purchasedSpadeCount * $toolCostPerSpade;
             $isTunnelEligible = in_array($hexId, $tunnelEligibleHexIds, true);
+            $isFlightEligible = in_array($hexId, $flightEligibleHexIds, true);
+
+            if ($useTunnel && $useFlight) {
+                throw ValidationException::withMessages(['hex_id' => 'Выберите либо Туннель, либо Полёт.']);
+            }
 
             if ($useTunnel && ! $isTunnelEligible) {
                 throw ValidationException::withMessages(['hex_id' => 'Для этой клетки нельзя использовать Туннель.']);
             }
 
-            if (! $useTunnel && ! in_array($hexId, $regularEligibleHexIds, true)) {
-                throw ValidationException::withMessages(['hex_id' => 'До этой клетки можно добраться только через Туннель.']);
+            if ($useFlight && ! $isFlightEligible) {
+                throw ValidationException::withMessages(['hex_id' => 'Для этой клетки нельзя использовать Полёт.']);
+            }
+
+            if (! $useTunnel && ! $useFlight && ! in_array($hexId, $regularEligibleHexIds, true)) {
+                throw ValidationException::withMessages(['hex_id' => 'Для этой клетки требуется Туннель или Полёт.']);
             }
 
             $tunnelToolCost = $useTunnel ? 1 : 0;
             $tunnelVictoryPoints = $useTunnel ? 2 + count($state->players) : 0;
+            $flightScholarCost = $useFlight ? 1 : 0;
+            $flightVictoryPoints = $useFlight ? 5 : 0;
             $totalToolCost += $tunnelToolCost;
 
             if (! in_array($hexId, $eligibleHexIds, true) || $requiredSpadeCount < 1) {
@@ -105,6 +135,10 @@ final class StartPaidTerraformingAction
                 throw ValidationException::withMessages(['hex_id' => 'Недостаточно инструментов для преобразования этой клетки.']);
             }
 
+            if ($flightScholarCost > $playerState->resources->scholars) {
+                throw ValidationException::withMessages(['hex_id' => 'Недостаточно учёных для Полёта.']);
+            }
+
             $stateVersionBefore = $lockedGame->version;
 
             if ($lockedGame->phase === GamePhase::Actions && $state->turnStartSnapshot === null) {
@@ -113,6 +147,7 @@ final class StartPaidTerraformingAction
             }
 
             $playerState->resources->tools -= $totalToolCost;
+            $playerState->resources->scholars -= $flightScholarCost;
             $playerState->unassignedSpades += $purchasedSpadeCount;
             if ($lockedGame->phase === GamePhase::Actions) {
                 $state->round->hasTakenMainAction = true;
@@ -130,6 +165,8 @@ final class StartPaidTerraformingAction
                 $interaction->context['spadesToSpend'] = $spadesToSpend;
                 $interaction->context['tunnelTools'] = $tunnelToolCost;
                 $interaction->context['tunnelVictoryPoints'] = $tunnelVictoryPoints;
+                $interaction->context['flightScholarCost'] = $flightScholarCost;
+                $interaction->context['flightVictoryPoints'] = $flightVictoryPoints;
                 $state->pendingInteraction = $interaction;
             } else {
                 $state->pendingInteraction = new PendingInteractionData(
@@ -146,11 +183,14 @@ final class StartPaidTerraformingAction
                         'spadesToSpend' => $spadesToSpend,
                         'tunnelTools' => $tunnelToolCost,
                         'tunnelVictoryPoints' => $tunnelVictoryPoints,
+                        'flightScholarCost' => $flightScholarCost,
+                        'flightVictoryPoints' => $flightVictoryPoints,
                     ],
                 );
             }
 
             $playerState->victoryPoints += $tunnelVictoryPoints;
+            $playerState->victoryPoints += $flightVictoryPoints;
 
             $lockedGame->update([
                 'state' => $state,

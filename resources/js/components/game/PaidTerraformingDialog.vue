@@ -17,6 +17,7 @@ import {
 import { terrainNames } from '@/lib/gameDisplay';
 import type { BoardHexState, GamePlayerBoardState, TerrainType } from '@/types';
 import toolUrl from '../../../images/token_parts/cube.png';
+import scholarUrl from '../../../images/token_parts/scholar.png';
 
 const props = defineProps<{
     gameId: number;
@@ -27,11 +28,15 @@ const props = defineProps<{
     buildsNeutralBuilding?: boolean;
     tunnelAvailable?: boolean;
     tunnelRequired?: boolean;
+    flightAvailable?: boolean;
+    flightRequired?: boolean;
+    specialReachRequired?: boolean;
     playerCount?: number;
 }>();
 
 const isOpen = defineModel<boolean>('open', { required: true });
 const useTunnel = ref(false);
+const useFlight = ref(false);
 const toolCostPerSpade = computed(() => Math.max(1, 3 - props.playerState.terraformingLevel));
 const terrainCycle: TerrainType[] = ['desert', 'plains', 'swamp', 'lake', 'forest', 'mountain', 'wasteland'];
 const requiredSpades = computed(() => {
@@ -53,6 +58,8 @@ const availableSpades = computed(() =>
 const purchasedSpades = computed(() => Math.max(0, requiredSpades.value - availableSpades.value));
 const totalToolCost = computed(() => purchasedSpades.value * toolCostPerSpade.value + (useTunnel.value ? 1 : 0));
 const canAffordFullTransformation = computed(() => totalToolCost.value <= props.playerState.tools);
+const canAffordFlight = computed(() => !useFlight.value || props.playerState.scholars >= 1);
+const hasSelectedSpecialReach = computed(() => !props.specialReachRequired || useTunnel.value || useFlight.value);
 const canTransformAvailable = computed(
     () => props.hasSpadeInteraction && availableSpades.value > 0 && availableSpades.value < requiredSpades.value,
 );
@@ -61,11 +68,28 @@ function startSucceeded(): void {
     isOpen.value = false;
 }
 
-watch([isOpen, () => props.tunnelRequired, () => props.targetHex.id], ([open, tunnelRequired]) => {
-    if (open) {
-        useTunnel.value = tunnelRequired ?? false;
+function toggleTunnel(): void {
+    if (useTunnel.value) {
+        useFlight.value = false;
     }
-}, { immediate: true });
+}
+
+function toggleFlight(): void {
+    if (useFlight.value) {
+        useTunnel.value = false;
+    }
+}
+
+watch(
+    [isOpen, () => props.tunnelRequired, () => props.flightRequired, () => props.targetHex.id],
+    ([open, tunnelRequired, flightRequired]) => {
+        if (open) {
+            useTunnel.value = tunnelRequired ?? false;
+            useFlight.value = flightRequired ?? false;
+        }
+    },
+    { immediate: true },
+);
 </script>
 
 <template>
@@ -102,15 +126,38 @@ watch([isOpen, () => props.tunnelRequired, () => props.targetHex.id], ([open, tu
 
                     <input type="hidden" name="hex_id" :value="targetHex.id" />
                     <input type="hidden" name="use_tunnel" :value="useTunnel ? '1' : '0'" />
+                    <input type="hidden" name="use_flight" :value="useFlight ? '1' : '0'" />
 
                     <label
                         v-if="tunnelAvailable && !buildsNeutralBuilding"
                         class="flex items-center justify-between gap-4 rounded-lg border p-3 text-sm"
                     >
-                        <span>
-                            Использовать Туннель: 1 инструмент, +{{ 2 + (playerCount ?? 0) }} ПО
+                        <span> Использовать Туннель: 1 инструмент, +{{ 2 + (playerCount ?? 0) }} ПО </span>
+                        <input
+                            v-model="useTunnel"
+                            type="checkbox"
+                            :disabled="tunnelRequired"
+                            class="size-4"
+                            @change="toggleTunnel"
+                        />
+                    </label>
+
+                    <label
+                        v-if="flightAvailable && !buildsNeutralBuilding"
+                        class="flex items-center justify-between gap-4 rounded-lg border p-3 text-sm"
+                    >
+                        <span class="flex items-center gap-2">
+                            Использовать Полёт: 1
+                            <img :src="scholarUrl" alt="учёный" class="size-5 object-contain" />
+                            , +5 ПО
                         </span>
-                        <input v-model="useTunnel" type="checkbox" :disabled="tunnelRequired" class="size-4" />
+                        <input
+                            v-model="useFlight"
+                            type="checkbox"
+                            :disabled="flightRequired"
+                            class="size-4"
+                            @change="toggleFlight"
+                        />
                     </label>
 
                     <div class="grid grid-cols-3 gap-3 text-sm">
@@ -139,6 +186,10 @@ watch([isOpen, () => props.tunnelRequired, () => props.targetHex.id], ([open, tu
                     <p v-if="!canAffordFullTransformation" class="text-sm text-destructive">
                         Не хватает инструментов: доступно {{ playerState.tools }}.
                     </p>
+                    <p v-if="!canAffordFlight" class="text-sm text-destructive">Для Полёта нужен 1 учёный.</p>
+                    <p v-if="!hasSelectedSpecialReach" class="text-sm text-destructive">
+                        Выберите Туннель или Полёт, чтобы добраться до этой клетки.
+                    </p>
                     <InputError :message="errors.hex_id ?? errors.game" />
                 </div>
 
@@ -153,7 +204,7 @@ watch([isOpen, () => props.tunnelRequired, () => props.targetHex.id], ([open, tu
                         value="1"
                         variant="outline"
                         class="whitespace-normal"
-                        :disabled="processing"
+                        :disabled="processing || !canAffordFlight || !hasSelectedSpecialReach"
                     >
                         Преобразовать доступные
                     </Button>
@@ -162,7 +213,9 @@ watch([isOpen, () => props.tunnelRequired, () => props.targetHex.id], ([open, tu
                         name="use_available"
                         value="0"
                         :class="canTransformAvailable ? 'whitespace-normal sm:col-span-2' : 'whitespace-normal'"
-                        :disabled="processing || !canAffordFullTransformation"
+                        :disabled="
+                            processing || !canAffordFullTransformation || !canAffordFlight || !hasSelectedSpecialReach
+                        "
                     >
                         {{
                             processing

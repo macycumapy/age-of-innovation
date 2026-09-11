@@ -559,6 +559,12 @@ function actionDetails(entry: GameHistoryEntry): string | null {
         );
     }
 
+    if (entry.type === 'spend_starting_spade' && Number(entry.payload.flight_scholar_cost ?? 0) > 0) {
+        details.push(
+            `Полёт: потрачен ${String(entry.payload.flight_scholar_cost)} учёный · получено ${String(entry.payload.flight_victory_points ?? 0)} ПО`,
+        );
+    }
+
     const developmentTrackReward = developmentTrackRewardDetails(entry);
 
     if (developmentTrackReward !== null) {

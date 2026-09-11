@@ -29,6 +29,7 @@ final class PaidTerraformingController extends Controller
                 $request->hexId(),
                 $request->useAvailable(),
                 $request->useTunnel(),
+                $request->useFlight(),
             );
             $spendStartingSpade->execute($preparedGame, $user, $request->hexId());
         });

@@ -460,6 +460,9 @@ export type PendingInteraction =
               spentSpades?: number;
               lizardBonusPending?: boolean;
               lizardFreeWorkshop?: boolean;
+              flightScholarCost?: number;
+              flightVictoryPoints?: number;
+              flightUsed?: boolean;
           };
       }
     | {

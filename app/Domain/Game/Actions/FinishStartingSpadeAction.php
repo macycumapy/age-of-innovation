@@ -29,6 +29,7 @@ final class FinishStartingSpadeAction
         private DetermineStartingBuildingOrderAction $determineStartingBuildingOrder,
         private FindEligibleTerraformHexesAction $findEligibleTerraformHexes,
         private FindEligibleMoleTunnelHexesAction $findEligibleMoleTunnelHexes,
+        private FindEligiblePalaceFlightHexesAction $findEligiblePalaceFlightHexes,
         private OfferWorkshopAfterTerraformingAction $offerWorkshopAfterTerraforming,
         private ResolveCompletedStartingSetupAction $resolveCompletedStartingSetup,
         private ResolveScienceBonusPhaseAction $resolveScienceBonusPhase,
@@ -76,6 +77,8 @@ final class FinishStartingSpadeAction
             $paidSpadeCount = (int) ($interaction->context['paidSpadeCount'] ?? 0);
             $tunnelTools = (int) ($interaction->context['tunnelTools'] ?? 0);
             $tunnelVictoryPoints = (int) ($interaction->context['tunnelVictoryPoints'] ?? 0);
+            $flightScholarCost = (int) ($interaction->context['flightScholarCost'] ?? 0);
+            $flightVictoryPoints = (int) ($interaction->context['flightVictoryPoints'] ?? 0);
             $roundScoringTile = RoundScoringTile::tryFrom((string) $state->round->scoringTileId);
             $roundScoringVictoryPoints = $interactionPhase === GamePhase::Actions
                 && $roundScoringTile?->goal() === RoundScoringGoal::Spade
@@ -86,6 +89,9 @@ final class FinishStartingSpadeAction
 
             if ($tunnelTools > 0) {
                 $interaction->context['tunnelUsed'] = true;
+            }
+            if ($flightScholarCost > 0) {
+                $interaction->context['flightUsed'] = true;
             }
 
             if ($interactionPhase === GamePhase::Actions
@@ -102,6 +108,8 @@ final class FinishStartingSpadeAction
                 $interaction->context['spentSpades'],
                 $interaction->context['tunnelTools'],
                 $interaction->context['tunnelVictoryPoints'],
+                $interaction->context['flightScholarCost'],
+                $interaction->context['flightVictoryPoints'],
                 $interaction->context['optionIdsBeforeSelection'],
             );
             $interaction->context['remainingSpades'] = $remainingSpades;
@@ -124,6 +132,12 @@ final class FinishStartingSpadeAction
                     $interaction->optionIds = array_values(array_unique([
                         ...$interaction->optionIds,
                         ...$this->findEligibleMoleTunnelHexes->execute($state, $playerState),
+                    ]));
+                }
+                if (! ($interaction->context['flightUsed'] ?? false)) {
+                    $interaction->optionIds = array_values(array_unique([
+                        ...$interaction->optionIds,
+                        ...$this->findEligiblePalaceFlightHexes->execute($state, $playerState),
                     ]));
                 }
 
@@ -240,6 +254,8 @@ final class FinishStartingSpadeAction
                     'bonus_coins' => $goblinBonusCoins,
                     'tunnel_tools' => $tunnelTools,
                     'tunnel_victory_points' => $tunnelVictoryPoints,
+                    'flight_scholar_cost' => $flightScholarCost,
+                    'flight_victory_points' => $flightVictoryPoints,
                     'victory_points' => $roundScoringVictoryPoints,
                     'feline_bonus_pending' => (bool) ($interaction->context['felineBonusPending'] ?? false),
                     'lizard_bonus_pending' => (bool) ($interaction->context['lizardBonusPending'] ?? false),
@@ -262,6 +278,13 @@ final class FinishStartingSpadeAction
                         'hex_id' => $hexId,
                         'tools' => $tunnelTools,
                         'victory_points' => $tunnelVictoryPoints,
+                    ]] : []),
+                    ...($flightScholarCost > 0 ? [[
+                        'type' => 'palace_flight_used',
+                        'player_id' => $player->id,
+                        'hex_id' => $hexId,
+                        'scholars' => $flightScholarCost,
+                        'victory_points' => $flightVictoryPoints,
                     ]] : []),
                     ...($roundScoringVictoryPoints > 0 ? [[
                         'type' => 'round_spade_scored',

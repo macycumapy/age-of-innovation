@@ -46,9 +46,13 @@ final class UndoStartingSpadeAction
                 $paidTools = (int) ($interaction->context['paidTools'] ?? 0);
                 $paidSpadeCount = (int) ($interaction->context['paidSpadeCount'] ?? 0);
                 $tunnelVictoryPoints = (int) ($interaction->context['tunnelVictoryPoints'] ?? 0);
+                $flightScholarCost = (int) ($interaction->context['flightScholarCost'] ?? 0);
+                $flightVictoryPoints = (int) ($interaction->context['flightVictoryPoints'] ?? 0);
                 $playerState->resources->tools += $paidTools;
+                $playerState->resources->scholars += $flightScholarCost;
                 $playerState->unassignedSpades -= $paidSpadeCount;
                 $playerState->victoryPoints -= $tunnelVictoryPoints;
+                $playerState->victoryPoints -= $flightVictoryPoints;
                 $interaction->context['remainingSpades'] = max(
                     0,
                     (int) ($interaction->context['remainingSpades'] ?? 0) - $paidSpadeCount,
@@ -67,6 +71,8 @@ final class UndoStartingSpadeAction
                 $interaction->context['spadesToSpend'],
                 $interaction->context['tunnelTools'],
                 $interaction->context['tunnelVictoryPoints'],
+                $interaction->context['flightScholarCost'],
+                $interaction->context['flightVictoryPoints'],
                 $interaction->context['optionIdsBeforeSelection'],
             );
             $state->pendingInteraction = $interaction;

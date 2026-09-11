@@ -279,7 +279,13 @@ const selectableStartingHexIds = computed(() => {
 
     if (canSpendStartingSpade.value && props.game.data.pendingInteraction?.type === 'spend_spades') {
         return pendingStartingSpadeHexId.value === null
-            ? [...new Set([...props.game.data.pendingInteraction.optionIds, ...moleTunnelTerraformHexIds.value])]
+            ? [
+                  ...new Set([
+                      ...props.game.data.pendingInteraction.optionIds,
+                      ...moleTunnelTerraformHexIds.value,
+                      ...palaceFlightTerraformHexIds.value,
+                  ]),
+              ]
             : [];
     }
 
@@ -660,6 +666,42 @@ const moleTunnelTerraformHexIds = computed(() => {
 
     return [...eligibleHexIds];
 });
+const palaceFlightTerraformHexIds = computed(() => {
+    const player = currentPlayer.value;
+    const state = currentPlayerState.value;
+
+    if (
+        (!canStartPaidTerraforming.value && !canSpendStartingSpade.value) ||
+        player === undefined ||
+        state?.palaceId !== 'palace_09' ||
+        state.scholars < 1
+    ) {
+        return [];
+    }
+
+    const ownedBuildingHexes = props.game.data.board.hexes.filter((hex) => hex.building?.ownerPlayerId === player.id);
+    const ownedBuildingHexIds = new Set(ownedBuildingHexes.map((hex) => hex.id));
+
+    return props.game.data.board.hexes
+        .filter((targetHex) => {
+            if (
+                targetHex.building !== null ||
+                targetHex.terrain === 'water' ||
+                targetHex.terrain === player.homeland ||
+                targetHex.adjacentHexIds.some((hexId) => ownedBuildingHexIds.has(hexId))
+            ) {
+                return false;
+            }
+
+            return ownedBuildingHexes.some((originHex) => {
+                const qDistance = targetHex.q - originHex.q;
+                const rDistance = targetHex.r - originHex.r;
+
+                return Math.max(Math.abs(qDistance), Math.abs(rDistance), Math.abs(qDistance + rDistance)) <= 3;
+            });
+        })
+        .map((hex) => hex.id);
+});
 const terrainCycle: TerrainType[] = ['desert', 'plains', 'swamp', 'lake', 'forest', 'mountain', 'wasteland'];
 
 function requiredTerraformingSpades(source: TerrainType, target: TerrainType): number {
@@ -691,6 +733,7 @@ const paidTerraformHexIds = computed(() => {
                 (hexId) => props.game.data.board.hexes.find((hex) => hex.id === hexId)?.terrain !== homeland,
             ),
             ...moleTunnelTerraformHexIds.value,
+            ...palaceFlightTerraformHexIds.value,
         ]),
     ];
     const toolCostPerSpade = Math.max(1, 3 - state.terraformingLevel);
@@ -704,11 +747,17 @@ const paidTerraformHexIds = computed(() => {
 
         const requiredSpades = requiredTerraformingSpades(hex.terrain, homeland);
         const purchasedSpades = Math.max(0, requiredSpades - state.unassignedSpades);
-        const requiresTunnel =
-            moleTunnelTerraformHexIds.value.includes(hexId) && !reachableEmptyLandHexIds.value.includes(hexId);
-        const totalToolCost = purchasedSpades * toolCostPerSpade + (requiresTunnel ? 1 : 0);
+        const isRegularlyReachable = reachableEmptyLandHexIds.value.includes(hexId);
+        const tunnelAvailable = moleTunnelTerraformHexIds.value.includes(hexId);
+        const flightAvailable = palaceFlightTerraformHexIds.value.includes(hexId);
+        const baseToolCost = purchasedSpades * toolCostPerSpade;
 
-        return totalToolCost <= state.tools;
+        return (
+            baseToolCost <= state.tools &&
+            (isRegularlyReachable ||
+                (tunnelAvailable && baseToolCost + 1 <= state.tools) ||
+                (flightAvailable && state.scholars >= 1))
+        );
     });
 });
 const buildableWorkshopHexIds = computed(() => {
@@ -1201,7 +1250,19 @@ defineOptions({
                 :tunnel-available="moleTunnelTerraformHexIds.includes(selectedPaidTerraformHex.id)"
                 :tunnel-required="
                     moleTunnelTerraformHexIds.includes(selectedPaidTerraformHex.id) &&
-                    !reachableEmptyLandHexIds.includes(selectedPaidTerraformHex.id)
+                    !reachableEmptyLandHexIds.includes(selectedPaidTerraformHex.id) &&
+                    !palaceFlightTerraformHexIds.includes(selectedPaidTerraformHex.id)
+                "
+                :flight-available="palaceFlightTerraformHexIds.includes(selectedPaidTerraformHex.id)"
+                :flight-required="
+                    palaceFlightTerraformHexIds.includes(selectedPaidTerraformHex.id) &&
+                    !reachableEmptyLandHexIds.includes(selectedPaidTerraformHex.id) &&
+                    !moleTunnelTerraformHexIds.includes(selectedPaidTerraformHex.id)
+                "
+                :special-reach-required="
+                    !reachableEmptyLandHexIds.includes(selectedPaidTerraformHex.id) &&
+                    (moleTunnelTerraformHexIds.includes(selectedPaidTerraformHex.id) ||
+                        palaceFlightTerraformHexIds.includes(selectedPaidTerraformHex.id))
                 "
                 :player-count="game.data.players.length"
             />

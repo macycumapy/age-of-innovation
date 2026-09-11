@@ -452,6 +452,120 @@ class GameManagementTest extends TestCase
         $this->assertSame(TerrainType::Forest, $game->state->board->hexes[2]->terrain);
     }
 
+    public function test_palace_nine_flight_can_be_selected_rolled_back_and_confirmed(): void
+    {
+        $user = User::factory()->create();
+        $game = Game::factory()->create([
+            'status' => GameStatus::Active,
+            'phase' => GamePhase::Actions,
+            'active_player_id' => $user->id,
+        ]);
+        $player = GamePlayer::factory()->create(['game_id' => $game->id, 'user_id' => $user->id]);
+        $game->update(['state' => new GameStateData(
+            board: new BoardStateData(hexes: [
+                new BoardHexStateData(
+                    id: '0:0',
+                    q: 0,
+                    r: 0,
+                    initialTerrain: TerrainType::Forest,
+                    terrain: TerrainType::Forest,
+                    building: new BuildingStateData(BuildingType::Workshop, $player->id),
+                ),
+                new BoardHexStateData(
+                    id: '3:0',
+                    q: 3,
+                    r: 0,
+                    initialTerrain: TerrainType::Mountain,
+                    terrain: TerrainType::Mountain,
+                ),
+                new BoardHexStateData(
+                    id: '4:0',
+                    q: 4,
+                    r: 0,
+                    initialTerrain: TerrainType::Mountain,
+                    terrain: TerrainType::Mountain,
+                ),
+                new BoardHexStateData(
+                    id: '0:2',
+                    q: 0,
+                    r: 2,
+                    initialTerrain: TerrainType::Forest,
+                    terrain: TerrainType::Forest,
+                    adjacentHexIds: ['0:3'],
+                    building: new BuildingStateData(BuildingType::Workshop, $player->id),
+                ),
+                new BoardHexStateData(
+                    id: '0:3',
+                    q: 0,
+                    r: 3,
+                    initialTerrain: TerrainType::Mountain,
+                    terrain: TerrainType::Mountain,
+                    adjacentHexIds: ['0:2'],
+                ),
+            ]),
+            round: new RoundStateData(phase: GamePhase::Actions),
+            players: [new GamePlayerStateData(
+                playerId: $player->id,
+                userId: $user->id,
+                color: PlayerColor::Green,
+                faction: Faction::Blessed,
+                homeland: TerrainType::Forest,
+                roundBonus: RoundBonus::Coins,
+                resources: new PlayerResourcesData(tools: 3, scholars: 1),
+                palaceId: PalaceAbility::Palace09->value,
+            )],
+        )]);
+
+        $this->actingAs($user)->post(route('games.paid-terraforming', $game), [
+            'hex_id' => '4:0',
+            'use_flight' => true,
+        ])->assertSessionHasErrors('hex_id');
+
+        $this->post(route('games.paid-terraforming', $game), [
+            'hex_id' => '0:3',
+            'use_flight' => true,
+        ])->assertSessionHasErrors('hex_id');
+
+        $this->post(route('games.paid-terraforming', $game), [
+            'hex_id' => '3:0',
+        ])->assertSessionHasErrors('hex_id');
+
+        $this->post(route('games.paid-terraforming', $game), [
+            'hex_id' => '3:0',
+            'use_flight' => true,
+        ])->assertNoContent();
+        $game->refresh();
+
+        $this->assertSame(0, $game->state->players[0]->resources->scholars);
+        $this->assertSame(25, $game->state->players[0]->victoryPoints);
+        $this->assertSame(TerrainType::Forest, $game->state->board->hexes[1]->terrain);
+
+        $this->delete(route('games.starting-spade.destroy', $game))->assertNoContent();
+        $game->refresh();
+
+        $this->assertSame(1, $game->state->players[0]->resources->scholars);
+        $this->assertSame(20, $game->state->players[0]->victoryPoints);
+        $this->assertSame(TerrainType::Mountain, $game->state->board->hexes[1]->terrain);
+
+        $this->post(route('games.paid-terraforming', $game), [
+            'hex_id' => '3:0',
+            'use_flight' => true,
+        ])->assertNoContent();
+        $this->post(route('games.starting-spade.finish', $game))->assertNoContent();
+        $game->refresh();
+
+        $action = $game->actions()->where('type', GameActionType::SpendStartingSpade)->sole();
+        $this->assertSame(1, $action->payload['flight_scholar_cost']);
+        $this->assertSame(5, $action->payload['flight_victory_points']);
+
+        $this->post(route('games.current-turn.restart', $game))->assertNoContent();
+        $game->refresh();
+
+        $this->assertSame(1, $game->state->players[0]->resources->scholars);
+        $this->assertSame(20, $game->state->players[0]->victoryPoints);
+        $this->assertSame(TerrainType::Mountain, $game->state->board->hexes[1]->terrain);
+    }
+
     public function test_player_income_is_calculated_from_buildings_and_owned_tiles(): void
     {
         $playerState = new GamePlayerStateData(

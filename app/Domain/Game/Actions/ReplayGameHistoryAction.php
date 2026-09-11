@@ -95,6 +95,7 @@ final class ReplayGameHistoryAction
         private ApplyMakeInnovationAction $applyMakeInnovation,
         private FindEligibleTerraformHexesAction $findEligibleTerraformHexes,
         private FindEligibleMoleTunnelHexesAction $findEligibleMoleTunnelHexes,
+        private FindEligiblePalaceFlightHexesAction $findEligiblePalaceFlightHexes,
         private StartLizardTownBonusAction $startLizardTownBonus,
         private CreateTownChoiceAfterBuildingAction $createTownChoiceAfterBuilding,
         private CreateDesertStartingSpadeInteractionAction $createDesertStartingSpadeInteraction,
@@ -801,8 +802,10 @@ final class ReplayGameHistoryAction
 
         $playerState = $this->playerState($state, $player->id);
         $playerState->resources->tools -= (int) ($action->payload['paid_tools'] ?? 0);
+        $playerState->resources->scholars -= (int) ($action->payload['flight_scholar_cost'] ?? 0);
         $playerState->resources->coins += (int) ($action->payload['bonus_coins'] ?? 0);
         $playerState->victoryPoints += (int) ($action->payload['tunnel_victory_points'] ?? 0);
+        $playerState->victoryPoints += (int) ($action->payload['flight_victory_points'] ?? 0);
         $playerState->victoryPoints += (int) ($action->payload['victory_points'] ?? 0);
         $playerState->unassignedSpades += (int) ($action->payload['paid_spade_count'] ?? 0);
         $playerState->unassignedSpades -= (int) ($action->payload['spades_spent'] ?? 1);
@@ -818,10 +821,17 @@ final class ReplayGameHistoryAction
                 $targetTerrain,
             );
             $tunnelUsed = (int) ($action->payload['tunnel_tools'] ?? 0) > 0;
+            $flightUsed = (int) ($action->payload['flight_scholar_cost'] ?? 0) > 0;
             if (! $tunnelUsed) {
                 $eligibleHexIds = array_values(array_unique([
                     ...$eligibleHexIds,
                     ...$this->findEligibleMoleTunnelHexes->execute($state, $playerState),
+                ]));
+            }
+            if (! $flightUsed) {
+                $eligibleHexIds = array_values(array_unique([
+                    ...$eligibleHexIds,
+                    ...$this->findEligiblePalaceFlightHexes->execute($state, $playerState),
                 ]));
             }
             $state->pendingInteraction = new PendingInteractionData(
@@ -835,6 +845,7 @@ final class ReplayGameHistoryAction
                     'phase' => $interactionPhase->value,
                     'buildableHexIds' => $action->payload['buildable_hex_ids'] ?? [],
                     'tunnelUsed' => $tunnelUsed,
+                    'flightUsed' => $flightUsed,
                     ...((bool) ($action->payload['feline_bonus_pending'] ?? false)
                         ? ['felineBonusPending' => true]
                         : []),

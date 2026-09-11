@@ -8,6 +8,7 @@ use App\Domain\Game\Data\BoardHexStateData;
 use App\Domain\Game\Data\BoardStateData;
 use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Enums\Faction;
+use App\Domain\Game\Enums\PalaceAbility;
 use App\Domain\Game\Enums\TerrainType;
 
 final class LargestNetworkSizeCalculator
@@ -52,7 +53,9 @@ final class LargestNetworkSizeCalculator
             }
         }
 
-        if ($player->faction === Faction::Moles) {
+        if ($player->palaceId === PalaceAbility::Palace09->value) {
+            self::connectPalaceFlights($connections, $ownedHexIds, $hexesById);
+        } elseif ($player->faction === Faction::Moles) {
             self::connectMoleTunnels($connections, $ownedHexIds, $hexesById);
         }
 
@@ -100,6 +103,32 @@ final class LargestNetworkSizeCalculator
                 ) !== [];
 
                 if ($hexDistance === 2 && $hasIntermediateHex) {
+                    self::connect($connections, $fromHexId, $toHexId);
+                }
+            }
+        }
+    }
+
+    /**
+     * @param array<string, array<string, true>> $connections
+     * @param array<string, true> $ownedHexIds
+     * @param array<string, BoardHexStateData> $hexesById
+     */
+    private static function connectPalaceFlights(
+        array &$connections,
+        array $ownedHexIds,
+        array $hexesById,
+    ): void {
+        foreach (array_keys($ownedHexIds) as $fromHexId) {
+            $fromHex = $hexesById[$fromHexId];
+
+            foreach (array_keys($ownedHexIds) as $toHexId) {
+                $toHex = $hexesById[$toHexId];
+                $qDistance = $toHex->q - $fromHex->q;
+                $rDistance = $toHex->r - $fromHex->r;
+                $hexDistance = max(abs($qDistance), abs($rDistance), abs($qDistance + $rDistance));
+
+                if ($hexDistance >= 2 && $hexDistance <= 3) {
                     self::connect($connections, $fromHexId, $toHexId);
                 }
             }

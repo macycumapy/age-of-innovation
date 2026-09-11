@@ -11,6 +11,7 @@ use App\Domain\Game\Data\BuildingStateData;
 use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Enums\BuildingType;
 use App\Domain\Game\Enums\Faction;
+use App\Domain\Game\Enums\PalaceAbility;
 use App\Domain\Game\Enums\PlayerColor;
 use App\Domain\Game\Enums\RoundBonus;
 use App\Domain\Game\Enums\TerrainType;
@@ -94,6 +95,21 @@ class LargestNetworkSizeCalculatorTest extends TestCase
         $this->assertSame(1, LargestNetworkSizeCalculator::calculate($this->player(shippingLevel: 0), $board));
     }
 
+    public function test_palace_nine_buildings_are_connected_by_flights_with_range_three(): void
+    {
+        $board = new BoardStateData(hexes: [
+            $this->landHexAt('0:0', 0, 0, 1),
+            $this->landHexAt('3:0', 3, 0, 1),
+            $this->landHexAt('7:0', 7, 0, 1),
+        ]);
+
+        $this->assertSame(2, LargestNetworkSizeCalculator::calculate(
+            $this->player(shippingLevel: 0, palaceId: PalaceAbility::Palace09->value),
+            $board,
+        ));
+        $this->assertSame(1, LargestNetworkSizeCalculator::calculate($this->player(shippingLevel: 0), $board));
+    }
+
     /** @param list<string> $adjacentHexIds */
     private function landHex(string $id, array $adjacentHexIds, int $ownerPlayerId): BoardHexStateData
     {
@@ -121,10 +137,23 @@ class LargestNetworkSizeCalculatorTest extends TestCase
         );
     }
 
+    private function landHexAt(string $id, int $q, int $r, int $ownerPlayerId): BoardHexStateData
+    {
+        return new BoardHexStateData(
+            id: $id,
+            q: $q,
+            r: $r,
+            initialTerrain: TerrainType::Desert,
+            terrain: TerrainType::Desert,
+            building: new BuildingStateData(BuildingType::Workshop, $ownerPlayerId),
+        );
+    }
+
     private function player(
         int $shippingLevel,
         RoundBonus $roundBonus = RoundBonus::Coins,
         Faction $faction = Faction::Blessed,
+        ?string $palaceId = null,
     ): GamePlayerStateData {
         return new GamePlayerStateData(
             playerId: 1,
@@ -134,6 +163,7 @@ class LargestNetworkSizeCalculatorTest extends TestCase
             homeland: TerrainType::Desert,
             roundBonus: $roundBonus,
             shippingLevel: $shippingLevel,
+            palaceId: $palaceId,
         );
     }
 }
