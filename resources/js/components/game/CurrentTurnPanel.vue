@@ -30,6 +30,7 @@ const props = defineProps<{
     pendingPalaceGuildHexId: string | null;
     selectedBridgeFromHexId: string | null;
     isPalaceBuildingSelectionActive: boolean;
+    isBookBuildingSelectionActive: boolean;
     palaceBuildingSelectionSource: 'workshop' | 'school' | null;
 }>();
 
@@ -38,6 +39,7 @@ const emit = defineEmits<{
     pass: [];
     resetBridgeSelection: [];
     cancelPalaceBuildingSelection: [];
+    cancelBookBuildingSelection: [];
 }>();
 
 const isCurrentUsersTurn = computed(() => props.activePlayer?.user.id === props.currentUserId);
@@ -184,6 +186,7 @@ function scrollToPageTop(event: MouseEvent): void {
                         canResolvePowerOffer ||
                         canResolvePalaceWaterTown ||
                         isPalaceBuildingSelectionActive ||
+                        isBookBuildingSelectionActive ||
                         game.data.pendingInteraction?.type === 'choose_starting_resources' ||
                         game.data.pendingInteraction?.type === 'place_palace_guild' ||
                         game.data.pendingInteraction?.type === 'place_neutral_building' ||
@@ -221,6 +224,9 @@ function scrollToPageTop(event: MouseEvent): void {
                         ? 'Выберите школу для замены рынком или отмените действие.'
                         : 'Выберите дом для бесплатного улучшения до рынка или отмените действие.'
                 }}
+            </template>
+            <template v-else-if="isBookBuildingSelectionActive">
+                Выберите дом для бесплатного улучшения до рынка за книги или отмените действие.
             </template>
             <template v-else-if="game.data.pendingInteraction?.type === 'power_offer'">
                 Получить {{ powerOfferAmount }} Силы за {{ powerOfferVictoryPointCost }} ПО?
@@ -546,6 +552,16 @@ function scrollToPageTop(event: MouseEvent): void {
             type="button"
             variant="outline"
             @click="emit('cancelPalaceBuildingSelection')"
+        >
+            <RotateCcw class="size-4" />
+            Отменить действие
+        </Button>
+
+        <Button
+            v-else-if="isCurrentUsersTurn && isBookBuildingSelectionActive"
+            type="button"
+            variant="outline"
+            @click="emit('cancelBookBuildingSelection')"
         >
             <RotateCcw class="size-4" />
             Отменить действие

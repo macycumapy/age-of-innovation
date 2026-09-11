@@ -14,7 +14,7 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import { NumberStepper } from '@/components/ui/number-stepper';
-import type { BoardState, BookActionState, GamePlayerBoardState, KnowledgeDiscipline } from '@/types';
+import type { BookActionState, GamePlayerBoardState, KnowledgeDiscipline } from '@/types';
 import bankingBookUrl from '../../../images/token_parts/coin_book.png';
 import bankingCultUrl from '../../../images/token_parts/coin_round.png';
 import engineeringBookUrl from '../../../images/token_parts/engineering_book.png';
@@ -30,7 +30,7 @@ const props = defineProps<{
     gameId: number;
     action: BookActionState | null;
     playerState?: GamePlayerBoardState;
-    board: BoardState;
+    selectedHexId?: string | null;
     disciplineNames: Record<KnowledgeDiscipline, string>;
 }>();
 
@@ -58,20 +58,6 @@ const bookImages: Record<BookType, string> = {
     medicine: medicineBookUrl,
 };
 const selectedBookCount = computed(() => Object.values(bookCounts).reduce((sum, count) => sum + count, 0));
-const workshopHexIds = computed(() =>
-    props.board.hexes
-        .filter((hex) => {
-            const building = hex.building;
-
-            return (
-                building !== null &&
-                building.ownerPlayerId === props.playerState?.playerId &&
-                building.type === 'workshop' &&
-                !building.isNeutral
-            );
-        })
-        .map((hex) => hex.id),
-);
 const hasRequiredChoice = computed(() => {
     if (props.action?.id === 'advance_knowledge') {
         return selectedDiscipline.value !== null;
@@ -93,7 +79,7 @@ watch([isOpen, () => props.action], ([open]) => {
     }
 
     selectedDiscipline.value = null;
-    selectedHexId.value = null;
+    selectedHexId.value = props.selectedHexId ?? null;
     let remaining = props.action?.cost ?? 0;
 
     for (const bookType of bookTypes) {
@@ -181,21 +167,9 @@ function actionSucceeded(): void {
                     </div>
                 </div>
 
-                <div v-if="action.id === 'upgrade_to_guild'" class="grid gap-2">
-                    <p class="text-sm font-medium">Выберите мастерскую</p>
-                    <div class="flex flex-wrap gap-2">
-                        <Button
-                            v-for="hexId in workshopHexIds"
-                            :key="hexId"
-                            type="button"
-                            :variant="selectedHexId === hexId ? 'default' : 'outline'"
-                            @click="selectedHexId = hexId"
-                        >
-                            Ячейка {{ hexId }}
-                        </Button>
-                    </div>
-                    <p v-if="workshopHexIds.length === 0" class="text-sm text-destructive">Нет доступных мастерских.</p>
-                </div>
+                <p v-if="action.id === 'upgrade_to_guild' && selectedHexId" class="text-sm text-muted-foreground">
+                    Выбран дом в области {{ selectedHexId }}.
+                </p>
 
                 <InputError
                     :message="errors.book_counts ?? errors.discipline ?? errors.hex_id ?? errors.action ?? errors.game"

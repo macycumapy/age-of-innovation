@@ -251,7 +251,7 @@ watch(
 );
 
 const selectableStartingHexIds = computed(() => {
-    if (isPalaceBuildingSelectionActive.value) {
+    if (isPalaceBuildingSelectionActive.value || isBookBuildingSelectionActive.value) {
         return [];
     }
 
@@ -426,6 +426,7 @@ const isFactionActionDialogOpen = ref(false);
 const isCompetencyActionDialogOpen = ref(false);
 const isPalaceActionDialogOpen = ref(false);
 const isPalaceBuildingSelectionActive = ref(false);
+const isBookBuildingSelectionActive = ref(false);
 const isPassDialogOpen = ref(false);
 const isPaidTerraformingDialogOpen = ref(false);
 
@@ -448,6 +449,7 @@ const selectedPaidTerraformHexId = ref<string | null>(null);
 const selectedBuildWorkshopHexId = ref<string | null>(null);
 const selectedBuildingUpgradeHexId = ref<string | null>(null);
 const selectedPalaceActionHexId = ref<string | null>(null);
+const selectedBookActionHexId = ref<string | null>(null);
 const selectedPowerAction = ref<PowerActionState | null>(null);
 const selectedBookAction = ref<BookActionState | null>(null);
 const selectedInnovation = ref<Innovation | null>(null);
@@ -480,6 +482,12 @@ function openPalaceAction(): void {
 function cancelPalaceBuildingSelection(): void {
     isPalaceBuildingSelectionActive.value = false;
     selectedPalaceActionHexId.value = null;
+}
+
+function cancelBookBuildingSelection(): void {
+    isBookBuildingSelectionActive.value = false;
+    selectedBookActionHexId.value = null;
+    selectedBookAction.value = null;
 }
 const selectedScholarDiscipline = ref<KnowledgeDiscipline | null>(null);
 
@@ -842,6 +850,14 @@ function selectPowerAction(action: PowerActionState): void {
 
 function selectBookAction(action: BookActionState): void {
     selectedBookAction.value = action;
+
+    if (action.id === 'upgrade_to_guild') {
+        selectedBookActionHexId.value = null;
+        isBookBuildingSelectionActive.value = true;
+
+        return;
+    }
+
     isBookActionDialogOpen.value = true;
 }
 
@@ -892,15 +908,32 @@ const palaceActionBuildingHexIds = computed(() => {
         .map((hex) => hex.id);
 });
 
+const bookActionBuildingHexIds = computed(() => {
+    if (!isBookBuildingSelectionActive.value || currentPlayer.value === undefined) {
+        return [];
+    }
+
+    return props.game.data.board.hexes
+        .filter(
+            (hex) =>
+                hex.building?.ownerPlayerId === currentPlayer.value?.id &&
+                hex.building?.isNeutral === false &&
+                hex.building?.type === 'workshop',
+        )
+        .map((hex) => hex.id);
+});
+
 const interactiveBuildingHexIds = computed(() =>
     isPalaceBuildingSelectionActive.value
         ? palaceActionBuildingHexIds.value
-        : [
-              ...new Set([
-                  ...props.game.data.buildingUpgrades.map((option) => option.hexId),
-                  ...annexableBuildingHexIds.value,
-              ]),
-          ],
+        : isBookBuildingSelectionActive.value
+          ? bookActionBuildingHexIds.value
+          : [
+                ...new Set([
+                    ...props.game.data.buildingUpgrades.map((option) => option.hexId),
+                    ...annexableBuildingHexIds.value,
+                ]),
+            ],
 );
 
 function selectBuildingUpgrade(hexId: string): void {
@@ -908,6 +941,14 @@ function selectBuildingUpgrade(hexId: string): void {
         selectedPalaceActionHexId.value = hexId;
         isPalaceBuildingSelectionActive.value = false;
         isPalaceActionDialogOpen.value = true;
+
+        return;
+    }
+
+    if (isBookBuildingSelectionActive.value && bookActionBuildingHexIds.value.includes(hexId)) {
+        selectedBookActionHexId.value = hexId;
+        isBookBuildingSelectionActive.value = false;
+        isBookActionDialogOpen.value = true;
 
         return;
     }
@@ -949,9 +990,11 @@ defineOptions({
                 :pending-palace-guild-hex-id="pendingPalaceGuildHexId"
                 :selected-bridge-from-hex-id="selectedBridgeFromHexId"
                 :is-palace-building-selection-active="isPalaceBuildingSelectionActive"
+                :is-book-building-selection-active="isBookBuildingSelectionActive"
                 :palace-building-selection-source="palaceActionBuildingSource"
                 @reset-bridge-selection="selectedBridgeFromHexId = null"
                 @cancel-palace-building-selection="cancelPalaceBuildingSelection"
+                @cancel-book-building-selection="cancelBookBuildingSelection"
                 @finish-turn="isCurrentTurnFinishDialogOpen = true"
                 @pass="isPassDialogOpen = true"
             />
@@ -1166,7 +1209,7 @@ defineOptions({
                 :game-id="game.data.id"
                 :action="selectedBookAction"
                 :player-state="currentPlayerState"
-                :board="game.data.board"
+                :selected-hex-id="selectedBookActionHexId"
                 :discipline-names="game.data.knowledgeDisciplineNames"
             />
 
