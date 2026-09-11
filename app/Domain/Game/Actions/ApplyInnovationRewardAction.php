@@ -21,7 +21,7 @@ class ApplyInnovationRewardAction
     ) {
     }
 
-    /** @return array{victoryPoints: int, scholars: int, books: int, developmentTrackBooks: int, knowledgeSteps: int, shippingSteps: int, terraformingSteps: int} */
+    /** @return array{victoryPoints: int, scholars: int, power: int, books: int, developmentTrackBooks: int, knowledgeSteps: int, shippingSteps: int, terraformingSteps: int} */
     public function execute(
         GameStateData $state,
         GamePlayerStateData $player,
@@ -31,6 +31,7 @@ class ApplyInnovationRewardAction
         $reward = [
             'victoryPoints' => $innovationVictoryPoints,
             'scholars' => 0,
+            'power' => 0,
             'books' => 0,
             'developmentTrackBooks' => 0,
             'knowledgeSteps' => 0,
@@ -73,7 +74,8 @@ class ApplyInnovationRewardAction
         }
 
         if ($innovation === Innovation::Palace) {
-            $player->power->bowlThree += 2;
+            $player->resources->power->bowlThree += 2;
+            $reward['power'] = 2;
         }
 
         $player->victoryPoints += $innovationVictoryPoints;

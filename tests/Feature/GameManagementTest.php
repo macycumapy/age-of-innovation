@@ -856,6 +856,91 @@ class GameManagementTest extends TestCase
         $this->assertSame(22, $playerState->victoryPoints);
     }
 
+    public function test_palace_innovation_adds_two_new_power_tokens_directly_to_bowl_three(): void
+    {
+        $playerState = new GamePlayerStateData(
+            playerId: 15,
+            userId: 25,
+            color: PlayerColor::Green,
+            faction: Faction::Blessed,
+            homeland: TerrainType::Forest,
+            roundBonus: RoundBonus::Coins,
+            resources: new PlayerResourcesData(
+                power: new PowerBowlsStateData(bowlOne: 3, bowlTwo: 4, bowlThree: 1),
+            ),
+        );
+        $state = new GameStateData(players: [$playerState]);
+
+        $reward = app(ApplyInnovationRewardAction::class)->execute(
+            $state,
+            $playerState,
+            Innovation::Palace,
+        );
+
+        $this->assertSame(3, $playerState->resources->power->bowlOne);
+        $this->assertSame(4, $playerState->resources->power->bowlTwo);
+        $this->assertSame(3, $playerState->resources->power->bowlThree);
+        $this->assertSame(2, $reward['power']);
+    }
+
+    #[DataProvider('neutralBuildingInnovationIncomeProvider')]
+    public function test_neutral_building_innovation_income_does_not_depend_on_building_placement(
+        Innovation $innovation,
+        BuildingType $buildingType,
+        string $resource,
+        int $expectedIncome,
+    ): void {
+        $playerState = new GamePlayerStateData(
+            playerId: 15,
+            userId: 25,
+            color: PlayerColor::Green,
+            faction: Faction::Blessed,
+            homeland: TerrainType::Forest,
+            roundBonus: RoundBonus::RiverWorkshop,
+            inventionIds: [$innovation->value],
+        );
+        $boardWithNeutralBuilding = new BoardStateData(hexes: [
+            new BoardHexStateData(
+                id: '0:0',
+                q: 0,
+                r: 0,
+                initialTerrain: TerrainType::Forest,
+                terrain: TerrainType::Forest,
+                building: new BuildingStateData($buildingType, $playerState->playerId, isNeutral: true),
+            ),
+        ]);
+
+        $this->assertSame(
+            $expectedIncome,
+            PlayerIncomeCalculator::calculate($playerState, new BoardStateData())[$resource],
+        );
+        $this->assertSame(
+            $expectedIncome,
+            PlayerIncomeCalculator::calculate($playerState, $boardWithNeutralBuilding)[$resource],
+        );
+    }
+
+    /** @return array<string, array{Innovation, BuildingType, string, int}> */
+    public static function neutralBuildingInnovationIncomeProvider(): array
+    {
+        return [
+            'workshop gives three tools plus base income' => [
+                Innovation::Workshop,
+                BuildingType::Workshop,
+                'tools',
+                4,
+            ],
+            'guild gives five coins' => [Innovation::Guild, BuildingType::Guild, 'coins', 5],
+            'university gives two victory points' => [
+                Innovation::University,
+                BuildingType::University,
+                'victoryPoints',
+                2,
+            ],
+            'palace gives four power' => [Innovation::Palace, BuildingType::Palace, 'power', 4],
+        ];
+    }
+
     public function test_second_competency_grants_three_victory_points_and_two_coins_during_income(): void
     {
         $playerState = new GamePlayerStateData(
