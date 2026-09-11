@@ -411,6 +411,26 @@ function palaceActionReward(entry: GameHistoryEntry, palace: string): string | n
     );
 }
 
+function innovationActionReward(entry: GameHistoryEntry): string | null {
+    const rewardPayload = entry.payload.reward;
+
+    if (typeof rewardPayload !== 'object' || rewardPayload === null) {
+        return null;
+    }
+
+    const reward = rewardPayload as Record<string, unknown>;
+    const rewardItems: Array<[number, string]> = [
+        [Number(reward.scholars ?? 0), 'учёный'],
+        [Number(reward.spades ?? 0), 'лопата'],
+        [Number(reward.victoryPoints ?? 0), 'ПО'],
+    ];
+    const rewards = rewardItems
+        .filter(([amount]) => Number.isFinite(amount) && Number(amount) > 0)
+        .map(([amount, label]) => `${String(amount)} ${label}`);
+
+    return rewards.length > 0 ? `получено: ${rewards.join(', ')}` : 'награда не получена из-за лимита ресурсов';
+}
+
 function actionRewardDetails(entry: GameHistoryEntry): string | null {
     const action = payloadString(entry, 'action');
 
@@ -426,6 +446,10 @@ function actionRewardDetails(entry: GameHistoryEntry): string | null {
 
     if (entry.type === 'special_action' && palace !== null) {
         return palaceActionReward(entry, palace);
+    }
+
+    if (entry.type === 'special_action' && payloadString(entry, 'innovation') !== null) {
+        return innovationActionReward(entry);
     }
 
     return null;

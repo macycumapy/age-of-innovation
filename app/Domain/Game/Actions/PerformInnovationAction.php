@@ -48,11 +48,21 @@ final class PerformInnovationAction
                 $state->round->turnStartVersion = $stateVersionBefore;
             }
 
+            $reward = [
+                'scholars' => 0,
+                'spades' => 0,
+                'victoryPoints' => 0,
+            ];
+
             if ($innovation === Innovation::Professor) {
+                $scholarsBefore = $playerState->resources->scholars;
                 $playerState->resources->scholars = min($playerState->scholarPoolSize, $playerState->resources->scholars + 1);
                 $playerState->victoryPoints += 3;
+                $reward['scholars'] = $playerState->resources->scholars - $scholarsBefore;
+                $reward['victoryPoints'] = 3;
             } else {
                 $playerState->unassignedSpades++;
+                $reward['spades'] = 1;
                 $eligibleHexIds = $this->findEligibleTerraformHexes->execute($state, $playerState, $playerState->homeland);
 
                 if ($eligibleHexIds !== []) {
@@ -72,7 +82,7 @@ final class PerformInnovationAction
                 $lockedGame,
                 $user,
                 GameActionType::SpecialAction,
-                ['innovation' => $innovation->value],
+                ['innovation' => $innovation->value, 'reward' => $reward],
                 [['type' => 'innovation_action_used', 'player_id' => $player->id, 'innovation' => $innovation->value]],
                 $stateVersionBefore,
                 $lockedGame->version

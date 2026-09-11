@@ -2560,11 +2560,36 @@ class GameManagementTest extends TestCase
             Innovation::Professor->specialActionId(),
             $game->state->players[0]->usedSpecialActionIds,
         );
+        $this->assertSame([
+            'spades' => 0,
+            'scholars' => 1,
+            'victoryPoints' => 3,
+        ], $game->actions()->where('type', GameActionType::SpecialAction)->sole()->payload['reward']);
         $this->get(route('games.show', $game))->assertInertia(
             fn (Assert $page) => $page
                 ->where('game.data.playerBoardStates.0.availableInnovationActionIds', [])
                 ->where('game.data.playerBoardStates.0.usedInnovationActionIds', [Innovation::Professor->value]),
         );
+    }
+
+    public function test_deus_ex_machina_innovation_action_records_its_spade_reward(): void
+    {
+        [$game, $user] = $this->gameForFactionAction(Faction::Blessed);
+        $state = $game->state;
+        $state->players[0]->inventionIds = [Innovation::DeusExMachina->value];
+        $game->update(['state' => $state]);
+
+        $this->actingAs($user)->post(route('games.innovation-action', $game), [
+            'innovation' => Innovation::DeusExMachina->value,
+        ])->assertNoContent();
+
+        $game->refresh();
+        $this->assertSame(1, $game->state->players[0]->unassignedSpades);
+        $this->assertSame([
+            'spades' => 1,
+            'scholars' => 0,
+            'victoryPoints' => 0,
+        ], $game->actions()->where('type', GameActionType::SpecialAction)->sole()->payload['reward']);
     }
 
     public function test_moles_power_bridge_still_requires_a_river(): void
