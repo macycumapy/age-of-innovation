@@ -46,13 +46,15 @@ final class ChooseCompetencyAction
                 ->first();
             $isBuildingChoice = $lockedGame->phase === GamePhase::Actions
                 && ($interaction?->context['reason'] ?? null) === 'building';
+            $isInnovationChoice = $lockedGame->phase === GamePhase::Actions
+                && ($interaction?->context['reason'] ?? null) === 'innovation';
             $isStartingChoice = $lockedGame->phase === GamePhase::Setup
                 && in_array($player?->faction, [Faction::Monks, Faction::Inventors], true);
 
             if ($lockedGame->active_player_id !== $user->id
                 || $interaction?->type !== PendingInteractionType::ChooseCompetency
                 || ! $player instanceof GamePlayer
-                || (! $isStartingChoice && ! $isBuildingChoice)
+                || (! $isStartingChoice && ! $isBuildingChoice && ! $isInnovationChoice)
                 || ! in_array($competency->value, $interaction->optionIds, true)) {
                 throw ValidationException::withMessages([
                     'competency_id' => 'Эта компетенция недоступна.',
@@ -82,7 +84,7 @@ final class ChooseCompetencyAction
             $state->players[$playerStateIndex] = $playerState;
             $state->pendingInteraction = null;
 
-            if ($isBuildingChoice) {
+            if ($isBuildingChoice || $isInnovationChoice) {
                 $builtHexId = (string) ($interaction->context['builtHexId'] ?? '');
                 $awaitsTerraforming = $competency === Competency::Competency05
                     && $this->createTerraformingInteraction($state, $playerState);
@@ -94,12 +96,14 @@ final class ChooseCompetencyAction
                         [
                             'competency' => $competency->value,
                             'source' => 'competency',
-                            'queuedBuiltHexIds' => [$builtHexId],
+                            'queuedBuiltHexIds' => $isBuildingChoice ? [$builtHexId] : [],
                         ],
                     );
                 $nextActiveUserId = $awaitsTerraforming || $awaitsTowerPlacement
                     ? $playerState->userId
-                    : $this->createTownChoiceAfterBuilding->execute($state, $playerState, $builtHexId);
+                    : ($isBuildingChoice
+                        ? $this->createTownChoiceAfterBuilding->execute($state, $playerState, $builtHexId)
+                        : $playerState->userId);
                 $lockedGame->update([
                     'active_player_id' => $nextActiveUserId,
                     'state' => $state,
@@ -111,14 +115,14 @@ final class ChooseCompetencyAction
                     GameActionType::ChooseCompetency,
                     [
                         'competency_id' => $competency->value,
-                        'reason' => 'building',
-                        'built_hex_id' => $builtHexId,
+                        'reason' => $isBuildingChoice ? 'building' : 'innovation',
+                        'built_hex_id' => $isBuildingChoice ? $builtHexId : null,
                     ],
                     [[
-                        'type' => 'building_competency_chosen',
+                        'type' => $isBuildingChoice ? 'building_competency_chosen' : 'innovation_competency_chosen',
                         'player_id' => $player->id,
                         'competency_id' => $competency->value,
-                        'built_hex_id' => $builtHexId,
+                        'built_hex_id' => $isBuildingChoice ? $builtHexId : null,
                     ]],
                     $stateVersionBefore,
                     $lockedGame->version,

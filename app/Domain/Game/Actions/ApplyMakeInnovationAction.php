@@ -92,12 +92,31 @@ final class ApplyMakeInnovationAction
         $neutralBuildingType = $innovation->neutralBuildingType();
 
         if ($neutralBuildingType !== null) {
-            $this->createNeutralBuildingInteraction->execute(
+            $neutralBuildingInteractionCreated = $this->createNeutralBuildingInteraction->execute(
                 $state,
                 $playerState,
                 $neutralBuildingType,
                 ['innovation' => $innovation->value, 'source' => 'innovation'],
             );
+
+            if ($innovation === Innovation::School && ! $neutralBuildingInteractionCreated) {
+                $state->pendingInteraction = new PendingInteractionData(
+                    PendingInteractionType::ChooseCompetency,
+                    $playerState->playerId,
+                    array_values(array_unique(array_filter(
+                        $state->availableCompetencyIds,
+                        static fn (string $competencyId): bool => ! in_array(
+                            $competencyId,
+                            $playerState->competencyIds,
+                            true,
+                        ),
+                    ))),
+                    [
+                        'reason' => 'innovation',
+                        'innovation' => $innovation->value,
+                    ],
+                );
+            }
         }
 
         return [

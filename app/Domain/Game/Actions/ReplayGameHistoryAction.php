@@ -678,6 +678,7 @@ final class ReplayGameHistoryAction
 
         $state = $game->state;
         $isBuildingChoice = ($action->payload['reason'] ?? null) === 'building';
+        $isInnovationChoice = ($action->payload['reason'] ?? null) === 'innovation';
         $competency = Competency::from((string) $action->payload['competency_id']);
         $this->grantCompetency->execute(
             $state,
@@ -687,7 +688,7 @@ final class ReplayGameHistoryAction
         );
         $state->pendingInteraction = null;
 
-        if ($isBuildingChoice) {
+        if ($isBuildingChoice || $isInnovationChoice) {
             $playerState = $this->playerState($state, $player->id);
             if ($competency === Competency::Competency05) {
                 $eligibleHexIds = $this->findEligibleTerraformHexes->execute(
@@ -728,12 +729,13 @@ final class ReplayGameHistoryAction
                 return;
             }
 
-            $nextActiveUserId = $this->createTownChoiceAfterBuilding->execute(
-                $state,
-                $this->playerState($state, $player->id),
-                (string) ($action->payload['built_hex_id'] ?? ''),
-            );
-            $game->active_player_id = $nextActiveUserId;
+            $game->active_player_id = $isBuildingChoice
+                ? $this->createTownChoiceAfterBuilding->execute(
+                    $state,
+                    $this->playerState($state, $player->id),
+                    (string) ($action->payload['built_hex_id'] ?? ''),
+                )
+                : $player->user_id;
             $game->state = $state;
 
             return;

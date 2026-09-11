@@ -5320,6 +5320,72 @@ class GameManagementTest extends TestCase
         ];
     }
 
+    public function test_school_innovation_grants_a_competency_when_no_neutral_school_can_be_built(): void
+    {
+        $user = User::factory()->create();
+        $game = Game::factory()->create([
+            'status' => GameStatus::Active,
+            'phase' => GamePhase::Actions,
+            'active_player_id' => $user->id,
+        ]);
+        $player = GamePlayer::factory()->create([
+            'game_id' => $game->id,
+            'user_id' => $user->id,
+            'seat' => 1,
+        ]);
+        $setupPool = app(GameSetupPoolFactory::class)->createFromSeed(2, 'school-innovation-without-building');
+        $setupPool->innovations[0] = Innovation::School;
+        $game->update(['state' => new GameStateData(
+            turnOrder: [$player->id],
+            board: new BoardStateData(hexes: [
+                new BoardHexStateData(
+                    id: '0:0',
+                    q: 0,
+                    r: 0,
+                    initialTerrain: TerrainType::Forest,
+                    terrain: TerrainType::Forest,
+                    building: new BuildingStateData(BuildingType::Workshop, $player->id),
+                ),
+            ]),
+            players: [new GamePlayerStateData(
+                playerId: $player->id,
+                userId: $user->id,
+                color: PlayerColor::Green,
+                faction: Faction::Blessed,
+                homeland: TerrainType::Forest,
+                roundBonus: RoundBonus::Coins,
+                resources: new PlayerResourcesData(
+                    coins: 10,
+                    books: new BookSupplyData(banking: 2, law: 2, medicine: 1),
+                ),
+            )],
+            round: new RoundStateData(phase: GamePhase::Actions),
+            availableInventionIds: [Innovation::School->value],
+            availableCompetencyIds: [Competency::Competency04->value],
+            setupPool: $setupPool,
+        )]);
+
+        $this->actingAs($user)->post(route('games.innovation', $game), [
+            'innovation' => Innovation::School->value,
+            'book_counts' => ['banking' => 2, 'law' => 2, 'engineering' => 0, 'medicine' => 1],
+        ])->assertNoContent();
+
+        $game->refresh();
+        $this->assertSame(PendingInteractionType::ChooseCompetency, $game->state->pendingInteraction?->type);
+        $this->assertSame([Competency::Competency04->value], $game->state->pendingInteraction?->optionIds);
+        $this->assertSame('innovation', $game->state->pendingInteraction?->context['reason']);
+        $this->assertFalse($game->state->board->hexes[0]->building?->isNeutral);
+
+        $this->post(route('games.rewards', $game), [
+            'competency_id' => Competency::Competency04->value,
+        ])->assertNoContent();
+
+        $game->refresh();
+        $this->assertContains(Competency::Competency04->value, $game->state->players[0]->competencyIds);
+        $this->assertNull($game->state->pendingInteraction);
+        $this->assertSame('innovation', $game->actions()->latest('sequence')->first()?->payload['reason']);
+    }
+
     public function test_player_distributes_books_received_from_an_innovation_in_the_same_history_action(): void
     {
         $user = User::factory()->create();
