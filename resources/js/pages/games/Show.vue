@@ -995,7 +995,7 @@ defineOptions({
             <Collapsible v-if="shouldShowPlanningBundleGroup" v-model:open="isPlanningBundleGroupOpen">
                 <Card>
                     <CollapsibleContent>
-                        <CardContent>
+                        <CardContent class="space-y-4">
                             <RewardDistributionPanel
                                 v-if="
                                     canChooseStartingResources &&
