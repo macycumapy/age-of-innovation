@@ -67,6 +67,10 @@ const otherPlayerStatusMessage = computed(() => {
         return `${playerName} выбирает жетон города.`;
     }
 
+    if (props.game.data.pendingInteraction?.type === 'choose_competency') {
+        return `${playerName} выбирает компетенцию.`;
+    }
+
     if (props.game.data.pendingInteraction?.type === 'choose_innovation_books') {
         return `${playerName} распределяет награду инновации.`;
     }
@@ -187,6 +191,7 @@ function scrollToPageTop(event: MouseEvent): void {
                         game.data.pendingInteraction?.type === 'build_workshop_after_terraforming' ||
                         game.data.pendingInteraction?.type === 'choose_round_bonus' ||
                         game.data.pendingInteraction?.type === 'choose_town' ||
+                        game.data.pendingInteraction?.type === 'choose_competency' ||
                         game.data.pendingInteraction?.type === 'choose_town_books' ||
                         game.data.pendingInteraction?.type === 'choose_feline_town_bonus' ||
                         game.data.pendingInteraction?.type === 'choose_palace' ||
@@ -257,7 +262,7 @@ function scrollToPageTop(event: MouseEvent): void {
                 Выберите книги, полученные за строительство Крепости.
             </template>
             <template v-else-if="game.data.pendingInteraction?.type === 'choose_competency'">
-                Выберите стартовую компетенцию.
+                Выберите компетенцию.
             </template>
             <template v-else-if="game.data.pendingInteraction?.type === 'spend_spades'">
                 {{
