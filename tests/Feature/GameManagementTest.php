@@ -2615,6 +2615,29 @@ class GameManagementTest extends TestCase
                     terrain: TerrainType::Forest,
                     adjacentHexIds: ['0:1'],
                 ),
+                ...array_map(
+                    static fn (int $q): BoardHexStateData => new BoardHexStateData(
+                        id: $q.':1',
+                        q: $q,
+                        r: 1,
+                        initialTerrain: TerrainType::Forest,
+                        terrain: TerrainType::Forest,
+                        building: new BuildingStateData(BuildingType::Workshop, $player->id),
+                    ),
+                    range(1, 7),
+                ),
+                new BoardHexStateData(
+                    id: '8:1',
+                    q: 8,
+                    r: 1,
+                    initialTerrain: TerrainType::Forest,
+                    terrain: TerrainType::Forest,
+                    building: new BuildingStateData(
+                        BuildingType::Workshop,
+                        $player->id,
+                        isNeutral: true,
+                    ),
+                ),
             ]),
             round: new RoundStateData(phase: GamePhase::Actions),
             players: [new GamePlayerStateData(
@@ -2871,6 +2894,113 @@ class GameManagementTest extends TestCase
         $this->assertSame(1, $game->state->players[0]->resources->books->banking);
         $this->assertSame(1, $game->state->players[0]->resources->books->medicine);
         $this->assertSame(GameActionType::ChooseTownBooks, $game->actions()->sole()->type);
+    }
+
+    public function test_lizards_can_confirm_or_rollback_their_town_spade_and_build_a_workshop_for_free(): void
+    {
+        $user = User::factory()->create();
+        $game = Game::factory()->create([
+            'status' => GameStatus::Active,
+            'phase' => GamePhase::Actions,
+            'active_player_id' => $user->id,
+        ]);
+        $player = GamePlayer::factory()->create(['game_id' => $game->id, 'user_id' => $user->id]);
+        $game->update(['state' => new GameStateData(
+            board: new BoardStateData(hexes: [
+                new BoardHexStateData(
+                    id: '0:0',
+                    q: 0,
+                    r: 0,
+                    initialTerrain: TerrainType::Forest,
+                    terrain: TerrainType::Forest,
+                    adjacentHexIds: ['1:0'],
+                    building: new BuildingStateData(BuildingType::Workshop, $player->id),
+                ),
+                new BoardHexStateData(
+                    id: '1:0',
+                    q: 1,
+                    r: 0,
+                    initialTerrain: TerrainType::Mountain,
+                    terrain: TerrainType::Mountain,
+                    adjacentHexIds: ['0:0'],
+                ),
+                ...array_map(
+                    static fn (int $q): BoardHexStateData => new BoardHexStateData(
+                        id: $q.':0',
+                        q: $q,
+                        r: 0,
+                        initialTerrain: TerrainType::Forest,
+                        terrain: TerrainType::Forest,
+                        building: new BuildingStateData(BuildingType::Workshop, $player->id),
+                    ),
+                    range(2, 8),
+                ),
+                new BoardHexStateData(
+                    id: '9:0',
+                    q: 9,
+                    r: 0,
+                    initialTerrain: TerrainType::Forest,
+                    terrain: TerrainType::Forest,
+                    building: new BuildingStateData(
+                        BuildingType::Workshop,
+                        $player->id,
+                        isNeutral: true,
+                    ),
+                ),
+            ]),
+            players: [new GamePlayerStateData(
+                playerId: $player->id,
+                userId: $user->id,
+                color: PlayerColor::Green,
+                faction: Faction::Lizards,
+                homeland: TerrainType::Forest,
+                roundBonus: RoundBonus::Coins,
+                resources: new PlayerResourcesData(tools: 0, coins: 0),
+            )],
+            availableTownTileIds: [TownTile::Coins->value],
+            pendingInteraction: new PendingInteractionData(
+                PendingInteractionType::ChooseTown,
+                $player->id,
+                [TownTile::Coins->value],
+                ['townHexIds' => ['0:0'], 'builtHexId' => '0:0'],
+            ),
+        )]);
+
+        $this->actingAs($user)->post(route('games.town', $game), [
+            'town_tile' => TownTile::Coins->value,
+        ])->assertNoContent();
+        $game->refresh();
+
+        $this->assertSame(PendingInteractionType::SpendSpades, $game->state->pendingInteraction?->type);
+        $this->assertSame(1, $game->state->players[0]->unassignedSpades);
+        $this->assertTrue($game->state->pendingInteraction?->context['lizardFreeWorkshop']);
+
+        $this->post(route('games.starting-spade.store', $game), ['hex_id' => '1:0'])->assertNoContent();
+        $this->delete(route('games.starting-spade.destroy', $game))->assertNoContent();
+        $game->refresh();
+
+        $this->assertSame(TerrainType::Mountain, $game->state->board->hexes[1]->terrain);
+        $this->assertArrayNotHasKey('selectedHexId', $game->state->pendingInteraction?->context ?? []);
+
+        $this->post(route('games.starting-spade.store', $game), ['hex_id' => '1:0'])->assertNoContent();
+        $this->post(route('games.starting-spade.finish', $game))->assertNoContent();
+        $game->refresh();
+
+        $this->assertSame(PendingInteractionType::BuildWorkshopAfterTerraforming, $game->state->pendingInteraction?->type);
+        $this->assertSame(0, $game->state->pendingInteraction?->context['toolCost']);
+        $this->assertSame(0, $game->state->pendingInteraction?->context['coinCost']);
+
+        $this->post(route('games.terraform-workshop', $game), [
+            'build' => true,
+            'hex_id' => '1:0',
+        ])->assertNoContent();
+        $game->refresh();
+
+        $this->assertSame(BuildingType::Workshop, $game->state->board->hexes[1]->building?->type);
+        $this->assertSame(0, $game->state->players[0]->resources->tools);
+        $this->assertSame(6, $game->state->players[0]->resources->coins);
+        $this->assertSame(0, $game->actions()->latest('sequence')->first()?->payload['tool_cost']);
+        $this->assertSame(0, $game->actions()->latest('sequence')->first()?->payload['coin_cost']);
     }
 
     public function test_felines_immediately_distribute_a_book_and_three_knowledge_steps_after_founding_a_town(): void
@@ -3892,6 +4022,84 @@ class GameManagementTest extends TestCase
         return [
             'school' => [BuildingType::Guild, BuildingType::School, 3, 5],
             'university' => [BuildingType::School, BuildingType::University, 5, 8],
+        ];
+    }
+
+    #[DataProvider('neutralBuildingSupplyProvider')]
+    public function test_neutral_buildings_do_not_use_the_personal_upgrade_supply(
+        BuildingType $source,
+        BuildingType $target,
+        int $personalTargetCount,
+    ): void {
+        $user = User::factory()->create();
+        $game = Game::factory()->create([
+            'status' => GameStatus::Active,
+            'phase' => GamePhase::Actions,
+            'active_player_id' => $user->id,
+        ]);
+        $player = GamePlayer::factory()->create(['game_id' => $game->id, 'user_id' => $user->id]);
+        $targetBuildings = $personalTargetCount === 0 ? [] : array_map(
+            static fn (int $index): BoardHexStateData => new BoardHexStateData(
+                id: $index.':0',
+                q: $index,
+                r: 0,
+                initialTerrain: TerrainType::Forest,
+                terrain: TerrainType::Forest,
+                building: new BuildingStateData($target, $player->id),
+            ),
+            range(1, $personalTargetCount),
+        );
+        $game->update(['state' => new GameStateData(
+            board: new BoardStateData(hexes: [
+                new BoardHexStateData(
+                    id: '0:0',
+                    q: 0,
+                    r: 0,
+                    initialTerrain: TerrainType::Forest,
+                    terrain: TerrainType::Forest,
+                    building: new BuildingStateData($source, $player->id),
+                ),
+                ...$targetBuildings,
+                new BoardHexStateData(
+                    id: '9:0',
+                    q: 9,
+                    r: 0,
+                    initialTerrain: TerrainType::Forest,
+                    terrain: TerrainType::Forest,
+                    building: new BuildingStateData($target, $player->id, isNeutral: true),
+                ),
+            ]),
+            round: new RoundStateData(phase: GamePhase::Actions),
+            players: [new GamePlayerStateData(
+                playerId: $player->id,
+                userId: $user->id,
+                color: PlayerColor::Green,
+                faction: Faction::Blessed,
+                homeland: TerrainType::Forest,
+                roundBonus: RoundBonus::Coins,
+                resources: new PlayerResourcesData(tools: 10, coins: 10),
+            )],
+            availablePalaceIds: [PalaceAbility::Palace01->value],
+        )]);
+
+        $this->actingAs($user)->post(route('games.building-upgrade', $game), [
+            'hex_id' => '0:0',
+            'target' => $target->value,
+        ])->assertNoContent();
+        $game->refresh();
+
+        $upgradedBuilding = collect($game->state->board->hexes)->firstWhere('id', '0:0')?->building;
+        $this->assertSame($target, $upgradedBuilding?->type);
+        $this->assertFalse($upgradedBuilding?->isNeutral);
+    }
+
+    /** @return array<string, array{BuildingType, BuildingType, int}> */
+    public static function neutralBuildingSupplyProvider(): array
+    {
+        return [
+            'palace' => [BuildingType::Guild, BuildingType::Palace, 0],
+            'school' => [BuildingType::Guild, BuildingType::School, 2],
+            'university' => [BuildingType::School, BuildingType::University, 1],
         ];
     }
 
@@ -4957,7 +5165,10 @@ class GameManagementTest extends TestCase
                     books: new BookSupplyData(banking: 2, law: 2, medicine: 1),
                 ),
             )],
-            round: new RoundStateData(phase: GamePhase::Actions),
+            round: new RoundStateData(
+                phase: GamePhase::Actions,
+                scoringTileId: RoundScoringTile::WorkshopLaw->value,
+            ),
             availableInventionIds: [Innovation::Workshop->value],
             setupPool: $setupPool,
         )]);
@@ -4980,6 +5191,8 @@ class GameManagementTest extends TestCase
         $this->assertSame(TerrainType::Forest, $game->state->board->hexes[1]->terrain);
         $this->assertSame(BuildingType::Workshop, $game->state->board->hexes[1]->building?->type);
         $this->assertTrue($game->state->board->hexes[1]->building?->isNeutral);
+        $this->assertSame(22, $game->state->players[0]->victoryPoints);
+        $this->assertSame(2, $game->actions()->sole()->payload['neutral_building']['victory_points']);
         $this->assertSame('1:0', $game->actions()->sole()->payload['neutral_building']['hex_id']);
         $this->assertSame($expectedToolCost, $game->actions()->sole()->payload['neutral_building']['tools']);
     }

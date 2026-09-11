@@ -285,8 +285,12 @@ const selectableStartingHexIds = computed(() => {
 
     if (pendingWorkshopAfterTerraforming.value !== null) {
         const state = currentPlayerState.value;
+        const { toolCost, coinCost } = pendingWorkshopAfterTerraforming.value.context;
 
-        return state !== undefined && state.tools >= 1 && state.coins >= 2 && state.buildingsOnMap.workshop < 9
+        return state !== undefined &&
+            state.tools >= toolCost &&
+            state.coins >= coinCost &&
+            state.buildingsOnMap.workshop < 9
             ? pendingWorkshopAfterTerraforming.value.optionIds
             : [];
     }
@@ -1208,6 +1212,8 @@ defineOptions({
                 :hex-id="selectedBuildWorkshopHexId"
                 :player-color="currentPlayer?.color ?? null"
                 :after-terraforming="pendingWorkshopAfterTerraforming !== null"
+                :tool-cost="pendingWorkshopAfterTerraforming?.context.toolCost ?? 1"
+                :coin-cost="pendingWorkshopAfterTerraforming?.context.coinCost ?? 2"
             />
 
             <ResourceExchangeDialog

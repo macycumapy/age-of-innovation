@@ -25,11 +25,15 @@ const props = withDefaults(defineProps<{
     hexes?: BoardHexState[];
     playerColor: PlayerColor | null;
     afterTerraforming?: boolean;
+    toolCost?: number;
+    coinCost?: number;
 }>(), {
     hexId: null,
     hexIds: () => [],
     hexes: () => [],
     afterTerraforming: false,
+    toolCost: 1,
+    coinCost: 2,
 });
 
 const isOpen = defineModel<boolean>('open', { default: false });
@@ -102,10 +106,10 @@ watch(
                     <img :src="workshopImage()" alt="Дом" class="h-24 w-28 object-contain" />
                     <div class="flex items-center gap-4" aria-label="Стоимость строительства">
                         <span class="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 font-semibold">
-                            <img :src="toolUrl" alt="" class="size-6 object-contain" /> 1
+                            <img :src="toolUrl" alt="" class="size-6 object-contain" /> {{ toolCost }}
                         </span>
                         <span class="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 font-semibold">
-                            <img :src="coinUrl" alt="" class="size-6 object-contain" /> 2
+                            <img :src="coinUrl" alt="" class="size-6 object-contain" /> {{ coinCost }}
                         </span>
                     </div>
                 </div>

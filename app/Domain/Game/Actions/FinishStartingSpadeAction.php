@@ -32,6 +32,7 @@ final class FinishStartingSpadeAction
         private OfferWorkshopAfterTerraformingAction $offerWorkshopAfterTerraforming,
         private ResolveCompletedStartingSetupAction $resolveCompletedStartingSetup,
         private ResolveScienceBonusPhaseAction $resolveScienceBonusPhase,
+        private StartLizardTownBonusAction $startLizardTownBonus,
     ) {
     }
 
@@ -241,6 +242,8 @@ final class FinishStartingSpadeAction
                     'tunnel_victory_points' => $tunnelVictoryPoints,
                     'victory_points' => $roundScoringVictoryPoints,
                     'feline_bonus_pending' => (bool) ($interaction->context['felineBonusPending'] ?? false),
+                    'lizard_bonus_pending' => (bool) ($interaction->context['lizardBonusPending'] ?? false),
+                    'lizard_free_workshop' => (bool) ($interaction->context['lizardFreeWorkshop'] ?? false),
                     'income_receipts' => $incomeReceipts,
                     'science_bonus_receipts' => $scienceBonusReceipts,
                     'final_scoring' => $finalScoring,
@@ -293,6 +296,21 @@ final class FinishStartingSpadeAction
         array $buildableHexIds,
         PendingInteractionData $interaction,
     ): bool {
+        if (($interaction->context['lizardBonusPending'] ?? false) === true) {
+            $this->startLizardTownBonus->execute($state, $playerState);
+
+            return false;
+        }
+
+        if (($interaction->context['lizardFreeWorkshop'] ?? false) === true) {
+            return $this->offerWorkshopAfterTerraforming->execute(
+                $state,
+                $playerState,
+                $buildableHexIds,
+                ['toolCost' => 0, 'coinCost' => 0, 'lizardFreeWorkshop' => true],
+            );
+        }
+
         if (($interaction->context['felineBonusPending'] ?? false) === true) {
             $buildOffered = $this->offerWorkshopAfterTerraforming->execute(
                 $state,

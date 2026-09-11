@@ -34,7 +34,8 @@ final class OfferWorkshopAfterTerraformingAction
         $workshopsOnMap = count(array_filter(
             $state->board->hexes,
             static fn (BoardHexStateData $hex): bool => $hex->building?->ownerPlayerId === $playerState->playerId
-                && $hex->building->type === BuildingType::Workshop,
+                && $hex->building->type === BuildingType::Workshop
+                && ! $hex->building->isNeutral,
         ));
 
         if ($availableHexIds === [] || $workshopsOnMap >= BuildingType::Workshop->supplyLimit()) {
@@ -47,7 +48,7 @@ final class OfferWorkshopAfterTerraformingAction
             PendingInteractionType::BuildWorkshopAfterTerraforming,
             $playerState->playerId,
             $availableHexIds,
-            [...$context, 'toolCost' => 1, 'coinCost' => 2],
+            ['toolCost' => 1, 'coinCost' => 2, ...$context],
         );
 
         return true;

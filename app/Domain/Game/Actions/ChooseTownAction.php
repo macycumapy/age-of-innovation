@@ -28,6 +28,7 @@ final class ChooseTownAction
         private AdvanceKnowledgeAction $advanceKnowledge,
         private GainPowerAction $gainPower,
         private FindEligibleTerraformHexesAction $findEligibleTerraformHexes,
+        private StartLizardTownBonusAction $startLizardTownBonus,
     ) {
     }
 
@@ -91,6 +92,7 @@ final class ChooseTownAction
             $state->pendingInteraction = null;
 
             $isFelineTown = $playerState->faction === Faction::Felines;
+            $isLizardTown = $playerState->faction === Faction::Lizards;
 
             if ($townTile === TownTile::Books) {
                 $state->pendingInteraction = new PendingInteractionData(
@@ -102,6 +104,7 @@ final class ChooseTownAction
                         'builtHexId' => $builtHexId,
                         'queuedBuiltHexIds' => $queuedBuiltHexIds,
                         ...($isFelineTown ? ['felineBonusPending' => true] : []),
+                        ...($isLizardTown ? ['lizardBonusPending' => true] : []),
                     ],
                 );
             } elseif ($townTile === TownTile::Terraform) {
@@ -117,6 +120,7 @@ final class ChooseTownAction
                         'remainingSpades' => 2,
                         'targetTerrain' => $playerState->homeland->value,
                         ...($isFelineTown ? ['felineBonusPending' => true] : []),
+                        ...($isLizardTown ? ['lizardBonusPending' => true] : []),
                     ],
                 );
             } elseif ($isFelineTown) {
@@ -132,6 +136,8 @@ final class ChooseTownAction
                         'queuedBuiltHexIds' => $queuedBuiltHexIds,
                     ],
                 );
+            } elseif ($isLizardTown) {
+                $this->startLizardTownBonus->execute($state, $playerState);
             }
             $nextActiveUserId = $player->user_id;
 

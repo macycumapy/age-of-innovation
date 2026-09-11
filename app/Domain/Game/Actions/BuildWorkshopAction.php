@@ -47,7 +47,8 @@ final class BuildWorkshopAction
             $workshopsOnMap = count(array_filter(
                 $state->board->hexes,
                 static fn (BoardHexStateData $candidate): bool => $candidate->building?->ownerPlayerId === $player->id
-                    && $candidate->building->type === BuildingType::Workshop,
+                    && $candidate->building->type === BuildingType::Workshop
+                    && ! $candidate->building->isNeutral,
             ));
 
             if (! $playerState instanceof GamePlayerStateData

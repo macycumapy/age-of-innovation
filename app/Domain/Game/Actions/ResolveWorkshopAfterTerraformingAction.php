@@ -53,26 +53,29 @@ final class ResolveWorkshopAfterTerraformingAction
 
             $bonuses = ['victoryPoints' => 0, 'coins' => 0, 'sources' => []];
             $felineBonusPending = ($interaction->context['felineBonusPending'] ?? false) === true;
+            $toolCost = max(0, (int) ($interaction->context['toolCost'] ?? 1));
+            $coinCost = max(0, (int) ($interaction->context['coinCost'] ?? 2));
 
             if ($build) {
                 $hex = collect($state->board->hexes)->firstWhere('id', $hexId);
                 $workshopsOnMap = count(array_filter(
                     $state->board->hexes,
                     static fn (BoardHexStateData $boardHex): bool => $boardHex->building?->ownerPlayerId === $player->id
-                        && $boardHex->building->type === BuildingType::Workshop,
+                        && $boardHex->building->type === BuildingType::Workshop
+                        && ! $boardHex->building->isNeutral,
                 ));
 
                 if (! $hex instanceof BoardHexStateData
                     || $hex->building !== null
                     || $hex->terrain !== $playerState->homeland
-                    || $playerState->resources->tools < 1
-                    || $playerState->resources->coins < 2
-                    || $workshopsOnMap >= 9) {
+                    || $playerState->resources->tools < $toolCost
+                    || $playerState->resources->coins < $coinCost
+                    || $workshopsOnMap >= BuildingType::Workshop->supplyLimit()) {
                     throw ValidationException::withMessages(['game' => 'Дом нельзя построить на выбранной клетке.']);
                 }
 
-                $playerState->resources->tools--;
-                $playerState->resources->coins -= 2;
+                $playerState->resources->tools -= $toolCost;
+                $playerState->resources->coins -= $coinCost;
                 $hex->building = new BuildingStateData(BuildingType::Workshop, $player->id);
                 $bonuses = $this->applyBuildingBonuses->execute(
                     $state,
@@ -133,6 +136,8 @@ final class ResolveWorkshopAfterTerraformingAction
                     'bonus_coins' => $bonuses['coins'],
                     'scoring_sources' => $bonuses['sources'],
                     'feline_bonus_pending' => $felineBonusPending,
+                    'tool_cost' => $toolCost,
+                    'coin_cost' => $coinCost,
                 ],
                 [[
                     'type' => $build ? 'workshop_built_after_terraforming' : 'workshop_declined_after_terraforming',

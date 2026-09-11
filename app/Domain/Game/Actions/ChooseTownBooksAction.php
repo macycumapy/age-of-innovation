@@ -6,6 +6,7 @@ namespace App\Domain\Game\Actions;
 
 use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Data\PendingInteractionData;
+use App\Domain\Game\Enums\Faction;
 use App\Domain\Game\Enums\GameActionType;
 use App\Domain\Game\Enums\PendingInteractionType;
 use App\Models\Game;
@@ -18,6 +19,7 @@ final class ChooseTownBooksAction
 {
     public function __construct(
         private AppendGameHistoryAction $appendGameHistory,
+        private StartLizardTownBonusAction $startLizardTownBonus,
     ) {
     }
 
@@ -67,6 +69,9 @@ final class ChooseTownBooksAction
                         'queuedBuiltHexIds' => $interaction->context['queuedBuiltHexIds'] ?? [],
                     ],
                 );
+            } elseif (($interaction->context['lizardBonusPending'] ?? false) === true
+                && $playerState->faction === Faction::Lizards) {
+                $this->startLizardTownBonus->execute($state, $playerState);
             }
             $lockedGame->update([
                 'active_player_id' => $player->user_id,

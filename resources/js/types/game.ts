@@ -458,6 +458,8 @@ export type PendingInteraction =
               paidTools?: number;
               paidSpadeCount?: number;
               spentSpades?: number;
+              lizardBonusPending?: boolean;
+              lizardFreeWorkshop?: boolean;
           };
       }
     | {
@@ -477,6 +479,7 @@ export type PendingInteraction =
               bookCount: number;
               townTile?: TownTile;
               felineBonusPending?: boolean;
+              lizardBonusPending?: boolean;
               builtHexId?: string;
               queuedBuiltHexIds?: string[];
           };
@@ -521,6 +524,7 @@ export type PendingInteraction =
           context: {
               toolCost: number;
               coinCost: number;
+              lizardFreeWorkshop?: boolean;
           };
       }
     | {

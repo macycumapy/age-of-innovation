@@ -95,6 +95,7 @@ final class ReplayGameHistoryAction
         private ApplyMakeInnovationAction $applyMakeInnovation,
         private FindEligibleTerraformHexesAction $findEligibleTerraformHexes,
         private FindEligibleMoleTunnelHexesAction $findEligibleMoleTunnelHexes,
+        private StartLizardTownBonusAction $startLizardTownBonus,
         private CreateTownChoiceAfterBuildingAction $createTownChoiceAfterBuilding,
         private CreateDesertStartingSpadeInteractionAction $createDesertStartingSpadeInteraction,
         private CreateBuildingFollowUpInteractionAction $createBuildingFollowUpInteraction,
@@ -837,6 +838,12 @@ final class ReplayGameHistoryAction
                     ...((bool) ($action->payload['feline_bonus_pending'] ?? false)
                         ? ['felineBonusPending' => true]
                         : []),
+                    ...((bool) ($action->payload['lizard_bonus_pending'] ?? false)
+                        ? ['lizardBonusPending' => true]
+                        : []),
+                    ...((bool) ($action->payload['lizard_free_workshop'] ?? false)
+                        ? ['lizardFreeWorkshop' => true]
+                        : []),
                 ],
             );
 
@@ -850,7 +857,11 @@ final class ReplayGameHistoryAction
                     $action->payload['buildable_hex_ids'] ?? [],
                 );
 
-                if ($availableHexIds !== [] && (bool) ($action->payload['build_offered'] ?? false)) {
+                if ((bool) ($action->payload['lizard_bonus_pending'] ?? false)) {
+                    $this->startLizardTownBonus->execute($state, $playerState);
+                    $game->active_player_id = $player->user_id;
+                } elseif ($availableHexIds !== [] && (bool) ($action->payload['build_offered'] ?? false)) {
+                    $isFreeWorkshop = (bool) ($action->payload['lizard_free_workshop'] ?? false);
                     $state->pendingInteraction = new PendingInteractionData(
                         PendingInteractionType::BuildWorkshopAfterTerraforming,
                         $player->id,
@@ -859,8 +870,9 @@ final class ReplayGameHistoryAction
                             ...((bool) ($action->payload['feline_bonus_pending'] ?? false)
                                 ? ['felineBonusPending' => true]
                                 : []),
-                            'toolCost' => 1,
-                            'coinCost' => 2,
+                            'toolCost' => $isFreeWorkshop ? 0 : 1,
+                            'coinCost' => $isFreeWorkshop ? 0 : 2,
+                            ...($isFreeWorkshop ? ['lizardFreeWorkshop' => true] : []),
                         ],
                     );
                     $game->active_player_id = $player->user_id;
@@ -892,7 +904,10 @@ final class ReplayGameHistoryAction
             $playerState = $this->playerState($state, $player->id);
 
             $availableHexIds = $this->availableWorkshopHexIds($state, $playerState, $buildableHexIds);
-            $state->pendingInteraction = $availableHexIds === []
+            $isFreeWorkshop = (bool) ($action->payload['lizard_free_workshop'] ?? false);
+            $state->pendingInteraction = (bool) ($action->payload['lizard_bonus_pending'] ?? false)
+                ? null
+                : ($availableHexIds === []
                 || ! (bool) ($action->payload['build_offered'] ?? false)
                     ? $this->createReplayFelineBonusInteraction($playerState, $action)
                     : new PendingInteractionData(
@@ -903,10 +918,14 @@ final class ReplayGameHistoryAction
                             ...((bool) ($action->payload['feline_bonus_pending'] ?? false)
                                 ? ['felineBonusPending' => true]
                                 : []),
-                            'toolCost' => 1,
-                            'coinCost' => 2,
+                            'toolCost' => $isFreeWorkshop ? 0 : 1,
+                            'coinCost' => $isFreeWorkshop ? 0 : 2,
+                            ...($isFreeWorkshop ? ['lizardFreeWorkshop' => true] : []),
                         ],
-                    );
+                    ));
+            if ((bool) ($action->payload['lizard_bonus_pending'] ?? false)) {
+                $this->startLizardTownBonus->execute($state, $playerState);
+            }
         } elseif ($interactionPhase === GamePhase::ScienceBonus) {
             $state->pendingInteraction = null;
             [$nextPlayer, $nextPhase] = $this->resolveScienceBonusPhase->execute($state, $players);
@@ -966,8 +985,8 @@ final class ReplayGameHistoryAction
                 $this->invalidHistory();
             }
 
-            $playerState->resources->tools--;
-            $playerState->resources->coins -= 2;
+            $playerState->resources->tools -= (int) ($action->payload['tool_cost'] ?? 1);
+            $playerState->resources->coins -= (int) ($action->payload['coin_cost'] ?? 2);
             $playerState->resources->coins += (int) ($action->payload['bonus_coins'] ?? 0);
             $playerState->victoryPoints += (int) ($action->payload['victory_points'] ?? 0);
             $hex->building = new BuildingStateData(BuildingType::Workshop, $player->id);
@@ -1107,6 +1126,7 @@ final class ReplayGameHistoryAction
                     'builtHexId' => $markerHexId,
                     'queuedBuiltHexIds' => $queuedBuiltHexIds,
                     ...($playerState->faction === Faction::Felines ? ['felineBonusPending' => true] : []),
+                    ...($playerState->faction === Faction::Lizards ? ['lizardBonusPending' => true] : []),
                 ],
             );
             $game->active_player_id = $player->user_id;
@@ -1121,6 +1141,7 @@ final class ReplayGameHistoryAction
                     'remainingSpades' => 2,
                     'targetTerrain' => $playerState->homeland->value,
                     ...($playerState->faction === Faction::Felines ? ['felineBonusPending' => true] : []),
+                    ...($playerState->faction === Faction::Lizards ? ['lizardBonusPending' => true] : []),
                 ],
             );
             $game->active_player_id = $player->user_id;
@@ -1137,6 +1158,9 @@ final class ReplayGameHistoryAction
                     'queuedBuiltHexIds' => $queuedBuiltHexIds,
                 ],
             );
+            $game->active_player_id = $player->user_id;
+        } elseif ($playerState->faction === Faction::Lizards) {
+            $this->startLizardTownBonus->execute($state, $playerState);
             $game->active_player_id = $player->user_id;
         } else {
             $state->pendingInteraction = null;
@@ -1222,6 +1246,9 @@ final class ReplayGameHistoryAction
                     'queuedBuiltHexIds' => $interaction->context['queuedBuiltHexIds'] ?? [],
                 ],
             );
+        } elseif (($interaction->context['lizardBonusPending'] ?? false) === true
+            && $playerState->faction === Faction::Lizards) {
+            $this->startLizardTownBonus->execute($state, $playerState);
         } elseif (is_string($interaction->context['continueBuildingAfterPowerHexId'] ?? null)) {
             $game->active_player_id = $this->createTownChoiceAfterBuilding->execute(
                 $state,
