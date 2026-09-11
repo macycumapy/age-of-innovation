@@ -13,6 +13,7 @@ import type {
     GameHistoryEntry,
     GameHistoryPage,
     GamePlayerSummary,
+    KnowledgeDiscipline,
     PowerAction,
     RoundBonus,
     TerrainType,
@@ -65,6 +66,19 @@ const actionDescriptions: Record<GameActionType, string> = {
     place_annex: 'поставил пристройку',
     choose_competency: 'выбрал компетенцию',
 };
+
+const disciplineNames: Record<KnowledgeDiscipline, string> = {
+    banking: 'банковское дело',
+    law: 'право',
+    engineering: 'инженерия',
+    medicine: 'медицина',
+};
+
+function disciplineName(discipline: string, capitalize = false): string {
+    const name = discipline in disciplineNames ? disciplineNames[discipline as KnowledgeDiscipline] : discipline;
+
+    return capitalize ? `${name.charAt(0).toLocaleUpperCase('ru-RU')}${name.slice(1)}` : name;
+}
 
 const entries = ref<GameHistoryEntry[]>([...props.history.data]);
 const hasMore = ref(props.history.hasMore);
@@ -196,13 +210,6 @@ function scienceBonusDetails(entry: GameHistoryEntry): string[] {
         return [];
     }
 
-    const disciplineNames: Record<string, string> = {
-        banking: 'Банковское дело',
-        law: 'Право',
-        engineering: 'Инженерия',
-        medicine: 'Медицина',
-    };
-
     return receipts.flatMap((receipt) => {
         if (typeof receipt !== 'object' || receipt === null || !('player_id' in receipt)) {
             return [];
@@ -229,7 +236,7 @@ function scienceBonusDetails(entry: GameHistoryEntry): string[] {
             .filter((resource): resource is string => resource !== null);
 
         return [
-            `${playerName}: ${disciplineNames[discipline] ?? discipline}, уровень ${level} — ${resources.length > 0 ? resources.join(', ') : 'без награды'}`,
+            `${playerName}: ${disciplineName(discipline, true)}, уровень ${level} — ${resources.length > 0 ? resources.join(', ') : 'без награды'}`,
         ];
     });
 }
@@ -257,17 +264,11 @@ function developmentTrackRewardDetails(entry: GameHistoryEntry): string | null {
     }
 
     if (Number.isFinite(books) && books > 0) {
-        const disciplineNames: Record<string, string> = {
-            banking: 'банковское дело',
-            law: 'право',
-            engineering: 'инженерия',
-            medicine: 'медицина',
-        };
         const selectedBooks =
             typeof entry.payload.reward_book_counts === 'object' && entry.payload.reward_book_counts !== null
                 ? Object.entries(entry.payload.reward_book_counts)
                       .filter(([, count]) => Number(count) > 0)
-                      .map(([discipline, count]) => `${disciplineNames[discipline] ?? discipline} ×${Number(count)}`)
+                      .map(([discipline, count]) => `${disciplineName(discipline)} ×${Number(count)}`)
                 : [];
 
         rewards.push(
@@ -292,13 +293,6 @@ function finalScoringDetails(entry: GameHistoryEntry): string[] {
     if (!Array.isArray(scoring)) {
         return [];
     }
-
-    const disciplineNames: Record<string, string> = {
-        banking: 'Банковское дело',
-        law: 'Право',
-        engineering: 'Инженерия',
-        medicine: 'Медицина',
-    };
 
     return scoring.flatMap((playerScoring) => {
         if (typeof playerScoring !== 'object' || playerScoring === null) {
@@ -335,7 +329,7 @@ function finalScoringDetails(entry: GameHistoryEntry): string[] {
 
                   if (scoringSource.source === 'knowledge' && typeof scoringSource.id === 'string') {
                       return [
-                          `${disciplineNames[scoringSource.id] ?? scoringSource.id}: уровень ${value}, ${rank}-е место — +${points} ПО`,
+                          `${disciplineName(scoringSource.id, true)}: уровень ${value}, ${rank}-е место — +${points} ПО`,
                       ];
                   }
 
@@ -369,16 +363,7 @@ function powerActionReward(action: PowerAction): string {
 function bookActionReward(entry: GameHistoryEntry, action: BookAction): string | null {
     if (action === 'advance_knowledge') {
         const discipline = payloadString(entry, 'discipline');
-        const disciplineNames: Record<string, string> = {
-            banking: 'банковском деле',
-            law: 'праве',
-            engineering: 'инженерном деле',
-            medicine: 'медицине',
-        };
-
-        return discipline === null
-            ? 'получено 2 шага знаний'
-            : `получено 2 шага в ${disciplineNames[discipline] ?? discipline}`;
+        return discipline === null ? 'получено 2 шага знаний' : `получено 2 шага знаний: ${disciplineName(discipline)}`;
     }
 
     return {
@@ -390,6 +375,42 @@ function bookActionReward(entry: GameHistoryEntry, action: BookAction): string |
     }[action];
 }
 
+function palaceActionReward(entry: GameHistoryEntry, palace: string): string | null {
+    if (palace === 'palace_06') {
+        const knowledgeDisciplines = Array.isArray(entry.payload.knowledge_disciplines)
+            ? entry.payload.knowledge_disciplines.filter(
+                  (discipline): discipline is string => typeof discipline === 'string',
+              )
+            : [];
+        const counts = knowledgeDisciplines.reduce<Record<string, number>>((result, discipline) => {
+            result[discipline] = (result[discipline] ?? 0) + 1;
+
+            return result;
+        }, {});
+        const advancements = Object.entries(counts).map(
+            ([discipline, count]) => `${disciplineName(discipline)} +${count}`,
+        );
+
+        return advancements.length > 0 ? `получены шаги знаний: ${advancements.join(', ')}` : 'получено 2 шага знаний';
+    }
+
+    if (palace === 'palace_13') {
+        const discipline = payloadString(entry, 'discipline');
+        return discipline === null
+            ? 'получено 3 золота и книга'
+            : `получено 3 золота и книга: ${disciplineName(discipline)}`;
+    }
+
+    return (
+        {
+            palace_01: 'получено 2 инструмента',
+            palace_02: 'получено 2 лопаты',
+            palace_03: 'школа заменена рынком, получен 1 инструмент',
+            palace_04: 'дом бесплатно улучшен до рынка',
+        }[palace] ?? null
+    );
+}
+
 function actionRewardDetails(entry: GameHistoryEntry): string | null {
     const action = payloadString(entry, 'action');
 
@@ -399,6 +420,12 @@ function actionRewardDetails(entry: GameHistoryEntry): string | null {
 
     if (entry.type === 'book_action' && action !== null) {
         return bookActionReward(entry, action as BookAction);
+    }
+
+    const palace = payloadString(entry, 'palace');
+
+    if (entry.type === 'special_action' && palace !== null) {
+        return palaceActionReward(entry, palace);
     }
 
     return null;
@@ -453,12 +480,6 @@ function actionDetails(entry: GameHistoryEntry): string | null {
     }
 
     if (entry.type === 'pass' && Array.isArray(entry.payload.knowledge_disciplines)) {
-        const disciplineNames: Record<string, string> = {
-            banking: 'банковское дело',
-            law: 'право',
-            engineering: 'инженерия',
-            medicine: 'медицина',
-        };
         const counts = entry.payload.knowledge_disciplines.reduce<Record<string, number>>((result, discipline) => {
             if (typeof discipline === 'string') {
                 result[discipline] = (result[discipline] ?? 0) + 1;
@@ -467,7 +488,7 @@ function actionDetails(entry: GameHistoryEntry): string | null {
             return result;
         }, {});
         const advancements = Object.entries(counts).map(
-            ([discipline, count]) => `${disciplineNames[discipline] ?? discipline} +${count}`,
+            ([discipline, count]) => `${disciplineName(discipline)} +${count}`,
         );
 
         if (advancements.length > 0) {
@@ -476,12 +497,6 @@ function actionDetails(entry: GameHistoryEntry): string | null {
     }
 
     if (entry.type === 'choose_town_books' || entry.type === 'choose_feline_town_bonus') {
-        const disciplineNames: Record<string, string> = {
-            banking: 'банковское дело',
-            law: 'право',
-            engineering: 'инженерия',
-            medicine: 'медицина',
-        };
         const distributionDetails = [
             ['book_counts', 'книги'],
             ['knowledge_counts', 'шаги знаний'],
@@ -494,7 +509,7 @@ function actionDetails(entry: GameHistoryEntry): string | null {
 
             const values = Object.entries(counts)
                 .filter(([, count]) => Number(count) > 0)
-                .map(([discipline, count]) => `${disciplineNames[discipline] ?? discipline} +${Number(count)}`);
+                .map(([discipline, count]) => `${disciplineName(discipline)} +${Number(count)}`);
 
             return values.length > 0 ? [`${label}: ${values.join(', ')}`] : [];
         });
