@@ -4,6 +4,7 @@ import tailwindcss from '@tailwindcss/vite';
 import vue from '@vitejs/plugin-vue';
 import laravel from 'laravel-vite-plugin';
 import { bunny } from 'laravel-vite-plugin/fonts';
+import { withFilter } from 'rolldown/filter';
 import { defineConfig } from 'vite';
 
 export default defineConfig({
@@ -22,7 +23,11 @@ export default defineConfig({
                 }),
             ],
         }),
-        inertia(),
+        withFilter(inertia(), {
+            transform: {
+                code: 'InertiaApp',
+            },
+        }),
         tailwindcss(),
         vue({
             template: {
