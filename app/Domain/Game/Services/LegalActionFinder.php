@@ -410,7 +410,11 @@ final class LegalActionFinder
                     static fn (string $id): bool => $id === $discipline->value,
                 )),
             );
-            if ($player->scholarPoolSize > 0 && $placed < 4) {
+            $neutralScholarCount = $game->state->neutralKnowledge !== null
+                && in_array($discipline->value, $game->state->neutralKnowledge->scholarDisciplineIds, true)
+                    ? 1
+                    : 0;
+            if ($player->scholarPoolSize > 0 && $placed + $neutralScholarCount < 4) {
                 $options[] = ['discipline' => $discipline->value, 'place' => true];
             }
         }

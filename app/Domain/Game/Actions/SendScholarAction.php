@@ -22,6 +22,7 @@ final class SendScholarAction
 {
     public function __construct(
         private AdvanceKnowledgeAction $advanceKnowledge,
+        private AssignScholarSlotsAction $assignScholarSlots,
         private AppendGameHistoryAction $appendGameHistory,
     ) {
     }
@@ -41,6 +42,9 @@ final class SendScholarAction
                     static fn (string $disciplineId): bool => $disciplineId === $discipline->value,
                 )),
             );
+            $scholarSlotIndex = $place
+                ? $this->assignScholarSlots->nextAvailable($state, $discipline)
+                : null;
 
             if ($lockedGame->phase !== GamePhase::Actions
                 || $lockedGame->active_player_id !== $user->id
@@ -50,7 +54,7 @@ final class SendScholarAction
                 || ! $playerState instanceof GamePlayerStateData
                 || $playerState->resources->scholars < 1
                 || ($place && $playerState->scholarPoolSize < 1)
-                || ($place && $placedScholarCount >= 4)) {
+                || ($place && $scholarSlotIndex === null)) {
                 throw ValidationException::withMessages(['scholar' => 'Сейчас нельзя отправить учёного в эту дисциплину.']);
             }
 
@@ -68,6 +72,7 @@ final class SendScholarAction
             if ($place) {
                 $playerState->scholarPoolSize--;
                 $playerState->scholarDisciplineIds[] = $discipline->value;
+                $playerState->scholarSlotIndexes[] = $scholarSlotIndex;
             }
 
             $knowledgeLevelBefore = $playerState->knowledge->{$discipline->value};
@@ -90,6 +95,7 @@ final class SendScholarAction
                 [
                     'discipline' => $discipline->value,
                     'placed' => $place,
+                    'slot_index' => $scholarSlotIndex,
                     'steps' => $advancedSteps,
                     'victory_points' => $victoryPoints,
                 ],

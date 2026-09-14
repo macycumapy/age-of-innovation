@@ -78,6 +78,22 @@ enum RoundScoringTile: string
         };
     }
 
+    public function scienceBonusLevelInterval(): int
+    {
+        return match ($this) {
+            self::SchoolBanking, self::SpadeEngineering => 1,
+            self::PalaceUniversityMedicine,
+            self::PalaceUniversityBanking,
+            self::InnovationLaw => 2,
+            self::WorkshopLaw,
+            self::WorkshopBanking,
+            self::GuildLaw,
+            self::KnowledgeMedicine,
+            self::TrackEngineering => 3,
+            self::GuildMedicine, self::TownEngineering => 4,
+        };
+    }
+
     /** @return array{scholars: int, power: int, books: int, spades: int, coins: int, tools: int} */
     public function scienceBonus(int $knowledgeLevel): array
     {

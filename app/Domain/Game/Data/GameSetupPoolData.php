@@ -18,7 +18,7 @@ use Spatie\LaravelData\Data;
  * @property int $playerCount Число участников партии.
  * @property MapVariant $mapVariant Сторона карты для партии.
  * @property int $firstPlayerIndex Индекс случайно выбранного первого игрока.
- * @property list<RoundScoringTile> $roundScoringTiles Жетоны раундов 1–6 по порядку.
+ * @property list<RoundScoringTile|string> $roundScoringTiles Жетоны раундов 1–6 по порядку.
  * @property FinalRoundScoringTile $additionalFinalRoundGoal Дополнительный жетон подсчёта шестого раунда.
  * @property list<BookAction> $bookActions Три общих книжных действия партии.
  * @property list<Competency> $competencies Случайный порядок двенадцати стопок компетенций.
@@ -32,7 +32,7 @@ use Spatie\LaravelData\Data;
 final class GameSetupPoolData extends Data
 {
     /**
-     * @param list<RoundScoringTile> $roundScoringTiles
+     * @param list<RoundScoringTile|string> $roundScoringTiles
      * @param list<BookAction> $bookActions
      * @param list<Competency> $competencies
      * @param list<Innovation> $innovations

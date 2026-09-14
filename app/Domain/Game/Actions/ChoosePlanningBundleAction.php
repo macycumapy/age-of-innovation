@@ -24,6 +24,7 @@ final class ChoosePlanningBundleAction
     public function __construct(
         private GamePlayerStateFactory $playerStateFactory,
         private DetermineNextPlanningPlayerAction $determineNextPlanningPlayer,
+        private InitializeNeutralKnowledgeFactionAction $initializeNeutralKnowledgeFaction,
         private AppendGameHistoryAction $appendGameHistory,
     ) {
     }
@@ -92,6 +93,7 @@ final class ChoosePlanningBundleAction
                 new PlayerPlanningSelectionData($player->id, $bundle),
             ];
             $state->players = [...$state->players, $playerState];
+            $this->initializeNeutralKnowledgeFaction->execute($state);
             $requiresStartingChoice = $playerState->resources->books->unassigned > 0
                 || $playerState->knowledge->unassignedSteps > 0;
 

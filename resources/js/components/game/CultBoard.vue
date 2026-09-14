@@ -1,7 +1,13 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import type { CSSProperties } from 'vue';
-import type { GamePlayerBoardState, GamePlayerSummary, KnowledgeDiscipline, PlayerColor } from '@/types';
+import type {
+    GamePlayerBoardState,
+    GamePlayerSummary,
+    KnowledgeDiscipline,
+    NeutralKnowledgeState,
+    PlayerColor,
+} from '@/types';
 import cultBoardUrl from '../../../images/cult_board.png';
 
 type KnowledgeMarker = {
@@ -23,6 +29,7 @@ type ScholarMarker = {
 const props = defineProps<{
     players: GamePlayerSummary[];
     playerStates: GamePlayerBoardState[];
+    neutralKnowledgeState: NeutralKnowledgeState | null;
     canSendScholar: boolean;
 }>();
 
@@ -64,7 +71,7 @@ function scholarImage(color: PlayerColor): string {
 }
 
 const knowledgeMarkers = computed<KnowledgeMarker[]>(() => {
-    const markersWithoutCollisions = props.playerStates.flatMap((state) => {
+    const playerMarkers = props.playerStates.flatMap((state) => {
         const player = props.players.find((candidate) => candidate.id === state.playerId);
 
         if (player === undefined || player.color === null) {
@@ -80,6 +87,17 @@ const knowledgeMarkers = computed<KnowledgeMarker[]>(() => {
             level: Math.max(0, Math.min(state.knowledge[discipline], 12)),
         }));
     });
+    const neutralKnowledgeState = props.neutralKnowledgeState;
+    const neutralMarkers =
+        neutralKnowledgeState === null
+            ? []
+            : disciplines.map((discipline) => ({
+                  playerId: 0,
+                  color: neutralKnowledgeState.color,
+                  discipline,
+                  level: Math.max(0, Math.min(neutralKnowledgeState.knowledge[discipline], 12)),
+              }));
+    const markersWithoutCollisions = [...playerMarkers, ...neutralMarkers];
 
     return markersWithoutCollisions.map((marker) => {
         const collisions = markersWithoutCollisions.filter(
@@ -96,9 +114,26 @@ const knowledgeMarkers = computed<KnowledgeMarker[]>(() => {
 
 const scholarMarkers = computed<ScholarMarker[]>(() =>
     disciplines.flatMap((discipline) => {
-        let slotIndex = 0;
+        const neutralScholarSlotIndex = props.neutralKnowledgeState?.scholarDisciplineIds.includes(discipline)
+            ? props.neutralKnowledgeState.scholarSlotIndex
+            : null;
+        const usedSlotIndexes = neutralScholarSlotIndex === null ? [] : [neutralScholarSlotIndex];
 
-        return props.playerStates.flatMap((state) => {
+        function playerScholarSlotIndex(preferredSlotIndex: number | undefined): number {
+            if (preferredSlotIndex !== undefined && !usedSlotIndexes.includes(preferredSlotIndex)) {
+                usedSlotIndexes.push(preferredSlotIndex);
+
+                return preferredSlotIndex;
+            }
+
+            const availableSlotIndex = [0, 1, 2, 3].find((candidate) => !usedSlotIndexes.includes(candidate));
+            const slotIndex = availableSlotIndex ?? usedSlotIndexes.length;
+            usedSlotIndexes.push(slotIndex);
+
+            return slotIndex;
+        }
+
+        const playerMarkers = props.playerStates.flatMap((state) => {
             const player = props.players.find((candidate) => candidate.id === state.playerId);
 
             if (player === undefined || player.color === null) {
@@ -107,15 +142,30 @@ const scholarMarkers = computed<ScholarMarker[]>(() =>
 
             const color = player.color;
 
-            return state.scholarDisciplineIds
-                .filter((disciplineId) => disciplineId === discipline)
-                .map(() => ({
-                    playerId: state.playerId,
-                    color,
-                    discipline,
-                    slotIndex: slotIndex++,
-                }));
+            return state.scholarDisciplineIds.flatMap((disciplineId, placementIndex) =>
+                disciplineId === discipline
+                    ? [
+                          {
+                              playerId: state.playerId,
+                              color,
+                              discipline,
+                              slotIndex: playerScholarSlotIndex(state.scholarSlotIndexes[placementIndex]),
+                          },
+                      ]
+                    : [],
+            );
         });
+
+        if (props.neutralKnowledgeState !== null && neutralScholarSlotIndex !== null) {
+            playerMarkers.push({
+                playerId: 0,
+                color: props.neutralKnowledgeState.color,
+                discipline,
+                slotIndex: neutralScholarSlotIndex,
+            });
+        }
+
+        return playerMarkers;
     }),
 );
 

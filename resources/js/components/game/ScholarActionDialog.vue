@@ -40,13 +40,16 @@ const disciplineImages: Record<KnowledgeDiscipline, string> = {
     engineering: engineeringUrl,
     medicine: medicineUrl,
 };
-const placementSteps = computed(() => props.occupiedSlots === 0 ? 3 : 2);
+const placementSteps = computed(() => (props.occupiedSlots === 0 ? 3 : 2));
 
-watch(() => props.open, (open) => {
-    if (open) {
-        placeScholar.value = props.occupiedSlots < 4;
-    }
-});
+watch(
+    () => props.open,
+    (open) => {
+        if (open) {
+            placeScholar.value = props.occupiedSlots < 4;
+        }
+    },
+);
 </script>
 
 <template>
@@ -70,7 +73,11 @@ watch(() => props.open, (open) => {
                 <input type="hidden" name="place" :value="placeScholar ? '1' : '0'" />
 
                 <div class="flex items-center gap-3 rounded-lg border bg-muted/30 p-3">
-                    <img :src="disciplineImages[discipline]" :alt="disciplineNames[discipline]" class="size-14 object-contain" />
+                    <img
+                        :src="disciplineImages[discipline]"
+                        :alt="disciplineNames[discipline]"
+                        class="size-14 object-contain"
+                    />
                     <div>
                         <p class="font-medium">Доступно учёных: {{ playerState?.scholars ?? 0 }}</p>
                         <p class="text-sm text-muted-foreground">
@@ -80,10 +87,10 @@ watch(() => props.open, (open) => {
                 </div>
 
                 <button
+                    v-if="occupiedSlots < 4"
                     type="button"
                     class="flex items-center gap-4 rounded-lg border p-4 text-left transition hover:border-primary"
                     :class="placeScholar ? 'border-primary ring-2 ring-primary/40' : ''"
-                    :disabled="occupiedSlots >= 4"
                     @click="placeScholar = true"
                 >
                     <img :src="scholarUrl" alt="" class="size-12 object-contain" />

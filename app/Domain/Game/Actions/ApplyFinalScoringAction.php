@@ -45,13 +45,19 @@ final class ApplyFinalScoringAction
         );
 
         foreach (KnowledgeDiscipline::cases() as $discipline) {
+            $knowledgeValues = collect($state->players)->mapWithKeys(
+                static fn (GamePlayerStateData $player): array => [
+                    $player->playerId => $player->knowledge->{$discipline->value},
+                ],
+            )->filter(static fn (int $value): bool => $value > 0)->all();
+
+            if ($state->neutralKnowledge !== null) {
+                $knowledgeValues[0] = $state->neutralKnowledge->knowledge->{$discipline->value};
+            }
+
             $this->awardRanking(
                 $state,
-                collect($state->players)->mapWithKeys(
-                    static fn (GamePlayerStateData $player): array => [
-                        $player->playerId => $player->knowledge->{$discipline->value},
-                    ],
-                )->filter(static fn (int $value): bool => $value > 0)->all(),
+                $knowledgeValues,
                 self::KNOWLEDGE_PLACE_POINTS,
                 'knowledge',
                 $discipline->value,

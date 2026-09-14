@@ -9,6 +9,8 @@ use App\Domain\Game\Data\BoardStateData;
 use App\Domain\Game\Data\BuildingStateData;
 use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Data\GameStateData;
+use App\Domain\Game\Data\KnowledgeStateData;
+use App\Domain\Game\Data\NeutralKnowledgeStateData;
 use App\Domain\Game\Data\PendingInteractionData;
 use App\Domain\Game\Data\PlayerResourcesData;
 use App\Domain\Game\Data\PowerBowlsStateData;
@@ -17,6 +19,7 @@ use App\Domain\Game\Enums\BuildingType;
 use App\Domain\Game\Enums\Faction;
 use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\GameStatus;
+use App\Domain\Game\Enums\KnowledgeDiscipline;
 use App\Domain\Game\Enums\PendingInteractionType;
 use App\Domain\Game\Enums\PlayerColor;
 use App\Domain\Game\Enums\RoundBonus;
@@ -62,6 +65,34 @@ class LegalActionFinderTest extends TestCase
         $this->assertCount(8, $actions->get('send_scholar')->parameters['options']);
         $this->assertCount(6, $actions->get('use_power_action')->parameters['options']);
         $this->assertSame($player->id, $state->players[0]->playerId);
+    }
+
+    public function test_it_omits_scholar_placement_when_all_four_discipline_slots_are_occupied(): void
+    {
+        [$game, $user] = $this->activeGame();
+        $state = $game->state;
+        $state->players[0]->resources->scholars = 1;
+        $state->players[0]->scholarDisciplineIds = ['law', 'law', 'law'];
+        $state->neutralKnowledge = new NeutralKnowledgeStateData(
+            PlayerColor::Black,
+            new KnowledgeStateData(),
+            ['banking', 'law', 'engineering', 'medicine'],
+            1,
+        );
+        $game->state = $state;
+
+        $sendScholar = collect(app(LegalActionFinder::class)->execute($game, $user))
+            ->firstWhere('type', 'send_scholar');
+
+        $this->assertNotNull($sendScholar);
+        $this->assertContains(
+            ['discipline' => KnowledgeDiscipline::Law->value, 'place' => false],
+            $sendScholar->parameters['options'],
+        );
+        $this->assertNotContains(
+            ['discipline' => KnowledgeDiscipline::Law->value, 'place' => true],
+            $sendScholar->parameters['options'],
+        );
     }
 
     public function test_a_pending_interaction_hides_normal_actions(): void

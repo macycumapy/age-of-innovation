@@ -194,6 +194,7 @@ class GameResource extends JsonResource
                     'scholars' => $player->resources->scholars,
                     'scholarPoolSize' => $player->scholarPoolSize,
                     'scholarDisciplineIds' => $player->scholarDisciplineIds,
+                    'scholarSlotIndexes' => $player->scholarSlotIndexes,
                     'coins' => $player->resources->coins,
                     'tools' => $player->resources->tools,
                     'books' => [
@@ -273,6 +274,17 @@ class GameResource extends JsonResource
                 ],
                 $this->state->players,
             ),
+            'neutralKnowledgeState' => $this->state->neutralKnowledge === null ? null : [
+                'color' => $this->state->neutralKnowledge->color->value,
+                'scholarDisciplineIds' => $this->state->neutralKnowledge->scholarDisciplineIds,
+                'scholarSlotIndex' => $this->state->neutralKnowledge->scholarSlotIndex,
+                'knowledge' => [
+                    'banking' => $this->state->neutralKnowledge->knowledge->banking,
+                    'law' => $this->state->neutralKnowledge->knowledge->law,
+                    'engineering' => $this->state->neutralKnowledge->knowledge->engineering,
+                    'medicine' => $this->state->neutralKnowledge->knowledge->medicine,
+                ],
+            ],
             'planningBundles' => array_map(
                 static fn (PlanningBundleData $bundle): array => [
                     'homeland' => $bundle->homeland->value,

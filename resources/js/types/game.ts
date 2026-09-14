@@ -21,6 +21,7 @@ export type GameResource = {
     data: GameSummary & {
         players: GamePlayerSummary[];
         playerBoardStates: GamePlayerBoardState[];
+        neutralKnowledgeState: NeutralKnowledgeState | null;
         isOwner: boolean;
         canUndoLastAction: boolean;
         canRestartCurrentTurn: boolean;
@@ -137,6 +138,7 @@ export type GamePlayerBoardState = {
     scholars: number;
     scholarPoolSize: number;
     scholarDisciplineIds: KnowledgeDiscipline[];
+    scholarSlotIndexes: number[];
     coins: number;
     tools: number;
     books: {
@@ -185,6 +187,13 @@ export type GamePlayerBoardState = {
         bowlTwo: number;
         bowlThree: number;
     };
+};
+
+export type NeutralKnowledgeState = {
+    color: PlayerColor;
+    scholarDisciplineIds: KnowledgeDiscipline[];
+    scholarSlotIndex: number;
+    knowledge: Record<KnowledgeDiscipline, number>;
 };
 
 export type GamePlayerSummary = {

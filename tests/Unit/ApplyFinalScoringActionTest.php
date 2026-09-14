@@ -11,6 +11,7 @@ use App\Domain\Game\Data\BuildingStateData;
 use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Data\GameStateData;
 use App\Domain\Game\Data\KnowledgeStateData;
+use App\Domain\Game\Data\NeutralKnowledgeStateData;
 use App\Domain\Game\Enums\BuildingType;
 use App\Domain\Game\Enums\Faction;
 use App\Domain\Game\Enums\PlayerColor;
@@ -56,6 +57,28 @@ class ApplyFinalScoringActionTest extends TestCase
             'points' => 6,
         ], $scoring[2]['sources'][0]);
         $this->assertNotContains('medicine', array_column($scoring[2]['sources'], 'id'));
+    }
+
+    public function test_neutral_faction_occupies_knowledge_places_without_receiving_points(): void
+    {
+        $state = new GameStateData(
+            players: [
+                $this->player(1, new KnowledgeStateData(banking: 8)),
+                $this->player(2, new KnowledgeStateData(banking: 4)),
+            ],
+            neutralKnowledge: new NeutralKnowledgeStateData(
+                PlayerColor::Black,
+                new KnowledgeStateData(banking: 6),
+                ['banking', 'law', 'engineering', 'medicine'],
+            ),
+        );
+
+        $scoring = (new ApplyFinalScoringAction())->execute($state);
+
+        $this->assertSame([43, 37], array_column($state->players, 'victoryPoints'));
+        $this->assertSame([23, 17], array_column($scoring, 'victoryPoints'));
+        $this->assertSame(1, $scoring[0]['sources'][1]['rank']);
+        $this->assertSame(3, $scoring[1]['sources'][1]['rank']);
     }
 
     /** @param list<string> $adjacentHexIds */

@@ -529,7 +529,9 @@ const selectedScholarDisciplineOccupiedSlots = computed(() =>
                   total +
                   state.scholarDisciplineIds.filter((discipline) => discipline === selectedScholarDiscipline.value)
                       .length,
-              0,
+              props.game.data.neutralKnowledgeState?.scholarDisciplineIds.includes(selectedScholarDiscipline.value)
+                  ? 1
+                  : 0,
           ),
 );
 
@@ -1162,6 +1164,7 @@ defineOptions({
                         <CultBoard
                             :players="orderedPlayers"
                             :player-states="game.data.playerBoardStates"
+                            :neutral-knowledge-state="game.data.neutralKnowledgeState"
                             :can-send-scholar="game.data.canSendScholar"
                             @send-scholar="selectScholarDiscipline"
                         />

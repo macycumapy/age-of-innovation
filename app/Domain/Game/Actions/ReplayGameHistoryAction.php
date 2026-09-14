@@ -88,6 +88,7 @@ final class ReplayGameHistoryAction
         private BoardStateFactory $boardStateFactory,
         private GamePlayerStateFactory $playerStateFactory,
         private GameSetupPoolFactory $setupPoolFactory,
+        private InitializeNeutralKnowledgeFactionAction $initializeNeutralKnowledgeFaction,
         private GrantCompetencyAction $grantCompetency,
         private ApplyResourceExchangeAction $applyResourceExchange,
         private ApplyPowerActionAction $applyPowerAction,
@@ -104,6 +105,7 @@ final class ReplayGameHistoryAction
         private AdvanceDevelopmentTrackAction $advanceDevelopmentTrack,
         private ApplyDevelopmentTrackRoundScoringAction $applyDevelopmentTrackRoundScoring,
         private AdvanceKnowledgeAction $advanceKnowledge,
+        private AssignScholarSlotsAction $assignScholarSlots,
         private ResolveCompletedStartingSetupAction $resolveCompletedStartingSetup,
         private ApplyRoundBonusAction $applyRoundBonusAction,
         private ApplyFactionAction $applyFactionAction,
@@ -470,6 +472,7 @@ final class ReplayGameHistoryAction
         ]);
         $state->planningSelections[] = new PlayerPlanningSelectionData($player->id, $bundle);
         $state->players[] = $playerState;
+        $this->initializeNeutralKnowledgeFaction->execute($state);
         $requiresChoice = $playerState->resources->books->unassigned > 0
             || $playerState->knowledge->unassignedSteps > 0;
         $state->pendingInteraction = $requiresChoice
@@ -1544,8 +1547,19 @@ final class ReplayGameHistoryAction
         $playerState->resources->scholars--;
 
         if ((bool) ($action->payload['placed'] ?? false)) {
+            $slotIndex = $action->payload['slot_index'] ?? null;
+
+            if (! is_int($slotIndex)) {
+                $slotIndex = $this->assignScholarSlots->nextAvailable($state, $discipline);
+            }
+
+            if ($slotIndex === null) {
+                $this->invalidHistory();
+            }
+
             $playerState->scholarPoolSize--;
             $playerState->scholarDisciplineIds[] = $discipline->value;
+            $playerState->scholarSlotIndexes[] = $slotIndex;
         }
 
         $this->advanceKnowledge->execute($state, $playerState, $discipline, (int) ($action->payload['steps'] ?? 0));
