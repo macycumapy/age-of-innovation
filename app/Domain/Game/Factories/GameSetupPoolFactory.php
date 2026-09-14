@@ -18,6 +18,7 @@ use App\Domain\Game\Enums\RoundBonus;
 use App\Domain\Game\Enums\RoundScoringTile;
 use App\Domain\Game\Enums\TerrainType;
 use App\Domain\Game\Enums\TownTile;
+use App\Domain\Game\Enums\TwoPlayerTerritoryScore;
 use InvalidArgumentException;
 use Random\Engine\Xoshiro256StarStar;
 use Random\Randomizer;
@@ -41,9 +42,12 @@ final class GameSetupPoolFactory
         $roundScoringTiles = $this->roundScoringTiles();
         [$planningBundles, $availableRoundBonuses] = $this->planningBundles();
 
+        $selectedMapVariant = $mapVariant ?? $this->defaultMapVariant($playerCount);
+        $twoPlayerTerritoryScores = TwoPlayerTerritoryScore::cases();
+
         return new GameSetupPoolData(
             playerCount: $playerCount,
-            mapVariant: $mapVariant ?? $this->defaultMapVariant($playerCount),
+            mapVariant: $selectedMapVariant,
             firstPlayerIndex: $this->randomizer->getInt(0, $playerCount - 1),
             roundScoringTiles: $roundScoringTiles,
             additionalFinalRoundGoal: $this->finalRoundScoringTile($roundScoringTiles[5]),
@@ -59,6 +63,9 @@ final class GameSetupPoolFactory
             availableRoundBonuses: $availableRoundBonuses,
             townTiles: TownTile::cases(),
             twoPlayerAreaTile: $playerCount === 2 ? $this->randomizer->getInt(1, 4) : null,
+            twoPlayerTerritoryScore: $playerCount === 2 && $selectedMapVariant === MapVariant::OneToThreePlayers
+                ? $twoPlayerTerritoryScores[$this->randomizer->getInt(0, count($twoPlayerTerritoryScores) - 1)]
+                : null,
         );
     }
 

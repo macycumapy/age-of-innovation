@@ -12,6 +12,7 @@ use App\Domain\Game\Enums\PalaceAbility;
 use App\Domain\Game\Enums\RoundScoringGoal;
 use App\Domain\Game\Enums\RoundScoringTile;
 use App\Domain\Game\Enums\TerrainType;
+use App\Domain\Game\Enums\TwoPlayerTerritoryScore;
 use App\Domain\Game\Factories\GameSetupPoolFactory;
 use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -51,6 +52,7 @@ final class GameSetupPoolFactoryTest extends TestCase
         $this->assertCount(3, $pool->availableRoundBonuses);
         $this->assertCount(7, $pool->townTiles);
         $this->assertSame($playerCount === 2, $pool->twoPlayerAreaTile !== null);
+        $this->assertSame($playerCount === 2, $pool->twoPlayerTerritoryScore instanceof TwoPlayerTerritoryScore);
 
         $this->assertUniqueBackedEnums($pool->roundScoringTiles);
         $this->assertUniqueBackedEnums($pool->bookActions);
@@ -125,6 +127,16 @@ final class GameSetupPoolFactoryTest extends TestCase
         $pool = $this->factory(42)->create(3, MapVariant::OneToThreePlayers);
 
         $this->assertSame(MapVariant::OneToThreePlayers, $pool->mapVariant);
+    }
+
+    public function test_two_player_territory_score_is_only_selected_for_the_small_map(): void
+    {
+        $smallMapPool = $this->factory(42)->create(2, MapVariant::OneToThreePlayers);
+        $largeMapPool = $this->factory(42)->create(2, MapVariant::ThreeToFivePlayers);
+
+        $this->assertInstanceOf(TwoPlayerTerritoryScore::class, $smallMapPool->twoPlayerTerritoryScore);
+        $this->assertContains($smallMapPool->twoPlayerTerritoryScore->value, [12, 13, 14, 15]);
+        $this->assertNull($largeMapPool->twoPlayerTerritoryScore);
     }
 
     public function test_stored_seed_reproduces_setup_pool(): void

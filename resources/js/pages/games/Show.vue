@@ -1112,6 +1112,7 @@ defineOptions({
                             :current-round="game.data.currentRound"
                             :round-scoring-tiles="game.data.roundScoringTiles"
                             :final-round-scoring-tile="game.data.finalRoundScoringTile"
+                            :two-player-territory-tile="game.data.twoPlayerTerritoryTile"
                             :book-actions="game.data.bookActions"
                             :used-book-action-ids="game.data.usedBookActionIds"
                             :book-action-states="game.data.bookActionStates"

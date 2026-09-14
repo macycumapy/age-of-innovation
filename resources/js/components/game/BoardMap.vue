@@ -12,6 +12,7 @@ import type {
     MapVariant,
     PowerActionState,
     RoundScoringTile,
+    TwoPlayerTerritoryTile,
 } from '@/types';
 import gameBoardUrl from '../../../images/game_board.webp';
 import gameBoardTwoPlayerUrl from '../../../images/game_board_2p.webp';
@@ -24,6 +25,7 @@ type Props = {
     currentRound?: number | null;
     roundScoringTiles?: RoundScoringTile[];
     finalRoundScoringTile?: FinalRoundScoringTile | null;
+    twoPlayerTerritoryTile?: TwoPlayerTerritoryTile | null;
     bookActions?: BookAction[];
     usedBookActionIds?: BookAction[];
     bookActionStates?: BookActionState[];
@@ -63,6 +65,7 @@ const props = withDefaults(defineProps<Props>(), {
     currentRound: null,
     roundScoringTiles: () => [],
     finalRoundScoringTile: null,
+    twoPlayerTerritoryTile: null,
     bookActions: () => [],
     usedBookActionIds: () => [],
     bookActionStates: () => [],
@@ -140,6 +143,11 @@ const roundScoringTileImages = import.meta.glob<string>('../../../images/round_s
     query: '?url',
 });
 const finalRoundScoringTileImages = import.meta.glob<string>('../../../images/final_round_scoring_tiles/*.png', {
+    eager: true,
+    import: 'default',
+    query: '?url',
+});
+const twoPlayerTerritoryTileImages = import.meta.glob<string>('../../../images/2p_scoring_tiles/*.webp', {
     eager: true,
     import: 'default',
     query: '?url',
@@ -269,6 +277,10 @@ function finalRoundScoringTileImage(tile: FinalRoundScoringTile): string {
     return finalRoundScoringTileImages[`../../../images/final_round_scoring_tiles/${tile}.png`] ?? '';
 }
 
+function twoPlayerTerritoryTileImage(tile: TwoPlayerTerritoryTile): string {
+    return twoPlayerTerritoryTileImages[`../../../images/2p_scoring_tiles/2p_scoring_${tile}.webp`] ?? '';
+}
+
 function bookActionImage(action: BookAction): string {
     return bookActionImages[`../../../images/book_actions/${action}.png`] ?? '';
 }
@@ -326,6 +338,24 @@ function closedActionTokenX(actionX: number, actionWidth: number): number {
                 :height="boardHeight"
                 preserveAspectRatio="xMidYMid meet"
             />
+
+            <image
+                v-if="twoPlayerTerritoryTile !== null"
+                :href="twoPlayerTerritoryTileImage(twoPlayerTerritoryTile)"
+                x="245"
+                y="110"
+                width="68"
+                height="68"
+                preserveAspectRatio="xMidYMid meet"
+            >
+                <title>
+                    {{
+                        twoPlayerTerritoryTile === 'unknown'
+                            ? 'Размер территории неигровой фракции будет раскрыт в шестом раунде'
+                            : `Крупнейшая группа неигровой фракции: ${twoPlayerTerritoryTile}`
+                    }}
+                </title>
+            </image>
 
             <g v-for="(tile, index) in roundScoringTiles" :key="`round-${index}-${tile}`">
                 <title>Раунд {{ index + 1 }}: {{ roundScoringTileNames[tile] }}</title>

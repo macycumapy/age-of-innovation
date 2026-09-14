@@ -27,17 +27,24 @@ final class ApplyFinalScoringAction
                 $player->playerId => ['playerId' => $player->playerId, 'victoryPoints' => 0, 'sources' => []],
             ],
         )->all();
+        $networkValues = collect($state->players)->mapWithKeys(
+            static fn (GamePlayerStateData $player): array => [
+                $player->playerId => LargestNetworkSizeCalculator::calculate(
+                    $player,
+                    $state->board,
+                    includeRoundBonus: false,
+                ),
+            ],
+        )->all();
+        $twoPlayerTerritoryScore = $state->setupPool?->twoPlayerTerritoryScore;
+
+        if ($twoPlayerTerritoryScore !== null) {
+            $networkValues[0] = $twoPlayerTerritoryScore->value;
+        }
+
         $this->awardRanking(
             $state,
-            collect($state->players)->mapWithKeys(
-                static fn (GamePlayerStateData $player): array => [
-                    $player->playerId => LargestNetworkSizeCalculator::calculate(
-                        $player,
-                        $state->board,
-                        includeRoundBonus: false,
-                    ),
-                ],
-            )->all(),
+            $networkValues,
             self::NETWORK_PLACE_POINTS,
             'network',
             'largest_network',

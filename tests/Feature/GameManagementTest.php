@@ -1969,7 +1969,7 @@ class GameManagementTest extends TestCase
         $game->refresh();
         $this->assertSame(GameStatus::Finished, $game->status);
         $this->assertSame(GamePhase::Finished, $game->phase);
-        $this->assertSame([37, 35], array_column($game->state->players, 'victoryPoints'));
+        $this->assertSame([31, 29], array_column($game->state->players, 'victoryPoints'));
         $this->assertSame(2, $game->state->players[1]->resources->coins);
         $this->assertSame(1, $game->state->players[1]->resources->tools);
         $this->assertSame(2, $game->state->players[1]->resources->power->bowlTwo);
@@ -1983,7 +1983,7 @@ class GameManagementTest extends TestCase
             ->latest('sequence')
             ->firstOrFail()
             ->payload['final_scoring'];
-        $this->assertSame([15, 15], array_column($finalScoring, 'victoryPoints'));
+        $this->assertSame([9, 9], array_column($finalScoring, 'victoryPoints'));
         $this->assertSame(['network'], array_column($finalScoring[0]['sources'], 'source'));
         $this->assertSame(['network'], array_column($finalScoring[1]['sources'], 'source'));
         $this->assertArrayNotHasKey(

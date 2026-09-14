@@ -12,6 +12,7 @@ use App\Domain\Game\Enums\MapVariant;
 use App\Domain\Game\Enums\PalaceAbility;
 use App\Domain\Game\Enums\RoundScoringTile;
 use App\Domain\Game\Enums\TownTile;
+use App\Domain\Game\Enums\TwoPlayerTerritoryScore;
 use Spatie\LaravelData\Data;
 
 /**
@@ -28,6 +29,7 @@ use Spatie\LaravelData\Data;
  * @property list<RoundBonusOfferData> $availableRoundBonuses Три оставшихся бонуса с монетами.
  * @property list<TownTile> $townTiles Типы доступных жетонов города.
  * @property int|null $twoPlayerAreaTile Номер нейтрального жетона области для партии вдвоём.
+ * @property TwoPlayerTerritoryScore|null $twoPlayerTerritoryScore Размер крупнейшей группы неигровой фракции.
  */
 final class GameSetupPoolData extends Data
 {
@@ -55,6 +57,7 @@ final class GameSetupPoolData extends Data
         public array $availableRoundBonuses,
         public array $townTiles,
         public ?int $twoPlayerAreaTile = null,
+        public ?TwoPlayerTerritoryScore $twoPlayerTerritoryScore = null,
     ) {
     }
 }

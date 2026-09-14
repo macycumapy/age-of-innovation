@@ -44,6 +44,7 @@ export type GameResource = {
         knowledgeDisciplineNames: Record<KnowledgeDiscipline, string>;
         roundScoringTiles: RoundScoringTile[];
         finalRoundScoringTile: FinalRoundScoringTile | null;
+        twoPlayerTerritoryTile: TwoPlayerTerritoryTile | null;
         bookActions: BookAction[];
         usedBookActionIds: BookAction[];
         bookActionStates: BookActionState[];
@@ -257,6 +258,8 @@ export type RoundScoringTile =
     | 'innovation_law';
 
 export type FinalRoundScoringTile = 'workshop' | 'guild' | 'school' | 'edge_workshop';
+
+export type TwoPlayerTerritoryTile = 'unknown' | 12 | 13 | 14 | 15;
 
 export type BookAction =
     'gain_power' | 'advance_knowledge' | 'gain_coins' | 'upgrade_to_guild' | 'score_guilds' | 'terraform_three_spades';

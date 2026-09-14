@@ -344,6 +344,7 @@ class GameResource extends JsonResource
             'finalRoundScoringTile' => $this->enumValue(
                 $this->state->setupPool?->additionalFinalRoundGoal,
             ),
+            'twoPlayerTerritoryTile' => $this->twoPlayerTerritoryTile(),
             'bookActions' => $this->enumValues(
                 $this->state->setupPool?->bookActions ?? [],
             ),
@@ -441,6 +442,19 @@ class GameResource extends JsonResource
     private function enumValue(BackedEnum|string|null $value): ?string
     {
         return $value instanceof BackedEnum ? (string) $value->value : $value;
+    }
+
+    private function twoPlayerTerritoryTile(): int|string|null
+    {
+        $territoryScore = $this->state->setupPool?->twoPlayerTerritoryScore;
+
+        if ($territoryScore === null) {
+            return null;
+        }
+
+        return $this->state->round->number < 6
+            ? 'unknown'
+            : $territoryScore->value;
     }
 
     /**

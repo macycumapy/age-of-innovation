@@ -17,6 +17,8 @@ use App\Domain\Game\Enums\Faction;
 use App\Domain\Game\Enums\PlayerColor;
 use App\Domain\Game\Enums\RoundBonus;
 use App\Domain\Game\Enums\TerrainType;
+use App\Domain\Game\Enums\TwoPlayerTerritoryScore;
+use App\Domain\Game\Factories\GameSetupPoolFactory;
 use PHPUnit\Framework\TestCase;
 
 class ApplyFinalScoringActionTest extends TestCase
@@ -79,6 +81,31 @@ class ApplyFinalScoringActionTest extends TestCase
         $this->assertSame([23, 17], array_column($scoring, 'victoryPoints'));
         $this->assertSame(1, $scoring[0]['sources'][1]['rank']);
         $this->assertSame(3, $scoring[1]['sources'][1]['rank']);
+    }
+
+    public function test_neutral_faction_territory_occupies_a_network_place_without_receiving_points(): void
+    {
+        $setupPool = (new GameSetupPoolFactory())->createFromSeed(2, 'territory-scoring-test');
+        $setupPool->twoPlayerTerritoryScore = TwoPlayerTerritoryScore::Twelve;
+        $state = new GameStateData(
+            board: new BoardStateData(hexes: [
+                $this->buildingHex('a', 1, ['b']),
+                $this->buildingHex('b', 1, ['a']),
+                $this->buildingHex('c', 2),
+            ]),
+            players: [
+                $this->player(1, new KnowledgeStateData()),
+                $this->player(2, new KnowledgeStateData()),
+            ],
+            setupPool: $setupPool,
+        );
+
+        $scoring = (new ApplyFinalScoringAction())->execute($state);
+
+        $this->assertSame([32, 26], array_column($state->players, 'victoryPoints'));
+        $this->assertSame([12, 6], array_column($scoring, 'victoryPoints'));
+        $this->assertSame(2, $scoring[0]['sources'][0]['rank']);
+        $this->assertSame(3, $scoring[1]['sources'][0]['rank']);
     }
 
     /** @param list<string> $adjacentHexIds */

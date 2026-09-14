@@ -19,6 +19,7 @@ use App\Domain\Game\Enums\RoundScoringGoal;
 use App\Domain\Game\Enums\RoundScoringTile;
 use App\Domain\Game\Enums\TerrainType;
 use App\Domain\Game\Enums\TownTile;
+use App\Domain\Game\Enums\TwoPlayerTerritoryScore;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -26,7 +27,7 @@ final class GameEnumTest extends TestCase
 {
     /**
      * @param class-string<\BackedEnum> $enum
-     * @param list<string> $expectedValues
+     * @param list<int|string> $expectedValues
      */
     #[DataProvider('gameEnumProvider')]
     public function test_game_enum_contains_expected_values(string $enum, array $expectedValues): void
@@ -91,7 +92,7 @@ final class GameEnumTest extends TestCase
         yield '5 игроков' => [5, 2];
     }
 
-    /** @return iterable<string, array{class-string<\BackedEnum>, list<string>}> */
+    /** @return iterable<string, array{class-string<\BackedEnum>, list<int|string>}> */
     public static function gameEnumProvider(): iterable
     {
         yield 'сообщества' => [Faction::class, [
@@ -118,6 +119,7 @@ final class GameEnumTest extends TestCase
         yield 'дополнительные жетоны шестого раунда' => [FinalRoundScoringTile::class, [
             'workshop', 'guild', 'school', 'edge_workshop',
         ]];
+        yield 'территория неигровой фракции' => [TwoPlayerTerritoryScore::class, [12, 13, 14, 15]];
         yield 'изобретения' => [Innovation::class, [
             'deus_ex_machina', 'trade_routes', 'professor', 'sewage_system',
             'architecture', 'library', 'steam_engine', 'league_of_cities',
