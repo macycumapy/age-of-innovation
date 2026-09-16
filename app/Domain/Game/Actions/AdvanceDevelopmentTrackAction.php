@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Domain\Game\Actions;
 
 use App\Domain\Game\Data\GamePlayerStateData;
+use App\Domain\Game\Enums\PlayerColor;
 
 class AdvanceDevelopmentTrackAction
 {
@@ -13,11 +14,18 @@ class AdvanceDevelopmentTrackAction
     {
         $currentLevel = $player->shippingLevel;
         $newLevel = min(3, $currentLevel + max(0, $steps));
-        $reward = $this->rewardForReachedLevels($currentLevel, $newLevel, [
-            1 => ['books' => 0, 'victoryPoints' => 2],
-            2 => ['books' => 2, 'victoryPoints' => 0],
-            3 => ['books' => 0, 'victoryPoints' => 4],
-        ]);
+        $levelRewards = $player->color === PlayerColor::Blue
+            ? [
+                1 => ['books' => 0, 'victoryPoints' => 0],
+                2 => ['books' => 0, 'victoryPoints' => 3],
+                3 => ['books' => 2, 'victoryPoints' => 0],
+            ]
+            : [
+                1 => ['books' => 0, 'victoryPoints' => 2],
+                2 => ['books' => 2, 'victoryPoints' => 0],
+                3 => ['books' => 0, 'victoryPoints' => 4],
+            ];
+        $reward = $this->rewardForReachedLevels($currentLevel, $newLevel, $levelRewards);
         $player->shippingLevel = $newLevel;
         $player->resources->books->unassigned += $reward['books'];
         $player->victoryPoints += $reward['victoryPoints'];

@@ -165,12 +165,12 @@ function levelCounters(state: GamePlayerBoardState): StatCounter[] {
         {
             label: 'Уровень навигации',
             image: shippingUrl,
-            value: Math.max(0, state.shippingLevel) + 1,
+            value: Math.max(0, state.shippingLevel),
         },
         {
             label: 'Уровень лопаты',
             image: shovelUrl,
-            value: Math.max(0, state.terraformingLevel) + 1,
+            value: Math.max(0, state.terraformingLevel),
         },
         {
             label: 'Максимальная сеть зданий',

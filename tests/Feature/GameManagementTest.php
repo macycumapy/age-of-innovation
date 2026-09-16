@@ -5755,6 +5755,34 @@ class GameManagementTest extends TestCase
         $this->assertSame(2, $playerState->resources->books->unassigned);
     }
 
+    public function test_blue_shipping_advancement_uses_its_own_reward_track(): void
+    {
+        $playerState = new GamePlayerStateData(
+            playerId: 15,
+            userId: 25,
+            color: PlayerColor::Blue,
+            faction: Faction::Navigators,
+            homeland: TerrainType::Lake,
+            roundBonus: RoundBonus::Coins,
+            shippingLevel: 1,
+        );
+        $advanceDevelopmentTrack = app(AdvanceDevelopmentTrackAction::class);
+
+        $secondLevelReward = $advanceDevelopmentTrack->advanceShipping($playerState);
+
+        $this->assertSame(2, $playerState->shippingLevel);
+        $this->assertSame(23, $playerState->victoryPoints);
+        $this->assertSame(0, $playerState->resources->books->unassigned);
+        $this->assertSame(['steps' => 1, 'books' => 0, 'victoryPoints' => 3], $secondLevelReward);
+
+        $thirdLevelReward = $advanceDevelopmentTrack->advanceShipping($playerState);
+
+        $this->assertSame(3, $playerState->shippingLevel);
+        $this->assertSame(23, $playerState->victoryPoints);
+        $this->assertSame(2, $playerState->resources->books->unassigned);
+        $this->assertSame(['steps' => 1, 'books' => 2, 'victoryPoints' => 0], $thirdLevelReward);
+    }
+
     public function test_player_can_confirm_shipping_advancement_and_restart_the_turn(): void
     {
         $user = User::factory()->create();
