@@ -4266,6 +4266,7 @@ class GameManagementTest extends TestCase
         BuildingType $targetBuilding,
         int $toolCost,
         int $coinCost,
+        int $expectedVictoryPoints,
     ): void {
         $user = User::factory()->create();
         $neighborUser = User::factory()->create();
@@ -4306,7 +4307,12 @@ class GameManagementTest extends TestCase
                     building: new BuildingStateData(BuildingType::Workshop, $neighbor->id),
                 ),
             ]),
-            round: new RoundStateData(phase: GamePhase::Actions),
+            round: new RoundStateData(
+                number: 6,
+                phase: GamePhase::Actions,
+                scoringTileId: RoundScoringTile::KnowledgeMedicine->value,
+                additionalScoringTileId: FinalRoundScoringTile::School->value,
+            ),
             players: [
                 new GamePlayerStateData(
                     playerId: $player->id,
@@ -4355,7 +4361,7 @@ class GameManagementTest extends TestCase
         $this->assertContains(Competency::Competency04->value, $game->state->players[0]->competencyIds);
         $this->assertSame(1, $game->state->players[0]->resources->tools);
         $this->assertSame(2, $game->state->players[0]->resources->coins);
-        $this->assertSame(25, $game->state->players[0]->victoryPoints);
+        $this->assertSame($expectedVictoryPoints, $game->state->players[0]->victoryPoints);
         $this->assertSame(1, $game->state->players[0]->resources->books->banking);
         $this->assertSame(PendingInteractionType::PowerOffer, $game->state->pendingInteraction?->type);
         $this->assertSame($neighborUser->id, $game->active_player_id);
@@ -4363,14 +4369,15 @@ class GameManagementTest extends TestCase
             GameActionType::UpgradeBuilding,
             GameActionType::ChooseCompetency,
         ], $game->actions()->orderBy('sequence')->pluck('type')->all());
+        $this->assertSame(3, $game->actions()->latest('sequence')->firstOrFail()->payload['victory_points']);
     }
 
-    /** @return array<string, array{BuildingType, BuildingType, int, int}> */
+    /** @return array<string, array{BuildingType, BuildingType, int, int, int}> */
     public static function competencyBuildingUpgradeProvider(): array
     {
         return [
-            'school' => [BuildingType::Guild, BuildingType::School, 3, 5],
-            'university' => [BuildingType::School, BuildingType::University, 5, 8],
+            'school' => [BuildingType::Guild, BuildingType::School, 3, 5, 32],
+            'university' => [BuildingType::School, BuildingType::University, 5, 8, 28],
         ];
     }
 
@@ -5207,8 +5214,10 @@ class GameManagementTest extends TestCase
         $game->update(['state' => new GameStateData(
             turnOrder: [$firstPlayer->id, $secondPlayer->id],
             round: new RoundStateData(
+                number: 6,
                 phase: GamePhase::Actions,
                 scoringTileId: RoundScoringTile::KnowledgeMedicine->value,
+                additionalScoringTileId: FinalRoundScoringTile::School->value,
             ),
             players: [
                 new GamePlayerStateData(
@@ -5217,7 +5226,8 @@ class GameManagementTest extends TestCase
                     color: PlayerColor::Green,
                     faction: Faction::Blessed,
                     homeland: TerrainType::Forest,
-                    roundBonus: RoundBonus::Coins,
+                    roundBonus: RoundBonus::SendScholar,
+                    competencyIds: [Competency::Competency09->value],
                     resources: new PlayerResourcesData(scholars: 2),
                 ),
                 new GamePlayerStateData(
@@ -5226,7 +5236,7 @@ class GameManagementTest extends TestCase
                     color: PlayerColor::Red,
                     faction: Faction::Blessed,
                     homeland: TerrainType::Mountain,
-                    roundBonus: RoundBonus::Coins,
+                    roundBonus: RoundBonus::SendScholar,
                     resources: new PlayerResourcesData(scholars: 1),
                 ),
             ],
@@ -5248,8 +5258,8 @@ class GameManagementTest extends TestCase
         $this->assertSame(6, $game->state->players[0]->scholarPoolSize);
         $this->assertSame(['law'], $game->state->players[0]->scholarDisciplineIds);
         $this->assertSame([0], $game->state->players[0]->scholarSlotIndexes);
-        $this->assertSame($firstPlayerVictoryPoints + 3, $game->state->players[0]->victoryPoints);
-        $this->assertSame(3, $game->actions()->latest('sequence')->firstOrFail()->payload['victory_points']);
+        $this->assertSame($firstPlayerVictoryPoints + 7, $game->state->players[0]->victoryPoints);
+        $this->assertSame(7, $game->actions()->latest('sequence')->firstOrFail()->payload['victory_points']);
         $this->assertSame(0, $game->actions()->latest('sequence')->firstOrFail()->payload['slot_index']);
 
         $state = $game->state;
@@ -5268,7 +5278,8 @@ class GameManagementTest extends TestCase
         $this->assertSame(0, $game->state->players[1]->resources->scholars);
         $this->assertSame(6, $game->state->players[1]->scholarPoolSize);
         $this->assertSame([1], $game->state->players[1]->scholarSlotIndexes);
-        $this->assertSame($secondPlayerVictoryPoints + 2, $game->state->players[1]->victoryPoints);
+        $this->assertSame($secondPlayerVictoryPoints + 4, $game->state->players[1]->victoryPoints);
+        $this->assertSame(4, $game->actions()->latest('sequence')->firstOrFail()->payload['victory_points']);
         $this->assertSame(1, $game->actions()->latest('sequence')->firstOrFail()->payload['slot_index']);
 
         $state = $game->state;
@@ -5287,7 +5298,8 @@ class GameManagementTest extends TestCase
         $this->assertSame(0, $game->state->players[0]->resources->scholars);
         $this->assertSame(6, $game->state->players[0]->scholarPoolSize);
         $this->assertSame(['law'], $game->state->players[0]->scholarDisciplineIds);
-        $this->assertSame($firstPlayerVictoryPoints + 4, $game->state->players[0]->victoryPoints);
+        $this->assertSame($firstPlayerVictoryPoints + 12, $game->state->players[0]->victoryPoints);
+        $this->assertSame(5, $game->actions()->latest('sequence')->firstOrFail()->payload['victory_points']);
         $this->assertTrue($game->state->round->hasTakenMainAction);
         $this->assertSame([
             GameActionType::SendScholar,

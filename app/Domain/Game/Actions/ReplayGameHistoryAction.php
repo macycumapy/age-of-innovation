@@ -678,6 +678,7 @@ final class ReplayGameHistoryAction
             $competency,
             $state->setupPool?->competencies ?? $state->availableCompetencyIds,
         );
+        $this->playerState($state, $player->id)->victoryPoints += (int) ($action->payload['victory_points'] ?? 0);
         $state->pendingInteraction = null;
 
         if ($isBuildingChoice || $isInnovationChoice) {
