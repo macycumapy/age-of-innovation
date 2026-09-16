@@ -70,6 +70,50 @@ const currentPlayer = computed(() =>
     props.game.data.players.find((player) => player.user.id === page.props.auth.user.id),
 );
 
+const interactionsShownAboveBoard = new Set([
+    'choose_round_bonus',
+    'choose_starting_resources',
+    'choose_science_bonus_books',
+    'choose_innovation_books',
+    'choose_shipping_books',
+    'choose_terraforming_books',
+    'choose_palace_books',
+    'choose_competency',
+    'choose_palace',
+    'choose_town',
+    'choose_town_books',
+    'choose_feline_town_bonus',
+]);
+
+const choicePanelTransition = {
+    enterActiveClass: 'transition-all duration-300 ease-out motion-reduce:transition-none',
+    enterFromClass: '-translate-y-3 opacity-0',
+    enterToClass: 'translate-y-0 opacity-100',
+    leaveActiveClass: 'transition-all duration-200 ease-in motion-reduce:transition-none',
+    leaveFromClass: 'translate-y-0 opacity-100',
+    leaveToClass: '-translate-y-3 opacity-0',
+};
+
+const pendingInteractionShownAboveBoard = computed(() => {
+    const interaction = props.game.data.pendingInteraction;
+
+    if (
+        interaction === null ||
+        interaction.playerId !== currentPlayer.value?.id ||
+        !interactionsShownAboveBoard.has(interaction.type)
+    ) {
+        return null;
+    }
+
+    return `${interaction.type}:${interaction.playerId}`;
+});
+
+watch(pendingInteractionShownAboveBoard, (interaction, previousInteraction) => {
+    if (interaction !== null && interaction !== previousInteraction) {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+});
+
 const activePlayer = computed(() =>
     props.game.data.players.find((player) => player.user.id === props.game.data.activePlayerId),
 );
@@ -1039,59 +1083,68 @@ defineOptions({
                 @pass="isPassDialogOpen = true"
             />
 
-            <TownInteractionPanel
-                v-if="
-                    game.data.pendingInteraction?.type === 'choose_town' &&
-                    game.data.pendingInteraction.playerId === currentPlayer?.id &&
-                    activePlayer?.user.id === page.props.auth.user.id
-                "
-                :game="game"
-            />
+            <Transition v-bind="choicePanelTransition">
+                <TownInteractionPanel
+                    v-if="
+                        game.data.pendingInteraction?.type === 'choose_town' &&
+                        game.data.pendingInteraction.playerId === currentPlayer?.id &&
+                        activePlayer?.user.id === page.props.auth.user.id
+                    "
+                    :game="game"
+                />
+            </Transition>
 
-            <RewardDistributionPanel
-                v-if="
-                    pendingRewardDistribution !== null && game.data.pendingInteraction?.playerId === currentPlayer?.id
-                "
-                :game-id="game.data.id"
-                :book-count="pendingRewardDistribution.bookCount"
-                :knowledge-step-count="pendingRewardDistribution.knowledgeStepCount"
-                :type="pendingRewardDistribution.type"
-                :discipline-names="game.data.knowledgeDisciplineNames"
-                :competency-descriptions="game.data.competencyDescriptions"
-            />
+            <Transition v-bind="choicePanelTransition">
+                <RewardDistributionPanel
+                    v-if="
+                        pendingRewardDistribution !== null &&
+                        game.data.pendingInteraction?.playerId === currentPlayer?.id
+                    "
+                    :game-id="game.data.id"
+                    :book-count="pendingRewardDistribution.bookCount"
+                    :knowledge-step-count="pendingRewardDistribution.knowledgeStepCount"
+                    :type="pendingRewardDistribution.type"
+                    :discipline-names="game.data.knowledgeDisciplineNames"
+                    :competency-descriptions="game.data.competencyDescriptions"
+                />
+            </Transition>
 
-            <RewardDistributionPanel
-                v-if="
-                    isIncomeResourceDistribution &&
-                    canChooseStartingResources &&
-                    game.data.pendingInteraction?.type === 'choose_starting_resources'
-                "
-                :game-id="game.data.id"
-                :book-count="game.data.pendingInteraction.context.bookCount"
-                :knowledge-step-count="game.data.pendingInteraction.context.knowledgeStepCount"
-                :competency-ids="game.data.pendingInteraction.context.competencyIds ?? []"
-                :discipline-names="game.data.knowledgeDisciplineNames"
-                :competency-descriptions="game.data.competencyDescriptions"
-                requires-confirmation
-            />
+            <Transition v-bind="choicePanelTransition">
+                <RewardDistributionPanel
+                    v-if="
+                        isIncomeResourceDistribution &&
+                        canChooseStartingResources &&
+                        game.data.pendingInteraction?.type === 'choose_starting_resources'
+                    "
+                    :game-id="game.data.id"
+                    :book-count="game.data.pendingInteraction.context.bookCount"
+                    :knowledge-step-count="game.data.pendingInteraction.context.knowledgeStepCount"
+                    :competency-ids="game.data.pendingInteraction.context.competencyIds ?? []"
+                    :discipline-names="game.data.knowledgeDisciplineNames"
+                    :competency-descriptions="game.data.competencyDescriptions"
+                    requires-confirmation
+                />
+            </Transition>
 
             <Collapsible v-if="shouldShowPlanningBundleGroup" v-model:open="isPlanningBundleGroupOpen">
                 <Card>
                     <CollapsibleContent>
                         <CardContent class="space-y-4">
-                            <RewardDistributionPanel
-                                v-if="
-                                    canChooseStartingResources &&
-                                    game.data.pendingInteraction?.type === 'choose_starting_resources'
-                                "
-                                :key="game.data.pendingInteraction.playerId"
-                                :game-id="game.data.id"
-                                :book-count="game.data.pendingInteraction.context.bookCount"
-                                :knowledge-step-count="game.data.pendingInteraction.context.knowledgeStepCount"
-                                :competency-ids="game.data.pendingInteraction.context.competencyIds ?? []"
-                                :discipline-names="game.data.knowledgeDisciplineNames"
-                                :competency-descriptions="game.data.competencyDescriptions"
-                            />
+                            <Transition v-bind="choicePanelTransition">
+                                <RewardDistributionPanel
+                                    v-if="
+                                        canChooseStartingResources &&
+                                        game.data.pendingInteraction?.type === 'choose_starting_resources'
+                                    "
+                                    :key="game.data.pendingInteraction.playerId"
+                                    :game-id="game.data.id"
+                                    :book-count="game.data.pendingInteraction.context.bookCount"
+                                    :knowledge-step-count="game.data.pendingInteraction.context.knowledgeStepCount"
+                                    :competency-ids="game.data.pendingInteraction.context.competencyIds ?? []"
+                                    :discipline-names="game.data.knowledgeDisciplineNames"
+                                    :competency-descriptions="game.data.competencyDescriptions"
+                                />
+                            </Transition>
 
                             <PlanningBundleSelector :game="game" :can-choose="canChoosePlanningBundle" />
                         </CardContent>
@@ -1099,22 +1152,26 @@ defineOptions({
                 </Card>
             </Collapsible>
 
-            <RewardDistributionPanel
-                v-if="canChooseStartingCompetency && game.data.pendingInteraction?.type === 'choose_competency'"
-                :game-id="game.data.id"
-                :book-count="0"
-                :knowledge-step-count="0"
-                :competency-ids="game.data.pendingInteraction.optionIds"
-                :discipline-names="game.data.knowledgeDisciplineNames"
-                :competency-descriptions="game.data.competencyDescriptions"
-            />
+            <Transition v-bind="choicePanelTransition">
+                <RewardDistributionPanel
+                    v-if="canChooseStartingCompetency && game.data.pendingInteraction?.type === 'choose_competency'"
+                    :game-id="game.data.id"
+                    :book-count="0"
+                    :knowledge-step-count="0"
+                    :competency-ids="game.data.pendingInteraction.optionIds"
+                    :discipline-names="game.data.knowledgeDisciplineNames"
+                    :competency-descriptions="game.data.competencyDescriptions"
+                />
+            </Transition>
 
-            <PalaceChoicePanel
-                v-if="canChoosePalace && game.data.pendingInteraction?.type === 'choose_palace'"
-                :game-id="game.data.id"
-                :palaces="game.data.pendingInteraction.optionIds"
-                :descriptions="game.data.palaceDescriptions"
-            />
+            <Transition v-bind="choicePanelTransition">
+                <PalaceChoicePanel
+                    v-if="canChoosePalace && game.data.pendingInteraction?.type === 'choose_palace'"
+                    :game-id="game.data.id"
+                    :palaces="game.data.pendingInteraction.optionIds"
+                    :descriptions="game.data.palaceDescriptions"
+                />
+            </Transition>
 
             <section v-if="['active', 'finished'].includes(game.data.status)" class="grid gap-4">
                 <FinalLeaderboard
@@ -1123,16 +1180,18 @@ defineOptions({
                     :player-states="game.data.playerBoardStates"
                 />
 
-                <RoundBonusChoiceDialog
-                    v-if="
-                        game.data.pendingInteraction?.type === 'choose_round_bonus' &&
-                        game.data.pendingInteraction.playerId === currentPlayer?.id
-                    "
-                    :game-id="game.data.id"
-                    :offers="game.data.roundBonusOffers"
-                    :option-ids="game.data.pendingInteraction.optionIds"
-                    :descriptions="game.data.roundBonusDescriptions"
-                />
+                <Transition v-bind="choicePanelTransition">
+                    <RoundBonusChoiceDialog
+                        v-if="
+                            game.data.pendingInteraction?.type === 'choose_round_bonus' &&
+                            game.data.pendingInteraction.playerId === currentPlayer?.id
+                        "
+                        :game-id="game.data.id"
+                        :offers="game.data.roundBonusOffers"
+                        :option-ids="game.data.pendingInteraction.optionIds"
+                        :descriptions="game.data.roundBonusDescriptions"
+                    />
+                </Transition>
 
                 <div class="grid items-start gap-4 lg:grid-cols-[minmax(0,7fr)_minmax(16rem,3fr)]">
                     <div class="grid gap-4">
