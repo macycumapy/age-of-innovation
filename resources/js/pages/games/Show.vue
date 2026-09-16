@@ -16,6 +16,7 @@ import CurrentTurnFinishDialog from '@/components/game/CurrentTurnFinishDialog.v
 import CurrentTurnPanel from '@/components/game/CurrentTurnPanel.vue';
 import GameLobby from '@/components/game/GameLobby.vue';
 import TownInteractionPanel from '@/components/game/TownInteractionPanel.vue';
+import TurnNotification from '@/components/game/TurnNotification.vue';
 import FactionActionDialog from '@/components/game/FactionActionDialog.vue';
 import FinalLeaderboard from '@/components/game/FinalLeaderboard.vue';
 import CultBoard from '@/components/game/CultBoard.vue';
@@ -1003,6 +1004,12 @@ defineOptions({
 
 <template>
     <Head :title="pageTitle" />
+
+    <TurnNotification
+        :active-player-id="game.data.activePlayerId"
+        :current-user-id="page.props.auth.user.id"
+        :enabled="game.data.status === 'active'"
+    />
 
     <div class="flex h-full min-w-0 flex-1">
         <div class="flex min-w-0 flex-1 flex-col gap-6 p-4">
