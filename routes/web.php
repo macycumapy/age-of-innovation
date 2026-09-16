@@ -17,6 +17,7 @@ use App\Http\Controllers\GameHistoryRollbackController;
 use App\Http\Controllers\GameHistoryUndoController;
 use App\Http\Controllers\GamePlayerController;
 use App\Http\Controllers\GamePlayerReadinessController;
+use App\Http\Controllers\GamePlayerRemovalController;
 use App\Http\Controllers\GameStartController;
 use App\Http\Controllers\InnovationActionController;
 use App\Http\Controllers\InnovationController;
@@ -59,6 +60,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->scopeBindings()
         ->name('games.history.destroy');
     Route::post('games/{game}/players', [GamePlayerController::class, 'store'])->name('games.players.store');
+    Route::delete('games/{game}/players/{gamePlayer}', GamePlayerRemovalController::class)
+        ->name('games.players.destroy');
     Route::patch('games/{game}/players/{gamePlayer}/readiness', [GamePlayerReadinessController::class, 'update'])
         ->name('games.players.readiness.update');
     Route::post('games/{game}/start', GameStartController::class)->name('games.start');

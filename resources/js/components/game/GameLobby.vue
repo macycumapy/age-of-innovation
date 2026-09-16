@@ -3,6 +3,7 @@ import GamePlayerController from '@/actions/App/Http/Controllers/GamePlayerContr
 import GamePlayerReadinessController from '@/actions/App/Http/Controllers/GamePlayerReadinessController';
 import GameStartController from '@/actions/App/Http/Controllers/GameStartController';
 import Form from '@/components/game/GameActionForm.vue';
+import GamePlayerRemovalDialog from '@/components/game/GamePlayerRemovalDialog.vue';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -30,9 +31,17 @@ defineProps<{
                     <p class="font-medium">{{ player.user.name }}</p>
                 </div>
 
-                <span class="rounded-full bg-muted px-2.5 py-1 text-xs font-medium">
-                    {{ player.isReady ? 'Готов' : 'Не готов' }}
-                </span>
+                <div class="flex items-center gap-2">
+                    <span class="rounded-full bg-muted px-2.5 py-1 text-xs font-medium">
+                        {{ player.isReady ? 'Готов' : 'Не готов' }}
+                    </span>
+                    <GamePlayerRemovalDialog
+                        v-if="game.data.isOwner && player.id !== currentPlayer?.id"
+                        :game-id="game.data.id"
+                        :player-id="player.id"
+                        :player-name="player.user.name"
+                    />
+                </div>
             </div>
 
             <div
@@ -68,6 +77,14 @@ defineProps<{
                         {{ currentPlayer.isReady ? 'Отменить готовность' : 'Я готов' }}
                     </Button>
                 </Form>
+
+                <GamePlayerRemovalDialog
+                    v-if="currentPlayer"
+                    :game-id="game.data.id"
+                    :player-id="currentPlayer.id"
+                    :player-name="currentPlayer.user.name"
+                    is-leaving
+                />
 
                 <Form
                     v-if="!currentPlayer && game.data.playersCount < game.data.maxPlayers"

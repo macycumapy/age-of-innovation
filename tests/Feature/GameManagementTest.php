@@ -6747,6 +6747,159 @@ class GameManagementTest extends TestCase
         $this->assertFalse($gamePlayer->refresh()->is_ready);
     }
 
+    public function test_player_can_leave_a_lobby(): void
+    {
+        $owner = User::factory()->create();
+        $leavingUser = User::factory()->create();
+        $game = Game::factory()->create();
+        GamePlayer::factory()->create([
+            'game_id' => $game->id,
+            'user_id' => $owner->id,
+            'seat' => 1,
+        ]);
+        $leavingPlayer = GamePlayer::factory()->create([
+            'game_id' => $game->id,
+            'user_id' => $leavingUser->id,
+            'seat' => 2,
+        ]);
+
+        $this->actingAs($leavingUser)
+            ->delete(route('games.players.destroy', [$game, $leavingPlayer]))
+            ->assertNoContent();
+
+        $this->assertModelMissing($leavingPlayer);
+        $this->assertModelExists($game);
+    }
+
+    public function test_ownership_passes_to_the_next_player_when_owner_leaves(): void
+    {
+        $owner = User::factory()->create();
+        $nextOwner = User::factory()->create();
+        $game = Game::factory()->create();
+        $ownerPlayer = GamePlayer::factory()->create([
+            'game_id' => $game->id,
+            'user_id' => $owner->id,
+            'seat' => 1,
+        ]);
+        $nextOwnerPlayer = GamePlayer::factory()->create([
+            'game_id' => $game->id,
+            'user_id' => $nextOwner->id,
+            'seat' => 2,
+        ]);
+
+        $this->actingAs($owner)
+            ->delete(route('games.players.destroy', [$game, $ownerPlayer]))
+            ->assertNoContent();
+
+        $this->assertModelMissing($ownerPlayer);
+        $this->assertSame(1, $nextOwnerPlayer->refresh()->seat);
+
+        $this->actingAs($nextOwner)
+            ->get(route('games.show', $game))
+            ->assertInertia(fn (Assert $page) => $page->where('game.data.isOwner', true));
+    }
+
+    public function test_empty_lobby_is_deleted_when_its_owner_leaves(): void
+    {
+        $owner = User::factory()->create();
+        $game = Game::factory()->create();
+        $ownerPlayer = GamePlayer::factory()->create([
+            'game_id' => $game->id,
+            'user_id' => $owner->id,
+            'seat' => 1,
+        ]);
+
+        $this->actingAs($owner)
+            ->delete(route('games.players.destroy', [$game, $ownerPlayer]))
+            ->assertNoContent();
+
+        $this->assertModelMissing($ownerPlayer);
+        $this->assertModelMissing($game);
+    }
+
+    public function test_owner_can_remove_another_player_from_a_lobby(): void
+    {
+        $owner = User::factory()->create();
+        $game = Game::factory()->create();
+        GamePlayer::factory()->create([
+            'game_id' => $game->id,
+            'user_id' => $owner->id,
+            'seat' => 1,
+        ]);
+        $removedPlayer = GamePlayer::factory()->create([
+            'game_id' => $game->id,
+            'seat' => 2,
+        ]);
+
+        $this->actingAs($owner)
+            ->delete(route('games.players.destroy', [$game, $removedPlayer]))
+            ->assertNoContent();
+
+        $this->assertModelMissing($removedPlayer);
+    }
+
+    public function test_non_owner_cannot_remove_another_player(): void
+    {
+        $owner = User::factory()->create();
+        $otherUser = User::factory()->create();
+        $game = Game::factory()->create();
+        GamePlayer::factory()->create([
+            'game_id' => $game->id,
+            'user_id' => $owner->id,
+            'seat' => 1,
+        ]);
+        GamePlayer::factory()->create([
+            'game_id' => $game->id,
+            'user_id' => $otherUser->id,
+            'seat' => 2,
+        ]);
+        $targetPlayer = GamePlayer::factory()->create([
+            'game_id' => $game->id,
+            'seat' => 3,
+        ]);
+
+        $this->actingAs($otherUser)
+            ->delete(route('games.players.destroy', [$game, $targetPlayer]))
+            ->assertForbidden();
+
+        $this->assertModelExists($targetPlayer);
+    }
+
+    public function test_player_cannot_leave_an_active_game(): void
+    {
+        $user = User::factory()->create();
+        $game = Game::factory()->active()->create();
+        $gamePlayer = GamePlayer::factory()->create([
+            'game_id' => $game->id,
+            'user_id' => $user->id,
+            'seat' => 1,
+        ]);
+
+        $this->actingAs($user)
+            ->delete(route('games.players.destroy', [$game, $gamePlayer]))
+            ->assertForbidden();
+
+        $this->assertModelExists($gamePlayer);
+    }
+
+    public function test_owner_cannot_remove_a_player_from_another_game(): void
+    {
+        $owner = User::factory()->create();
+        $game = Game::factory()->create();
+        GamePlayer::factory()->create([
+            'game_id' => $game->id,
+            'user_id' => $owner->id,
+            'seat' => 1,
+        ]);
+        $otherGamePlayer = GamePlayer::factory()->create();
+
+        $this->actingAs($owner)
+            ->delete(route('games.players.destroy', [$game, $otherGamePlayer]))
+            ->assertForbidden();
+
+        $this->assertModelExists($otherGamePlayer);
+    }
+
     public function test_user_can_create_a_game_and_becomes_its_first_player(): void
     {
         $user = User::factory()->create();
