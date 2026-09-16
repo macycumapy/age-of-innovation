@@ -16,12 +16,13 @@ import CurrentTurnRestartDialog from '@/components/game/CurrentTurnRestartDialog
 import PalaceWaterTownForm from '@/components/game/PalaceWaterTownForm.vue';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import type { GamePlayerSummary, GameResource } from '@/types';
+import type { GamePlayerBoardState, GamePlayerSummary, GameResource } from '@/types';
 
 const props = defineProps<{
     game: GameResource;
     activePlayer?: GamePlayerSummary;
     currentPlayer?: GamePlayerSummary;
+    currentPlayerState?: GamePlayerBoardState;
     currentUserId: number;
     isStartingBuildingStage: boolean;
     isOmarStartingTowerTurn: boolean;
@@ -107,11 +108,19 @@ const canResolvePowerOffer = computed(
         props.game.data.pendingInteraction.playerId === props.currentPlayer?.id &&
         isCurrentUsersTurn.value,
 );
-const powerOfferAmount = computed(() =>
-    props.game.data.pendingInteraction?.type === 'power_offer'
-        ? props.game.data.pendingInteraction.context.powerAmount
-        : 0,
-);
+const powerOfferAmount = computed(() => {
+    if (props.game.data.pendingInteraction?.type !== 'power_offer') {
+        return 0;
+    }
+
+    if (props.currentPlayerState === undefined) {
+        return props.game.data.pendingInteraction.context.powerAmount;
+    }
+
+    const availablePower = props.currentPlayerState.power.bowlOne * 2 + props.currentPlayerState.power.bowlTwo;
+
+    return Math.min(props.game.data.pendingInteraction.context.powerAmount, availablePower);
+});
 const powerOfferVictoryPointCost = computed(() => Math.max(0, powerOfferAmount.value - 1));
 const palaceWaterTownInteraction = computed(() =>
     props.game.data.pendingInteraction?.type === 'offer_palace_water_town' ? props.game.data.pendingInteraction : null,

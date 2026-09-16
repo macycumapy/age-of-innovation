@@ -1019,6 +1019,7 @@ defineOptions({
                 :game="game"
                 :active-player="activePlayer"
                 :current-player="currentPlayer"
+                :current-player-state="currentPlayerState"
                 :current-user-id="page.props.auth.user.id"
                 :is-starting-building-stage="isStartingBuildingStage"
                 :is-omar-starting-tower-turn="isOmarStartingTowerTurn"
