@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import Form from '@/components/game/GameActionForm.vue';
+import { router } from '@inertiajs/vue3';
 import { computed, reactive, watch } from 'vue';
 import ResourceExchangeController from '@/actions/App/Http/Controllers/ResourceExchangeController';
 import InputError from '@/components/InputError.vue';
@@ -25,14 +26,10 @@ import medicineBookUrl from '../../../images/token_parts/medicine_book.png';
 import scholarResourceUrl from '../../../images/token_parts/scholar.png';
 
 type ScalarResourceExchange =
-    | 'power_to_scholar'
-    | 'power_to_tool'
-    | 'power_to_coin'
-    | 'scholar_to_tool'
-    | 'tool_to_coin';
+    'power_to_scholar' | 'power_to_tool' | 'power_to_coin' | 'scholar_to_tool' | 'tool_to_coin';
 type ResourceIcon = 'power' | 'scholar' | 'tool' | 'coin';
 
-defineProps<{
+const props = defineProps<{
     gameId: number;
     playerState?: GamePlayerBoardState;
     knowledgeDisciplineNames: Record<KnowledgeDiscipline, string>;
@@ -92,10 +89,96 @@ const scalarResourceExchangeOptions: {
     { value: 'tool_to_coin', cost: 1, source: 'tool', result: 1, target: 'coin' },
 ];
 
-const selectedExchangeCount = computed(() =>
-    Object.values(resourceExchangeCounts).reduce((total, count) => total + count, 0)
-        + Object.values(powerToBookCounts).reduce((total, count) => total + count, 0)
-        + Object.values(bookToCoinCounts).reduce((total, count) => total + count, 0),
+const selectedExchangeCount = computed(
+    () =>
+        Object.values(resourceExchangeCounts).reduce((total, count) => total + count, 0) +
+        Object.values(powerToBookCounts).reduce((total, count) => total + count, 0) +
+        Object.values(bookToCoinCounts).reduce((total, count) => total + count, 0),
+);
+
+const availableResources = computed<Record<ResourceIcon, number>>(() => ({
+    power:
+        (props.playerState?.power.bowlThree ?? 0) -
+        scalarResourceExchangeOptions.reduce((total, exchange) => {
+            if (exchange.source !== 'power') {
+                return total;
+            }
+
+            return total + resourceExchangeCounts[exchange.value] * exchange.cost;
+        }, 0) -
+        Object.values(powerToBookCounts).reduce((total, count) => total + count, 0) * 5,
+    scholar:
+        (props.playerState?.scholars ?? 0) +
+        resourceExchangeCounts.power_to_scholar -
+        resourceExchangeCounts.scholar_to_tool,
+    tool:
+        (props.playerState?.tools ?? 0) +
+        resourceExchangeCounts.power_to_tool +
+        resourceExchangeCounts.scholar_to_tool -
+        resourceExchangeCounts.tool_to_coin,
+    coin:
+        (props.playerState?.coins ?? 0) +
+        resourceExchangeCounts.power_to_coin +
+        resourceExchangeCounts.tool_to_coin +
+        Object.values(bookToCoinCounts).reduce((total, count) => total + count, 0),
+}));
+
+const availableBooks = computed<Record<KnowledgeDiscipline, number>>(() => ({
+    banking: (props.playerState?.books.banking ?? 0) + powerToBookCounts.banking - bookToCoinCounts.banking,
+    law: (props.playerState?.books.law ?? 0) + powerToBookCounts.law - bookToCoinCounts.law,
+    engineering:
+        (props.playerState?.books.engineering ?? 0) + powerToBookCounts.engineering - bookToCoinCounts.engineering,
+    medicine: (props.playerState?.books.medicine ?? 0) + powerToBookCounts.medicine - bookToCoinCounts.medicine,
+}));
+
+function maximumExchangeCount(exchange: (typeof scalarResourceExchangeOptions)[number]): number {
+    const currentCount = resourceExchangeCounts[exchange.value];
+    const sourceMaximum = Math.max(
+        0,
+        currentCount + Math.floor(availableResources.value[exchange.source] / exchange.cost),
+    );
+
+    if (exchange.value !== 'power_to_scholar') {
+        return sourceMaximum;
+    }
+
+    const scholarCapacityMaximum = Math.max(
+        0,
+        (props.playerState?.scholarPoolSize ?? 0) -
+            (props.playerState?.scholars ?? 0) +
+            resourceExchangeCounts.scholar_to_tool,
+    );
+
+    return Math.min(sourceMaximum, scholarCapacityMaximum);
+}
+
+function maximumPowerToBookCount(discipline: KnowledgeDiscipline): number {
+    return Math.max(0, powerToBookCounts[discipline] + Math.floor(availableResources.value.power / 5));
+}
+
+function maximumBookToCoinCount(discipline: KnowledgeDiscipline): number {
+    return Math.max(0, bookToCoinCounts[discipline] + availableBooks.value[discipline]);
+}
+
+watch(
+    [resourceExchangeCounts, powerToBookCounts, bookToCoinCounts],
+    () => {
+        for (const exchange of scalarResourceExchangeOptions) {
+            resourceExchangeCounts[exchange.value] = Math.min(
+                resourceExchangeCounts[exchange.value],
+                maximumExchangeCount(exchange),
+            );
+        }
+
+        for (const discipline of knowledgeDisciplines) {
+            powerToBookCounts[discipline] = Math.min(
+                powerToBookCounts[discipline],
+                maximumPowerToBookCount(discipline),
+            );
+            bookToCoinCounts[discipline] = Math.min(bookToCoinCounts[discipline], maximumBookToCoinCount(discipline));
+        }
+    },
+    { deep: true },
 );
 
 function resetCounts(): void {
@@ -111,6 +194,7 @@ function resetCounts(): void {
 
 function exchangeSucceeded(): void {
     isOpen.value = false;
+    router.reload({ only: ['game'] });
 }
 
 watch(isOpen, (open) => {
@@ -139,24 +223,24 @@ watch(isOpen, (open) => {
                 <div class="flex flex-wrap gap-x-5 gap-y-1 rounded-lg bg-muted/60 px-4 py-3 text-sm">
                     <span class="flex items-center gap-1.5">
                         <img :src="resourceIcons.power" alt="Сила" class="size-7 object-contain" />
-                        <strong>{{ playerState?.power.bowlThree ?? 0 }}</strong>
+                        <strong>{{ availableResources.power }}</strong>
                     </span>
                     <span class="flex items-center gap-1.5">
                         <img :src="resourceIcons.scholar" alt="Учёные" class="size-7 object-contain" />
-                        <strong>{{ playerState?.scholars ?? 0 }}</strong>
+                        <strong>{{ availableResources.scholar }}</strong>
                     </span>
                     <span class="flex items-center gap-1.5">
                         <img :src="resourceIcons.tool" alt="Инструменты" class="size-7 object-contain" />
-                        <strong>{{ playerState?.tools ?? 0 }}</strong>
+                        <strong>{{ availableResources.tool }}</strong>
                     </span>
                     <span class="flex items-center gap-1.5">
                         <img :src="resourceIcons.coin" alt="Золото" class="size-7 object-contain" />
-                        <strong>{{ playerState?.coins ?? 0 }}</strong>
+                        <strong>{{ availableResources.coin }}</strong>
                     </span>
                 </div>
 
                 <div class="grid gap-3 sm:grid-cols-2">
-                    <label
+                    <div
                         v-for="exchange in scalarResourceExchangeOptions"
                         :key="exchange.value"
                         class="grid grid-cols-[1fr_8rem] items-center gap-3 rounded-lg border p-3 text-sm"
@@ -179,10 +263,10 @@ watch(isOpen, (open) => {
                         <NumberStepper
                             v-model="resourceExchangeCounts[exchange.value]"
                             :min="0"
-                            :max="99"
+                            :max="maximumExchangeCount(exchange)"
                             :name="`exchanges[${exchange.value}]`"
                         />
-                    </label>
+                    </div>
                 </div>
 
                 <div class="grid gap-4 lg:grid-cols-2">
@@ -194,7 +278,7 @@ watch(isOpen, (open) => {
                             <span>1</span>
                             <span>книга</span>
                         </h3>
-                        <label
+                        <div
                             v-for="discipline in knowledgeDisciplines"
                             :key="`power-book-${discipline}`"
                             class="grid grid-cols-[2rem_1fr_8rem] items-center gap-2 text-sm"
@@ -204,10 +288,10 @@ watch(isOpen, (open) => {
                             <NumberStepper
                                 v-model="powerToBookCounts[discipline]"
                                 :min="0"
-                                :max="99"
+                                :max="maximumPowerToBookCount(discipline)"
                                 :name="`exchanges[power_to_book][${discipline}]`"
                             />
-                        </label>
+                        </div>
                     </section>
 
                     <section class="grid gap-2 rounded-lg border p-3">
@@ -217,7 +301,7 @@ watch(isOpen, (open) => {
                             <span>1</span>
                             <img :src="resourceIcons.coin" alt="Золото" class="size-8 object-contain" />
                         </h3>
-                        <label
+                        <div
                             v-for="discipline in knowledgeDisciplines"
                             :key="`book-coin-${discipline}`"
                             class="grid grid-cols-[2rem_1fr_8rem] items-center gap-2 text-sm"
@@ -225,15 +309,15 @@ watch(isOpen, (open) => {
                             <img :src="bookImages[discipline]" alt="" class="size-8 object-contain" />
                             <span>
                                 {{ knowledgeDisciplineNames[discipline] }}
-                                ({{ playerState?.books[discipline] ?? 0 }})
+                                ({{ availableBooks[discipline] }})
                             </span>
                             <NumberStepper
                                 v-model="bookToCoinCounts[discipline]"
                                 :min="0"
-                                :max="99"
+                                :max="maximumBookToCoinCount(discipline)"
                                 :name="`exchanges[book_to_coin][${discipline}]`"
                             />
-                        </label>
+                        </div>
                     </section>
                 </div>
                 <InputError :message="errors.exchanges ?? Object.values(errors)[0] ?? errors.game" />
