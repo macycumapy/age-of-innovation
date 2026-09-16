@@ -259,7 +259,7 @@ function levelCounters(state: GamePlayerBoardState): StatCounter[] {
                                 :aria-label="`Победные очки: ${entry.state.victoryPoints}`"
                             >
                                 <img :src="victoryPointsUrl" alt="" class="absolute object-contain drop-shadow-md" />
-                                <span class="relative z-10 text-xs font-bold">
+                                <span class="relative z-10 text-xs font-bold text-white">
                                     {{ entry.state.victoryPoints }}
                                 </span>
                             </span>
