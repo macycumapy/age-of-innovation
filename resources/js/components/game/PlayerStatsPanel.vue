@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ChevronLeft, ChevronRight } from '@lucide/vue';
+import { ChevronRight } from '@lucide/vue';
 import { computed, ref } from 'vue';
 import type { GameHistoryPage, GamePlayerBoardState, GamePlayerSummary } from '@/types';
 import GameHistory from '@/components/game/GameHistory.vue';
@@ -71,6 +71,24 @@ const playersWithStats = computed(() => {
         return state === undefined ? [] : [{ player, state, turnOrder }];
     });
 });
+
+const collapsedPlayersWithStats = computed(() =>
+    [...playersWithStats.value].sort((firstEntry, secondEntry) => {
+        if (firstEntry.state.passOrder === null) {
+            if (secondEntry.state.passOrder === null) {
+                return firstEntry.turnOrder - secondEntry.turnOrder;
+            }
+
+            return -1;
+        }
+
+        if (secondEntry.state.passOrder === null) {
+            return 1;
+        }
+
+        return firstEntry.state.passOrder - secondEntry.state.passOrder;
+    }),
+);
 
 function playerBackgroundColor(player: GamePlayerSummary): string {
     const color = player.color === null ? '#a1a1aa' : playerColorValues[player.color];
@@ -182,184 +200,261 @@ function levelCounters(state: GamePlayerBoardState): StatCounter[] {
 </script>
 
 <template>
-    <aside
-        class="sticky top-0 z-40 h-svh shrink-0 transition-[width] duration-300"
-        :class="isOpen ? 'w-[min(20rem,calc(100vw-3rem))]' : 'w-0'"
-        aria-label="Баланс и статистика игроков"
-    >
-        <div
-            class="absolute inset-y-0 right-0 w-[min(20rem,calc(100vw-3rem))] text-sidebar-foreground transition-transform duration-300"
-            :class="isOpen ? 'translate-x-0' : 'translate-x-full'"
+    <Teleport to="#right-sidebar-portal" defer>
+        <aside
+            class="sticky top-0 z-40 order-last h-svh shrink-0 overflow-hidden transition-[width] duration-300 ease-in-out motion-reduce:transition-none"
+            :class="isOpen ? 'w-[min(20rem,calc(100vw-3rem))]' : 'w-12'"
+            aria-label="Баланс и статистика игроков"
         >
             <button
                 type="button"
-                class="absolute top-4 grid size-9 -translate-x-full place-items-center rounded-l-lg border border-r-0 border-sidebar-border bg-sidebar text-sidebar-foreground shadow-sm transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:outline-none"
-                :aria-label="isOpen ? 'Скрыть статистику' : 'Показать статистику'"
+                class="absolute inset-y-0 right-0 z-20 flex w-12 cursor-pointer flex-col items-center gap-1 overflow-y-auto rounded-r-lg bg-sidebar p-1 text-sidebar-foreground shadow-sm transition-[opacity,background-color] duration-150 ease-out hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:outline-none motion-reduce:transition-none"
+                :class="isOpen ? 'pointer-events-none opacity-0' : 'opacity-100'"
+                aria-label="Показать статистику игроков"
                 :aria-expanded="isOpen"
-                @click="isOpen = !isOpen"
+                :aria-hidden="isOpen"
+                :tabindex="isOpen ? -1 : 0"
+                @click="isOpen = true"
             >
-                <ChevronRight v-if="isOpen" class="size-5" />
-                <ChevronLeft v-else class="size-5" />
+                <TransitionGroup name="player-order" tag="div" class="contents">
+                    <div
+                        v-for="entry in collapsedPlayersWithStats"
+                        :key="entry.player.id"
+                        class="grid w-full justify-items-center gap-2 rounded-md border border-sidebar-border py-2"
+                        :style="{ backgroundColor: playerBackgroundColor(entry.player) }"
+                        :title="`${entry.player.user.name}: ${entry.state.passOrder === null ? `порядок хода ${entry.turnOrder}` : `порядок паса ${entry.state.passOrder}`}, ${entry.state.victoryPoints} победных очков`"
+                    >
+                        <span
+                            v-if="entry.state.passOrder === null"
+                            class="relative grid size-6 place-items-center rounded-full border border-sidebar-border bg-sidebar/70 text-xs font-bold shadow-sm"
+                            :class="{ 'ring-2 ring-emerald-400/80': entry.player.id === activePlayerId }"
+                            :aria-label="`Порядок хода: ${entry.turnOrder}`"
+                        >
+                            <span
+                                v-if="entry.player.id === activePlayerId"
+                                class="absolute inset-0 rounded-full border-2 border-emerald-400/70 motion-safe:animate-ping"
+                                aria-hidden="true"
+                            />
+                            <span class="relative translate-y-px leading-none">{{ entry.turnOrder }}</span>
+                        </span>
+                        <span
+                            v-else
+                            class="relative grid size-6 place-items-center"
+                            :aria-label="`Порядок паса: ${entry.state.passOrder}`"
+                        >
+                            <img :src="endOfTurnUrl" alt="" class="absolute size-full object-contain drop-shadow-md" />
+                            <span class="relative z-10 translate-y-px text-xs leading-none font-bold">
+                                {{ entry.state.passOrder }}
+                            </span>
+                        </span>
+
+                        <span
+                            class="relative grid size-7 place-items-center"
+                            :aria-label="`Победные очки: ${entry.state.victoryPoints}`"
+                        >
+                            <img
+                                :src="victoryPointsUrl"
+                                alt=""
+                                class="absolute size-full object-contain drop-shadow-md"
+                            />
+                            <span class="relative z-10 text-xs font-bold text-white">
+                                {{ entry.state.victoryPoints }}
+                            </span>
+                        </span>
+                    </div>
+                </TransitionGroup>
             </button>
 
             <div
-                class="grid h-full grid-rows-[auto_1fr] overflow-hidden rounded-lg border border-sidebar-border bg-sidebar/70 shadow-sm"
+                class="absolute inset-y-0 right-0 w-[min(20rem,calc(100vw-3rem))] text-sidebar-foreground"
+                :class="{ 'pointer-events-none': !isOpen }"
+                :aria-hidden="!isOpen"
+                :inert="!isOpen"
             >
-                <div class="grid min-w-0 content-start gap-4 overflow-y-auto p-4">
-                    <article
-                        v-for="entry in playersWithStats"
-                        :key="entry.player.id"
-                        class="grid max-w-full min-w-0 gap-3 rounded-lg border border-sidebar-border p-3"
-                        :style="{ backgroundColor: playerBackgroundColor(entry.player) }"
-                    >
-                        <h3 class="flex min-w-0 items-center gap-2 font-semibold">
-                            <span
-                                v-if="entry.state.passOrder === null"
-                                class="relative grid size-6 shrink-0 place-items-center rounded-full border border-sidebar-border bg-sidebar/70 text-xs font-bold shadow-sm"
-                                :class="{ 'ring-2 ring-emerald-400/80': entry.player.id === activePlayerId }"
-                                :title="
-                                    entry.player.id === activePlayerId
-                                        ? `Сейчас ходит. Порядок хода в текущем раунде: ${entry.turnOrder}`
-                                        : `Порядок хода в текущем раунде: ${entry.turnOrder}`
-                                "
-                                :aria-label="
-                                    entry.player.id === activePlayerId
-                                        ? `Сейчас ходит. Порядок хода в текущем раунде: ${entry.turnOrder}`
-                                        : `Порядок хода в текущем раунде: ${entry.turnOrder}`
-                                "
-                            >
+                <button
+                    type="button"
+                    class="absolute inset-y-0 left-0 z-10 flex w-3 items-center justify-center border-sidebar-border bg-sidebar/80 text-sidebar-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:outline-none focus-visible:ring-inset"
+                    aria-label="Скрыть статистику"
+                    :aria-expanded="isOpen"
+                    :tabindex="isOpen ? 0 : -1"
+                    @click="isOpen = false"
+                >
+                    <ChevronRight class="size-3" />
+                </button>
+
+                <div class="grid h-full grid-rows-[auto_1fr] overflow-hidden rounded-lg bg-sidebar/70 shadow-sm">
+                    <div class="grid min-w-0 content-start gap-4 overflow-y-auto p-4">
+                        <article
+                            v-for="entry in playersWithStats"
+                            :key="entry.player.id"
+                            class="grid max-w-full min-w-0 gap-3 rounded-lg border border-sidebar-border p-3"
+                            :style="{ backgroundColor: playerBackgroundColor(entry.player) }"
+                        >
+                            <h3 class="flex min-w-0 items-center gap-2 font-semibold">
                                 <span
-                                    v-if="entry.player.id === activePlayerId"
-                                    class="absolute inset-0 rounded-full border-2 border-emerald-400/70 motion-safe:animate-ping"
-                                    aria-hidden="true"
-                                />
-                                <span class="relative">{{ entry.turnOrder }}</span>
-                            </span>
-                            <span
-                                v-else
-                                class="relative grid size-6 shrink-0 place-items-center"
-                                :title="`Порядок паса: ${entry.state.passOrder}`"
-                                :aria-label="`Порядок паса: ${entry.state.passOrder}`"
-                            >
-                                <img
-                                    :src="endOfTurnUrl"
-                                    alt=""
-                                    class="absolute size-full object-contain drop-shadow-md"
-                                />
-                                <span class="relative z-10 text-xs font-bold">
-                                    {{ entry.state.passOrder }}
+                                    v-if="entry.state.passOrder === null"
+                                    class="relative grid size-6 shrink-0 place-items-center rounded-full border border-sidebar-border bg-sidebar/70 text-xs font-bold shadow-sm"
+                                    :class="{ 'ring-2 ring-emerald-400/80': entry.player.id === activePlayerId }"
+                                    :title="
+                                        entry.player.id === activePlayerId
+                                            ? `Сейчас ходит. Порядок хода в текущем раунде: ${entry.turnOrder}`
+                                            : `Порядок хода в текущем раунде: ${entry.turnOrder}`
+                                    "
+                                    :aria-label="
+                                        entry.player.id === activePlayerId
+                                            ? `Сейчас ходит. Порядок хода в текущем раунде: ${entry.turnOrder}`
+                                            : `Порядок хода в текущем раунде: ${entry.turnOrder}`
+                                    "
+                                >
+                                    <span
+                                        v-if="entry.player.id === activePlayerId"
+                                        class="absolute inset-0 rounded-full border-2 border-emerald-400/70 motion-safe:animate-ping"
+                                        aria-hidden="true"
+                                    />
+                                    <span class="relative translate-y-px leading-none">{{ entry.turnOrder }}</span>
                                 </span>
-                            </span>
-                            <span class="min-w-0 flex-1 truncate" :title="entry.player.user.name">
-                                {{ entry.player.user.name }}
-                            </span>
-                            <span
-                                class="relative grid size-8 shrink-0 place-items-center"
-                                :title="'Победные очки'"
-                                :aria-label="`Победные очки: ${entry.state.victoryPoints}`"
-                            >
-                                <img :src="victoryPointsUrl" alt="" class="absolute object-contain drop-shadow-md" />
-                                <span class="relative z-10 text-xs font-bold text-white">
-                                    {{ entry.state.victoryPoints }}
-                                </span>
-                            </span>
-                        </h3>
-
-                        <template v-if="entry.state">
-                            <div class="grid grid-cols-4 gap-1">
-                                <div
-                                    v-for="counter in balanceCounters(entry.state)"
-                                    :key="counter.label"
-                                    class="relative grid rounded-lg"
-                                    :title="counter.label"
-                                    :aria-label="`${counter.label}: ${counter.value}`"
+                                <span
+                                    v-else
+                                    class="relative grid size-6 shrink-0 place-items-center"
+                                    :title="`Порядок паса: ${entry.state.passOrder}`"
+                                    :aria-label="`Порядок паса: ${entry.state.passOrder}`"
                                 >
                                     <img
-                                        :src="counter.image"
+                                        :src="endOfTurnUrl"
                                         alt=""
-                                        class="object-contain drop-shadow-md"
-                                        :class="
-                                            counter.label === 'Доступные пристройки'
-                                                ? 'h-full w-[60%]'
-                                                : 'h-full w-[50%]'
-                                        "
+                                        class="absolute size-full object-contain drop-shadow-md"
                                     />
-                                    <span
-                                        class="absolute top-1/2 right-2 grid min-w-6 -translate-y-1/2 place-items-center rounded-full px-1 text-sm font-bold shadow"
-                                    >
-                                        {{ counter.value }}
+                                    <span class="relative z-10 translate-y-px text-xs leading-none font-bold">
+                                        {{ entry.state.passOrder }}
                                     </span>
-                                </div>
-
-                                <div
-                                    v-for="counter in bookCounters(entry.state)"
-                                    :key="counter.label"
-                                    class="relative grid rounded-lg"
-                                    :title="counter.label"
-                                    :aria-label="`${counter.label}: ${counter.value}`"
+                                </span>
+                                <span class="min-w-0 flex-1 truncate" :title="entry.player.user.name">
+                                    {{ entry.player.user.name }}
+                                </span>
+                                <span
+                                    class="relative grid size-8 shrink-0 place-items-center"
+                                    :title="'Победные очки'"
+                                    :aria-label="`Победные очки: ${entry.state.victoryPoints}`"
                                 >
                                     <img
-                                        :src="counter.image"
+                                        :src="victoryPointsUrl"
                                         alt=""
-                                        class="h-full w-[40%] object-contain drop-shadow-md"
+                                        class="absolute object-contain drop-shadow-md"
                                     />
-                                    <span
-                                        class="absolute top-1/2 right-2 grid min-w-6 -translate-y-1/2 place-items-center rounded-full px-1 text-sm font-bold shadow"
-                                        >{{ counter.value }}</span
-                                    >
-                                </div>
+                                    <span class="relative z-10 text-xs font-bold text-white">
+                                        {{ entry.state.victoryPoints }}
+                                    </span>
+                                </span>
+                            </h3>
 
-                                <div
-                                    v-for="counter in incomeCounters(entry.state)"
-                                    :key="counter.label"
-                                    class="relative -my-2 grid aspect-square rounded-lg"
-                                    :title="counter.label"
-                                    :aria-label="`${counter.label}: ${counter.value}`"
-                                >
-                                    <img
-                                        :src="handUrl"
-                                        alt=""
-                                        class="absolute bottom-4 w-[50%] object-contain drop-shadow-md"
-                                    />
-                                    <img
-                                        :src="counter.image"
-                                        alt=""
-                                        class="absolute top-5 left-2 h-[25%] w-[25%] object-contain drop-shadow-md"
-                                    />
-                                    <span
-                                        class="absolute top-1/2 right-2 grid min-w-6 -translate-y-1/2 place-items-center rounded-full px-1 text-sm font-bold shadow"
-                                        >{{ counter.value }}</span
+                            <template v-if="entry.state">
+                                <div class="grid grid-cols-4 gap-1">
+                                    <div
+                                        v-for="counter in balanceCounters(entry.state)"
+                                        :key="counter.label"
+                                        class="relative grid rounded-lg"
+                                        :title="counter.label"
+                                        :aria-label="`${counter.label}: ${counter.value}`"
                                     >
-                                </div>
+                                        <img
+                                            :src="counter.image"
+                                            alt=""
+                                            class="object-contain drop-shadow-md"
+                                            :class="
+                                                counter.label === 'Доступные пристройки'
+                                                    ? 'h-full w-[60%]'
+                                                    : 'h-full w-[50%]'
+                                            "
+                                        />
+                                        <span
+                                            class="absolute top-1/2 right-2 grid min-w-6 -translate-y-1/2 place-items-center rounded-full px-1 text-sm font-bold shadow"
+                                        >
+                                            {{ counter.value }}
+                                        </span>
+                                    </div>
 
-                                <div
-                                    v-for="counter in levelCounters(entry.state)"
-                                    :key="counter.label"
-                                    class="relative grid rounded-lg"
-                                    :title="counter.label"
-                                    :aria-label="`${counter.label}: ${counter.value}`"
-                                >
-                                    <img
-                                        :src="counter.image"
-                                        alt=""
-                                        class="h-full w-[50%] object-contain drop-shadow-md"
-                                    />
-                                    <span
-                                        class="absolute top-1/2 right-2 grid min-w-6 -translate-y-1/2 place-items-center rounded-full px-1 text-sm font-bold shadow"
-                                        >{{ counter.value }}</span
+                                    <div
+                                        v-for="counter in bookCounters(entry.state)"
+                                        :key="counter.label"
+                                        class="relative grid rounded-lg"
+                                        :title="counter.label"
+                                        :aria-label="`${counter.label}: ${counter.value}`"
                                     >
+                                        <img
+                                            :src="counter.image"
+                                            alt=""
+                                            class="h-full w-[40%] object-contain drop-shadow-md"
+                                        />
+                                        <span
+                                            class="absolute top-1/2 right-2 grid min-w-6 -translate-y-1/2 place-items-center rounded-full px-1 text-sm font-bold shadow"
+                                            >{{ counter.value }}</span
+                                        >
+                                    </div>
+
+                                    <div
+                                        v-for="counter in incomeCounters(entry.state)"
+                                        :key="counter.label"
+                                        class="relative -my-2 grid aspect-square rounded-lg"
+                                        :title="counter.label"
+                                        :aria-label="`${counter.label}: ${counter.value}`"
+                                    >
+                                        <img
+                                            :src="handUrl"
+                                            alt=""
+                                            class="absolute bottom-4 w-[50%] object-contain drop-shadow-md"
+                                        />
+                                        <img
+                                            :src="counter.image"
+                                            alt=""
+                                            class="absolute top-5 left-2 h-[25%] w-[25%] object-contain drop-shadow-md"
+                                        />
+                                        <span
+                                            class="absolute top-1/2 right-2 grid min-w-6 -translate-y-1/2 place-items-center rounded-full px-1 text-sm font-bold shadow"
+                                            >{{ counter.value }}</span
+                                        >
+                                    </div>
+
+                                    <div
+                                        v-for="counter in levelCounters(entry.state)"
+                                        :key="counter.label"
+                                        class="relative grid rounded-lg"
+                                        :title="counter.label"
+                                        :aria-label="`${counter.label}: ${counter.value}`"
+                                    >
+                                        <img
+                                            :src="counter.image"
+                                            alt=""
+                                            class="h-full w-[50%] object-contain drop-shadow-md"
+                                        />
+                                        <span
+                                            class="absolute top-1/2 right-2 grid min-w-6 -translate-y-1/2 place-items-center rounded-full px-1 text-sm font-bold shadow"
+                                            >{{ counter.value }}</span
+                                        >
+                                    </div>
                                 </div>
-                            </div>
-                        </template>
-                    </article>
-                    <GameHistory
-                        :game-id="gameId"
-                        :history="history"
-                        :players="players"
-                        :can-undo-last-action="canUndoLastAction"
-                    />
+                            </template>
+                        </article>
+                        <GameHistory
+                            :game-id="gameId"
+                            :history="history"
+                            :players="players"
+                            :can-undo-last-action="canUndoLastAction"
+                        />
+                    </div>
                 </div>
             </div>
-        </div>
-    </aside>
+        </aside>
+    </Teleport>
 </template>
+
+<style scoped>
+.player-order-move {
+    transition: transform 300ms ease-in-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .player-order-move {
+        transition: none;
+    }
+}
+</style>

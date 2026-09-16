@@ -18,6 +18,7 @@ withDefaults(defineProps<Props>(), {
 <template>
     <AppShell variant="sidebar">
         <AppSidebar />
+        <div id="right-sidebar-portal" class="contents"></div>
         <AppContent
             variant="sidebar"
             class="isolate overflow-x-clip bg-cover bg-fixed bg-center bg-no-repeat"
