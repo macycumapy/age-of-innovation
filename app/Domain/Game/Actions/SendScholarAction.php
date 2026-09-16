@@ -76,7 +76,7 @@ final class SendScholarAction
             }
 
             $knowledgeLevelBefore = $playerState->knowledge->{$discipline->value};
-            $this->advanceKnowledge->execute($state, $playerState, $discipline, $steps);
+            $gainedPower = $this->advanceKnowledge->execute($state, $playerState, $discipline, $steps);
             $advancedSteps = $playerState->knowledge->{$discipline->value} - $knowledgeLevelBefore;
             $roundScoringTile = RoundScoringTile::tryFrom((string) $state->round->scoringTileId);
             $victoryPoints = ($playerState->roundBonus === RoundBonus::SendScholar ? 2 : 0)
@@ -98,6 +98,7 @@ final class SendScholarAction
                     'slot_index' => $scholarSlotIndex,
                     'steps' => $advancedSteps,
                     'victory_points' => $victoryPoints,
+                    'gained_power' => $gainedPower,
                 ],
                 [[
                     'type' => 'scholar_sent',

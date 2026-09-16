@@ -64,6 +64,7 @@ final class MakeInnovationAction
                     'coins' => $result['coins'],
                     'victory_points' => $result['victoryPoints'],
                     'reward' => $result['reward'],
+                    'gained_power' => $result['reward']['gainedPower'],
                 ],
                 [[
                     'type' => 'innovation_created',

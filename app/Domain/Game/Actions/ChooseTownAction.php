@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Domain\Game\Actions;
 
 use App\Domain\Game\Data\GamePlayerStateData;
+use App\Domain\Game\Data\GameStateData;
 use App\Domain\Game\Data\PendingInteractionData;
+use App\Domain\Game\Data\TownRewardResultData;
 use App\Domain\Game\Enums\Faction;
 use App\Domain\Game\Enums\GameActionType;
 use App\Domain\Game\Enums\GamePhase;
@@ -87,7 +89,8 @@ final class ChooseTownAction
                 array_splice($state->availableTownTileIds, $townTileIndex, 1);
             }
 
-            $victoryPoints = $this->applyReward($state, $playerState, $townTile);
+            $reward = $this->applyReward($state, $playerState, $townTile);
+            $victoryPoints = $reward->victoryPoints;
             $playerState->victoryPoints += $victoryPoints;
             $state->pendingInteraction = null;
 
@@ -159,6 +162,7 @@ final class ChooseTownAction
                     'marker_hex_id' => $markerHexId,
                     'queued_built_hex_ids' => $queuedBuiltHexIds,
                     'victory_points' => $victoryPoints,
+                    'gained_power' => $reward->gainedPower,
                 ],
                 [['type' => 'town_founded', 'player_id' => $player->id, 'town_tile' => $townTile->value]],
                 $stateVersionBefore,
@@ -170,23 +174,23 @@ final class ChooseTownAction
     }
 
     private function applyReward(
-        \App\Domain\Game\Data\GameStateData $state,
+        GameStateData $state,
         GamePlayerStateData $player,
         TownTile $townTile,
-    ): int {
+    ): TownRewardResultData {
         $knowledgeLevelBefore = array_sum(array_map(
             static fn (KnowledgeDiscipline $discipline): int => $player->knowledge->{$discipline->value},
             KnowledgeDiscipline::cases(),
         ));
 
-        match ($townTile) {
+        $gainedPower = match ($townTile) {
             TownTile::Tools => $player->resources->tools += 3,
             TownTile::Books => $player->resources->books->unassigned += 2,
             TownTile::Coins => $player->resources->coins += 6,
-            TownTile::Knowledge => array_map(
-                fn (KnowledgeDiscipline $discipline) => $this->advanceKnowledge->execute($state, $player, $discipline, 1),
+            TownTile::Knowledge => array_sum(array_map(
+                fn (KnowledgeDiscipline $discipline): int => $this->advanceKnowledge->execute($state, $player, $discipline, 1),
                 KnowledgeDiscipline::cases(),
-            ),
+            )),
             TownTile::Power => $this->gainPower->execute($player, 8),
             TownTile::Scholar => $player->resources->scholars++,
             TownTile::Terraform => null,
@@ -198,7 +202,7 @@ final class ChooseTownAction
             KnowledgeDiscipline::cases(),
         )) - $knowledgeLevelBefore;
 
-        return match ($townTile) {
+        $victoryPoints = match ($townTile) {
             TownTile::Tools => 4,
             TownTile::Terraform, TownTile::Books => 5,
             TownTile::Coins => 6,
@@ -206,5 +210,10 @@ final class ChooseTownAction
             TownTile::Power, TownTile::Scholar => 8,
         } + ($roundTile?->goal() === RoundScoringGoal::Town ? 5 : 0)
             + ($roundTile?->goal() === RoundScoringGoal::Knowledge ? $advancedKnowledgeSteps : 0);
+
+        return new TownRewardResultData(
+            victoryPoints: $victoryPoints,
+            gainedPower: $townTile === TownTile::Knowledge ? $gainedPower : 0,
+        );
     }
 }

@@ -72,6 +72,7 @@ final class PassAction
                 'income_receipts' => $completion['incomeReceipts'] ?? [],
                 'final_scoring' => $completion['finalScoring'] ?? [],
                 'final_resource_conversion' => $result['finalResourceConversion'],
+                'gained_power' => $result['gainedPower'],
             ], [[
                 'type' => 'player_passed',
                 'player_id' => $player->id,

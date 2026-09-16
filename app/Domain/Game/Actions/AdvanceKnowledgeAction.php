@@ -19,7 +19,7 @@ final class AdvanceKnowledgeAction
         GamePlayerStateData $playerState,
         KnowledgeDiscipline $discipline,
         int $steps,
-    ): void {
+    ): int {
         $currentLevel = $playerState->knowledge->{$discipline->value};
         $newLevel = min(12, $currentLevel + $steps);
 
@@ -44,12 +44,16 @@ final class AdvanceKnowledgeAction
             $newLevel = min(11, $newLevel);
         }
 
+        $gainedPower = 0;
+
         foreach ([3 => 1, 5 => 2, 7 => 2, 12 => 3] as $level => $power) {
             if ($currentLevel < $level && $newLevel >= $level) {
-                $this->gainPower->execute($playerState, $power);
+                $gainedPower += $this->gainPower->execute($playerState, $power);
             }
         }
 
         $playerState->knowledge->{$discipline->value} = $newLevel;
+
+        return $gainedPower;
     }
 }

@@ -24,7 +24,7 @@ final class GrantCompetencyAction
         GamePlayerStateData $playerState,
         Competency $competency,
         array $availableCompetencies,
-    ): void {
+    ): int {
         if (in_array($competency->value, $playerState->competencyIds, true)) {
             throw ValidationException::withMessages([
                 'competency_id' => 'У игрока уже есть эта компетенция.',
@@ -52,10 +52,12 @@ final class GrantCompetencyAction
         $playerState->competencyIds[] = $competency->value;
         unset($state->availableCompetencyIds[$availableCompetencyIndex]);
         $state->availableCompetencyIds = array_values($state->availableCompetencyIds);
-        $this->advanceKnowledge->execute($state, $playerState, $discipline, 3 - $competencyRow);
+        $gainedPower = $this->advanceKnowledge->execute($state, $playerState, $discipline, 3 - $competencyRow);
         $philosopherBonusBooks = $playerState->faction === Faction::Philosophers ? 1 : 0;
         $playerState->resources->books->{$discipline->value} += $competencyRow + $philosopherBonusBooks;
         $this->applyImmediateEffect($playerState, $competency);
+
+        return $gainedPower;
     }
 
     /** @param list<Competency|string> $availableCompetencies */

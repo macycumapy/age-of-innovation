@@ -21,7 +21,7 @@ class ApplyInnovationRewardAction
     ) {
     }
 
-    /** @return array{victoryPoints: int, scholars: int, power: int, books: int, developmentTrackBooks: int, knowledgeSteps: int, shippingSteps: int, terraformingSteps: int} */
+    /** @return array{victoryPoints: int, scholars: int, power: int, books: int, developmentTrackBooks: int, knowledgeSteps: int, shippingSteps: int, terraformingSteps: int, gainedPower: int} */
     public function execute(
         GameStateData $state,
         GamePlayerStateData $player,
@@ -37,6 +37,7 @@ class ApplyInnovationRewardAction
             'knowledgeSteps' => 0,
             'shippingSteps' => 0,
             'terraformingSteps' => 0,
+            'gainedPower' => 0,
         ];
 
         if ($innovation === Innovation::DeusExMachina) {
@@ -45,7 +46,7 @@ class ApplyInnovationRewardAction
 
             foreach (KnowledgeDiscipline::cases() as $discipline) {
                 $levelBefore = $player->knowledge->{$discipline->value};
-                $this->advanceKnowledge->execute($state, $player, $discipline, 1);
+                $reward['gainedPower'] += $this->advanceKnowledge->execute($state, $player, $discipline, 1);
                 $reward['knowledgeSteps'] += $player->knowledge->{$discipline->value} - $levelBefore;
             }
         }

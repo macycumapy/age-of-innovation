@@ -7,6 +7,7 @@ namespace App\Domain\Game\Actions;
 use App\Domain\Game\Data\PendingInteractionData;
 use App\Domain\Game\Data\PlanningBundleData;
 use App\Domain\Game\Data\PlayerPlanningSelectionData;
+use App\Domain\Game\Data\PowerBowlsStateData;
 use App\Domain\Game\Enums\GameActionType;
 use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\GameStatus;
@@ -81,6 +82,7 @@ final class ChoosePlanningBundleAction
             }
 
             $playerState = $this->playerStateFactory->create($player, $bundle, $state);
+            $gainedPower = $this->startingKnowledgePower($bundle, $playerState->resources->power);
 
             $player->update([
                 'color' => $playerState->color,
@@ -123,7 +125,10 @@ final class ChoosePlanningBundleAction
                 $lockedGame,
                 $user,
                 GameActionType::ChoosePlanningBundle,
-                ['homeland' => $homeland->value],
+                [
+                    'homeland' => $homeland->value,
+                    'gained_power' => $gainedPower,
+                ],
                 [[
                     'type' => 'planning_bundle_chosen',
                     'player_id' => $player->id,
@@ -137,5 +142,18 @@ final class ChoosePlanningBundleAction
 
             return $lockedGame->refresh();
         });
+    }
+
+    private function startingKnowledgePower(
+        PlanningBundleData $bundle,
+        PowerBowlsStateData $power,
+    ): int {
+        $startingBowlTwo = match ($bundle->homeland) {
+            TerrainType::Swamp => 9,
+            TerrainType::Forest => 8,
+            default => 7,
+        };
+
+        return max(0, $power->bowlTwo + (2 * $power->bowlThree) - $startingBowlTwo);
     }
 }

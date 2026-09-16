@@ -81,6 +81,7 @@ final class PerformBookActionAction
                     'hex_id' => $hexId,
                     'victory_points' => $result['victoryPoints'] + $result['buildingBonusPoints'],
                     'bonus_coins' => $result['buildingBonusCoins'],
+                    'gained_power' => $result['gainedPower'],
                 ],
                 [[
                     'type' => 'book_action_used',

@@ -1020,6 +1020,31 @@ class GameManagementTest extends TestCase
         $this->assertSame([KnowledgeDiscipline::Banking], $playerState->knowledge->unlockedDisciplines);
     }
 
+    public function test_advancing_knowledge_returns_the_power_that_was_actually_gained(): void
+    {
+        $playerState = new GamePlayerStateData(
+            playerId: 15,
+            userId: 25,
+            color: PlayerColor::Black,
+            faction: Faction::Navigators,
+            homeland: TerrainType::Swamp,
+            roundBonus: RoundBonus::Coins,
+            resources: new PlayerResourcesData(power: new PowerBowlsStateData(bowlOne: 1, bowlTwo: 11)),
+            knowledge: new KnowledgeStateData(law: 2),
+        );
+
+        $gainedPower = app(AdvanceKnowledgeAction::class)->execute(
+            new GameStateData(players: [$playerState]),
+            $playerState,
+            KnowledgeDiscipline::Law,
+            1,
+        );
+
+        $this->assertSame(1, $gainedPower);
+        $this->assertSame(0, $playerState->resources->power->bowlOne);
+        $this->assertSame(12, $playerState->resources->power->bowlTwo);
+    }
+
     public function test_only_one_player_may_reach_the_top_of_each_knowledge_discipline(): void
     {
         $leader = new GamePlayerStateData(
@@ -7019,6 +7044,52 @@ class GameManagementTest extends TestCase
                     ->has('game.data.innovations', 6)
                     ->has('game.data.competencies', 12),
             );
+    }
+
+    public function test_planning_bundle_history_records_power_gained_from_starting_knowledge(): void
+    {
+        $users = User::factory()->count(2)->create();
+        $game = Game::factory()->create(['random_seed' => 'starting-knowledge-power-history']);
+
+        foreach ($users as $index => $user) {
+            GamePlayer::factory()->ready()->create([
+                'game_id' => $game->id,
+                'user_id' => $user->id,
+                'seat' => $index + 1,
+            ]);
+        }
+
+        $this->actingAs($users[0])->post(route('games.start', $game));
+        $game->refresh();
+
+        $state = $game->state;
+        $swampBundleIndex = collect($state->setupPool->planningBundles)->search(
+            static fn (PlanningBundleData $bundle): bool => $bundle->homeland === TerrainType::Swamp,
+        );
+
+        $this->assertIsInt($swampBundleIndex);
+
+        $state->setupPool->planningBundles[$swampBundleIndex] = new PlanningBundleData(
+            TerrainType::Swamp,
+            Faction::Navigators,
+            RoundBonus::Coins,
+        );
+        $game->update(['state' => $state]);
+        $activeUser = $users->firstWhere('id', $game->active_player_id);
+
+        $this->assertInstanceOf(User::class, $activeUser);
+
+        $this->actingAs($activeUser)
+            ->post(route('games.planning-bundle.store', $game), [
+                'homeland' => TerrainType::Swamp->value,
+            ])
+            ->assertNoContent();
+
+        $action = $game->actions()->where('type', GameActionType::ChoosePlanningBundle)->sole();
+
+        $this->assertSame(1, $action->payload['gained_power']);
+        $this->assertSame(2, $game->refresh()->state->players[0]->resources->power->bowlOne);
+        $this->assertSame(10, $game->state->players[0]->resources->power->bowlTwo);
     }
 
     public function test_inactive_player_cannot_choose_planning_bundle(): void

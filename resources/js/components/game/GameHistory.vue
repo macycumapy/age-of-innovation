@@ -603,6 +603,10 @@ function actionDetails(entry: GameHistoryEntry): string | null {
         details.push(`получено ${entry.payload.bonus_coins} золота`);
     }
 
+    if (typeof entry.payload.gained_power === 'number' && entry.payload.gained_power > 0) {
+        details.push(`получено ${entry.payload.gained_power} Силы`);
+    }
+
     return details.length > 0 ? details.join(' · ') : null;
 }
 

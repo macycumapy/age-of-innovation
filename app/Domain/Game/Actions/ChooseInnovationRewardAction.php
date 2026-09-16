@@ -53,10 +53,11 @@ final class ChooseInnovationRewardAction
 
             $playerState->resources->books->unassigned -= $bookCount;
             $advancedKnowledgeSteps = 0;
+            $gainedPower = 0;
 
             foreach ($knowledgeCounts as $discipline => $count) {
                 $levelBefore = $playerState->knowledge->{$discipline};
-                $this->advanceKnowledge->execute($state, $playerState, KnowledgeDiscipline::from($discipline), $count);
+                $gainedPower += $this->advanceKnowledge->execute($state, $playerState, KnowledgeDiscipline::from($discipline), $count);
                 $advancedKnowledgeSteps += $playerState->knowledge->{$discipline} - $levelBefore;
             }
 
@@ -84,6 +85,7 @@ final class ChooseInnovationRewardAction
             $payload['reward_book_counts'] = $bookCounts;
             $payload['reward_knowledge_counts'] = $knowledgeCounts;
             $payload['reward_knowledge_victory_points'] = $victoryPoints;
+            $payload['gained_power'] = (int) ($payload['gained_power'] ?? 0) + $gainedPower;
             $events = $sourceAction->events ?? [];
             $events[] = [
                 'type' => 'innovation_reward_distributed',

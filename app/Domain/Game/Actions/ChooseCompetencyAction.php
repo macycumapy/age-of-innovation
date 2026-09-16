@@ -74,7 +74,7 @@ final class ChooseCompetencyAction
             }
 
             $playerState = $state->players[$playerStateIndex];
-            $this->grantCompetency->execute(
+            $gainedPower = $this->grantCompetency->execute(
                 $state,
                 $playerState,
                 $competency,
@@ -116,6 +116,7 @@ final class ChooseCompetencyAction
                         'competency_id' => $competency->value,
                         'reason' => $isBuildingChoice ? 'building' : 'innovation',
                         'built_hex_id' => $isBuildingChoice ? $builtHexId : null,
+                        'gained_power' => $gainedPower,
                     ],
                     [[
                         'type' => $isBuildingChoice ? 'building_competency_chosen' : 'innovation_competency_chosen',
@@ -182,6 +183,7 @@ final class ChooseCompetencyAction
                     'income_started' => $nextPhase !== GamePhase::Setup,
                     'round' => $state->round->number,
                     'income_receipts' => $incomeReceipts,
+                    'gained_power' => $gainedPower,
                 ],
                 [
                     [

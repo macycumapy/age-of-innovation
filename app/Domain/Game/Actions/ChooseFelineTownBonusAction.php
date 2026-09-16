@@ -62,11 +62,12 @@ final class ChooseFelineTownBonusAction
 
             $playerState->resources->books->unassigned -= $bookCount;
             $advancedKnowledgeSteps = 0;
+            $gainedPower = 0;
 
             foreach ($knowledgeCounts as $discipline => $count) {
                 $knowledgeDiscipline = KnowledgeDiscipline::from($discipline);
                 $levelBefore = $playerState->knowledge->{$discipline};
-                $this->advanceKnowledge->execute($state, $playerState, $knowledgeDiscipline, $count);
+                $gainedPower += $this->advanceKnowledge->execute($state, $playerState, $knowledgeDiscipline, $count);
                 $advancedKnowledgeSteps += $playerState->knowledge->{$discipline} - $levelBefore;
             }
 
@@ -99,6 +100,7 @@ final class ChooseFelineTownBonusAction
                     'knowledge_counts' => $knowledgeCounts,
                     'victory_points' => $victoryPoints,
                     'continue_building_after_power_hex_id' => $interaction->context['continueBuildingAfterPowerHexId'] ?? null,
+                    'gained_power' => $gainedPower,
                 ],
                 [[
                     'type' => 'feline_town_bonus_chosen',

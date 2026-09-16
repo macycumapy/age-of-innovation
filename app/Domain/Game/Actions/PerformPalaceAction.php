@@ -70,6 +70,7 @@ final class PerformPalaceAction
                 'hex_id' => $hexId,
                 'victory_points' => $result['victoryPoints'],
                 'bonus_coins' => $result['bonusCoins'],
+                'gained_power' => $result['gainedPower'],
             ], [[
                 'type' => 'palace_action_used',
                 'player_id' => $player->id,

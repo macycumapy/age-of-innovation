@@ -28,7 +28,7 @@ final class ApplyBookActionAction
 
     /**
      * @param array<string, int> $bookCounts
-     * @return array{nextActiveUserId: int, victoryPoints: int, buildingBonusPoints: int, buildingBonusCoins: int}
+     * @return array{nextActiveUserId: int, victoryPoints: int, buildingBonusPoints: int, buildingBonusCoins: int, gainedPower: int}
      */
     public function execute(
         GameStateData $state,
@@ -54,6 +54,7 @@ final class ApplyBookActionAction
         $victoryPoints = 0;
         $buildingBonusPoints = 0;
         $buildingBonusCoins = 0;
+        $gainedPower = 0;
         $nextActiveUserId = $playerState->userId;
 
         if ($action === BookAction::GainPower) {
@@ -63,7 +64,7 @@ final class ApplyBookActionAction
                 throw ValidationException::withMessages(['discipline' => 'Выберите дисциплину знаний.']);
             }
 
-            $this->advanceKnowledge->execute($state, $playerState, $discipline, 2);
+            $gainedPower = $this->advanceKnowledge->execute($state, $playerState, $discipline, 2);
         } elseif ($action === BookAction::GainCoins) {
             $playerState->resources->coins += 6;
         } elseif ($action === BookAction::UpgradeToGuild) {
@@ -132,6 +133,7 @@ final class ApplyBookActionAction
             'victoryPoints' => $victoryPoints,
             'buildingBonusPoints' => $buildingBonusPoints,
             'buildingBonusCoins' => $buildingBonusCoins,
+            'gainedPower' => $gainedPower,
         ];
     }
 

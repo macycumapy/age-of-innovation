@@ -26,8 +26,9 @@ final class ApplyRoundBonusAction
         GameStateData $state,
         GamePlayerStateData $playerState,
         ?KnowledgeDiscipline $discipline,
-    ): void {
+    ): int {
         $roundBonus = $playerState->roundBonus;
+        $gainedPower = 0;
 
         if (! $roundBonus->hasAvailableSpecialAction()
             || in_array($roundBonus->value, $playerState->usedSpecialActionIds, true)) {
@@ -39,7 +40,7 @@ final class ApplyRoundBonusAction
                 throw ValidationException::withMessages(['discipline' => 'Выберите дисциплину знаний.']);
             }
 
-            $this->advanceKnowledge->execute($state, $playerState, $discipline, 1);
+            $gainedPower = $this->advanceKnowledge->execute($state, $playerState, $discipline, 1);
         }
 
         if ($roundBonus === RoundBonus::Spade) {
@@ -71,5 +72,7 @@ final class ApplyRoundBonusAction
 
         $playerState->usedSpecialActionIds[] = $roundBonus->value;
         $state->round->hasTakenMainAction = true;
+
+        return $gainedPower;
     }
 }

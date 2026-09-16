@@ -41,7 +41,7 @@ final class BeginPassAction
             throw ValidationException::withMessages(['game' => 'Игрок уже спасовал в этом раунде.']);
         }
 
-        $this->applySchoolKnowledgeSteps($state, $player, $knowledgeDisciplines);
+        $gainedPower = $this->applySchoolKnowledgeSteps($state, $player, $knowledgeDisciplines);
         $bonuses = $this->applyPassBonuses->execute($state, $player);
         $isFinalRound = $state->round->number >= 6;
         $conversion = $isFinalRound ? $this->convertFinalResources($player) : null;
@@ -86,11 +86,12 @@ final class BeginPassAction
             'passOrder' => count($state->round->passOrder),
             'finalResourceConversion' => $conversion,
             'completion' => $completion,
+            'gainedPower' => $gainedPower,
         ];
     }
 
     /** @param list<KnowledgeDiscipline> $disciplines */
-    private function applySchoolKnowledgeSteps(GameStateData $state, GamePlayerStateData $player, array $disciplines): void
+    private function applySchoolKnowledgeSteps(GameStateData $state, GamePlayerStateData $player, array $disciplines): int
     {
         $schoolCount = $player->roundBonus === RoundBonus::PassSchool ? count(array_filter(
             $state->board->hexes,
@@ -103,9 +104,13 @@ final class BeginPassAction
             throw ValidationException::withMessages(['knowledge_counts' => 'Распределите все шаги знаний за школы.']);
         }
 
+        $gainedPower = 0;
+
         foreach ($disciplines as $discipline) {
-            $this->advanceKnowledge->execute($state, $player, $discipline, 1);
+            $gainedPower += $this->advanceKnowledge->execute($state, $player, $discipline, 1);
         }
+
+        return $gainedPower;
     }
 
     /** @return array<string, int>|null */

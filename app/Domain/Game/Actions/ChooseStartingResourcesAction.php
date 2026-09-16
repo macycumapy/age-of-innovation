@@ -83,7 +83,7 @@ final class ChooseStartingResourcesAction
 
             $playerState = $state->players[$playerStateIndex];
             $this->assignBooks($playerState, $bookDisciplines);
-            $this->assignKnowledge($state, $playerState, $knowledgeDisciplines);
+            $gainedPower = $this->assignKnowledge($state, $playerState, $knowledgeDisciplines);
             if ($interactionPhase === GamePhase::Setup && $competency instanceof Competency) {
                 throw ValidationException::withMessages([
                     'competency_id' => 'Стартовая компетенция выбирается после расстановки зданий.',
@@ -128,6 +128,7 @@ final class ChooseStartingResourcesAction
                     'competency' => $competency?->value,
                     'phase' => $interactionPhase->value,
                     'income_receipts' => $incomeReceipts,
+                    'gained_power' => $gainedPower,
                 ],
                 [[
                     'type' => $interactionPhase === GamePhase::Income
@@ -167,18 +168,22 @@ final class ChooseStartingResourcesAction
         GameStateData $state,
         GamePlayerStateData $playerState,
         array $disciplines,
-    ): void {
+    ): int {
         if (count($disciplines) !== $playerState->knowledge->unassignedSteps) {
             throw ValidationException::withMessages([
                 'knowledge_counts' => 'Распределите все стартовые шаги знаний.',
             ]);
         }
 
+        $gainedPower = 0;
+
         foreach ($disciplines as $discipline) {
-            $this->advanceKnowledge->execute($state, $playerState, $discipline, 1);
+            $gainedPower += $this->advanceKnowledge->execute($state, $playerState, $discipline, 1);
         }
 
         $playerState->knowledge->unassignedSteps = 0;
+
+        return $gainedPower;
     }
 
 }
