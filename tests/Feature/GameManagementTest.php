@@ -4348,8 +4348,71 @@ class GameManagementTest extends TestCase
         return [
             'palace' => [BuildingType::Guild, BuildingType::Palace, 0],
             'school' => [BuildingType::Guild, BuildingType::School, 2],
-            'university' => [BuildingType::School, BuildingType::University, 1],
+            'university' => [BuildingType::School, BuildingType::University, 0],
         ];
+    }
+
+    public function test_monks_cannot_upgrade_a_school_when_their_university_is_already_on_the_map(): void
+    {
+        $user = User::factory()->create();
+        $game = Game::factory()->create([
+            'status' => GameStatus::Active,
+            'phase' => GamePhase::Actions,
+            'active_player_id' => $user->id,
+        ]);
+        $player = GamePlayer::factory()->create([
+            'game_id' => $game->id,
+            'user_id' => $user->id,
+            'faction' => Faction::Monks,
+        ]);
+        $game->update(['state' => new GameStateData(
+            board: new BoardStateData(hexes: [
+                new BoardHexStateData(
+                    id: '0:0',
+                    q: 0,
+                    r: 0,
+                    initialTerrain: TerrainType::Forest,
+                    terrain: TerrainType::Forest,
+                    building: new BuildingStateData(BuildingType::School, $player->id),
+                ),
+                new BoardHexStateData(
+                    id: '1:0',
+                    q: 1,
+                    r: 0,
+                    initialTerrain: TerrainType::Forest,
+                    terrain: TerrainType::Forest,
+                    building: new BuildingStateData(BuildingType::University, $player->id),
+                ),
+            ]),
+            round: new RoundStateData(phase: GamePhase::Actions),
+            players: [new GamePlayerStateData(
+                playerId: $player->id,
+                userId: $user->id,
+                color: PlayerColor::Green,
+                faction: Faction::Monks,
+                homeland: TerrainType::Forest,
+                roundBonus: RoundBonus::Coins,
+                resources: new PlayerResourcesData(tools: 10, coins: 10),
+            )],
+        )]);
+
+        $this->actingAs($user)
+            ->get(route('games.show', $game))
+            ->assertInertia(
+                fn (Assert $page) => $page->where('game.data.buildingUpgrades', []),
+            );
+
+        $this->post(route('games.building-upgrade', $game), [
+            'hex_id' => '0:0',
+            'target' => BuildingType::University->value,
+        ])->assertSessionHasErrors('building');
+
+        $game->refresh();
+
+        $this->assertSame(BuildingType::School, $game->state->board->hexes[0]->building?->type);
+        $this->assertSame(10, $game->state->players[0]->resources->tools);
+        $this->assertSame(10, $game->state->players[0]->resources->coins);
+        $this->assertCount(0, $game->actions);
     }
 
     public function test_competency_five_starts_terraforming_with_two_free_spades(): void

@@ -60,7 +60,7 @@ enum BuildingType: string
             self::Workshop => 9,
             self::Guild => 4,
             self::School => 3,
-            self::University => 2,
+            self::University => 1,
             self::Palace => 1,
             self::Tower, self::Monument => 0,
         };
