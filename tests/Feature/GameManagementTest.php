@@ -5459,6 +5459,92 @@ class GameManagementTest extends TestCase
         ];
     }
 
+    public function test_neutral_guild_from_innovation_scores_the_build_guild_round_bonus(): void
+    {
+        $user = User::factory()->create();
+        $game = Game::factory()->create([
+            'status' => GameStatus::Active,
+            'phase' => GamePhase::Actions,
+            'active_player_id' => $user->id,
+        ]);
+        $player = GamePlayer::factory()->create([
+            'game_id' => $game->id,
+            'user_id' => $user->id,
+            'seat' => 1,
+        ]);
+        $setupPool = app(GameSetupPoolFactory::class)->createFromSeed(2, 'neutral-guild-round-bonus');
+        $setupPool->innovations[0] = Innovation::Guild;
+        $game->update(['state' => new GameStateData(
+            turnOrder: [$player->id],
+            board: new BoardStateData(hexes: [
+                new BoardHexStateData(
+                    id: '0:0',
+                    q: 0,
+                    r: 0,
+                    initialTerrain: TerrainType::Forest,
+                    terrain: TerrainType::Forest,
+                    adjacentHexIds: ['1:0'],
+                    building: new BuildingStateData(BuildingType::Workshop, $player->id),
+                ),
+                new BoardHexStateData(
+                    id: '1:0',
+                    q: 1,
+                    r: 0,
+                    initialTerrain: TerrainType::Forest,
+                    terrain: TerrainType::Forest,
+                    adjacentHexIds: ['0:0'],
+                ),
+            ]),
+            players: [new GamePlayerStateData(
+                playerId: $player->id,
+                userId: $user->id,
+                color: PlayerColor::Green,
+                faction: Faction::Blessed,
+                homeland: TerrainType::Forest,
+                roundBonus: RoundBonus::BuildGuild,
+                resources: new PlayerResourcesData(
+                    tools: 3,
+                    coins: 10,
+                    books: new BookSupplyData(banking: 2, law: 2, medicine: 1),
+                ),
+            )],
+            round: new RoundStateData(
+                phase: GamePhase::Actions,
+                scoringTileId: RoundScoringTile::WorkshopLaw->value,
+            ),
+            availableInventionIds: [Innovation::Guild->value],
+            setupPool: $setupPool,
+        )]);
+
+        $this->actingAs($user)->post(route('games.innovation', $game), [
+            'innovation' => Innovation::Guild->value,
+            'book_counts' => ['banking' => 2, 'law' => 2, 'engineering' => 0, 'medicine' => 1],
+        ])->assertNoContent();
+
+        $this->post(route('games.innovation.neutral-building', $game), ['hex_id' => '1:0'])
+            ->assertNoContent();
+
+        $game->refresh();
+        $this->assertSame(BuildingType::Guild, $game->state->board->hexes[1]->building?->type);
+        $this->assertSame(23, $game->state->players[0]->victoryPoints);
+        $this->assertSame(3, $game->actions()->sole()->payload['neutral_building']['victory_points']);
+        $this->assertSame([
+            [
+                'id' => RoundBonus::BuildGuild->value,
+                'points' => 3,
+                'source' => 'round_bonus',
+            ],
+        ], $game->actions()->sole()->payload['neutral_building']['scoring_sources']);
+        $this->get(route('games.show', $game))->assertInertia(
+            fn (Assert $page) => $page
+                ->where('game.data.history.data.0.payload.neutral_building.victory_points', 3)
+                ->where(
+                    'game.data.history.data.0.payload.neutral_building.scoring_sources.0.source',
+                    'round_bonus',
+                ),
+        );
+    }
+
     public function test_school_innovation_grants_a_competency_when_no_neutral_school_can_be_built(): void
     {
         $user = User::factory()->create();

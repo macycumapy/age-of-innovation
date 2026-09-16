@@ -595,6 +595,15 @@ function actionDetails(entry: GameHistoryEntry): string | null {
         details.push(developmentTrackReward);
     }
 
+    if (typeof entry.payload.neutral_building === 'object' && entry.payload.neutral_building !== null) {
+        const neutralBuilding = entry.payload.neutral_building as Record<string, unknown>;
+        const victoryPoints = Number(neutralBuilding.victory_points ?? 0);
+
+        if (Number.isFinite(victoryPoints) && victoryPoints > 0) {
+            details.push(`получено ${victoryPoints} ПО`);
+        }
+    }
+
     if (typeof entry.payload.victory_points === 'number' && entry.payload.victory_points > 0) {
         details.push(`получено ${entry.payload.victory_points} ПО`);
     }
