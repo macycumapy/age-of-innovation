@@ -189,6 +189,14 @@
         background-clip: padding-box;
     }
 
+    html:fullscreen {
+        scrollbar-width: none;
+    }
+
+    html:fullscreen::-webkit-scrollbar {
+        display: none;
+    }
+
     body {
         @apply bg-background text-foreground;
     }

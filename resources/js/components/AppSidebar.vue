@@ -2,6 +2,7 @@
 import { Link } from '@inertiajs/vue3';
 import { Gamepad2 } from '@lucide/vue';
 import AppLogo from '@/components/AppLogo.vue';
+import FullscreenSidebarButton from '@/components/FullscreenSidebarButton.vue';
 import NavFooter from '@/components/NavFooter.vue';
 import NavMain from '@/components/NavMain.vue';
 import NavUser from '@/components/NavUser.vue';
@@ -37,11 +38,7 @@ const footerNavItems: NavItem[] = [];
         <SidebarHeader class="group-data-[collapsible=icon]:p-1">
             <SidebarMenu>
                 <SidebarMenuItem class="flex items-center gap-1">
-                    <SidebarMenuButton
-                        size="lg"
-                        class="flex-1 group-data-[collapsible=icon]:hidden"
-                        as-child
-                    >
+                    <SidebarMenuButton size="lg" class="flex-1 group-data-[collapsible=icon]:hidden" as-child>
                         <Link :href="gamesIndex()">
                             <AppLogo />
                         </Link>
@@ -57,12 +54,10 @@ const footerNavItems: NavItem[] = [];
 
         <SidebarFooter class="group-data-[collapsible=icon]:p-1">
             <NavFooter :items="footerNavItems" />
+            <FullscreenSidebarButton />
             <NavUser />
         </SidebarFooter>
     </Sidebar>
-    <SidebarTrigger
-        v-if="isMobile && !openMobile"
-        class="fixed top-2 left-2 z-50 bg-background shadow-sm"
-    />
+    <SidebarTrigger v-if="isMobile && !openMobile" class="fixed top-2 left-2 z-50 bg-background shadow-sm" />
     <slot />
 </template>
