@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { useHttp } from '@inertiajs/vue3';
 import { History, LoaderCircle, RotateCcw } from '@lucide/vue';
-import { ref, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 import GameHistoryController from '@/actions/App/Http/Controllers/GameHistoryController';
+import GameHistoryRollbackController from '@/actions/App/Http/Controllers/GameHistoryRollbackController';
 import GameHistoryUndoController from '@/actions/App/Http/Controllers/GameHistoryUndoController';
 import Form from '@/components/game/GameActionForm.vue';
 import { Button } from '@/components/ui/button';
@@ -84,6 +85,7 @@ const entries = ref<GameHistoryEntry[]>([...props.history.data]);
 const hasMore = ref(props.history.hasMore);
 const loadError = ref(false);
 const historyRequest = useHttp({});
+const latestSequence = computed(() => entries.value[0]?.sequence ?? 0);
 
 watch(
     () => props.history.data,
@@ -104,6 +106,20 @@ watch(
 
 function confirmUndo(event: SubmitEvent): void {
     if (!window.confirm('Откатить последнее действие и удалить его из истории?')) {
+        event.preventDefault();
+    }
+}
+
+function canRollbackTo(entry: GameHistoryEntry): boolean {
+    return props.canUndoLastAction && entry.type === 'phase_checkpoint' && entry.sequence < latestSequence.value;
+}
+
+function confirmRollback(event: SubmitEvent, entry: GameHistoryEntry): void {
+    if (
+        !window.confirm(
+            `Откатить партию к «${checkpointDescription(entry)}»? Все последующие действия будут удалены из истории.`,
+        )
+    ) {
         event.preventDefault();
     }
 }
@@ -672,8 +688,24 @@ function actionTime(createdAt: string | null): string {
                         :style="{ backgroundColor: playerColor(entry) }"
                         aria-hidden="true"
                     />
-                    <p class="min-w-0 leading-snug">
-                        <template v-if="entry.type === 'phase_checkpoint'">
+                    <div class="min-w-0 leading-snug">
+                        <Form
+                            v-if="canRollbackTo(entry)"
+                            v-bind="GameHistoryRollbackController.form({ game: gameId, action: entry.id })"
+                            class="inline"
+                            #default="{ processing }"
+                            @submit="confirmRollback($event, entry)"
+                        >
+                            <button
+                                type="submit"
+                                class="rounded-sm text-left font-bold underline decoration-dotted underline-offset-4 hover:text-primary focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:cursor-wait disabled:opacity-60"
+                                :disabled="processing"
+                                :title="`Откатить к фазе: ${checkpointDescription(entry)}`"
+                            >
+                                {{ checkpointDescription(entry) }}
+                            </button>
+                        </Form>
+                        <template v-else-if="entry.type === 'phase_checkpoint'">
                             <span class="font-bold">{{ checkpointDescription(entry) }}</span>
                         </template>
                         <template v-else-if="isSharedIncomeEntry(entry)">
@@ -713,7 +745,7 @@ function actionTime(createdAt: string | null): string {
                         >
                             {{ detail }}
                         </span>
-                    </p>
+                    </div>
                     <time
                         v-if="entry.createdAt"
                         :datetime="entry.createdAt"

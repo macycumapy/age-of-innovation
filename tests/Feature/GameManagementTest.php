@@ -6846,6 +6846,95 @@ class GameManagementTest extends TestCase
         $this->assertSame(0, $game->actions()->count());
     }
 
+    public function test_owner_can_roll_back_to_a_phase_checkpoint_and_remove_later_history(): void
+    {
+        $owner = User::factory()->create();
+        $secondUser = User::factory()->create();
+        $game = Game::factory()->create(['random_seed' => 'phase-rollback-seed']);
+        GamePlayer::factory()->ready()->create([
+            'game_id' => $game->id,
+            'user_id' => $owner->id,
+            'seat' => 1,
+        ]);
+        GamePlayer::factory()->ready()->create([
+            'game_id' => $game->id,
+            'user_id' => $secondUser->id,
+            'seat' => 2,
+        ]);
+
+        $this->actingAs($owner)->post(route('games.start', $game));
+
+        $game->refresh();
+        $checkpoint = $game->actions()->where('type', GameActionType::PhaseCheckpoint)->sole();
+        $activeUser = User::query()->findOrFail($game->active_player_id);
+        $selectedBundle = $game->state->setupPool->planningBundles[0];
+
+        $this->actingAs($activeUser)->post(route('games.planning-bundle.store', $game), [
+            'homeland' => $selectedBundle->homeland->value,
+        ]);
+
+        $this->actingAs($owner)
+            ->delete(route('games.history.destroy', [$game, $checkpoint]))
+            ->assertNoContent();
+
+        $game->refresh();
+        $this->assertSame(GameStatus::Active, $game->status);
+        $this->assertSame(GamePhase::Setup, $game->phase);
+        $this->assertSame(1, $game->version);
+        $this->assertCount(0, $game->state->planningSelections);
+        $this->assertSame($checkpoint->sequence, $game->actions()->max('sequence'));
+        $this->assertModelExists($checkpoint);
+    }
+
+    public function test_only_owner_can_roll_back_to_a_phase_checkpoint(): void
+    {
+        $owner = User::factory()->create();
+        $secondUser = User::factory()->create();
+        $game = Game::factory()->create(['random_seed' => 'forbidden-phase-rollback-seed']);
+        GamePlayer::factory()->ready()->create([
+            'game_id' => $game->id,
+            'user_id' => $owner->id,
+            'seat' => 1,
+        ]);
+        GamePlayer::factory()->ready()->create([
+            'game_id' => $game->id,
+            'user_id' => $secondUser->id,
+            'seat' => 2,
+        ]);
+
+        $this->actingAs($owner)->post(route('games.start', $game));
+
+        $checkpoint = $game->actions()->where('type', GameActionType::PhaseCheckpoint)->sole();
+
+        $this->actingAs($secondUser)
+            ->delete(route('games.history.destroy', [$game, $checkpoint]))
+            ->assertForbidden();
+
+        $this->assertSame(2, $game->actions()->count());
+    }
+
+    public function test_history_rollback_rejects_an_action_that_is_not_a_phase_checkpoint(): void
+    {
+        $owner = User::factory()->create();
+        $game = Game::factory()->create();
+        GamePlayer::factory()->create([
+            'game_id' => $game->id,
+            'user_id' => $owner->id,
+            'seat' => 1,
+        ]);
+        $action = GameAction::factory()->create([
+            'game_id' => $game->id,
+            'player_id' => $owner->id,
+            'sequence' => 1,
+        ]);
+
+        $this->actingAs($owner)
+            ->delete(route('games.history.destroy', [$game, $action]))
+            ->assertSessionHasErrors('history');
+
+        $this->assertModelExists($action);
+    }
+
     public function test_owner_cannot_undo_the_latest_action_outside_development(): void
     {
         $this->withoutMiddleware(\Illuminate\Foundation\Http\Middleware\PreventRequestForgery::class);
