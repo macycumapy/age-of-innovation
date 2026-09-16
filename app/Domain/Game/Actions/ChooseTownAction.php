@@ -192,7 +192,10 @@ final class ChooseTownAction
                 KnowledgeDiscipline::cases(),
             )),
             TownTile::Power => $this->gainPower->execute($player, 8),
-            TownTile::Scholar => $player->resources->scholars++,
+            TownTile::Scholar => $player->resources->scholars = min(
+                $player->scholarPoolSize,
+                $player->resources->scholars + 1,
+            ),
             TownTile::Terraform => null,
         };
 

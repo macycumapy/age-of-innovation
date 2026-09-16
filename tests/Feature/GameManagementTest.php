@@ -3096,6 +3096,53 @@ class GameManagementTest extends TestCase
         $this->assertSame(10, $game->actions()->sole()->payload['victory_points']);
     }
 
+    public function test_scholar_town_tile_does_not_grant_a_scholar_when_the_player_pool_is_empty(): void
+    {
+        $user = User::factory()->create();
+        $game = Game::factory()->create([
+            'status' => GameStatus::Active,
+            'phase' => GamePhase::Actions,
+            'active_player_id' => $user->id,
+        ]);
+        $player = GamePlayer::factory()->create(['game_id' => $game->id, 'user_id' => $user->id]);
+        $game->update(['state' => new GameStateData(
+            board: new BoardStateData(hexes: [new BoardHexStateData(
+                id: '0:0',
+                q: 0,
+                r: 0,
+                initialTerrain: TerrainType::Forest,
+                terrain: TerrainType::Forest,
+                building: new BuildingStateData(BuildingType::Workshop, $player->id),
+            )]),
+            round: new RoundStateData(phase: GamePhase::Actions),
+            players: [new GamePlayerStateData(
+                playerId: $player->id,
+                userId: $user->id,
+                color: PlayerColor::Green,
+                faction: Faction::Blessed,
+                homeland: TerrainType::Forest,
+                roundBonus: RoundBonus::Coins,
+                scholarPoolSize: 0,
+            )],
+            availableTownTileIds: [TownTile::Scholar->value],
+            pendingInteraction: new PendingInteractionData(
+                PendingInteractionType::ChooseTown,
+                $player->id,
+                [TownTile::Scholar->value],
+                ['townHexIds' => ['0:0'], 'builtHexId' => '0:0'],
+            ),
+        )]);
+
+        $this->actingAs($user)->post(route('games.town', $game), [
+            'town_tile' => TownTile::Scholar->value,
+        ])->assertNoContent();
+
+        $game->refresh();
+
+        $this->assertSame(0, $game->state->players[0]->resources->scholars);
+        $this->assertSame(0, $game->state->players[0]->scholarPoolSize);
+    }
+
     public function test_player_must_distribute_exactly_two_books_from_a_town_tile(): void
     {
         $user = User::factory()->create();

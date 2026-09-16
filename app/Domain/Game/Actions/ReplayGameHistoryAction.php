@@ -1143,7 +1143,10 @@ final class ReplayGameHistoryAction
                 KnowledgeDiscipline::cases(),
             ),
             TownTile::Power => $this->gainPower->execute($playerState, 8),
-            TownTile::Scholar => $playerState->resources->scholars++,
+            TownTile::Scholar => $playerState->resources->scholars = min(
+                $playerState->scholarPoolSize,
+                $playerState->resources->scholars + 1,
+            ),
             TownTile::Terraform => $playerState->unassignedSpades += 2,
         };
 
