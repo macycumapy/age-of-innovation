@@ -55,6 +55,10 @@ final class CreatePowerOffersAfterBuildingAction
         $offers = [];
 
         foreach ($orderedPlayerIds as $playerId) {
+            if ($state->round->number === 6 && in_array($playerId, $state->passedPlayerIds, true)) {
+                continue;
+            }
+
             $playerState = collect($state->players)->firstWhere('playerId', $playerId);
             $availablePower = $playerState instanceof GamePlayerStateData
                 ? $playerState->resources->power->bowlOne + $playerState->resources->power->bowlTwo

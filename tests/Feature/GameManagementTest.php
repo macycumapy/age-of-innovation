@@ -226,6 +226,59 @@ class GameManagementTest extends TestCase
         $this->assertSame(7, $state->pendingInteraction?->context['powerAmount']);
     }
 
+    public function test_power_is_not_offered_to_players_who_passed_in_the_final_round(): void
+    {
+        $builder = new GamePlayerStateData(
+            playerId: 1,
+            userId: 11,
+            color: PlayerColor::Green,
+            faction: Faction::Blessed,
+            homeland: TerrainType::Forest,
+            roundBonus: RoundBonus::Coins,
+        );
+        $finishedNeighbor = new GamePlayerStateData(
+            playerId: 2,
+            userId: 22,
+            color: PlayerColor::Blue,
+            faction: Faction::Blessed,
+            homeland: TerrainType::Mountain,
+            roundBonus: RoundBonus::Coins,
+            resources: new PlayerResourcesData(
+                power: new PowerBowlsStateData(bowlOne: 4),
+            ),
+        );
+        $state = new GameStateData(
+            turnOrder: [1, 2],
+            passedPlayerIds: [2],
+            board: new BoardStateData(hexes: [
+                new BoardHexStateData(
+                    id: '8:4',
+                    q: 8,
+                    r: 4,
+                    initialTerrain: TerrainType::Forest,
+                    terrain: TerrainType::Forest,
+                    adjacentHexIds: ['9:4'],
+                    building: new BuildingStateData(BuildingType::Workshop, 1),
+                ),
+                new BoardHexStateData(
+                    id: '9:4',
+                    q: 9,
+                    r: 4,
+                    initialTerrain: TerrainType::Mountain,
+                    terrain: TerrainType::Mountain,
+                    building: new BuildingStateData(BuildingType::Workshop, 2),
+                ),
+            ]),
+            round: new RoundStateData(number: 6),
+            players: [$builder, $finishedNeighbor],
+        );
+
+        $nextActiveUserId = app(CreatePowerOffersAfterBuildingAction::class)->execute($state, 1, '8:4');
+
+        $this->assertNull($nextActiveUserId);
+        $this->assertNull($state->pendingInteraction);
+    }
+
     #[DataProvider('terraformingToolCosts')]
     public function test_player_can_buy_spades_for_tools_at_the_current_terraforming_cost(
         int $terraformingLevel,
