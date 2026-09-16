@@ -490,6 +490,7 @@ function closedActionTokenX(actionX: number, actionWidth: number): number {
                     stroke-width="2"
                     stroke-linejoin="round"
                 />
+                <path v-if="pendingHexId !== hex.id" :d="roundedHexPath" class="board-hex-ping" aria-hidden="true" />
             </g>
 
             <g
@@ -521,6 +522,15 @@ function closedActionTokenX(actionX: number, actionWidth: number): number {
                     stroke-opacity="0.8"
                     stroke-width="2"
                     stroke-linejoin="round"
+                />
+                <path
+                    v-if="
+                        pendingHexId !== hex.id &&
+                        (selectableHexIds.includes(hex.id) || upgradeableBuildingHexIds.includes(hex.id))
+                    "
+                    :d="roundedHexPath"
+                    class="board-hex-ping"
+                    aria-hidden="true"
                 />
                 <image
                     v-if="hex.townTileId"
@@ -608,5 +618,29 @@ function closedActionTokenX(actionX: number, actionWidth: number): number {
     transition:
         fill 150ms ease-in-out,
         stroke 150ms ease-in-out;
+}
+
+.board-hex-ping {
+    fill: none;
+    stroke: rgb(52 211 153 / 0.7);
+    stroke-width: 5;
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: selectable-hex-ping 1s cubic-bezier(0, 0, 0.2, 1) infinite;
+    pointer-events: none;
+}
+
+@keyframes selectable-hex-ping {
+    75%,
+    100% {
+        opacity: 0;
+        transform: scale(1.2);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .board-hex-ping {
+        animation: none;
+    }
 }
 </style>
