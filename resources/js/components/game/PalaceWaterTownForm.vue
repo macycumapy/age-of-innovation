@@ -1,23 +1,17 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue';
+import { RotateCcw } from '@lucide/vue';
 import PalaceWaterTownController from '@/actions/App/Http/Controllers/PalaceWaterTownController';
 import Form from '@/components/game/GameActionForm.vue';
 import { Button } from '@/components/ui/button';
 
-const props = defineProps<{
+defineProps<{
     gameId: number;
-    waterHexIds: string[];
+    selectedWaterHexId: string | null;
 }>();
 
-const selectedWaterHexId = ref<string | null>(null);
-
-watch(
-    () => props.waterHexIds,
-    (waterHexIds) => {
-        selectedWaterHexId.value = waterHexIds[0] ?? null;
-    },
-    { immediate: true },
-);
+const emit = defineEmits<{
+    resetSelection: [];
+}>();
 </script>
 
 <template>
@@ -27,17 +21,19 @@ watch(
         #default="{ processing }"
     >
         <input type="hidden" name="water_hex_id" :value="selectedWaterHexId ?? ''" />
-        <select
-            v-if="waterHexIds.length > 1"
-            v-model="selectedWaterHexId"
-            class="h-9 rounded-md border border-input bg-background px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-            aria-label="Водная клетка для города"
+        <span class="text-sm font-medium">
+            {{ selectedWaterHexId === null ? 'Выберите водную клетку на карте.' : 'Водная клетка выбрана.' }}
+        </span>
+        <Button
+            v-if="selectedWaterHexId !== null"
+            type="button"
+            variant="outline"
             :disabled="processing"
+            @click="emit('resetSelection')"
         >
-            <option v-for="waterHexId in waterHexIds" :key="waterHexId" :value="waterHexId">
-                Водная клетка {{ waterHexId }}
-            </option>
-        </select>
+            <RotateCcw class="size-4" />
+            Сбросить выбор
+        </Button>
         <Button type="submit" name="accept" value="0" variant="outline" :disabled="processing"> Отказаться </Button>
         <Button type="submit" name="accept" value="1" :disabled="processing || selectedWaterHexId === null">
             Основать город

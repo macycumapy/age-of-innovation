@@ -265,6 +265,16 @@ const waterTownTokens = computed(() =>
         })),
 );
 
+const selectableWaterHexes = computed(() =>
+    props.board.hexes
+        .filter((hex) => hex.terrain === 'water' && props.selectableHexIds.includes(hex.id))
+        .map((hex) => ({
+            ...hex,
+            x: boardLayout.value.hexOriginX + boardLayout.value.columnSpacing * hex.q + rowOffset * hex.r,
+            y: boardLayout.value.boardOriginY + boardLayout.value.rowSpacing * hex.r,
+        })),
+);
+
 function roundScoringTileImage(tile: RoundScoringTile, index: number): string {
     if (props.currentRound !== null && index + 1 < props.currentRound) {
         return finishedRoundScoringTileUrl;
@@ -462,6 +472,25 @@ function closedActionTokenX(actionX: number, actionWidth: number): number {
                 :players="players"
                 :pending-bridge="pendingBridge"
             />
+
+            <g
+                v-for="hex in selectableWaterHexes"
+                :key="`selectable-water-${hex.id}`"
+                :transform="`translate(${hex.x} ${hex.y})`"
+                class="cursor-pointer"
+                @click="emit('hexClick', hex.id)"
+            >
+                <title>Вода ({{ hex.q }}, {{ hex.r }})</title>
+                <path
+                    :d="roundedHexPath"
+                    :fill="terrainColors.water"
+                    class="board-hex board-hex-selectable"
+                    :class="{ 'board-hex-pending': pendingHexId === hex.id }"
+                    stroke-opacity="0.8"
+                    stroke-width="2"
+                    stroke-linejoin="round"
+                />
+            </g>
 
             <g
                 v-for="hex in visibleHexes"

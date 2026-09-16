@@ -32,6 +32,7 @@ const props = defineProps<{
     isPalaceBuildingSelectionActive: boolean;
     isBookBuildingSelectionActive: boolean;
     palaceBuildingSelectionSource: 'workshop' | 'school' | null;
+    selectedPalaceWaterHexId: string | null;
 }>();
 
 const emit = defineEmits<{
@@ -40,6 +41,7 @@ const emit = defineEmits<{
     resetBridgeSelection: [];
     cancelPalaceBuildingSelection: [];
     cancelBookBuildingSelection: [];
+    resetPalaceWaterSelection: [];
 }>();
 
 const isCurrentUsersTurn = computed(() => props.activePlayer?.user.id === props.currentUserId);
@@ -337,7 +339,8 @@ function scrollToPageTop(event: MouseEvent): void {
         <PalaceWaterTownForm
             v-else-if="canResolvePalaceWaterTown"
             :game-id="game.data.id"
-            :water-hex-ids="palaceWaterTownInteraction?.optionIds ?? []"
+            :selected-water-hex-id="selectedPalaceWaterHexId"
+            @reset-selection="emit('resetPalaceWaterSelection')"
         />
 
         <CurrentTurnRestartDialog

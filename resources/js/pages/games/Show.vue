@@ -132,6 +132,24 @@ const isOmarStartingTowerTurn = computed(
 const isStartingBuildingRequestPending = ref(false);
 const startingBuildingRequest = useHttp<{ hex_id: string }>({ hex_id: '' });
 const boardActionRequest = useHttp<Record<string, string>>({});
+const selectedPalaceWaterHexId = ref<string | null>(null);
+
+const palaceWaterTownInteraction = computed(() =>
+    props.game.data.pendingInteraction?.type === 'offer_palace_water_town' &&
+    props.game.data.pendingInteraction.playerId === currentPlayer.value?.id &&
+    props.game.data.activePlayerId === page.props.auth.user.id
+        ? props.game.data.pendingInteraction
+        : null,
+);
+
+watch(
+    () => palaceWaterTownInteraction.value,
+    (interaction) => {
+        if (interaction === null || !interaction.optionIds.includes(selectedPalaceWaterHexId.value ?? '')) {
+            selectedPalaceWaterHexId.value = null;
+        }
+    },
+);
 
 watch(
     () => props.game.data.pendingStartingBuildingHexId,
@@ -255,6 +273,10 @@ const selectableStartingHexIds = computed(() => {
         return [];
     }
 
+    if (palaceWaterTownInteraction.value !== null) {
+        return palaceWaterTownInteraction.value.optionIds;
+    }
+
     if (pendingBridgeInteraction.value !== null) {
         if (pendingBridgeInteraction.value.context.selectedFromHexId !== undefined) {
             return [];
@@ -316,6 +338,12 @@ const selectableStartingHexIds = computed(() => {
 
 function placeStartingBuilding(hexId: string): void {
     if (boardActionRequest.processing) {
+        return;
+    }
+
+    if (palaceWaterTownInteraction.value?.optionIds.includes(hexId)) {
+        selectedPalaceWaterHexId.value = hexId;
+
         return;
     }
 
@@ -994,9 +1022,11 @@ defineOptions({
                 :is-palace-building-selection-active="isPalaceBuildingSelectionActive"
                 :is-book-building-selection-active="isBookBuildingSelectionActive"
                 :palace-building-selection-source="palaceActionBuildingSource"
+                :selected-palace-water-hex-id="selectedPalaceWaterHexId"
                 @reset-bridge-selection="selectedBridgeFromHexId = null"
                 @cancel-palace-building-selection="cancelPalaceBuildingSelection"
                 @cancel-book-building-selection="cancelBookBuildingSelection"
+                @reset-palace-water-selection="selectedPalaceWaterHexId = null"
                 @finish-turn="isCurrentTurnFinishDialogOpen = true"
                 @pass="isPassDialogOpen = true"
             />
@@ -1106,7 +1136,8 @@ defineOptions({
                                 game.data.pendingStartingBuildingHexId ??
                                 pendingStartingSpadeHexId ??
                                 pendingPalaceGuildHexId ??
-                                selectedBridgeFromHexId
+                                selectedBridgeFromHexId ??
+                                selectedPalaceWaterHexId
                             "
                             :pending-bridge="pendingBridge"
                             :current-round="game.data.currentRound"
