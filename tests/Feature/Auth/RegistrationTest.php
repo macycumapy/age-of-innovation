@@ -38,4 +38,17 @@ class RegistrationTest extends TestCase
         $this->assertAuthenticated();
         $response->assertRedirect(route('games.index', absolute: false));
     }
+
+    public function test_password_must_be_at_least_eight_characters(): void
+    {
+        $response = $this->post(route('register.store'), [
+            'name' => 'Test User',
+            'email' => 'test@example.com',
+            'password' => 'passwor',
+            'password_confirmation' => 'passwor',
+        ]);
+
+        $response->assertSessionHasErrors('password');
+        $this->assertGuest();
+    }
 }
