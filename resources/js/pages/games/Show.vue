@@ -1105,6 +1105,7 @@ defineOptions({
                     :knowledge-step-count="pendingRewardDistribution.knowledgeStepCount"
                     :type="pendingRewardDistribution.type"
                     :discipline-names="game.data.knowledgeDisciplineNames"
+                    :competency-board-order="game.data.competencies"
                     :competency-descriptions="game.data.competencyDescriptions"
                 />
             </Transition>
@@ -1121,6 +1122,7 @@ defineOptions({
                     :knowledge-step-count="game.data.pendingInteraction.context.knowledgeStepCount"
                     :competency-ids="game.data.pendingInteraction.context.competencyIds ?? []"
                     :discipline-names="game.data.knowledgeDisciplineNames"
+                    :competency-board-order="game.data.competencies"
                     :competency-descriptions="game.data.competencyDescriptions"
                     requires-confirmation
                 />
@@ -1142,6 +1144,7 @@ defineOptions({
                                     :knowledge-step-count="game.data.pendingInteraction.context.knowledgeStepCount"
                                     :competency-ids="game.data.pendingInteraction.context.competencyIds ?? []"
                                     :discipline-names="game.data.knowledgeDisciplineNames"
+                                    :competency-board-order="game.data.competencies"
                                     :competency-descriptions="game.data.competencyDescriptions"
                                 />
                             </Transition>
@@ -1160,6 +1163,7 @@ defineOptions({
                     :knowledge-step-count="0"
                     :competency-ids="game.data.pendingInteraction.optionIds"
                     :discipline-names="game.data.knowledgeDisciplineNames"
+                    :competency-board-order="game.data.competencies"
                     :competency-descriptions="game.data.competencyDescriptions"
                 />
             </Transition>

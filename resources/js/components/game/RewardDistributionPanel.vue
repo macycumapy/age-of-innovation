@@ -45,6 +45,7 @@ const props = withDefaults(
         disciplineNames: Record<KnowledgeDiscipline, string>;
         competencyDescriptions: Record<Competency, string>;
         competencyIds?: Competency[];
+        competencyBoardOrder: Competency[];
         requiresConfirmation?: boolean;
     }>(),
     { knowledgeStepCount: 0, competencyIds: () => [], requiresConfirmation: false },
@@ -101,7 +102,7 @@ watch(
 </script>
 
 <template>
-    <Card class="mx-auto w-full max-w-3xl border-none bg-background/50 p-0 shadow-none">
+    <Card class="mx-auto max-w-3xl border-none bg-background/50 p-0 shadow-none">
         <CardContent class="px-4 py-3">
             <Form
                 v-bind="RewardDistributionController.form(gameId)"
@@ -178,6 +179,7 @@ watch(
                     <CompetencySelector
                         v-model="selectedCompetencyId"
                         :competencies="competencyIds"
+                        :board-order="competencyBoardOrder"
                         :descriptions="competencyDescriptions"
                         :disabled="processing"
                     />
