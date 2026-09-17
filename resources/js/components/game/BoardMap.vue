@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import TerraformedTerrainTokens from '@/components/game/TerraformedTerrainTokens.vue';
 import BridgeTokens from '@/components/game/BridgeTokens.vue';
 import { terrainColors, terrainNames } from '@/lib/gameDisplay';
@@ -59,6 +59,13 @@ type BoardLayout = {
     powerActionSpacing: number;
     powerActionWidth: number;
     powerActionHeight: number;
+};
+
+type HexEffect = {
+    id: number;
+    type: 'building' | 'terraforming';
+    x: number;
+    y: number;
 };
 
 const props = withDefaults(defineProps<Props>(), {
@@ -175,6 +182,64 @@ const boardImageUrl = computed(() =>
     props.board.variant === 'one_to_three_players' ? gameBoardTwoPlayerUrl : gameBoardUrl,
 );
 const boardLayout = computed(() => boardLayouts[props.board.variant]);
+const hexEffects = ref<HexEffect[]>([]);
+const effectTimers = new Map<number, ReturnType<typeof setTimeout>>();
+let nextEffectId = 0;
+
+watch(
+    () =>
+        props.board.hexes.map((hex) => ({
+            id: hex.id,
+            q: hex.q,
+            r: hex.r,
+            terrain: hex.terrain,
+            building: hex.building
+                ? `${hex.building.ownerPlayerId}-${hex.building.type}-${hex.building.isNeutral}`
+                : null,
+        })),
+    (currentHexes, previousHexes) => {
+        const previousHexesById = new Map(previousHexes.map((hex) => [hex.id, hex]));
+
+        currentHexes.forEach((hex) => {
+            const previousHex = previousHexesById.get(hex.id);
+
+            if (previousHex === undefined) {
+                return;
+            }
+
+            if (previousHex.terrain !== hex.terrain) {
+                addHexEffect('terraforming', hex.q, hex.r);
+            }
+
+            if (hex.building !== null && previousHex.building !== hex.building) {
+                addHexEffect('building', hex.q, hex.r);
+            }
+        });
+    },
+);
+
+onBeforeUnmount(() => {
+    effectTimers.forEach((timer) => clearTimeout(timer));
+});
+
+function addHexEffect(type: HexEffect['type'], q: number, r: number): void {
+    const id = nextEffectId++;
+
+    hexEffects.value.push({
+        id,
+        type,
+        x: boardLayout.value.hexOriginX + boardLayout.value.columnSpacing * q + rowOffset * r,
+        y: boardLayout.value.boardOriginY + boardLayout.value.rowSpacing * r,
+    });
+
+    effectTimers.set(
+        id,
+        setTimeout(() => {
+            hexEffects.value = hexEffects.value.filter((effect) => effect.id !== id);
+            effectTimers.delete(id);
+        }, 1800),
+    );
+}
 
 const playerColors = computed(() => new Map(props.players.map((player) => [player.id, player.color])));
 
@@ -552,16 +617,19 @@ function closedActionTokenX(actionX: number, actionWidth: number): number {
                     class="pointer-events-none drop-shadow-md"
                     preserveAspectRatio="xMidYMid meet"
                 />
-                <image
-                    v-if="hex.building"
-                    :href="buildingImage(hex.building.ownerPlayerId, hex.building.type, hex.building.isNeutral)"
-                    x="-38"
-                    y="-46"
-                    width="76"
-                    height="85"
-                    class="building-image pointer-events-none"
-                    preserveAspectRatio="xMidYMid meet"
-                />
+                <Transition name="building" mode="out-in">
+                    <image
+                        v-if="hex.building"
+                        :key="`${hex.building.ownerPlayerId}-${hex.building.type}-${hex.building.isNeutral}`"
+                        :href="buildingImage(hex.building.ownerPlayerId, hex.building.type, hex.building.isNeutral)"
+                        x="-38"
+                        y="-46"
+                        width="76"
+                        height="85"
+                        class="building-image pointer-events-none"
+                        preserveAspectRatio="xMidYMid meet"
+                    />
+                </Transition>
             </g>
 
             <image
@@ -575,6 +643,22 @@ function closedActionTokenX(actionX: number, actionWidth: number): number {
                 class="pointer-events-none drop-shadow-md"
                 preserveAspectRatio="xMidYMid meet"
             />
+
+            <g
+                v-for="effect in hexEffects"
+                :key="effect.id"
+                :transform="`translate(${effect.x} ${effect.y})`"
+                class="pointer-events-none"
+                aria-hidden="true"
+            >
+                <g class="building-effect-smoke">
+                    <circle cx="-32" cy="18" r="18" />
+                    <circle cx="-13" cy="8" r="23" />
+                    <circle cx="11" cy="13" r="21" />
+                    <circle cx="32" cy="20" r="16" />
+                    <circle cx="2" cy="-5" r="18" />
+                </g>
+            </g>
         </svg>
     </div>
 </template>
@@ -599,6 +683,43 @@ function closedActionTokenX(actionX: number, actionWidth: number): number {
 
 .building-image {
     filter: drop-shadow(0 4px 3px rgb(0 0 0 / 0.5));
+    transform-box: fill-box;
+    transform-origin: center bottom;
+}
+
+.building-enter-active,
+.building-leave-active {
+    transition:
+        opacity 220ms ease-in-out,
+        transform 280ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.building-enter-from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.68);
+}
+
+.building-leave-to {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.86);
+}
+
+.building-effect-smoke circle {
+    fill: rgb(226 232 240 / 0.82);
+    filter: drop-shadow(0 2px 2px rgb(71 85 105 / 0.35));
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: building-smoke-effect 1.55s ease-out forwards;
+}
+
+.building-effect-smoke circle:nth-child(2),
+.building-effect-smoke circle:nth-child(4) {
+    animation-delay: 80ms;
+}
+
+.building-effect-smoke circle:nth-child(3),
+.building-effect-smoke circle:nth-child(5) {
+    animation-delay: 140ms;
 }
 
 .book-action-hitbox {
@@ -638,9 +759,34 @@ function closedActionTokenX(actionX: number, actionWidth: number): number {
     }
 }
 
+@keyframes building-smoke-effect {
+    0% {
+        opacity: 0;
+        transform: translateY(12px) scale(0.35);
+    }
+
+    22% {
+        opacity: 0.88;
+    }
+
+    100% {
+        opacity: 0;
+        transform: translateY(-42px) scale(1.65);
+    }
+}
+
 @media (prefers-reduced-motion: reduce) {
+    .building-enter-active,
+    .building-leave-active {
+        transition-duration: 0.01ms;
+    }
+
     .board-hex-ping {
         animation: none;
+    }
+
+    .building-effect-smoke circle {
+        animation-duration: 0.01ms;
     }
 }
 </style>
