@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { useHttp } from '@inertiajs/vue3';
+import { useHttp, usePage } from '@inertiajs/vue3';
 import { History, LoaderCircle, RotateCcw } from '@lucide/vue';
 import { computed, ref, watch } from 'vue';
+import { toast } from 'vue-sonner';
 import GameHistoryController from '@/actions/App/Http/Controllers/GameHistoryController';
 import GameHistoryRollbackController from '@/actions/App/Http/Controllers/GameHistoryRollbackController';
 import GameHistoryUndoController from '@/actions/App/Http/Controllers/GameHistoryUndoController';
@@ -86,6 +87,8 @@ const hasMore = ref(props.history.hasMore);
 const loadError = ref(false);
 const historyRequest = useHttp({});
 const latestSequence = computed(() => entries.value[0]?.sequence ?? 0);
+const knownEntryIds = new Set(entries.value.map((entry) => entry.id));
+const currentUserId = usePage().props.auth.user.id;
 
 watch(
     () => props.history.data,
@@ -101,6 +104,13 @@ watch(
         const entriesById = new Map([...latestEntries, ...retainedOlderEntries].map((entry) => [entry.id, entry]));
 
         entries.value = [...entriesById.values()].sort((first, second) => second.sequence - first.sequence);
+
+        const newEntries = latestEntries.filter(
+            (entry) => !knownEntryIds.has(entry.id) && entry.player !== null && entry.player.id !== currentUserId,
+        );
+
+        latestEntries.forEach((entry) => knownEntryIds.add(entry.id));
+        [...newEntries].reverse().forEach(showActionNotification);
     },
 );
 
@@ -363,6 +373,45 @@ function actionDescription(entry: GameHistoryEntry): string {
     }
 
     return actionDescriptions[entry.type];
+}
+
+function actionNotificationTitle(entry: GameHistoryEntry): string {
+    if (entry.type === 'phase_checkpoint') {
+        return checkpointDescription(entry);
+    }
+
+    if (isSharedIncomeEntry(entry)) {
+        return entry.type === 'science_bonus_phase' ? 'Фаза культов завершена' : 'Фаза дохода завершена';
+    }
+
+    return `${entry.player?.name ?? 'Система'} ${actionDescription(entry)}`;
+}
+
+function contrastingTextColor(backgroundColor: string): string {
+    const colorValue = Number.parseInt(backgroundColor.slice(1), 16);
+    const channels = [colorValue >> 16, (colorValue >> 8) & 255, colorValue & 255].map((channel) => {
+        const normalizedChannel = channel / 255;
+
+        return normalizedChannel <= 0.04045 ? normalizedChannel / 12.92 : ((normalizedChannel + 0.055) / 1.055) ** 2.4;
+    });
+    const luminance = 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2];
+
+    return luminance > 0.179 ? '#18181b' : '#ffffff';
+}
+
+function showActionNotification(entry: GameHistoryEntry): void {
+    const backgroundColor = playerColor(entry);
+
+    toast.success(actionNotificationTitle(entry), {
+        id: `game-history-${entry.id}`,
+        description: actionDetails(entry) ?? undefined,
+        richColors: true,
+        style: {
+            backgroundColor,
+            borderColor: backgroundColor,
+            color: contrastingTextColor(backgroundColor),
+        },
+    });
 }
 
 function powerActionReward(action: PowerAction): string {
