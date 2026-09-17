@@ -178,7 +178,7 @@ final class ChooseStartingResourcesAction
         $gainedPower = 0;
 
         foreach ($disciplines as $discipline) {
-            $gainedPower += $this->advanceKnowledge->execute($state, $playerState, $discipline, 1);
+            $gainedPower += $this->advanceKnowledge->execute($state, $playerState, $discipline, 1)->gainedPower;
         }
 
         $playerState->knowledge->unassignedSteps = 0;

@@ -12,10 +12,7 @@ use App\Domain\Game\Enums\Competency;
 use App\Domain\Game\Enums\Faction;
 use App\Domain\Game\Enums\GameActionType;
 use App\Domain\Game\Enums\GamePhase;
-use App\Domain\Game\Enums\KnowledgeDiscipline;
 use App\Domain\Game\Enums\PendingInteractionType;
-use App\Domain\Game\Enums\RoundScoringGoal;
-use App\Domain\Game\Enums\RoundScoringTile;
 use App\Models\Game;
 use App\Models\GamePlayer;
 use App\Models\User;
@@ -77,26 +74,13 @@ final class ChooseCompetencyAction
             }
 
             $playerState = $state->players[$playerStateIndex];
-            $knowledgeLevelBefore = array_sum(array_map(
-                static fn (KnowledgeDiscipline $discipline): int => $playerState->knowledge->{$discipline->value},
-                KnowledgeDiscipline::cases(),
-            ));
-            $gainedPower = $this->grantCompetency->execute(
+            $knowledgeAdvance = $this->grantCompetency->execute(
                 $state,
                 $playerState,
                 $competency,
                 $state->setupPool?->competencies ?? $state->availableCompetencyIds,
             );
-            $advancedKnowledgeSteps = array_sum(array_map(
-                static fn (KnowledgeDiscipline $discipline): int => $playerState->knowledge->{$discipline->value},
-                KnowledgeDiscipline::cases(),
-            )) - $knowledgeLevelBefore;
-            $roundScoringTile = RoundScoringTile::tryFrom((string) $state->round->scoringTileId);
-            $victoryPoints = $lockedGame->phase === GamePhase::Actions
-                && $roundScoringTile?->goal() === RoundScoringGoal::Knowledge
-                    ? $advancedKnowledgeSteps
-                    : 0;
-            $playerState->victoryPoints += $victoryPoints;
+            $playerState->victoryPoints += $knowledgeAdvance->victoryPoints;
             $state->players[$playerStateIndex] = $playerState;
             $state->pendingInteraction = null;
 
@@ -133,8 +117,8 @@ final class ChooseCompetencyAction
                         'competency_id' => $competency->value,
                         'reason' => $isBuildingChoice ? 'building' : 'innovation',
                         'built_hex_id' => $isBuildingChoice ? $builtHexId : null,
-                        'gained_power' => $gainedPower,
-                        'victory_points' => $victoryPoints,
+                        'gained_power' => $knowledgeAdvance->gainedPower,
+                        'victory_points' => $knowledgeAdvance->victoryPoints,
                     ],
                     [[
                         'type' => $isBuildingChoice ? 'building_competency_chosen' : 'innovation_competency_chosen',
@@ -201,7 +185,7 @@ final class ChooseCompetencyAction
                     'income_started' => $nextPhase !== GamePhase::Setup,
                     'round' => $state->round->number,
                     'income_receipts' => $incomeReceipts,
-                    'gained_power' => $gainedPower,
+                    'gained_power' => $knowledgeAdvance->gainedPower,
                 ],
                 [
                     [

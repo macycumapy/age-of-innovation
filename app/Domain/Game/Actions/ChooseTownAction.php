@@ -178,19 +178,17 @@ final class ChooseTownAction
         GamePlayerStateData $player,
         TownTile $townTile,
     ): TownRewardResultData {
-        $knowledgeLevelBefore = array_sum(array_map(
-            static fn (KnowledgeDiscipline $discipline): int => $player->knowledge->{$discipline->value},
-            KnowledgeDiscipline::cases(),
-        ));
-
+        $knowledgeAdvances = [];
         $gainedPower = match ($townTile) {
             TownTile::Tools => $player->resources->tools += 3,
             TownTile::Books => $player->resources->books->unassigned += 2,
             TownTile::Coins => $player->resources->coins += 6,
-            TownTile::Knowledge => array_sum(array_map(
-                fn (KnowledgeDiscipline $discipline): int => $this->advanceKnowledge->execute($state, $player, $discipline, 1),
-                KnowledgeDiscipline::cases(),
-            )),
+            TownTile::Knowledge => array_sum(array_map(function (KnowledgeDiscipline $discipline) use ($state, $player, &$knowledgeAdvances): int {
+                $knowledgeAdvance = $this->advanceKnowledge->execute($state, $player, $discipline, 1);
+                $knowledgeAdvances[] = $knowledgeAdvance;
+
+                return $knowledgeAdvance->gainedPower;
+            }, KnowledgeDiscipline::cases())),
             TownTile::Power => $this->gainPower->execute($player, 8),
             TownTile::Scholar => $player->resources->scholars = min(
                 $player->scholarPoolSize,
@@ -200,10 +198,7 @@ final class ChooseTownAction
         };
 
         $roundTile = RoundScoringTile::tryFrom((string) $state->round->scoringTileId);
-        $advancedKnowledgeSteps = array_sum(array_map(
-            static fn (KnowledgeDiscipline $discipline): int => $player->knowledge->{$discipline->value},
-            KnowledgeDiscipline::cases(),
-        )) - $knowledgeLevelBefore;
+        $knowledgeVictoryPoints = array_sum(array_column($knowledgeAdvances, 'victoryPoints'));
 
         $victoryPoints = match ($townTile) {
             TownTile::Tools => 4,
@@ -212,7 +207,7 @@ final class ChooseTownAction
             TownTile::Knowledge => 7,
             TownTile::Power, TownTile::Scholar => 8,
         } + ($roundTile?->goal() === RoundScoringGoal::Town ? 5 : 0)
-            + ($roundTile?->goal() === RoundScoringGoal::Knowledge ? $advancedKnowledgeSteps : 0);
+            + $knowledgeVictoryPoints;
 
         return new TownRewardResultData(
             victoryPoints: $victoryPoints,

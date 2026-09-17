@@ -6,6 +6,7 @@ namespace App\Domain\Game\Actions;
 
 use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Data\GameStateData;
+use App\Domain\Game\Data\KnowledgeAdvanceResultData;
 use App\Domain\Game\Enums\Competency;
 use App\Domain\Game\Enums\Faction;
 use App\Domain\Game\Enums\KnowledgeDiscipline;
@@ -24,7 +25,7 @@ final class GrantCompetencyAction
         GamePlayerStateData $playerState,
         Competency $competency,
         array $availableCompetencies,
-    ): int {
+    ): KnowledgeAdvanceResultData {
         if (in_array($competency->value, $playerState->competencyIds, true)) {
             throw ValidationException::withMessages([
                 'competency_id' => 'У игрока уже есть эта компетенция.',
@@ -52,12 +53,12 @@ final class GrantCompetencyAction
         $playerState->competencyIds[] = $competency->value;
         unset($state->availableCompetencyIds[$availableCompetencyIndex]);
         $state->availableCompetencyIds = array_values($state->availableCompetencyIds);
-        $gainedPower = $this->advanceKnowledge->execute($state, $playerState, $discipline, 3 - $competencyRow);
+        $knowledgeAdvance = $this->advanceKnowledge->execute($state, $playerState, $discipline, 3 - $competencyRow);
         $philosopherBonusBooks = $playerState->faction === Faction::Philosophers ? 1 : 0;
         $playerState->resources->books->{$discipline->value} += $competencyRow + $philosopherBonusBooks;
         $this->applyImmediateEffect($playerState, $competency);
 
-        return $gainedPower;
+        return $knowledgeAdvance;
     }
 
     /** @param list<Competency|string> $availableCompetencies */

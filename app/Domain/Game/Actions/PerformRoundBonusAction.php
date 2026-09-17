@@ -52,7 +52,7 @@ final class PerformRoundBonusAction
             }
 
             $roundBonus = $playerState->roundBonus;
-            $gainedPower = $this->applyRoundBonusAction->execute($state, $playerState, $discipline);
+            $result = $this->applyRoundBonusAction->execute($state, $playerState, $discipline);
             if ($roundBonus === RoundBonus::Bridge && $state->pendingInteraction !== null) {
                 $state->pendingInteraction->context['source'] = 'round_bonus';
             }
@@ -66,7 +66,8 @@ final class PerformRoundBonusAction
                     [
                         'round_bonus' => $roundBonus->value,
                         'discipline' => $discipline?->value,
-                        'gained_power' => $gainedPower,
+                        'gained_power' => $result->gainedPower,
+                        'victory_points' => $result->victoryPoints,
                     ],
                     [[
                         'type' => 'round_bonus_action_used',

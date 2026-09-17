@@ -41,8 +41,17 @@ final class BeginPassAction
             throw ValidationException::withMessages(['game' => 'Игрок уже спасовал в этом раунде.']);
         }
 
-        $gainedPower = $this->applySchoolKnowledgeSteps($state, $player, $knowledgeDisciplines);
+        $knowledgeReward = $this->applySchoolKnowledgeSteps($state, $player, $knowledgeDisciplines);
         $bonuses = $this->applyPassBonuses->execute($state, $player);
+
+        if ($knowledgeReward['victoryPoints'] > 0) {
+            $bonuses['victoryPoints'] += $knowledgeReward['victoryPoints'];
+            $bonuses['sources'][] = [
+                'source' => 'round_scoring',
+                'id' => (string) $state->round->scoringTileId,
+                'points' => $knowledgeReward['victoryPoints'],
+            ];
+        }
         $isFinalRound = $state->round->number >= 6;
         $conversion = $isFinalRound ? $this->convertFinalResources($player) : null;
 
@@ -86,12 +95,15 @@ final class BeginPassAction
             'passOrder' => count($state->round->passOrder),
             'finalResourceConversion' => $conversion,
             'completion' => $completion,
-            'gainedPower' => $gainedPower,
+            'gainedPower' => $knowledgeReward['gainedPower'],
         ];
     }
 
-    /** @param list<KnowledgeDiscipline> $disciplines */
-    private function applySchoolKnowledgeSteps(GameStateData $state, GamePlayerStateData $player, array $disciplines): int
+    /**
+     * @param list<KnowledgeDiscipline> $disciplines
+     * @return array{gainedPower: int, victoryPoints: int}
+     */
+    private function applySchoolKnowledgeSteps(GameStateData $state, GamePlayerStateData $player, array $disciplines): array
     {
         $schoolCount = $player->roundBonus === RoundBonus::PassSchool ? count(array_filter(
             $state->board->hexes,
@@ -105,12 +117,17 @@ final class BeginPassAction
         }
 
         $gainedPower = 0;
+        $victoryPoints = 0;
 
         foreach ($disciplines as $discipline) {
-            $gainedPower += $this->advanceKnowledge->execute($state, $player, $discipline, 1);
+            $knowledgeAdvance = $this->advanceKnowledge->execute($state, $player, $discipline, 1);
+            $gainedPower += $knowledgeAdvance->gainedPower;
+            $victoryPoints += $knowledgeAdvance->victoryPoints;
         }
 
-        return $gainedPower;
+        $player->victoryPoints += $victoryPoints;
+
+        return ['gainedPower' => $gainedPower, 'victoryPoints' => $victoryPoints];
     }
 
     /** @return array<string, int>|null */

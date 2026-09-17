@@ -1086,14 +1086,16 @@ class GameManagementTest extends TestCase
             knowledge: new KnowledgeStateData(law: 2),
         );
 
-        $gainedPower = app(AdvanceKnowledgeAction::class)->execute(
+        $knowledgeAdvance = app(AdvanceKnowledgeAction::class)->execute(
             new GameStateData(players: [$playerState]),
             $playerState,
             KnowledgeDiscipline::Law,
             1,
         );
 
-        $this->assertSame(1, $gainedPower);
+        $this->assertSame(1, $knowledgeAdvance->advancedSteps);
+        $this->assertSame(1, $knowledgeAdvance->gainedPower);
+        $this->assertSame(0, $knowledgeAdvance->victoryPoints);
         $this->assertSame(0, $playerState->resources->power->bowlOne);
         $this->assertSame(12, $playerState->resources->power->bowlTwo);
     }
@@ -1597,7 +1599,10 @@ class GameManagementTest extends TestCase
         $game->update([
             'state' => new GameStateData(
                 turnOrder: [$player->id],
-                round: new RoundStateData(phase: GamePhase::Actions),
+                round: new RoundStateData(
+                    phase: GamePhase::Actions,
+                    scoringTileId: RoundScoringTile::KnowledgeMedicine->value,
+                ),
                 players: [new GamePlayerStateData(
                     playerId: $player->id,
                     userId: $user->id,
@@ -1615,9 +1620,11 @@ class GameManagementTest extends TestCase
 
         $game->refresh();
         $this->assertSame(1, $game->state->players[0]->knowledge->law);
+        $this->assertSame(21, $game->state->players[0]->victoryPoints);
         $this->assertSame([RoundBonus::Knowledge->value], $game->state->players[0]->usedSpecialActionIds);
         $this->assertTrue($game->state->round->hasTakenMainAction);
         $this->assertSame(GameActionType::SpecialAction, $game->actions()->sole()->type);
+        $this->assertSame(1, $game->actions()->sole()->payload['victory_points']);
 
         $this->post(route('games.round-bonus-action', $game), [
             'discipline' => KnowledgeDiscipline::Law->value,
@@ -1944,6 +1951,7 @@ class GameManagementTest extends TestCase
         $player->roundBonus = RoundBonus::PassSchool;
         $player->knowledge = new KnowledgeStateData(banking: 2, law: 4);
         $player->resources->power = new PowerBowlsStateData(bowlOne: 3);
+        $state->round->scoringTileId = RoundScoringTile::KnowledgeMedicine->value;
         $state->board = new BoardStateData(hexes: [
             new BoardHexStateData(
                 id: '0:0',
@@ -1981,12 +1989,19 @@ class GameManagementTest extends TestCase
         $game->refresh();
         $this->assertSame(3, $game->state->players[0]->knowledge->banking);
         $this->assertSame(5, $game->state->players[0]->knowledge->law);
+        $this->assertSame(22, $game->state->players[0]->victoryPoints);
         $this->assertSame(0, $game->state->players[0]->resources->power->bowlOne);
         $this->assertSame(3, $game->state->players[0]->resources->power->bowlTwo);
         $this->assertSame(
             [KnowledgeDiscipline::Banking->value, KnowledgeDiscipline::Law->value],
             $game->actions()->sole()->payload['knowledge_disciplines'],
         );
+        $this->assertSame(2, $game->actions()->sole()->payload['victory_points']);
+        $this->assertSame([[
+            'id' => RoundScoringTile::KnowledgeMedicine->value,
+            'points' => 2,
+            'source' => 'round_scoring',
+        ]], $game->actions()->sole()->payload['scoring_sources']);
     }
 
     public function test_player_discards_their_round_bonus_without_choosing_a_new_one_in_the_final_round(): void
@@ -2476,6 +2491,58 @@ class GameManagementTest extends TestCase
 
         $this->post(route('games.book-action', $game), $payload)->assertSessionHasErrors('action');
         $this->assertSame(1, $game->actions()->count());
+    }
+
+    public function test_book_knowledge_action_scores_each_actual_step_for_the_round_goal(): void
+    {
+        $user = User::factory()->create();
+        $game = Game::factory()->create([
+            'status' => GameStatus::Active,
+            'phase' => GamePhase::Actions,
+            'active_player_id' => $user->id,
+        ]);
+        $player = GamePlayer::factory()->create([
+            'game_id' => $game->id,
+            'user_id' => $user->id,
+            'seat' => 1,
+        ]);
+        $setupPool = app(GameSetupPoolFactory::class)->create(2);
+        $setupPool->bookActions = [BookAction::AdvanceKnowledge];
+        $game->update(['state' => new GameStateData(
+            turnOrder: [$player->id],
+            round: new RoundStateData(
+                phase: GamePhase::Actions,
+                scoringTileId: RoundScoringTile::KnowledgeMedicine->value,
+            ),
+            players: [new GamePlayerStateData(
+                playerId: $player->id,
+                userId: $user->id,
+                color: PlayerColor::Green,
+                faction: Faction::Blessed,
+                homeland: TerrainType::Forest,
+                roundBonus: RoundBonus::Coins,
+                resources: new PlayerResourcesData(
+                    books: new BookSupplyData(law: 1),
+                ),
+            )],
+            setupPool: $setupPool,
+        )]);
+
+        $this->actingAs($user)->post(route('games.book-action', $game), [
+            'action' => BookAction::AdvanceKnowledge->value,
+            'book_counts' => [
+                'banking' => 0,
+                'law' => 1,
+                'engineering' => 0,
+                'medicine' => 0,
+            ],
+            'discipline' => KnowledgeDiscipline::Law->value,
+        ])->assertNoContent();
+
+        $game->refresh();
+        $this->assertSame(2, $game->state->players[0]->knowledge->law);
+        $this->assertSame(22, $game->state->players[0]->victoryPoints);
+        $this->assertSame(2, $game->actions()->sole()->payload['victory_points']);
     }
 
     public function test_power_action_is_not_applied_when_power_cannot_be_sacrificed(): void

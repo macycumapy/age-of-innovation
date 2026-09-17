@@ -7,6 +7,7 @@ namespace App\Domain\Game\Actions;
 use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Data\GameStateData;
 use App\Domain\Game\Data\PendingInteractionData;
+use App\Domain\Game\Data\RoundBonusActionResultData;
 use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\KnowledgeDiscipline;
 use App\Domain\Game\Enums\PendingInteractionType;
@@ -26,9 +27,10 @@ final class ApplyRoundBonusAction
         GameStateData $state,
         GamePlayerStateData $playerState,
         ?KnowledgeDiscipline $discipline,
-    ): int {
+    ): RoundBonusActionResultData {
         $roundBonus = $playerState->roundBonus;
         $gainedPower = 0;
+        $victoryPoints = 0;
 
         if (! $roundBonus->hasAvailableSpecialAction()
             || in_array($roundBonus->value, $playerState->usedSpecialActionIds, true)) {
@@ -40,7 +42,10 @@ final class ApplyRoundBonusAction
                 throw ValidationException::withMessages(['discipline' => 'Выберите дисциплину знаний.']);
             }
 
-            $gainedPower = $this->advanceKnowledge->execute($state, $playerState, $discipline, 1);
+            $knowledgeAdvance = $this->advanceKnowledge->execute($state, $playerState, $discipline, 1);
+            $gainedPower = $knowledgeAdvance->gainedPower;
+            $victoryPoints = $knowledgeAdvance->victoryPoints;
+            $playerState->victoryPoints += $victoryPoints;
         }
 
         if ($roundBonus === RoundBonus::Spade) {
@@ -73,6 +78,6 @@ final class ApplyRoundBonusAction
         $playerState->usedSpecialActionIds[] = $roundBonus->value;
         $state->round->hasTakenMainAction = true;
 
-        return $gainedPower;
+        return new RoundBonusActionResultData($gainedPower, $victoryPoints);
     }
 }

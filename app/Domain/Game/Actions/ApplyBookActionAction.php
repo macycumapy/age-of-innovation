@@ -64,7 +64,10 @@ final class ApplyBookActionAction
                 throw ValidationException::withMessages(['discipline' => 'Выберите дисциплину знаний.']);
             }
 
-            $gainedPower = $this->advanceKnowledge->execute($state, $playerState, $discipline, 2);
+            $knowledgeAdvance = $this->advanceKnowledge->execute($state, $playerState, $discipline, 2);
+            $gainedPower = $knowledgeAdvance->gainedPower;
+            $victoryPoints += $knowledgeAdvance->victoryPoints;
+            $playerState->victoryPoints += $knowledgeAdvance->victoryPoints;
         } elseif ($action === BookAction::GainCoins) {
             $playerState->resources->coins += 6;
         } elseif ($action === BookAction::UpgradeToGuild) {

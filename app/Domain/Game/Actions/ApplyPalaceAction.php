@@ -13,8 +13,6 @@ use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\KnowledgeDiscipline;
 use App\Domain\Game\Enums\PalaceAbility;
 use App\Domain\Game\Enums\PendingInteractionType;
-use App\Domain\Game\Enums\RoundScoringGoal;
-use App\Domain\Game\Enums\RoundScoringTile;
 use Illuminate\Validation\ValidationException;
 
 final class ApplyPalaceAction
@@ -91,17 +89,15 @@ final class ApplyPalaceAction
             throw ValidationException::withMessages(['knowledge_steps' => 'Распределите ровно 2 шага знаний.']);
         }
 
-        $advancedSteps = 0;
         $gainedPower = 0;
+        $victoryPoints = 0;
 
         foreach ($disciplines as $discipline) {
-            $levelBefore = $player->knowledge->{$discipline->value};
-            $gainedPower += $this->advanceKnowledge->execute($state, $player, $discipline, 1);
-            $advancedSteps += $player->knowledge->{$discipline->value} - $levelBefore;
+            $knowledgeAdvance = $this->advanceKnowledge->execute($state, $player, $discipline, 1);
+            $gainedPower += $knowledgeAdvance->gainedPower;
+            $victoryPoints += $knowledgeAdvance->victoryPoints;
         }
 
-        $roundScoringTile = RoundScoringTile::tryFrom((string) $state->round->scoringTileId);
-        $victoryPoints = $roundScoringTile?->goal() === RoundScoringGoal::Knowledge ? $advancedSteps : 0;
         $player->victoryPoints += $victoryPoints;
 
         return ['victoryPoints' => $victoryPoints, 'gainedPower' => $gainedPower];

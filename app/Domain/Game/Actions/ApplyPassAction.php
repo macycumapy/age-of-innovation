@@ -54,8 +54,17 @@ final class ApplyPassAction
         }
 
         $oldRoundBonus = $player->roundBonus;
-        $this->applySchoolKnowledgeSteps($state, $player, $knowledgeDisciplines);
+        $knowledgeVictoryPoints = $this->applySchoolKnowledgeSteps($state, $player, $knowledgeDisciplines);
         $bonuses = $this->applyPassBonuses->execute($state, $player);
+
+        if ($knowledgeVictoryPoints > 0) {
+            $bonuses['victoryPoints'] += $knowledgeVictoryPoints;
+            $bonuses['sources'][] = [
+                'source' => 'round_scoring',
+                'id' => (string) $state->round->scoringTileId,
+                'points' => $knowledgeVictoryPoints,
+            ];
+        }
         $finalResourceConversion = $isFinalRound ? $this->convertFinalResources($player) : null;
 
         if (($finalResourceConversion['victoryPoints'] ?? 0) > 0) {
@@ -132,9 +141,9 @@ final class ApplyPassAction
         GameStateData $state,
         GamePlayerStateData $player,
         ?array $knowledgeDisciplines,
-    ): void {
+    ): int {
         if ($knowledgeDisciplines === null) {
-            return;
+            return 0;
         }
 
         $schoolCount = $player->roundBonus === RoundBonus::PassSchool
@@ -152,9 +161,16 @@ final class ApplyPassAction
             ]);
         }
 
+        $victoryPoints = 0;
+
         foreach ($knowledgeDisciplines as $discipline) {
-            $this->advanceKnowledge->execute($state, $player, $discipline, 1);
+            $knowledgeAdvance = $this->advanceKnowledge->execute($state, $player, $discipline, 1);
+            $victoryPoints += $knowledgeAdvance->victoryPoints;
         }
+
+        $player->victoryPoints += $victoryPoints;
+
+        return $victoryPoints;
     }
 
     /**

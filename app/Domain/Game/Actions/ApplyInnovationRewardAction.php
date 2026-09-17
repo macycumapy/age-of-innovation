@@ -45,9 +45,11 @@ class ApplyInnovationRewardAction
             $reward['books'] = 1;
 
             foreach (KnowledgeDiscipline::cases() as $discipline) {
-                $levelBefore = $player->knowledge->{$discipline->value};
-                $reward['gainedPower'] += $this->advanceKnowledge->execute($state, $player, $discipline, 1);
-                $reward['knowledgeSteps'] += $player->knowledge->{$discipline->value} - $levelBefore;
+                $knowledgeAdvance = $this->advanceKnowledge->execute($state, $player, $discipline, 1);
+                $reward['gainedPower'] += $knowledgeAdvance->gainedPower;
+                $reward['knowledgeSteps'] += $knowledgeAdvance->advancedSteps;
+                $reward['victoryPoints'] += $knowledgeAdvance->victoryPoints;
+                $player->victoryPoints += $knowledgeAdvance->victoryPoints;
             }
         }
 

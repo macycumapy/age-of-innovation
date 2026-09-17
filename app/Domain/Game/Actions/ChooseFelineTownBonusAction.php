@@ -8,8 +8,6 @@ use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Enums\GameActionType;
 use App\Domain\Game\Enums\KnowledgeDiscipline;
 use App\Domain\Game\Enums\PendingInteractionType;
-use App\Domain\Game\Enums\RoundScoringGoal;
-use App\Domain\Game\Enums\RoundScoringTile;
 use App\Models\Game;
 use App\Models\GamePlayer;
 use App\Models\User;
@@ -61,18 +59,16 @@ final class ChooseFelineTownBonusAction
             }
 
             $playerState->resources->books->unassigned -= $bookCount;
-            $advancedKnowledgeSteps = 0;
             $gainedPower = 0;
+            $victoryPoints = 0;
 
             foreach ($knowledgeCounts as $discipline => $count) {
                 $knowledgeDiscipline = KnowledgeDiscipline::from($discipline);
-                $levelBefore = $playerState->knowledge->{$discipline};
-                $gainedPower += $this->advanceKnowledge->execute($state, $playerState, $knowledgeDiscipline, $count);
-                $advancedKnowledgeSteps += $playerState->knowledge->{$discipline} - $levelBefore;
+                $knowledgeAdvance = $this->advanceKnowledge->execute($state, $playerState, $knowledgeDiscipline, $count);
+                $gainedPower += $knowledgeAdvance->gainedPower;
+                $victoryPoints += $knowledgeAdvance->victoryPoints;
             }
 
-            $roundTile = RoundScoringTile::tryFrom((string) $state->round->scoringTileId);
-            $victoryPoints = $roundTile?->goal() === RoundScoringGoal::Knowledge ? $advancedKnowledgeSteps : 0;
             $playerState->victoryPoints += $victoryPoints;
             $state->pendingInteraction = null;
             $nextActiveUserId = $player->user_id;
