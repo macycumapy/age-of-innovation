@@ -67,7 +67,9 @@ final class PassAction
                 'victory_points' => $result['victoryPoints'],
                 'scoring_sources' => $result['scoringSources'],
                 'next_round_started' => $completion['nextRoundStarted'] ?? false,
-                'science_bonus_started' => $completion !== null && $result['passOrder'] === count($state->turnOrder),
+                'science_bonus_started' => $roundNumber < 6
+                    && $completion !== null
+                    && $result['passOrder'] === count($state->turnOrder),
                 'round' => $roundNumber,
                 'income_receipts' => $completion['incomeReceipts'] ?? [],
                 'final_scoring' => $completion['finalScoring'] ?? [],

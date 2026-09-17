@@ -2047,6 +2047,13 @@ class GameManagementTest extends TestCase
         $game->refresh();
         $this->assertSame(GameStatus::Finished, $game->status);
         $this->assertSame(GamePhase::Finished, $game->phase);
+        $this->assertNull($game->state->pendingInteraction);
+        $this->assertSame(0, $game->state->players[0]->resources->books->unassigned);
+        $this->assertSame(0, $game->actions()->where('type', GameActionType::ScienceBonusPhase)->count());
+        $this->assertFalse(
+            $game->actions()->where('type', GameActionType::Pass->value)->latest('sequence')->firstOrFail()
+                ->payload['science_bonus_started'],
+        );
         $this->assertSame([31, 29], array_column($game->state->players, 'victoryPoints'));
         $this->assertSame(2, $game->state->players[1]->resources->coins);
         $this->assertSame(1, $game->state->players[1]->resources->tools);

@@ -30,6 +30,15 @@ final class ResolveScienceBonusPhaseAction
      */
     public function execute(GameStateData $state, Collection $players): array
     {
+        if ($state->round->number >= 6) {
+            $state->pendingInteraction = null;
+            $state->round->scienceBonusReceipts = [];
+            $finalScoring = $this->applyFinalScoring->execute($state);
+            $state->round->phase = GamePhase::Finished;
+
+            return [null, GamePhase::Finished, [], $finalScoring, []];
+        }
+
         $scoringTile = RoundScoringTile::tryFrom((string) $state->round->scoringTileId);
 
         if ($scoringTile === null) {
@@ -110,13 +119,6 @@ final class ResolveScienceBonusPhaseAction
         $state->pendingInteraction = null;
         $scienceBonusReceipts = $state->round->scienceBonusReceipts;
         $state->round->scienceBonusReceipts = [];
-
-        if ($state->round->number >= 6) {
-            $finalScoring = $this->applyFinalScoring->execute($state);
-            $state->round->phase = GamePhase::Finished;
-
-            return [null, GamePhase::Finished, [], $finalScoring, $scienceBonusReceipts];
-        }
 
         return [...$this->startNextRound->execute($state, $players), [], $scienceBonusReceipts];
     }
