@@ -1287,7 +1287,11 @@ defineOptions({
                             v-if="game.data.status === 'active'"
                             :town-tiles="game.data.availableTownTileIds"
                         />
-                        <PalaceBoard v-if="game.data.status === 'active'" :palaces="game.data.availablePalaceIds" />
+                        <PalaceBoard
+                            v-if="game.data.status === 'active'"
+                            :palaces="game.data.availablePalaceIds"
+                            :descriptions="game.data.palaceDescriptions"
+                        />
                         <RoundBonusBoard
                             v-if="game.data.status === 'active' && game.data.currentRound !== 6"
                             :offers="game.data.roundBonusOffers"
