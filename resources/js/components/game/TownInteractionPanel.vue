@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import type { GameResource, TownTile } from '@/types';
 
-const props = defineProps<{ game: GameResource }>();
+defineProps<{ game: GameResource }>();
 const selectedTownTile = ref<TownTile | null>(null);
 const townTileImages = import.meta.glob<string>('../../../images/cities/*.png', {
     eager: true,

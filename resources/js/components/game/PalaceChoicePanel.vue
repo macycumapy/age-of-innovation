@@ -5,7 +5,7 @@ import Form from '@/components/game/GameActionForm.vue';
 import PalaceSelector from '@/components/game/PalaceSelector.vue';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import type { PalaceAbility } from '@/types';
 
 defineProps<{
