@@ -125,6 +125,7 @@ class GameResource extends JsonResource
                         && ! $hex->building->hasAnnex,
                 ),
             'activePlayerId' => $this->active_player_id,
+            'currentTurnStartedAt' => $this->current_turn_started_at?->toISOString(),
             'turnOrder' => $this->state->turnOrder,
             'board' => [
                 'variant' => $this->state->board->variant->value,

@@ -13,6 +13,7 @@ import StartingSpadeTurnController from '@/actions/App/Http/Controllers/Starting
 import TerraformWorkshopController from '@/actions/App/Http/Controllers/TerraformWorkshopController';
 import Form from '@/components/game/GameActionForm.vue';
 import CurrentTurnRestartDialog from '@/components/game/CurrentTurnRestartDialog.vue';
+import CurrentTurnTimer from '@/components/game/CurrentTurnTimer.vue';
 import PalaceWaterTownForm from '@/components/game/PalaceWaterTownForm.vue';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -186,6 +187,11 @@ function scrollToPageTop(event: MouseEvent): void {
         >
             Ваш ход
         </span>
+
+        <CurrentTurnTimer
+            class="absolute top-1/2 right-4 -translate-y-1/2"
+            :started-at="game.data.currentTurnStartedAt"
+        />
 
         <p
             v-if="

@@ -28,6 +28,7 @@ export type GameResource = {
         canFinishCurrentTurn: boolean;
         canPass: boolean;
         activePlayerId: number | null;
+        currentTurnStartedAt: string | null;
         turnOrder: number[];
         board: BoardState;
         canStart: boolean;

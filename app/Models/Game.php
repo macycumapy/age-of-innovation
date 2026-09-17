@@ -24,6 +24,7 @@ use Illuminate\Support\Carbon;
  * @property int $round Номер текущего раунда от 1 до 6.
  * @property GamePhase $phase Текущая фаза раунда.
  * @property int|null $active_player_id Пользователь, от которого ожидается следующее действие.
+ * @property Carbon|null $current_turn_started_at Дата и время начала хода активного игрока.
  * @property int $version Монотонно возрастающая версия состояния для контроля конкурентных изменений.
  * @property GameStateData $state Авторитетный снимок полного состояния партии.
  * @property string $rules_version Версия правил, по которой создана и проверяется партия.
@@ -65,6 +66,15 @@ class Game extends Model
         'rules_version' => '1.2',
     ];
 
+    protected static function booted(): void
+    {
+        static::saving(function (Game $game): void {
+            if ($game->isDirty('active_player_id')) {
+                $game->current_turn_started_at = $game->active_player_id === null ? null : now();
+            }
+        });
+    }
+
     /** @return BelongsTo<User, $this> */
     public function activePlayer(): BelongsTo
     {
@@ -90,6 +100,7 @@ class Game extends Model
             'status' => GameStatus::class,
             'phase' => GamePhase::class,
             'state' => GameStateData::class,
+            'current_turn_started_at' => 'datetime',
             'started_at' => 'datetime',
             'finished_at' => 'datetime',
         ];

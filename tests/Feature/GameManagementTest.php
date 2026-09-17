@@ -77,6 +77,31 @@ class GameManagementTest extends TestCase
         $this->assertInstanceOf(GameBuilder::class, Game::query());
     }
 
+    public function test_game_tracks_when_the_active_players_turn_started(): void
+    {
+        $firstPlayer = User::factory()->create();
+        $secondPlayer = User::factory()->create();
+        $game = Game::factory()->create();
+
+        $this->freezeTime(function () use ($game, $firstPlayer, $secondPlayer): void {
+            $game->update(['active_player_id' => $firstPlayer->id]);
+
+            $this->assertNotNull($game->current_turn_started_at);
+            $firstTurnStartedAt = $game->current_turn_started_at->getTimestamp();
+            $this->assertSame(now()->getTimestamp(), $firstTurnStartedAt);
+
+            $game->update(['version' => 1]);
+
+            $this->assertSame($firstTurnStartedAt, $game->current_turn_started_at?->getTimestamp());
+
+            $this->travel(10)->seconds();
+            $game->update(['active_player_id' => $secondPlayer->id]);
+
+            $this->assertSame(now()->getTimestamp(), $game->current_turn_started_at?->getTimestamp());
+            $this->assertNotSame($firstTurnStartedAt, $game->current_turn_started_at?->getTimestamp());
+        });
+    }
+
     public function test_terraforming_reaches_adjacent_hexes_and_hexes_within_shipping_range(): void
     {
         $player = new GamePlayerStateData(
@@ -7091,6 +7116,7 @@ class GameManagementTest extends TestCase
         $this->assertSame(GameStatus::Active, $game->status);
         $this->assertSame(GamePhase::Setup, $game->phase);
         $this->assertNotNull($game->started_at);
+        $this->assertNotNull($game->current_turn_started_at);
         $this->assertSame(1, $game->version);
         $this->assertNotNull($game->state->setupPool);
         $this->assertSame(2, $game->state->setupPool->playerCount);
@@ -7130,6 +7156,7 @@ class GameManagementTest extends TestCase
                 fn (Assert $page) => $page
                     ->where('game.data.turnOrder', $game->state->turnOrder)
                     ->where('game.data.activePlayerId', $game->active_player_id)
+                    ->where('game.data.currentTurnStartedAt', $game->current_turn_started_at->toISOString())
                     ->has('game.data.history.data', 2)
                     ->where('game.data.history.hasMore', false)
                     ->where('game.data.history.data.0.sequence', 2)
