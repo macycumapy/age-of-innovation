@@ -17,7 +17,6 @@ use App\Domain\Game\Enums\Faction;
 use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\GameStatus;
 use App\Domain\Game\Enums\KnowledgeDiscipline;
-use App\Domain\Game\Enums\PalaceAbility;
 use App\Domain\Game\Enums\PendingInteractionType;
 use App\Domain\Game\Enums\RoundBonus;
 use App\Models\Game;
@@ -40,6 +39,7 @@ final class LegalActionFinder
         private PassOptionFinder $passOptionFinder,
         private ChooseRoundBonusOptionFinder $chooseRoundBonusOptionFinder,
         private InnovationSpecialActionOptionFinder $innovationSpecialActionOptionFinder,
+        private PalaceActionOptionFinder $palaceActionOptionFinder,
     ) {
     }
 
@@ -320,9 +320,9 @@ final class LegalActionFinder
             $actions[] = new LegalActionData('use_round_bonus_action', $player->roundBonus === RoundBonus::Knowledge ? ['disciplines' => $disciplineIds] : []);
         }
 
-        $palace = PalaceAbility::tryFrom((string) $player->palaceId);
-        if ($palace?->hasSpecialAction() === true && ! in_array($palace->specialActionId(), $player->usedSpecialActionIds, true)) {
-            $actions[] = new LegalActionData('use_palace_action', ['palace' => $palace->value]);
+        $palaceOptions = $this->palaceActionOptionFinder->execute($state, $player);
+        if ($palaceOptions !== []) {
+            $actions[] = new LegalActionData('use_palace_action', ['options' => $palaceOptions]);
         }
 
         $innovationOptions = $this->innovationSpecialActionOptionFinder->execute($state, $player);

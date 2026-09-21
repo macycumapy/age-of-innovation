@@ -14,6 +14,7 @@ use App\Domain\Game\Data\GameStateData;
 use App\Domain\Game\Data\InnovationSpecialActionOptionData;
 use App\Domain\Game\Data\MakeInnovationOptionData;
 use App\Domain\Game\Data\PaidTerraformingOptionData;
+use App\Domain\Game\Data\PalaceActionOptionData;
 use App\Domain\Game\Data\PassOptionData;
 use App\Domain\Game\Data\PowerActionOptionData;
 use App\Domain\Game\Data\SendScholarOptionData;
@@ -34,6 +35,7 @@ final class GameActionSimulator
         private PassSimulator $passSimulator,
         private ChooseRoundBonusSimulator $chooseRoundBonusSimulator,
         private InnovationSpecialActionSimulator $innovationSpecialActionSimulator,
+        private PalaceActionSimulator $palaceActionSimulator,
     ) {
     }
 
@@ -84,6 +86,10 @@ final class GameActionSimulator
 
         if ($option instanceof InnovationSpecialActionOptionData) {
             return $this->innovationSpecialActionSimulator->execute($state, $playerId, $option);
+        }
+
+        if ($option instanceof PalaceActionOptionData) {
+            return $this->palaceActionSimulator->execute($state, $playerId, $option);
         }
 
         throw new DomainException("Симуляция действия {$option->type()} ещё не поддерживается.");
