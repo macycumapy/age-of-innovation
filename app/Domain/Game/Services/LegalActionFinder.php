@@ -40,6 +40,7 @@ final class LegalActionFinder
         private FindEligibleMoleTunnelHexesAction $findEligibleMoleTunnelHexes,
         private FindEligiblePalaceFlightHexesAction $findEligiblePalaceFlightHexes,
         private InnovationPurchaseCostCalculator $innovationPurchaseCostCalculator,
+        private BookActionOptionFinder $bookActionOptionFinder,
     ) {
     }
 
@@ -314,17 +315,7 @@ final class LegalActionFinder
     /** @param list<LegalActionData> $actions */
     private function appendBookActions(array &$actions, Game $game, GamePlayerStateData $player): void
     {
-        if ($game->state->setupPool === null) {
-            return;
-        }
-
-        $options = [];
-        foreach ($game->state->setupPool->bookActions as $action) {
-            if (! in_array($action->value, $game->state->round->usedBookActionIds, true)
-                && $this->bookTotal($player) >= $action->cost()) {
-                $options[] = ['action' => $action->value, 'bookCost' => $action->cost()];
-            }
-        }
+        $options = $this->bookActionOptionFinder->execute($game->state, $player);
 
         if ($options !== []) {
             $actions[] = new LegalActionData('use_book_action', ['options' => $options]);

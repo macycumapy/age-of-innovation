@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Domain\Game\Actions;
 
 use App\Domain\Game\Data\BoardHexStateData;
+use App\Domain\Game\Data\BookActionResultData;
 use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Data\GameStateData;
 use App\Domain\Game\Data\PendingInteractionData;
@@ -26,10 +27,7 @@ final class ApplyBookActionAction
     ) {
     }
 
-    /**
-     * @param array<string, int> $bookCounts
-     * @return array{nextActiveUserId: int, victoryPoints: int, buildingBonusPoints: int, buildingBonusCoins: int, gainedPower: int}
-     */
+    /** @param array<string, int> $bookCounts */
     public function execute(
         GameStateData $state,
         GamePlayerStateData $playerState,
@@ -37,13 +35,13 @@ final class ApplyBookActionAction
         array $bookCounts,
         ?KnowledgeDiscipline $discipline,
         ?string $hexId,
-    ): array {
-        $availableActionIds = array_map(
-            static fn (BookAction|string $availableAction): string => $availableAction instanceof BookAction
-                ? $availableAction->value
-                : $availableAction,
-            $state->setupPool?->bookActions ?? [],
-        );
+    ): BookActionResultData {
+        $availableActionIds = $state->setupPool === null
+            ? []
+            : array_map(
+                $this->bookActionId(...),
+                $state->setupPool->bookActions,
+            );
 
         if (! in_array($action->value, $availableActionIds, true)
             || in_array($action->value, $state->round->usedBookActionIds, true)) {
@@ -131,13 +129,18 @@ final class ApplyBookActionAction
         $state->round->usedBookActionIds[] = $action->value;
         $state->round->hasTakenMainAction = true;
 
-        return [
-            'nextActiveUserId' => $nextActiveUserId,
-            'victoryPoints' => $victoryPoints,
-            'buildingBonusPoints' => $buildingBonusPoints,
-            'buildingBonusCoins' => $buildingBonusCoins,
-            'gainedPower' => $gainedPower,
-        ];
+        return new BookActionResultData(
+            $nextActiveUserId,
+            $victoryPoints,
+            $buildingBonusPoints,
+            $buildingBonusCoins,
+            $gainedPower,
+        );
+    }
+
+    private function bookActionId(mixed $action): string
+    {
+        return $action instanceof BookAction ? $action->value : (string) $action;
     }
 
     /** @param array<string, int> $bookCounts */

@@ -66,7 +66,7 @@ final class PerformBookActionAction
                 $hexId,
             );
             $lockedGame->update([
-                'active_player_id' => $result['nextActiveUserId'],
+                'active_player_id' => $result->nextActiveUserId,
                 'state' => $state,
                 'version' => $lockedGame->version + 1,
             ]);
@@ -79,9 +79,9 @@ final class PerformBookActionAction
                     'book_counts' => $bookCounts,
                     'discipline' => $discipline?->value,
                     'hex_id' => $hexId,
-                    'victory_points' => $result['victoryPoints'] + $result['buildingBonusPoints'],
-                    'bonus_coins' => $result['buildingBonusCoins'],
-                    'gained_power' => $result['gainedPower'],
+                    'victory_points' => $result->victoryPoints + $result->buildingBonusPoints,
+                    'bonus_coins' => $result->buildingBonusCoins,
+                    'gained_power' => $result->gainedPower,
                 ],
                 [[
                     'type' => 'book_action_used',
