@@ -40,6 +40,7 @@ final class LegalActionFinder
         private BookActionOptionFinder $bookActionOptionFinder,
         private PowerActionOptionFinder $powerActionOptionFinder,
         private BuildWorkshopOptionFinder $buildWorkshopOptionFinder,
+        private UpgradeBuildingOptionFinder $upgradeBuildingOptionFinder,
     ) {
     }
 
@@ -187,7 +188,7 @@ final class LegalActionFinder
             $actions[] = new LegalActionData('build_workshop', ['options' => $buildWorkshopOptions]);
         }
 
-        $upgrades = $this->buildingUpgrades($game, $player);
+        $upgrades = $this->upgradeBuildingOptionFinder->execute($state, $player);
         if ($upgrades !== []) {
             $actions[] = new LegalActionData('upgrade_building', ['options' => $upgrades]);
         }
@@ -384,27 +385,6 @@ final class LegalActionFinder
                     : 0;
             if ($player->scholarPoolSize > 0 && $placed + $neutralScholarCount < 4) {
                 $options[] = ['discipline' => $discipline->value, 'place' => true];
-            }
-        }
-
-        return $options;
-    }
-
-    /** @return list<array{hexId: string, source: string, target: string, tools: int, coins: int}> */
-    private function buildingUpgrades(Game $game, GamePlayerStateData $player): array
-    {
-        $options = [];
-        foreach ($game->state->board->hexes as $hex) {
-            if ($hex->building === null || $hex->building->ownerPlayerId !== $player->playerId || $hex->building->isNeutral) {
-                continue;
-            }
-            $hasOpponent = BuildingAdjacencyChecker::hasOpponent($game->state->board, $hex, $player->playerId);
-            foreach ($hex->building->type->upgradeOptions() as $target) {
-                $cost = $hex->building->type->upgradeCostTo($target, $hasOpponent);
-                if ($player->resources->tools >= $cost['tools'] && $player->resources->coins >= $cost['coins']
-                    && $this->buildingCount($game->state->board->hexes, $player->playerId, $target) < $target->supplyLimit()) {
-                    $options[] = ['hexId' => $hex->id, 'source' => $hex->building->type->value, 'target' => $target->value, ...$cost];
-                }
             }
         }
 

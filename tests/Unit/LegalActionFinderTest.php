@@ -59,7 +59,7 @@ class LegalActionFinderTest extends TestCase
 
         $this->assertTrue($actions->has('pass'));
         $this->assertSame('1:0', $actions->get('build_workshop')->parameters['options'][0]->hexId);
-        $this->assertSame('guild', $actions->get('upgrade_building')->parameters['options'][0]['target']);
+        $this->assertSame('guild', $actions->get('upgrade_building')->parameters['options'][0]->target->value);
         $this->assertTrue($actions->has('advance_shipping'));
         $this->assertTrue($actions->has('advance_terraforming'));
         $this->assertCount(8, $actions->get('send_scholar')->parameters['options']);

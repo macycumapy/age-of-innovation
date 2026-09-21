@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Domain\Game\Actions;
 
 use App\Domain\Game\Data\BoardHexStateData;
+use App\Domain\Game\Data\BuildingActionResultData;
 use App\Domain\Game\Data\BuildingStateData;
-use App\Domain\Game\Data\BuildWorkshopResultData;
 use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Data\GameStateData;
 use App\Domain\Game\Enums\BuildingType;
@@ -26,7 +26,7 @@ final class ApplyBuildWorkshopAction
         GameStateData $state,
         GamePlayerStateData $player,
         string $hexId,
-    ): BuildWorkshopResultData {
+    ): BuildingActionResultData {
         $hex = collect($state->board->hexes)->firstWhere('id', $hexId);
         $workshopsOnMap = count(array_filter(
             $state->board->hexes,
@@ -60,8 +60,12 @@ final class ApplyBuildWorkshopAction
             BuildingType::Workshop,
         );
 
-        return new BuildWorkshopResultData(
+        return new BuildingActionResultData(
             $nextActiveUserId,
+            null,
+            BuildingType::Workshop,
+            1,
+            2,
             $bonuses['victoryPoints'],
             $bonuses['coins'],
             $bonuses['sources'],

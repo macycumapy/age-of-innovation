@@ -4,12 +4,10 @@ declare(strict_types=1);
 
 namespace App\Domain\Game\Actions;
 
-use App\Domain\Game\Data\BoardHexStateData;
 use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Enums\BuildingType;
 use App\Domain\Game\Enums\GameActionType;
 use App\Domain\Game\Enums\GamePhase;
-use App\Domain\Game\Services\BuildingAdjacencyChecker;
 use App\Models\Game;
 use App\Models\GamePlayer;
 use App\Models\User;
@@ -20,8 +18,7 @@ final class UpgradeBuildingAction
 {
     public function __construct(
         private AppendGameHistoryAction $appendGameHistory,
-        private ApplyBuildingBonusesAction $applyBuildingBonuses,
-        private CreateBuildingFollowUpInteractionAction $createBuildingFollowUpInteraction,
+        private ApplyUpgradeBuildingAction $applyUpgradeBuilding,
     ) {
     }
 
@@ -31,18 +28,12 @@ final class UpgradeBuildingAction
             $lockedGame = Game::query()->lockForUpdate()->findOrFail($game->id);
             $state = $lockedGame->state;
             $player = $lockedGame->players()->whereBelongsTo($user)->first();
-            $hex = collect($state->board->hexes)->firstWhere('id', $hexId);
 
             if ($lockedGame->phase !== GamePhase::Actions
                 || $lockedGame->active_player_id !== $user->id
                 || $state->pendingInteraction !== null
                 || $state->round->hasTakenMainAction
-                || ! $player instanceof GamePlayer
-                || ! $hex instanceof BoardHexStateData
-                || $hex->building === null
-                || $hex->building->ownerPlayerId !== $player->id
-                || $hex->building->isNeutral
-                || ! in_array($target, $hex->building->type->upgradeOptions(), true)) {
+                || ! $player instanceof GamePlayer) {
                 throw ValidationException::withMessages(['building' => 'Это здание нельзя улучшить выбранным способом.']);
             }
 
@@ -52,21 +43,6 @@ final class UpgradeBuildingAction
                 throw ValidationException::withMessages(['building' => 'Не найдено состояние игрока.']);
             }
 
-            $hasAdjacentOpponent = BuildingAdjacencyChecker::hasOpponent($state->board, $hex, $player->id);
-            $cost = $hex->building->type->upgradeCostTo($target, $hasAdjacentOpponent);
-            $targetBuildingsOnMap = count(array_filter(
-                $state->board->hexes,
-                static fn (BoardHexStateData $candidate): bool => $candidate->building?->ownerPlayerId === $player->id
-                    && $candidate->building->type === $target
-                    && ! $candidate->building->isNeutral,
-            ));
-
-            if ($playerState->resources->tools < $cost['tools']
-                || $playerState->resources->coins < $cost['coins']
-                || $targetBuildingsOnMap >= $target->supplyLimit()) {
-                throw ValidationException::withMessages(['building' => 'Не хватает ресурсов или свободной фигурки здания.']);
-            }
-
             $stateVersionBefore = $lockedGame->version;
 
             if ($state->turnStartSnapshot === null) {
@@ -74,20 +50,9 @@ final class UpgradeBuildingAction
                 $state->round->turnStartVersion = $stateVersionBefore;
             }
 
-            $source = $hex->building->type;
-            $playerState->resources->tools -= $cost['tools'];
-            $playerState->resources->coins -= $cost['coins'];
-            $hex->building->type = $target;
-            $state->round->hasTakenMainAction = true;
-            $bonuses = $this->applyBuildingBonuses->execute($state, $playerState, $hex, $target);
-            $nextActiveUserId = $this->createBuildingFollowUpInteraction->execute(
-                $state,
-                $playerState,
-                $hexId,
-                $target,
-            );
+            $result = $this->applyUpgradeBuilding->execute($state, $playerState, $hexId, $target);
             $lockedGame->update([
-                'active_player_id' => $nextActiveUserId,
+                'active_player_id' => $result->nextActiveUserId,
                 'state' => $state,
                 'version' => $lockedGame->version + 1,
             ]);
@@ -97,20 +62,20 @@ final class UpgradeBuildingAction
                 GameActionType::UpgradeBuilding,
                 [
                     'hex_id' => $hexId,
-                    'source' => $source->value,
-                    'target' => $target->value,
-                    'tools' => $cost['tools'],
-                    'coins' => $cost['coins'],
-                    'victory_points' => $bonuses['victoryPoints'],
-                    'bonus_coins' => $bonuses['coins'],
-                    'scoring_sources' => $bonuses['sources'],
+                    'source' => $result->source?->value,
+                    'target' => $result->target->value,
+                    'tools' => $result->tools,
+                    'coins' => $result->coins,
+                    'victory_points' => $result->victoryPoints,
+                    'bonus_coins' => $result->bonusCoins,
+                    'scoring_sources' => $result->scoringSources,
                 ],
                 [[
                     'type' => 'building_upgraded',
                     'player_id' => $player->id,
                     'hex_id' => $hexId,
-                    'source' => $source->value,
-                    'target' => $target->value,
+                    'source' => $result->source?->value,
+                    'target' => $result->target->value,
                 ]],
                 $stateVersionBefore,
                 $lockedGame->version,
