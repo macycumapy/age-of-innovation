@@ -7,6 +7,7 @@ namespace App\Domain\Game\Services;
 use App\Domain\Game\Contracts\GameActionOption;
 use App\Domain\Game\Data\BookActionOptionData;
 use App\Domain\Game\Data\BuildWorkshopOptionData;
+use App\Domain\Game\Data\ChooseRoundBonusOptionData;
 use App\Domain\Game\Data\DevelopmentAdvancementOptionData;
 use App\Domain\Game\Data\GameActionSimulationData;
 use App\Domain\Game\Data\GameStateData;
@@ -30,6 +31,7 @@ final class GameActionSimulator
         private SendScholarSimulator $sendScholarSimulator,
         private MakeInnovationSimulator $makeInnovationSimulator,
         private PassSimulator $passSimulator,
+        private ChooseRoundBonusSimulator $chooseRoundBonusSimulator,
     ) {
     }
 
@@ -72,6 +74,10 @@ final class GameActionSimulator
 
         if ($option instanceof PassOptionData) {
             return $this->passSimulator->execute($state, $playerId, $option);
+        }
+
+        if ($option instanceof ChooseRoundBonusOptionData) {
+            return $this->chooseRoundBonusSimulator->execute($state, $playerId, $option);
         }
 
         throw new DomainException("Симуляция действия {$option->type()} ещё не поддерживается.");

@@ -39,6 +39,7 @@ final class LegalActionFinder
         private SendScholarOptionFinder $sendScholarOptionFinder,
         private MakeInnovationOptionFinder $makeInnovationOptionFinder,
         private PassOptionFinder $passOptionFinder,
+        private ChooseRoundBonusOptionFinder $chooseRoundBonusOptionFinder,
     ) {
     }
 
@@ -115,7 +116,10 @@ final class LegalActionFinder
             ])],
             PendingInteractionType::ChoosePalace => [new LegalActionData('choose_palace', $parameters)],
             PendingInteractionType::ChooseCompetency => [new LegalActionData('choose_competency', $parameters)],
-            PendingInteractionType::ChooseRoundBonus => [new LegalActionData('choose_round_bonus', $parameters)],
+            PendingInteractionType::ChooseRoundBonus => [new LegalActionData('choose_round_bonus', [
+                'options' => $this->chooseRoundBonusOptions($game, $player),
+                'context' => $interaction->context,
+            ])],
             PendingInteractionType::BuildWorkshopAfterTerraforming => [new LegalActionData('resolve_workshop_after_terraforming', [
                 ...$parameters,
                 'build' => [true, false],
@@ -138,6 +142,16 @@ final class LegalActionFinder
                 ? [new LegalActionData('confirm_palace_guild'), new LegalActionData('undo_palace_guild')]
                 : [new LegalActionData('stage_palace_guild', $parameters)],
         };
+    }
+
+    /** @return list<\App\Domain\Game\Data\ChooseRoundBonusOptionData> */
+    private function chooseRoundBonusOptions(Game $game, GamePlayer $player): array
+    {
+        $playerState = collect($game->state->players)->firstWhere('playerId', $player->id);
+
+        return $playerState instanceof GamePlayerStateData
+            ? $this->chooseRoundBonusOptionFinder->execute($game->state, $playerState)
+            : [];
     }
 
     /** @return list<LegalActionData> */
