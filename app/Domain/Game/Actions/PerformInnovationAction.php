@@ -5,11 +5,11 @@ declare(strict_types=1);
 namespace App\Domain\Game\Actions;
 
 use App\Domain\Game\Data\GamePlayerStateData;
-use App\Domain\Game\Data\PendingInteractionData;
+use App\Domain\Game\Data\InnovationSpecialActionOptionData;
 use App\Domain\Game\Enums\GameActionType;
 use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\Innovation;
-use App\Domain\Game\Enums\PendingInteractionType;
+use App\Domain\Game\Services\InnovationSpecialActionOptionFinder;
 use App\Models\Game;
 use App\Models\GamePlayer;
 use App\Models\User;
@@ -19,7 +19,8 @@ use Illuminate\Validation\ValidationException;
 final class PerformInnovationAction
 {
     public function __construct(
-        private FindEligibleTerraformHexesAction $findEligibleTerraformHexes,
+        private InnovationSpecialActionOptionFinder $optionFinder,
+        private ApplyInnovationSpecialAction $applyInnovationSpecialAction,
         private AppendGameHistoryAction $appendGameHistory,
     ) {
     }
@@ -34,10 +35,15 @@ final class PerformInnovationAction
 
             if ($lockedGame->phase !== GamePhase::Actions || $lockedGame->active_player_id !== $user->id
                 || $state->pendingInteraction !== null || $state->round->hasTakenMainAction
-                || ! $playerState instanceof GamePlayerStateData
-                || ! in_array($innovation->value, $playerState->inventionIds, true)
-                || ! $innovation->hasSpecialAction()
-                || in_array($innovation->specialActionId(), $playerState->usedSpecialActionIds, true)) {
+                || ! $playerState instanceof GamePlayerStateData) {
+                throw ValidationException::withMessages(['innovation' => 'Особое действие этой инновации недоступно.']);
+            }
+
+            $option = collect($this->optionFinder->execute($state, $playerState))->first(
+                static fn (InnovationSpecialActionOptionData $candidate): bool => $candidate->innovation === $innovation,
+            );
+
+            if (! $option instanceof InnovationSpecialActionOptionData) {
                 throw ValidationException::withMessages(['innovation' => 'Особое действие этой инновации недоступно.']);
             }
 
@@ -48,41 +54,13 @@ final class PerformInnovationAction
                 $state->round->turnStartVersion = $stateVersionBefore;
             }
 
-            $reward = [
-                'scholars' => 0,
-                'spades' => 0,
-                'victoryPoints' => 0,
-            ];
-
-            if ($innovation === Innovation::Professor) {
-                $scholarsBefore = $playerState->resources->scholars;
-                $playerState->resources->scholars = min($playerState->scholarPoolSize, $playerState->resources->scholars + 1);
-                $playerState->victoryPoints += 3;
-                $reward['scholars'] = $playerState->resources->scholars - $scholarsBefore;
-                $reward['victoryPoints'] = 3;
-            } else {
-                $playerState->unassignedSpades++;
-                $reward['spades'] = 1;
-                $eligibleHexIds = $this->findEligibleTerraformHexes->execute($state, $playerState, $playerState->homeland);
-
-                if ($eligibleHexIds !== []) {
-                    $state->pendingInteraction = new PendingInteractionData(
-                        PendingInteractionType::SpendSpades,
-                        $playerState->playerId,
-                        $eligibleHexIds,
-                        ['phase' => GamePhase::Actions->value, 'spadeCount' => 1, 'remainingSpades' => 1, 'targetTerrain' => $playerState->homeland->value],
-                    );
-                }
-            }
-
-            $playerState->usedSpecialActionIds[] = $innovation->specialActionId();
-            $state->round->hasTakenMainAction = true;
+            $reward = $this->applyInnovationSpecialAction->execute($state, $playerState, $option);
             $lockedGame->update(['state' => $state, 'version' => $lockedGame->version + 1]);
             $this->appendGameHistory->execute(
                 $lockedGame,
                 $user,
                 GameActionType::SpecialAction,
-                ['innovation' => $innovation->value, 'reward' => $reward],
+                ['innovation' => $innovation->value, 'reward' => $reward->toArray()],
                 [['type' => 'innovation_action_used', 'player_id' => $player->id, 'innovation' => $innovation->value]],
                 $stateVersionBefore,
                 $lockedGame->version

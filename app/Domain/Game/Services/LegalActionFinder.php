@@ -16,7 +16,6 @@ use App\Domain\Game\Enums\Competency;
 use App\Domain\Game\Enums\Faction;
 use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\GameStatus;
-use App\Domain\Game\Enums\Innovation;
 use App\Domain\Game\Enums\KnowledgeDiscipline;
 use App\Domain\Game\Enums\PalaceAbility;
 use App\Domain\Game\Enums\PendingInteractionType;
@@ -40,6 +39,7 @@ final class LegalActionFinder
         private MakeInnovationOptionFinder $makeInnovationOptionFinder,
         private PassOptionFinder $passOptionFinder,
         private ChooseRoundBonusOptionFinder $chooseRoundBonusOptionFinder,
+        private InnovationSpecialActionOptionFinder $innovationSpecialActionOptionFinder,
     ) {
     }
 
@@ -226,7 +226,7 @@ final class LegalActionFinder
 
         $this->appendPowerActions($actions, $game, $player);
         $this->appendBookActions($actions, $game, $player);
-        $this->appendSpecialActions($actions, $player);
+        $this->appendSpecialActions($actions, $state, $player);
         $this->appendInnovationPurchases($actions, $state, $player);
 
         if ($player->availableAnnexes > 0) {
@@ -298,8 +298,11 @@ final class LegalActionFinder
     }
 
     /** @param list<LegalActionData> $actions */
-    private function appendSpecialActions(array &$actions, GamePlayerStateData $player): void
-    {
+    private function appendSpecialActions(
+        array &$actions,
+        GameStateData $state,
+        GamePlayerStateData $player,
+    ): void {
         $disciplineIds = array_column(KnowledgeDiscipline::cases(), 'value');
         $factionActionId = $player->faction->specialActionId();
         if ($player->faction->hasSpecialAction()
@@ -322,13 +325,9 @@ final class LegalActionFinder
             $actions[] = new LegalActionData('use_palace_action', ['palace' => $palace->value]);
         }
 
-        $innovations = array_values(array_filter(
-            $player->inventionIds,
-            static fn (string $id): bool => ($innovation = Innovation::tryFrom($id))?->hasSpecialAction() === true
-                && ! in_array($innovation->specialActionId(), $player->usedSpecialActionIds, true),
-        ));
-        if ($innovations !== []) {
-            $actions[] = new LegalActionData('use_innovation_action', ['innovations' => $innovations]);
+        $innovationOptions = $this->innovationSpecialActionOptionFinder->execute($state, $player);
+        if ($innovationOptions !== []) {
+            $actions[] = new LegalActionData('use_innovation_action', ['options' => $innovationOptions]);
         }
     }
 
