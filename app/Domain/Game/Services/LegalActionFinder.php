@@ -37,6 +37,7 @@ final class LegalActionFinder
         private UpgradeBuildingOptionFinder $upgradeBuildingOptionFinder,
         private PaidTerraformingOptionFinder $paidTerraformingOptionFinder,
         private DevelopmentAdvancementOptionFinder $developmentAdvancementOptionFinder,
+        private SendScholarOptionFinder $sendScholarOptionFinder,
     ) {
     }
 
@@ -198,8 +199,9 @@ final class LegalActionFinder
             $actions[] = new LegalActionData($option->type(), ['option' => $option]);
         }
 
-        if ($player->resources->scholars > 0) {
-            $actions[] = new LegalActionData('send_scholar', ['options' => $this->scholarOptions($game, $player)]);
+        $scholarOptions = $this->sendScholarOptionFinder->execute($state, $player);
+        if ($scholarOptions !== []) {
+            $actions[] = new LegalActionData('send_scholar', ['options' => $scholarOptions]);
         }
 
         $this->appendPaidTerraformingAction($actions, $state, $player);
@@ -342,30 +344,6 @@ final class LegalActionFinder
         if ($options !== []) {
             $actions[] = new LegalActionData('make_innovation', ['options' => $options]);
         }
-    }
-
-    /** @return list<array{discipline: string, place: bool}> */
-    private function scholarOptions(Game $game, GamePlayerStateData $player): array
-    {
-        $options = [];
-        foreach (KnowledgeDiscipline::cases() as $discipline) {
-            $options[] = ['discipline' => $discipline->value, 'place' => false];
-            $placed = collect($game->state->players)->sum(
-                static fn (GamePlayerStateData $candidate): int => count(array_filter(
-                    $candidate->scholarDisciplineIds,
-                    static fn (string $id): bool => $id === $discipline->value,
-                )),
-            );
-            $neutralScholarCount = $game->state->neutralKnowledge !== null
-                && in_array($discipline->value, $game->state->neutralKnowledge->scholarDisciplineIds, true)
-                    ? 1
-                    : 0;
-            if ($player->scholarPoolSize > 0 && $placed + $neutralScholarCount < 4) {
-                $options[] = ['discipline' => $discipline->value, 'place' => true];
-            }
-        }
-
-        return $options;
     }
 
     /** @return array<string, mixed> */

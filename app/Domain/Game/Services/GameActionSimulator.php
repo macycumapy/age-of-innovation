@@ -12,6 +12,7 @@ use App\Domain\Game\Data\GameActionSimulationData;
 use App\Domain\Game\Data\GameStateData;
 use App\Domain\Game\Data\PaidTerraformingOptionData;
 use App\Domain\Game\Data\PowerActionOptionData;
+use App\Domain\Game\Data\SendScholarOptionData;
 use App\Domain\Game\Data\UpgradeBuildingOptionData;
 use DomainException;
 
@@ -24,6 +25,7 @@ final class GameActionSimulator
         private UpgradeBuildingSimulator $upgradeBuildingSimulator,
         private PaidTerraformingSimulator $paidTerraformingSimulator,
         private DevelopmentAdvancementSimulator $developmentAdvancementSimulator,
+        private SendScholarSimulator $sendScholarSimulator,
     ) {
     }
 
@@ -54,6 +56,10 @@ final class GameActionSimulator
 
         if ($option instanceof DevelopmentAdvancementOptionData) {
             return $this->developmentAdvancementSimulator->execute($state, $playerId, $option);
+        }
+
+        if ($option instanceof SendScholarOptionData) {
+            return $this->sendScholarSimulator->execute($state, $playerId, $option);
         }
 
         throw new DomainException("Симуляция действия {$option->type()} ещё не поддерживается.");

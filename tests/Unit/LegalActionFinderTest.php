@@ -15,6 +15,7 @@ use App\Domain\Game\Data\PendingInteractionData;
 use App\Domain\Game\Data\PlayerResourcesData;
 use App\Domain\Game\Data\PowerBowlsStateData;
 use App\Domain\Game\Data\RoundStateData;
+use App\Domain\Game\Data\SendScholarOptionData;
 use App\Domain\Game\Enums\BuildingType;
 use App\Domain\Game\Enums\Faction;
 use App\Domain\Game\Enums\GamePhase;
@@ -85,14 +86,17 @@ class LegalActionFinderTest extends TestCase
             ->firstWhere('type', 'send_scholar');
 
         $this->assertNotNull($sendScholar);
-        $this->assertContains(
-            ['discipline' => KnowledgeDiscipline::Law->value, 'place' => false],
-            $sendScholar->parameters['options'],
-        );
-        $this->assertNotContains(
-            ['discipline' => KnowledgeDiscipline::Law->value, 'place' => true],
-            $sendScholar->parameters['options'],
-        );
+        $hasUnplacedLawOption = false;
+        $hasPlacedLawOption = false;
+        foreach ($sendScholar->parameters['options'] as $option) {
+            if ($option instanceof SendScholarOptionData && $option->discipline === KnowledgeDiscipline::Law) {
+                $hasPlacedLawOption = $hasPlacedLawOption || $option->place;
+                $hasUnplacedLawOption = $hasUnplacedLawOption || ! $option->place;
+            }
+        }
+
+        $this->assertTrue($hasUnplacedLawOption);
+        $this->assertFalse($hasPlacedLawOption);
     }
 
     public function test_a_pending_interaction_hides_normal_actions(): void

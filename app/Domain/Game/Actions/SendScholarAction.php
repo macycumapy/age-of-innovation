@@ -5,11 +5,11 @@ declare(strict_types=1);
 namespace App\Domain\Game\Actions;
 
 use App\Domain\Game\Data\GamePlayerStateData;
-use App\Domain\Game\Enums\Competency;
+use App\Domain\Game\Data\SendScholarOptionData;
 use App\Domain\Game\Enums\GameActionType;
 use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\KnowledgeDiscipline;
-use App\Domain\Game\Enums\RoundBonus;
+use App\Domain\Game\Services\SendScholarOptionFinder;
 use App\Models\Game;
 use App\Models\GamePlayer;
 use App\Models\User;
@@ -19,8 +19,8 @@ use Illuminate\Validation\ValidationException;
 final class SendScholarAction
 {
     public function __construct(
-        private AdvanceKnowledgeAction $advanceKnowledge,
-        private AssignScholarSlotsAction $assignScholarSlots,
+        private SendScholarOptionFinder $optionFinder,
+        private ApplySendScholarAction $applySendScholar,
         private AppendGameHistoryAction $appendGameHistory,
     ) {
     }
@@ -34,25 +34,19 @@ final class SendScholarAction
             $playerState = $player instanceof GamePlayer
                 ? collect($state->players)->firstWhere('playerId', $player->id)
                 : null;
-            $placedScholarCount = collect($state->players)->sum(
-                static fn (GamePlayerStateData $candidate): int => count(array_filter(
-                    $candidate->scholarDisciplineIds,
-                    static fn (string $disciplineId): bool => $disciplineId === $discipline->value,
-                )),
-            );
-            $scholarSlotIndex = $place
-                ? $this->assignScholarSlots->nextAvailable($state, $discipline)
-                : null;
-
             if ($lockedGame->phase !== GamePhase::Actions
                 || $lockedGame->active_player_id !== $user->id
-                || $state->pendingInteraction !== null
-                || $state->round->hasTakenMainAction
                 || ! $player instanceof GamePlayer
-                || ! $playerState instanceof GamePlayerStateData
-                || $playerState->resources->scholars < 1
-                || ($place && $playerState->scholarPoolSize < 1)
-                || ($place && $scholarSlotIndex === null)) {
+                || ! $playerState instanceof GamePlayerStateData) {
+                throw ValidationException::withMessages(['scholar' => 'Сейчас нельзя отправить учёного в эту дисциплину.']);
+            }
+
+            $option = collect($this->optionFinder->execute($state, $playerState))->first(
+                static fn (SendScholarOptionData $candidate): bool => $candidate->discipline === $discipline
+                    && $candidate->place === $place,
+            );
+
+            if (! $option instanceof SendScholarOptionData) {
                 throw ValidationException::withMessages(['scholar' => 'Сейчас нельзя отправить учёного в эту дисциплину.']);
             }
 
@@ -63,22 +57,7 @@ final class SendScholarAction
                 $state->round->turnStartVersion = $stateVersionBefore;
             }
 
-            $steps = $place ? ($placedScholarCount === 0 ? 3 : 2) : 1;
-
-            $playerState->resources->scholars--;
-
-            if ($place) {
-                $playerState->scholarPoolSize--;
-                $playerState->scholarDisciplineIds[] = $discipline->value;
-                $playerState->scholarSlotIndexes[] = $scholarSlotIndex;
-            }
-
-            $knowledgeAdvance = $this->advanceKnowledge->execute($state, $playerState, $discipline, $steps);
-            $actionVictoryPoints = ($playerState->roundBonus === RoundBonus::SendScholar ? 2 : 0)
-                + (in_array(Competency::Competency09->value, $playerState->competencyIds, true) ? 2 : 0);
-            $victoryPoints = $actionVictoryPoints + $knowledgeAdvance->victoryPoints;
-            $playerState->victoryPoints += $victoryPoints;
-            $state->round->hasTakenMainAction = true;
+            $result = $this->applySendScholar->execute($state, $playerState, $option);
             $lockedGame->update([
                 'state' => $state,
                 'version' => $lockedGame->version + 1,
@@ -90,17 +69,17 @@ final class SendScholarAction
                 [
                     'discipline' => $discipline->value,
                     'placed' => $place,
-                    'slot_index' => $scholarSlotIndex,
-                    'steps' => $knowledgeAdvance->advancedSteps,
-                    'victory_points' => $victoryPoints,
-                    'gained_power' => $knowledgeAdvance->gainedPower,
+                    'slot_index' => $result->slotIndex,
+                    'steps' => $result->advancedSteps,
+                    'victory_points' => $result->victoryPoints,
+                    'gained_power' => $result->gainedPower,
                 ],
                 [[
                     'type' => 'scholar_sent',
                     'player_id' => $player->id,
                     'discipline' => $discipline->value,
                     'placed' => $place,
-                    'steps' => $knowledgeAdvance->advancedSteps,
+                    'steps' => $result->advancedSteps,
                 ]],
                 $stateVersionBefore,
                 $lockedGame->version,
