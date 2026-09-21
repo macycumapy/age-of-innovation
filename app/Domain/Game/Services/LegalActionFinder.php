@@ -12,8 +12,6 @@ use App\Domain\Game\Data\GameStateData;
 use App\Domain\Game\Data\LegalActionData;
 use App\Domain\Game\Data\PendingInteractionData;
 use App\Domain\Game\Enums\BuildingType;
-use App\Domain\Game\Enums\Competency;
-use App\Domain\Game\Enums\Faction;
 use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\GameStatus;
 use App\Domain\Game\Enums\KnowledgeDiscipline;
@@ -40,6 +38,7 @@ final class LegalActionFinder
         private ChooseRoundBonusOptionFinder $chooseRoundBonusOptionFinder,
         private InnovationSpecialActionOptionFinder $innovationSpecialActionOptionFinder,
         private PalaceActionOptionFinder $palaceActionOptionFinder,
+        private PlayerSpecialActionOptionFinder $playerSpecialActionOptionFinder,
     ) {
     }
 
@@ -303,21 +302,10 @@ final class LegalActionFinder
         GameStateData $state,
         GamePlayerStateData $player,
     ): void {
-        $disciplineIds = array_column(KnowledgeDiscipline::cases(), 'value');
-        $factionActionId = $player->faction->specialActionId();
-        if ($player->faction->hasSpecialAction()
-            && ($player->faction === Faction::Moles ? $player->resources->tools > 0 : ! in_array($factionActionId, $player->usedSpecialActionIds, true))) {
-            $actions[] = new LegalActionData('use_faction_action', $player->faction === Faction::Philosophers ? ['disciplines' => $disciplineIds] : []);
-        }
-
-        if (in_array(Competency::Competency07->value, $player->competencyIds, true)
-            && ! in_array(Competency::Competency07->value, $player->usedSpecialActionIds, true)) {
-            $actions[] = new LegalActionData('use_competency_action');
-        }
-
-        if ($player->roundBonus->hasAvailableSpecialAction()
-            && ! in_array($player->roundBonus->value, $player->usedSpecialActionIds, true)) {
-            $actions[] = new LegalActionData('use_round_bonus_action', $player->roundBonus === RoundBonus::Knowledge ? ['disciplines' => $disciplineIds] : []);
+        foreach (collect($this->playerSpecialActionOptionFinder->execute($state, $player))->groupBy(
+            static fn ($option): string => $option->type()->value,
+        ) as $type => $options) {
+            $actions[] = new LegalActionData($type, ['options' => $options->values()->all()]);
         }
 
         $palaceOptions = $this->palaceActionOptionFinder->execute($state, $player);

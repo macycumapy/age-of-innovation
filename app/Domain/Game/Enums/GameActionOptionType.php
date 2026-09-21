@@ -19,4 +19,7 @@ enum GameActionOptionType: string
     case ChooseRoundBonus = 'choose_round_bonus';
     case UseInnovationAction = 'use_innovation_action';
     case UsePalaceAction = 'use_palace_action';
+    case UseFactionAction = 'use_faction_action';
+    case UseCompetencyAction = 'use_competency_action';
+    case UseRoundBonusAction = 'use_round_bonus_action';
 }
