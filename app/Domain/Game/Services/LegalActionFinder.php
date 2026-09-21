@@ -38,6 +38,7 @@ final class LegalActionFinder
         private DevelopmentAdvancementOptionFinder $developmentAdvancementOptionFinder,
         private SendScholarOptionFinder $sendScholarOptionFinder,
         private MakeInnovationOptionFinder $makeInnovationOptionFinder,
+        private PassOptionFinder $passOptionFinder,
     ) {
     }
 
@@ -183,7 +184,10 @@ final class LegalActionFinder
                 : [new LegalActionData('confirm_turn'), new LegalActionData('restart_turn')];
         }
 
-        $actions = [new LegalActionData('pass', $this->passParameters($game, $player))];
+        $actions = [new LegalActionData('pass', [
+            ...$this->passParameters($game, $player),
+            'options' => $this->passOptionFinder->execute($state, $player),
+        ])];
         $this->appendResourceActions($actions, $player);
         $buildWorkshopOptions = $this->buildWorkshopOptionFinder->execute($state, $player);
         if ($buildWorkshopOptions !== []) {
