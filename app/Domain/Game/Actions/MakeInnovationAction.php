@@ -61,10 +61,10 @@ final class MakeInnovationAction
                 [
                     'innovation' => $innovation->value,
                     'book_counts' => $bookCounts,
-                    'coins' => $result['coins'],
-                    'victory_points' => $result['victoryPoints'],
-                    'reward' => $result['reward'],
-                    'gained_power' => $result['reward']['gainedPower'],
+                    'coins' => $result->coins,
+                    'victory_points' => $result->victoryPoints,
+                    'reward' => $result->reward->toArray(),
+                    'gained_power' => $result->reward->gainedPower,
                 ],
                 [[
                     'type' => 'innovation_created',

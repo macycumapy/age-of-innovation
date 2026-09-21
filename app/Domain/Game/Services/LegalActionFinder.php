@@ -30,7 +30,6 @@ final class LegalActionFinder
     public function __construct(
         private FindEligibleAnnexHexesAction $findEligibleAnnexHexes,
         private FindEligibleBridgePairsAction $findEligibleBridgePairs,
-        private InnovationPurchaseCostCalculator $innovationPurchaseCostCalculator,
         private BookActionOptionFinder $bookActionOptionFinder,
         private PowerActionOptionFinder $powerActionOptionFinder,
         private BuildWorkshopOptionFinder $buildWorkshopOptionFinder,
@@ -38,6 +37,7 @@ final class LegalActionFinder
         private PaidTerraformingOptionFinder $paidTerraformingOptionFinder,
         private DevelopmentAdvancementOptionFinder $developmentAdvancementOptionFinder,
         private SendScholarOptionFinder $sendScholarOptionFinder,
+        private MakeInnovationOptionFinder $makeInnovationOptionFinder,
     ) {
     }
 
@@ -209,7 +209,7 @@ final class LegalActionFinder
         $this->appendPowerActions($actions, $game, $player);
         $this->appendBookActions($actions, $game, $player);
         $this->appendSpecialActions($actions, $player);
-        $this->appendInnovationPurchases($actions, $game, $player);
+        $this->appendInnovationPurchases($actions, $state, $player);
 
         if ($player->availableAnnexes > 0) {
             $hexIds = $this->findEligibleAnnexHexes->execute($state, $player->playerId);
@@ -315,31 +315,12 @@ final class LegalActionFinder
     }
 
     /** @param list<LegalActionData> $actions */
-    private function appendInnovationPurchases(array &$actions, Game $game, GamePlayerStateData $player): void
-    {
-        if ($game->state->setupPool === null
-            || count($player->inventionIds) >= InnovationPurchaseCostCalculator::MAX_INVENTIONS) {
-            return;
-        }
-
-        $innovations = $game->state->setupPool->innovations;
-        $playerCount = $game->state->setupPool->playerCount;
-        $options = [];
-        foreach ($innovations as $index => $innovation) {
-            if (! in_array($innovation->value, $game->state->availableInventionIds, true)) {
-                continue;
-            }
-            $cost = $this->innovationPurchaseCostCalculator->cost(
-                $playerCount,
-                $index,
-                count($player->inventionIds),
-                $player->homeland->value === 'wasteland',
-                $this->buildingCount($game->state->board->hexes, $player->playerId, BuildingType::Palace) > 0,
-            );
-            if ($player->resources->coins >= $cost['coins'] && $this->canPayBooks($player, $cost)) {
-                $options[] = ['innovation' => $innovation->value, ...$cost];
-            }
-        }
+    private function appendInnovationPurchases(
+        array &$actions,
+        GameStateData $state,
+        GamePlayerStateData $player,
+    ): void {
+        $options = $this->makeInnovationOptionFinder->execute($state, $player);
 
         if ($options !== []) {
             $actions[] = new LegalActionData('make_innovation', ['options' => $options]);
@@ -363,21 +344,4 @@ final class LegalActionFinder
             && $hex->building->type === $type && ! $hex->building->isNeutral));
     }
 
-    private function bookTotal(GamePlayerStateData $player): int
-    {
-        return $player->resources->books->banking + $player->resources->books->law
-            + $player->resources->books->engineering + $player->resources->books->medicine;
-    }
-
-    /** @param array{requiredBooks: array{banking: int, law: int, engineering: int, medicine: int}, totalBooks: int} $cost */
-    private function canPayBooks(GamePlayerStateData $player, array $cost): bool
-    {
-        foreach ($cost['requiredBooks'] as $discipline => $count) {
-            if ($player->resources->books->{$discipline} < $count) {
-                return false;
-            }
-        }
-
-        return $this->bookTotal($player) >= $cost['totalBooks'];
-    }
 }

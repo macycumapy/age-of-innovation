@@ -7,6 +7,8 @@ namespace App\Domain\Game\Actions;
 use App\Domain\Game\Data\BoardHexStateData;
 use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Data\GameStateData;
+use App\Domain\Game\Data\InnovationRewardData;
+use App\Domain\Game\Data\MakeInnovationResultData;
 use App\Domain\Game\Data\PendingInteractionData;
 use App\Domain\Game\Enums\BuildingType;
 use App\Domain\Game\Enums\Innovation;
@@ -27,16 +29,13 @@ final class ApplyMakeInnovationAction
     ) {
     }
 
-    /**
-     * @param array<string, int> $bookCounts
-     * @return array{coins: int, victoryPoints: int, totalBooks: int, reward: array<string, int>}
-     */
+    /** @param array<string, int> $bookCounts */
     public function execute(
         GameStateData $state,
         GamePlayerStateData $playerState,
         Innovation $innovation,
         array $bookCounts,
-    ): array {
+    ): MakeInnovationResultData {
         if (count($playerState->inventionIds) >= InnovationPurchaseCostCalculator::MAX_INVENTIONS) {
             throw ValidationException::withMessages(['innovation' => 'Можно получить не более трёх инноваций.']);
         }
@@ -45,8 +44,8 @@ final class ApplyMakeInnovationAction
             throw ValidationException::withMessages(['innovation' => 'Эта инновация уже недоступна.']);
         }
 
-        $playerCount = $state->setupPool?->playerCount ?? count($state->players);
-        $slotIndex = $this->costCalculator->slotIndex($state->setupPool?->innovations ?? [], $innovation);
+        $playerCount = $state->setupPool->playerCount;
+        $slotIndex = $this->costCalculator->slotIndex($state->setupPool->innovations, $innovation);
         $cost = $this->costCalculator->cost(
             $playerCount,
             $slotIndex,
@@ -119,12 +118,12 @@ final class ApplyMakeInnovationAction
             }
         }
 
-        return [
-            'coins' => $cost['coins'],
-            'victoryPoints' => $reward['victoryPoints'] + $roundVictoryPoints,
-            'totalBooks' => $cost['totalBooks'],
-            'reward' => $reward,
-        ];
+        return new MakeInnovationResultData(
+            $cost['coins'],
+            $reward['victoryPoints'] + $roundVictoryPoints,
+            $cost['totalBooks'],
+            new InnovationRewardData(...$reward),
+        );
     }
 
     /**
