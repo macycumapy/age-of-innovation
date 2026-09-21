@@ -24,7 +24,6 @@ use App\Domain\Game\Enums\KnowledgeDiscipline;
 use App\Domain\Game\Enums\PalaceAbility;
 use App\Domain\Game\Enums\PendingInteractionType;
 use App\Domain\Game\Enums\PlayerColor;
-use App\Domain\Game\Enums\PowerAction;
 use App\Domain\Game\Enums\RoundBonus;
 use App\Models\Game;
 use App\Models\GamePlayer;
@@ -41,6 +40,7 @@ final class LegalActionFinder
         private FindEligiblePalaceFlightHexesAction $findEligiblePalaceFlightHexes,
         private InnovationPurchaseCostCalculator $innovationPurchaseCostCalculator,
         private BookActionOptionFinder $bookActionOptionFinder,
+        private PowerActionOptionFinder $powerActionOptionFinder,
     ) {
     }
 
@@ -294,18 +294,7 @@ final class LegalActionFinder
     /** @param list<LegalActionData> $actions */
     private function appendPowerActions(array &$actions, Game $game, GamePlayerStateData $player): void
     {
-        $options = [];
-        foreach (PowerAction::cases() as $powerAction) {
-            if (in_array($powerAction->value, $game->state->round->usedSharedActionIds, true)
-                || ($powerAction === PowerAction::GainScholar && $player->resources->scholars >= $player->scholarPoolSize)) {
-                continue;
-            }
-
-            $sacrificeAmount = max(0, $powerAction->cost($player->faction) - $player->resources->power->bowlThree);
-            if ($sacrificeAmount * 2 <= $player->resources->power->bowlTwo) {
-                $options[] = ['action' => $powerAction->value, 'sacrificeAmount' => $sacrificeAmount];
-            }
-        }
+        $options = $this->powerActionOptionFinder->execute($game->state, $player);
 
         if ($options !== []) {
             $actions[] = new LegalActionData('use_power_action', ['options' => $options]);
