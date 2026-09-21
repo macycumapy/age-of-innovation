@@ -20,7 +20,6 @@ use App\Domain\Game\Enums\Innovation;
 use App\Domain\Game\Enums\KnowledgeDiscipline;
 use App\Domain\Game\Enums\PalaceAbility;
 use App\Domain\Game\Enums\PendingInteractionType;
-use App\Domain\Game\Enums\PlayerColor;
 use App\Domain\Game\Enums\RoundBonus;
 use App\Models\Game;
 use App\Models\GamePlayer;
@@ -37,6 +36,7 @@ final class LegalActionFinder
         private BuildWorkshopOptionFinder $buildWorkshopOptionFinder,
         private UpgradeBuildingOptionFinder $upgradeBuildingOptionFinder,
         private PaidTerraformingOptionFinder $paidTerraformingOptionFinder,
+        private DevelopmentAdvancementOptionFinder $developmentAdvancementOptionFinder,
     ) {
     }
 
@@ -194,14 +194,8 @@ final class LegalActionFinder
             $actions[] = new LegalActionData('upgrade_building', ['options' => $upgrades]);
         }
 
-        if ($player->shippingLevel < 3 && $player->resources->coins >= 4 && $player->resources->scholars >= 1) {
-            $actions[] = new LegalActionData('advance_shipping');
-        }
-
-        $terraformingCoinCost = $player->color === PlayerColor::Brown ? 1 : 5;
-        if ($player->terraformingLevel < 2 && $player->resources->tools >= 1
-            && $player->resources->coins >= $terraformingCoinCost && $player->resources->scholars >= 1) {
-            $actions[] = new LegalActionData('advance_terraforming');
+        foreach ($this->developmentAdvancementOptionFinder->execute($state, $player) as $option) {
+            $actions[] = new LegalActionData($option->type(), ['option' => $option]);
         }
 
         if ($player->resources->scholars > 0) {

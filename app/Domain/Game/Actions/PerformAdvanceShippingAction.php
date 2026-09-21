@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace App\Domain\Game\Actions;
 
+use App\Domain\Game\Data\DevelopmentAdvancementOptionData;
 use App\Domain\Game\Data\GamePlayerStateData;
-use App\Domain\Game\Data\PendingInteractionData;
 use App\Domain\Game\Enums\GameActionType;
 use App\Domain\Game\Enums\GamePhase;
-use App\Domain\Game\Enums\PendingInteractionType;
+use App\Domain\Game\Services\DevelopmentAdvancementOptionFinder;
 use App\Models\Game;
 use App\Models\GamePlayer;
 use App\Models\User;
@@ -18,8 +18,8 @@ use Illuminate\Validation\ValidationException;
 final class PerformAdvanceShippingAction
 {
     public function __construct(
-        private AdvanceDevelopmentTrackAction $advanceDevelopmentTrack,
-        private ApplyDevelopmentTrackRoundScoringAction $applyDevelopmentTrackRoundScoring,
+        private DevelopmentAdvancementOptionFinder $optionFinder,
+        private ApplyDevelopmentAdvancementAction $applyDevelopmentAdvancement,
         private AppendGameHistoryAction $appendGameHistory,
     ) {
     }
@@ -36,12 +36,15 @@ final class PerformAdvanceShippingAction
 
             if ($lockedGame->phase !== GamePhase::Actions
                 || $lockedGame->active_player_id !== $user->id
-                || $state->pendingInteraction !== null
-                || $state->round->hasTakenMainAction
-                || ! $playerState instanceof GamePlayerStateData
-                || $playerState->shippingLevel >= 3
-                || $playerState->resources->coins < 4
-                || $playerState->resources->scholars < 1) {
+                || ! $playerState instanceof GamePlayerStateData) {
+                throw ValidationException::withMessages(['shipping' => 'Сейчас нельзя повысить уровень навигации.']);
+            }
+
+            $option = collect($this->optionFinder->execute($state, $playerState))->first(
+                static fn (DevelopmentAdvancementOptionData $candidate): bool => $candidate->action === GameActionType::AdvanceShipping,
+            );
+
+            if (! $option instanceof DevelopmentAdvancementOptionData) {
                 throw ValidationException::withMessages(['shipping' => 'Сейчас нельзя повысить уровень навигации.']);
             }
 
@@ -52,30 +55,14 @@ final class PerformAdvanceShippingAction
                 $state->round->turnStartVersion = $stateVersionBefore;
             }
 
-            $playerState->resources->coins -= 4;
-            $playerState->resources->scholars--;
-            $reward = $this->advanceDevelopmentTrack->advanceShipping($playerState);
-            $reward['victoryPoints'] += $this->applyDevelopmentTrackRoundScoring->execute(
-                $state,
-                $playerState,
-                $reward['steps'],
-            );
-            $state->round->hasTakenMainAction = true;
-
-            if ($reward['books'] > 0) {
-                $state->pendingInteraction = new PendingInteractionData(
-                    PendingInteractionType::ChooseShippingBooks,
-                    $player->id,
-                    context: ['bookCount' => $reward['books']],
-                );
-            }
+            $reward = $this->applyDevelopmentAdvancement->execute($state, $playerState, $option);
 
             $lockedGame->update(['state' => $state, 'version' => $lockedGame->version + 1]);
             $this->appendGameHistory->execute(
                 $lockedGame,
                 $user,
                 GameActionType::AdvanceShipping,
-                ['coins' => 4, 'scholars' => 1, 'reward' => $reward],
+                ['coins' => $option->coins, 'scholars' => $option->scholars, 'reward' => $reward->toArray()],
                 [['type' => 'shipping_advanced', 'player_id' => $player->id, 'level' => $playerState->shippingLevel]],
                 $stateVersionBefore,
                 $lockedGame->version,
