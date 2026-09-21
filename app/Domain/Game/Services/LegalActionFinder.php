@@ -9,7 +9,6 @@ use App\Domain\Game\Actions\FindEligibleBridgePairsAction;
 use App\Domain\Game\Actions\FindEligibleMoleTunnelHexesAction;
 use App\Domain\Game\Actions\FindEligiblePalaceFlightHexesAction;
 use App\Domain\Game\Actions\FindEligibleTerraformHexesAction;
-use App\Domain\Game\Actions\FindReachableLandHexesAction;
 use App\Domain\Game\Data\BoardHexStateData;
 use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Data\LegalActionData;
@@ -32,7 +31,6 @@ use App\Models\User;
 final class LegalActionFinder
 {
     public function __construct(
-        private FindReachableLandHexesAction $findReachableLandHexes,
         private FindEligibleAnnexHexesAction $findEligibleAnnexHexes,
         private FindEligibleBridgePairsAction $findEligibleBridgePairs,
         private FindEligibleTerraformHexesAction $findEligibleTerraformHexes,
@@ -41,6 +39,7 @@ final class LegalActionFinder
         private InnovationPurchaseCostCalculator $innovationPurchaseCostCalculator,
         private BookActionOptionFinder $bookActionOptionFinder,
         private PowerActionOptionFinder $powerActionOptionFinder,
+        private BuildWorkshopOptionFinder $buildWorkshopOptionFinder,
     ) {
     }
 
@@ -183,20 +182,9 @@ final class LegalActionFinder
 
         $actions = [new LegalActionData('pass', $this->passParameters($game, $player))];
         $this->appendResourceActions($actions, $player);
-        $reachableHexIds = $this->findReachableLandHexes->execute($state, $player);
-        $workshopCount = $this->buildingCount($state->board->hexes, $player->playerId, BuildingType::Workshop);
-        $buildableHexIds = array_values(array_map(
-            static fn (BoardHexStateData $hex): string => $hex->id,
-            array_filter(
-                $state->board->hexes,
-                static fn (BoardHexStateData $hex): bool => in_array($hex->id, $reachableHexIds, true)
-                    && $hex->building === null && $hex->terrain === $player->homeland,
-            ),
-        ));
-
-        if ($player->resources->tools >= 1 && $player->resources->coins >= 2
-            && $workshopCount < BuildingType::Workshop->supplyLimit() && $buildableHexIds !== []) {
-            $actions[] = new LegalActionData('build_workshop', ['hexIds' => $buildableHexIds]);
+        $buildWorkshopOptions = $this->buildWorkshopOptionFinder->execute($state, $player);
+        if ($buildWorkshopOptions !== []) {
+            $actions[] = new LegalActionData('build_workshop', ['options' => $buildWorkshopOptions]);
         }
 
         $upgrades = $this->buildingUpgrades($game, $player);

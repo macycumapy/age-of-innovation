@@ -58,7 +58,7 @@ class LegalActionFinderTest extends TestCase
         $actions = collect(app(LegalActionFinder::class)->execute($game, $user))->keyBy('type');
 
         $this->assertTrue($actions->has('pass'));
-        $this->assertSame(['1:0'], $actions->get('build_workshop')->parameters['hexIds']);
+        $this->assertSame('1:0', $actions->get('build_workshop')->parameters['options'][0]->hexId);
         $this->assertSame('guild', $actions->get('upgrade_building')->parameters['options'][0]['target']);
         $this->assertTrue($actions->has('advance_shipping'));
         $this->assertTrue($actions->has('advance_terraforming'));

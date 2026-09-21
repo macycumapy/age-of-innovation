@@ -6,6 +6,7 @@ namespace App\Domain\Game\Services;
 
 use App\Domain\Game\Contracts\GameActionOption;
 use App\Domain\Game\Data\BookActionOptionData;
+use App\Domain\Game\Data\BuildWorkshopOptionData;
 use App\Domain\Game\Data\GameActionSimulationData;
 use App\Domain\Game\Data\GameStateData;
 use App\Domain\Game\Data\PowerActionOptionData;
@@ -16,6 +17,7 @@ final class GameActionSimulator
     public function __construct(
         private BookActionSimulator $bookActionSimulator,
         private PowerActionSimulator $powerActionSimulator,
+        private BuildWorkshopSimulator $buildWorkshopSimulator,
     ) {
     }
 
@@ -25,16 +27,15 @@ final class GameActionSimulator
         GameActionOption $option,
     ): GameActionSimulationData {
         if ($option instanceof BookActionOptionData) {
-            $simulation = $this->bookActionSimulator->execute($state, $playerId, $option);
-
-            return new GameActionSimulationData(
-                $simulation->state,
-                $simulation->result->nextActiveUserId,
-            );
+            return $this->bookActionSimulator->execute($state, $playerId, $option);
         }
 
         if ($option instanceof PowerActionOptionData) {
             return $this->powerActionSimulator->execute($state, $playerId, $option);
+        }
+
+        if ($option instanceof BuildWorkshopOptionData) {
+            return $this->buildWorkshopSimulator->execute($state, $playerId, $option);
         }
 
         throw new DomainException("Симуляция действия {$option->type()} ещё не поддерживается.");

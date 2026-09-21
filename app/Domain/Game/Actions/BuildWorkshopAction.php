@@ -4,10 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domain\Game\Actions;
 
-use App\Domain\Game\Data\BoardHexStateData;
-use App\Domain\Game\Data\BuildingStateData;
 use App\Domain\Game\Data\GamePlayerStateData;
-use App\Domain\Game\Enums\BuildingType;
 use App\Domain\Game\Enums\GameActionType;
 use App\Domain\Game\Enums\GamePhase;
 use App\Models\Game;
@@ -19,9 +16,7 @@ use Illuminate\Validation\ValidationException;
 final class BuildWorkshopAction
 {
     public function __construct(
-        private FindReachableLandHexesAction $findReachableLandHexes,
-        private ApplyBuildingBonusesAction $applyBuildingBonuses,
-        private CreateBuildingFollowUpInteractionAction $createBuildingFollowUpInteraction,
+        private ApplyBuildWorkshopAction $applyBuildWorkshop,
         private AppendGameHistoryAction $appendGameHistory,
     ) {
     }
@@ -32,32 +27,18 @@ final class BuildWorkshopAction
             $lockedGame = Game::query()->lockForUpdate()->findOrFail($game->id);
             $state = $lockedGame->state;
             $player = $lockedGame->players()->whereBelongsTo($user)->first();
-            $hex = collect($state->board->hexes)->firstWhere('id', $hexId);
 
             if ($lockedGame->phase !== GamePhase::Actions
                 || $lockedGame->active_player_id !== $user->id
                 || $state->pendingInteraction !== null
                 || $state->round->hasTakenMainAction
-                || ! $player instanceof GamePlayer
-                || ! $hex instanceof BoardHexStateData) {
+                || ! $player instanceof GamePlayer) {
                 throw ValidationException::withMessages(['building' => 'Сейчас нельзя построить дом.']);
             }
 
             $playerState = collect($state->players)->firstWhere('playerId', $player->id);
-            $workshopsOnMap = count(array_filter(
-                $state->board->hexes,
-                static fn (BoardHexStateData $candidate): bool => $candidate->building?->ownerPlayerId === $player->id
-                    && $candidate->building->type === BuildingType::Workshop
-                    && ! $candidate->building->isNeutral,
-            ));
 
-            if (! $playerState instanceof GamePlayerStateData
-                || ! in_array($hexId, $this->findReachableLandHexes->execute($state, $playerState), true)
-                || $hex->building !== null
-                || $hex->terrain !== $playerState->homeland
-                || $playerState->resources->tools < 1
-                || $playerState->resources->coins < 2
-                || $workshopsOnMap >= BuildingType::Workshop->supplyLimit()) {
+            if (! $playerState instanceof GamePlayerStateData) {
                 throw ValidationException::withMessages(['building' => 'Дом нельзя построить на выбранной клетке.']);
             }
 
@@ -68,19 +49,9 @@ final class BuildWorkshopAction
                 $state->round->turnStartVersion = $stateVersionBefore;
             }
 
-            $playerState->resources->tools--;
-            $playerState->resources->coins -= 2;
-            $hex->building = new BuildingStateData(BuildingType::Workshop, $player->id);
-            $state->round->hasTakenMainAction = true;
-            $bonuses = $this->applyBuildingBonuses->execute($state, $playerState, $hex, BuildingType::Workshop);
-            $nextActiveUserId = $this->createBuildingFollowUpInteraction->execute(
-                $state,
-                $playerState,
-                $hexId,
-                BuildingType::Workshop,
-            );
+            $result = $this->applyBuildWorkshop->execute($state, $playerState, $hexId);
             $lockedGame->update([
-                'active_player_id' => $nextActiveUserId,
+                'active_player_id' => $result->nextActiveUserId,
                 'state' => $state,
                 'version' => $lockedGame->version + 1,
             ]);
@@ -92,9 +63,9 @@ final class BuildWorkshopAction
                     'hex_id' => $hexId,
                     'tools' => 1,
                     'coins' => 2,
-                    'victory_points' => $bonuses['victoryPoints'],
-                    'bonus_coins' => $bonuses['coins'],
-                    'scoring_sources' => $bonuses['sources'],
+                    'victory_points' => $result->victoryPoints,
+                    'bonus_coins' => $result->bonusCoins,
+                    'scoring_sources' => $result->scoringSources,
                 ],
                 [['type' => 'workshop_built', 'player_id' => $player->id, 'hex_id' => $hexId]],
                 $stateVersionBefore,

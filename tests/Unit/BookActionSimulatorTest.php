@@ -47,7 +47,7 @@ class BookActionSimulatorTest extends TestCase
         $this->assertSame(0, $simulation->state->players[0]->resources->books->banking);
         $this->assertSame([BookAction::GainCoins->value], $simulation->state->round->usedBookActionIds);
         $this->assertTrue($simulation->state->round->hasTakenMainAction);
-        $this->assertSame(10, $simulation->result->nextActiveUserId);
+        $this->assertSame(10, $simulation->nextActiveUserId);
     }
 
     public function test_every_generated_option_can_be_simulated(): void
