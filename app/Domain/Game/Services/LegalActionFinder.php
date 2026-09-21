@@ -214,7 +214,7 @@ final class LegalActionFinder
         }
 
         foreach ($this->developmentAdvancementOptionFinder->execute($state, $player) as $option) {
-            $actions[] = new LegalActionData($option->type(), ['option' => $option]);
+            $actions[] = new LegalActionData($option->type()->value, ['option' => $option]);
         }
 
         $scholarOptions = $this->sendScholarOptionFinder->execute($state, $player);

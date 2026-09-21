@@ -6,6 +6,7 @@ namespace App\Domain\Game\Data;
 
 use App\Domain\Game\Contracts\GameActionOption;
 use App\Domain\Game\Enums\BuildingType;
+use App\Domain\Game\Enums\GameActionOptionType;
 use Spatie\LaravelData\Data;
 
 final class UpgradeBuildingOptionData extends Data implements GameActionOption
@@ -19,8 +20,8 @@ final class UpgradeBuildingOptionData extends Data implements GameActionOption
     ) {
     }
 
-    public function type(): string
+    public function type(): GameActionOptionType
     {
-        return 'upgrade_building';
+        return GameActionOptionType::UpgradeBuilding;
     }
 }

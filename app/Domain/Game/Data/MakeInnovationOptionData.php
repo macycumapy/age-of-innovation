@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Domain\Game\Data;
 
 use App\Domain\Game\Contracts\GameActionOption;
+use App\Domain\Game\Enums\GameActionOptionType;
 use App\Domain\Game\Enums\Innovation;
 use Spatie\LaravelData\Data;
 
@@ -18,8 +19,8 @@ final class MakeInnovationOptionData extends Data implements GameActionOption
     ) {
     }
 
-    public function type(): string
+    public function type(): GameActionOptionType
     {
-        return 'make_innovation';
+        return GameActionOptionType::MakeInnovation;
     }
 }

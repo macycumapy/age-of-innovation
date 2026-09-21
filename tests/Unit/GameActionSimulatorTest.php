@@ -13,6 +13,7 @@ use App\Domain\Game\Data\GameStateData;
 use App\Domain\Game\Data\PlayerResourcesData;
 use App\Domain\Game\Enums\BookAction;
 use App\Domain\Game\Enums\Faction;
+use App\Domain\Game\Enums\GameActionOptionType;
 use App\Domain\Game\Enums\PlayerColor;
 use App\Domain\Game\Enums\RoundBonus;
 use App\Domain\Game\Enums\TerrainType;
@@ -42,14 +43,14 @@ class GameActionSimulatorTest extends TestCase
     public function test_it_rejects_an_unsupported_action_type(): void
     {
         $option = new class () implements GameActionOption {
-            public function type(): string
+            public function type(): GameActionOptionType
             {
-                return 'unsupported';
+                return GameActionOptionType::UsePalaceAction;
             }
         };
 
         $this->expectException(DomainException::class);
-        $this->expectExceptionMessage('Симуляция действия unsupported ещё не поддерживается.');
+        $this->expectExceptionMessage('Симуляция действия use_palace_action ещё не поддерживается.');
 
         app(GameActionSimulator::class)->execute($this->state(), 1, $option);
     }

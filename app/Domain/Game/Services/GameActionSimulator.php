@@ -92,6 +92,6 @@ final class GameActionSimulator
             return $this->palaceActionSimulator->execute($state, $playerId, $option);
         }
 
-        throw new DomainException("Симуляция действия {$option->type()} ещё не поддерживается.");
+        throw new DomainException("Симуляция действия {$option->type()->value} ещё не поддерживается.");
     }
 }

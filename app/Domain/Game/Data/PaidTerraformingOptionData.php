@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Domain\Game\Data;
 
 use App\Domain\Game\Contracts\GameActionOption;
+use App\Domain\Game\Enums\GameActionOptionType;
 use Spatie\LaravelData\Data;
 
 final class PaidTerraformingOptionData extends Data implements GameActionOption
@@ -20,8 +21,8 @@ final class PaidTerraformingOptionData extends Data implements GameActionOption
     ) {
     }
 
-    public function type(): string
+    public function type(): GameActionOptionType
     {
-        return 'paid_terraforming';
+        return GameActionOptionType::PaidTerraforming;
     }
 }

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Domain\Game\Data;
 
 use App\Domain\Game\Contracts\GameActionOption;
+use App\Domain\Game\Enums\GameActionOptionType;
 use App\Domain\Game\Enums\RoundBonus;
 use Spatie\LaravelData\Data;
 
@@ -16,8 +17,8 @@ final class ChooseRoundBonusOptionData extends Data implements GameActionOption
     ) {
     }
 
-    public function type(): string
+    public function type(): GameActionOptionType
     {
-        return 'choose_round_bonus';
+        return GameActionOptionType::ChooseRoundBonus;
     }
 }

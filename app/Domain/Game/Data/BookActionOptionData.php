@@ -6,6 +6,7 @@ namespace App\Domain\Game\Data;
 
 use App\Domain\Game\Contracts\GameActionOption;
 use App\Domain\Game\Enums\BookAction;
+use App\Domain\Game\Enums\GameActionOptionType;
 use App\Domain\Game\Enums\KnowledgeDiscipline;
 use Spatie\LaravelData\Data;
 
@@ -19,8 +20,8 @@ final class BookActionOptionData extends Data implements GameActionOption
     ) {
     }
 
-    public function type(): string
+    public function type(): GameActionOptionType
     {
-        return 'book_action';
+        return GameActionOptionType::BookAction;
     }
 }
