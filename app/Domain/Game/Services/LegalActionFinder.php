@@ -6,11 +6,9 @@ namespace App\Domain\Game\Services;
 
 use App\Domain\Game\Actions\FindEligibleAnnexHexesAction;
 use App\Domain\Game\Actions\FindEligibleBridgePairsAction;
-use App\Domain\Game\Actions\FindEligibleMoleTunnelHexesAction;
-use App\Domain\Game\Actions\FindEligiblePalaceFlightHexesAction;
-use App\Domain\Game\Actions\FindEligibleTerraformHexesAction;
 use App\Domain\Game\Data\BoardHexStateData;
 use App\Domain\Game\Data\GamePlayerStateData;
+use App\Domain\Game\Data\GameStateData;
 use App\Domain\Game\Data\LegalActionData;
 use App\Domain\Game\Data\PendingInteractionData;
 use App\Domain\Game\Enums\BuildingType;
@@ -33,14 +31,12 @@ final class LegalActionFinder
     public function __construct(
         private FindEligibleAnnexHexesAction $findEligibleAnnexHexes,
         private FindEligibleBridgePairsAction $findEligibleBridgePairs,
-        private FindEligibleTerraformHexesAction $findEligibleTerraformHexes,
-        private FindEligibleMoleTunnelHexesAction $findEligibleMoleTunnelHexes,
-        private FindEligiblePalaceFlightHexesAction $findEligiblePalaceFlightHexes,
         private InnovationPurchaseCostCalculator $innovationPurchaseCostCalculator,
         private BookActionOptionFinder $bookActionOptionFinder,
         private PowerActionOptionFinder $powerActionOptionFinder,
         private BuildWorkshopOptionFinder $buildWorkshopOptionFinder,
         private UpgradeBuildingOptionFinder $upgradeBuildingOptionFinder,
+        private PaidTerraformingOptionFinder $paidTerraformingOptionFinder,
     ) {
     }
 
@@ -58,6 +54,11 @@ final class LegalActionFinder
 
         if ($state->pendingInteraction !== null) {
             $actions = $this->pendingActions($game, $player, $state->pendingInteraction);
+            if ($playerState instanceof GamePlayerStateData
+                && $state->pendingInteraction->type === PendingInteractionType::SpendSpades
+                && ! isset($state->pendingInteraction->context['selectedHexId'])) {
+                $this->appendPaidTerraformingAction($actions, $state, $playerState);
+            }
             if ($game->phase === GamePhase::Actions && $playerState instanceof GamePlayerStateData
                 && $game->active_player_id === $user->id) {
                 $this->appendResourceActions($actions, $playerState);
@@ -207,10 +208,7 @@ final class LegalActionFinder
             $actions[] = new LegalActionData('send_scholar', ['options' => $this->scholarOptions($game, $player)]);
         }
 
-        $terraformOptions = $this->paidTerraformOptions($game, $player);
-        if ($terraformOptions !== []) {
-            $actions[] = new LegalActionData('start_paid_terraforming', ['options' => $terraformOptions]);
-        }
+        $this->appendPaidTerraformingAction($actions, $state, $player);
 
         $this->appendPowerActions($actions, $game, $player);
         $this->appendBookActions($actions, $game, $player);
@@ -252,32 +250,17 @@ final class LegalActionFinder
         }
     }
 
-    /** @return list<array{hexId: string, useTunnel: bool, useFlight: bool, toolCost: int, scholarCost: int}> */
-    private function paidTerraformOptions(Game $game, GamePlayerStateData $player): array
-    {
-        $state = $game->state;
-        $toolCostPerSpade = max(1, 3 - $player->terraformingLevel);
-        $modes = [
-            [false, false, $this->findEligibleTerraformHexes->execute($state, $player, $player->homeland)],
-            [true, false, $this->findEligibleMoleTunnelHexes->execute($state, $player)],
-            [false, true, $this->findEligiblePalaceFlightHexes->execute($state, $player)],
-        ];
-        $options = [];
+    /** @param list<LegalActionData> $actions */
+    private function appendPaidTerraformingAction(
+        array &$actions,
+        GameStateData $state,
+        GamePlayerStateData $player,
+    ): void {
+        $options = $this->paidTerraformingOptionFinder->execute($state, $player);
 
-        foreach ($modes as [$useTunnel, $useFlight, $hexIds]) {
-            foreach ($hexIds as $hexId) {
-                $hex = collect($state->board->hexes)->firstWhere('id', $hexId);
-                $spadeCount = $hex?->terrain->spadesTo($player->homeland) ?? 0;
-                $toolCost = $spadeCount * $toolCostPerSpade + ($useTunnel ? 1 : 0);
-                $scholarCost = $useFlight ? 1 : 0;
-                if ($spadeCount > 0 && $toolCost <= $player->resources->tools
-                    && $scholarCost <= $player->resources->scholars) {
-                    $options[] = compact('hexId', 'useTunnel', 'useFlight', 'toolCost', 'scholarCost');
-                }
-            }
+        if ($options !== []) {
+            $actions[] = new LegalActionData('start_paid_terraforming', ['options' => $options]);
         }
-
-        return $options;
     }
 
     /** @param list<LegalActionData> $actions */
