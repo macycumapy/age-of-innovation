@@ -41,6 +41,7 @@ final class LegalActionFinder
         private PlayerSpecialActionOptionFinder $playerSpecialActionOptionFinder,
         private ResourceConversionOptionFinder $resourceConversionOptionFinder,
         private PlaceAnnexOptionFinder $placeAnnexOptionFinder,
+        private PowerOfferOptionFinder $powerOfferOptionFinder,
     ) {
     }
 
@@ -102,6 +103,7 @@ final class LegalActionFinder
             PendingInteractionType::PowerOffer => [new LegalActionData('resolve_power_offer', [
                 'accept' => [true, false],
                 'powerAmount' => (int) ($interaction->context['powerAmount'] ?? 0),
+                'options' => $this->powerOfferOptionFinder->execute($game->state, $player->id),
             ])],
             PendingInteractionType::ChooseTown => [new LegalActionData('choose_town', $parameters)],
             PendingInteractionType::ChooseTownBooks,

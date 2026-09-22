@@ -19,6 +19,7 @@ use App\Domain\Game\Data\PassOptionData;
 use App\Domain\Game\Data\PlaceAnnexOptionData;
 use App\Domain\Game\Data\PlayerSpecialActionOptionData;
 use App\Domain\Game\Data\PowerActionOptionData;
+use App\Domain\Game\Data\PowerOfferOptionData;
 use App\Domain\Game\Data\ResourceExchangeOptionData;
 use App\Domain\Game\Data\SacrificePowerOptionData;
 use App\Domain\Game\Data\SendScholarOptionData;
@@ -43,6 +44,7 @@ final class GameActionSimulator
         private PlayerSpecialActionSimulator $playerSpecialActionSimulator,
         private ResourceConversionSimulator $resourceConversionSimulator,
         private PlaceAnnexSimulator $placeAnnexSimulator,
+        private PowerOfferSimulator $powerOfferSimulator,
     ) {
     }
 
@@ -109,6 +111,10 @@ final class GameActionSimulator
 
         if ($option instanceof PlaceAnnexOptionData) {
             return $this->placeAnnexSimulator->execute($state, $playerId, $option);
+        }
+
+        if ($option instanceof PowerOfferOptionData) {
+            return $this->powerOfferSimulator->execute($state, $playerId, $option);
         }
 
         throw new DomainException("Симуляция действия {$option->type()->value} ещё не поддерживается.");

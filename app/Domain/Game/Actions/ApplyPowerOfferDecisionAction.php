@@ -75,7 +75,10 @@ final class ApplyPowerOfferDecisionAction
                 throw ValidationException::withMessages(['game' => 'Не найден построивший здание игрок.']);
             }
 
-            $queuedBuiltHexIds = $interaction->context['queuedBuiltHexIds'] ?? [];
+            $queuedBuiltHexIdsContext = $interaction->context['queuedBuiltHexIds'] ?? [];
+            $queuedBuiltHexIds = is_array($queuedBuiltHexIdsContext)
+                ? array_values(array_filter($queuedBuiltHexIdsContext, is_string(...)))
+                : [];
             $nextBuiltHexId = array_shift($queuedBuiltHexIds);
             $nextActiveUserId = is_string($nextBuiltHexId)
                 ? $this->createPowerOffersAfterBuilding->execute(
@@ -87,13 +90,13 @@ final class ApplyPowerOfferDecisionAction
                 : null;
 
             if ($nextActiveUserId !== null
-                && $state->pendingInteraction?->type === PendingInteractionType::PowerOffer
+                && $state->pendingInteraction->type === PendingInteractionType::PowerOffer
                 && isset($interaction->context['townBuiltHexId'])) {
                 $state->pendingInteraction->context['townBuiltHexId'] = $interaction->context['townBuiltHexId'];
             }
 
             if ($nextActiveUserId !== null
-                && $state->pendingInteraction?->type === PendingInteractionType::PowerOffer
+                && $state->pendingInteraction->type === PendingInteractionType::PowerOffer
                 && $powerAcceptedDuringOfferChain) {
                 $state->pendingInteraction->context['powerAcceptedDuringOfferChain'] = true;
             }
@@ -114,14 +117,17 @@ final class ApplyPowerOfferDecisionAction
                     $nextActiveUserId = $buildingPlayer->userId;
                 } else {
                     $townBuiltHexId = $interaction->context['townBuiltHexId'] ?? null;
-                    $nextActiveUserId = is_string($townBuiltHexId)
-                        ? $this->createTownChoiceAfterBuilding->execute(
+                    if (is_string($townBuiltHexId)) {
+                        $nextActiveUserId = $this->createTownChoiceAfterBuilding->execute(
                             $state,
                             $buildingPlayer,
                             $townBuiltHexId,
                             powerOffersResolved: true,
-                        )
-                        : $buildingPlayer->userId;
+                        );
+                    } else {
+                        $state->pendingInteraction = null;
+                        $nextActiveUserId = $buildingPlayer->userId;
+                    }
                 }
             }
         }

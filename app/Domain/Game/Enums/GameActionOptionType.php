@@ -25,4 +25,5 @@ enum GameActionOptionType: string
     case ExchangeResources = 'exchange_resources';
     case SacrificePower = 'sacrifice_power';
     case PlaceAnnex = 'place_annex';
+    case ResolvePowerOffer = 'resolve_power_offer';
 }
