@@ -18,6 +18,8 @@ use App\Domain\Game\Data\PalaceActionOptionData;
 use App\Domain\Game\Data\PassOptionData;
 use App\Domain\Game\Data\PlayerSpecialActionOptionData;
 use App\Domain\Game\Data\PowerActionOptionData;
+use App\Domain\Game\Data\ResourceExchangeOptionData;
+use App\Domain\Game\Data\SacrificePowerOptionData;
 use App\Domain\Game\Data\SendScholarOptionData;
 use App\Domain\Game\Data\UpgradeBuildingOptionData;
 use DomainException;
@@ -38,6 +40,7 @@ final class GameActionSimulator
         private InnovationSpecialActionSimulator $innovationSpecialActionSimulator,
         private PalaceActionSimulator $palaceActionSimulator,
         private PlayerSpecialActionSimulator $playerSpecialActionSimulator,
+        private ResourceConversionSimulator $resourceConversionSimulator,
     ) {
     }
 
@@ -96,6 +99,10 @@ final class GameActionSimulator
 
         if ($option instanceof PlayerSpecialActionOptionData) {
             return $this->playerSpecialActionSimulator->execute($state, $playerId, $option);
+        }
+
+        if ($option instanceof ResourceExchangeOptionData || $option instanceof SacrificePowerOptionData) {
+            return $this->resourceConversionSimulator->execute($state, $playerId, $option);
         }
 
         throw new DomainException("Симуляция действия {$option->type()->value} ещё не поддерживается.");

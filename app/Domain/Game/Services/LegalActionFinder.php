@@ -11,6 +11,8 @@ use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Data\GameStateData;
 use App\Domain\Game\Data\LegalActionData;
 use App\Domain\Game\Data\PendingInteractionData;
+use App\Domain\Game\Data\ResourceExchangeOptionData;
+use App\Domain\Game\Data\SacrificePowerOptionData;
 use App\Domain\Game\Enums\BuildingType;
 use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\GameStatus;
@@ -39,6 +41,7 @@ final class LegalActionFinder
         private InnovationSpecialActionOptionFinder $innovationSpecialActionOptionFinder,
         private PalaceActionOptionFinder $palaceActionOptionFinder,
         private PlayerSpecialActionOptionFinder $playerSpecialActionOptionFinder,
+        private ResourceConversionOptionFinder $resourceConversionOptionFinder,
     ) {
     }
 
@@ -241,6 +244,15 @@ final class LegalActionFinder
     /** @param list<LegalActionData> $actions */
     private function appendResourceActions(array &$actions, GamePlayerStateData $player): void
     {
+        $options = $this->resourceConversionOptionFinder->execute($player);
+        $exchangeOptions = array_values(array_filter(
+            $options,
+            static fn ($option): bool => $option instanceof ResourceExchangeOptionData,
+        ));
+        $sacrificeOptions = array_values(array_filter(
+            $options,
+            static fn ($option): bool => $option instanceof SacrificePowerOptionData,
+        ));
         $exchangeLimits = [
             'power' => $player->resources->power->bowlThree,
             'scholars' => $player->resources->scholars,
@@ -252,14 +264,19 @@ final class LegalActionFinder
                 'medicine' => $player->resources->books->medicine,
             ],
         ];
-        if ($exchangeLimits['power'] > 0 || $exchangeLimits['scholars'] > 0 || $exchangeLimits['tools'] > 0
-            || array_sum($exchangeLimits['books']) > 0) {
-            $actions[] = new LegalActionData('exchange_resources', ['available' => $exchangeLimits]);
+        if ($exchangeOptions !== []) {
+            $actions[] = new LegalActionData('exchange_resources', [
+                'available' => $exchangeLimits,
+                'options' => $exchangeOptions,
+            ]);
         }
 
         $maximumSacrifice = intdiv($player->resources->power->bowlTwo, 2);
-        if ($maximumSacrifice > 0) {
-            $actions[] = new LegalActionData('sacrifice_power', ['amount' => ['min' => 1, 'max' => $maximumSacrifice]]);
+        if ($sacrificeOptions !== []) {
+            $actions[] = new LegalActionData('sacrifice_power', [
+                'amount' => ['min' => 1, 'max' => $maximumSacrifice],
+                'options' => $sacrificeOptions,
+            ]);
         }
     }
 

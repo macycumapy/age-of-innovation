@@ -15,8 +15,10 @@ use Illuminate\Validation\ValidationException;
 
 final class SacrificePowerAction
 {
-    public function __construct(private AppendGameHistoryAction $appendGameHistory)
-    {
+    public function __construct(
+        private AppendGameHistoryAction $appendGameHistory,
+        private ApplySacrificePowerAction $applySacrificePower,
+    ) {
     }
 
     public function execute(Game $game, User $user, int $amount): Game
@@ -42,12 +44,6 @@ final class SacrificePowerAction
                 ]);
             }
 
-            if ($amount < 1 || $amount * 2 > $playerState->resources->power->bowlTwo) {
-                throw ValidationException::withMessages([
-                    'amount' => 'Недостаточно Силы во второй чаше.',
-                ]);
-            }
-
             $stateVersionBefore = $lockedGame->version;
 
             if ($state->turnStartSnapshot === null) {
@@ -55,8 +51,7 @@ final class SacrificePowerAction
                 $state->round->turnStartVersion = $stateVersionBefore;
             }
 
-            $playerState->resources->power->bowlTwo -= $amount * 2;
-            $playerState->resources->power->bowlThree += $amount;
+            $this->applySacrificePower->execute($playerState, $amount);
 
             $lockedGame->update([
                 'state' => $state,
