@@ -25,6 +25,7 @@ use App\Domain\Game\Data\ResourceExchangeOptionData;
 use App\Domain\Game\Data\SacrificePowerOptionData;
 use App\Domain\Game\Data\SendScholarOptionData;
 use App\Domain\Game\Data\UpgradeBuildingOptionData;
+use App\Domain\Game\Data\WorkshopAfterTerraformingOptionData;
 use DomainException;
 
 final class GameActionSimulator
@@ -47,6 +48,7 @@ final class GameActionSimulator
         private PlaceAnnexSimulator $placeAnnexSimulator,
         private PowerOfferSimulator $powerOfferSimulator,
         private ChooseTownSimulator $chooseTownSimulator,
+        private WorkshopAfterTerraformingSimulator $workshopAfterTerraformingSimulator,
     ) {
     }
 
@@ -121,6 +123,10 @@ final class GameActionSimulator
 
         if ($option instanceof ChooseTownOptionData) {
             return $this->chooseTownSimulator->execute($state, $playerId, $option);
+        }
+
+        if ($option instanceof WorkshopAfterTerraformingOptionData) {
+            return $this->workshopAfterTerraformingSimulator->execute($state, $playerId, $option);
         }
 
         throw new DomainException("Симуляция действия {$option->type()->value} ещё не поддерживается.");

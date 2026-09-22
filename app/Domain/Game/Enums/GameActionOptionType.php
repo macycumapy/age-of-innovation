@@ -27,4 +27,5 @@ enum GameActionOptionType: string
     case PlaceAnnex = 'place_annex';
     case ResolvePowerOffer = 'resolve_power_offer';
     case ChooseTown = 'choose_town';
+    case ResolveWorkshopAfterTerraforming = 'resolve_workshop_after_terraforming';
 }
