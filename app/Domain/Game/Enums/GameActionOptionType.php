@@ -24,4 +24,5 @@ enum GameActionOptionType: string
     case UseRoundBonusAction = 'use_round_bonus_action';
     case ExchangeResources = 'exchange_resources';
     case SacrificePower = 'sacrifice_power';
+    case PlaceAnnex = 'place_annex';
 }

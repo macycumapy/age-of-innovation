@@ -16,6 +16,7 @@ use App\Domain\Game\Data\MakeInnovationOptionData;
 use App\Domain\Game\Data\PaidTerraformingOptionData;
 use App\Domain\Game\Data\PalaceActionOptionData;
 use App\Domain\Game\Data\PassOptionData;
+use App\Domain\Game\Data\PlaceAnnexOptionData;
 use App\Domain\Game\Data\PlayerSpecialActionOptionData;
 use App\Domain\Game\Data\PowerActionOptionData;
 use App\Domain\Game\Data\ResourceExchangeOptionData;
@@ -41,6 +42,7 @@ final class GameActionSimulator
         private PalaceActionSimulator $palaceActionSimulator,
         private PlayerSpecialActionSimulator $playerSpecialActionSimulator,
         private ResourceConversionSimulator $resourceConversionSimulator,
+        private PlaceAnnexSimulator $placeAnnexSimulator,
     ) {
     }
 
@@ -103,6 +105,10 @@ final class GameActionSimulator
 
         if ($option instanceof ResourceExchangeOptionData || $option instanceof SacrificePowerOptionData) {
             return $this->resourceConversionSimulator->execute($state, $playerId, $option);
+        }
+
+        if ($option instanceof PlaceAnnexOptionData) {
+            return $this->placeAnnexSimulator->execute($state, $playerId, $option);
         }
 
         throw new DomainException("Симуляция действия {$option->type()->value} ещё не поддерживается.");

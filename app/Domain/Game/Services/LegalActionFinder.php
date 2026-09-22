@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Domain\Game\Services;
 
-use App\Domain\Game\Actions\FindEligibleAnnexHexesAction;
 use App\Domain\Game\Actions\FindEligibleBridgePairsAction;
 use App\Domain\Game\Data\BoardHexStateData;
 use App\Domain\Game\Data\GamePlayerStateData;
@@ -26,7 +25,6 @@ use App\Models\User;
 final class LegalActionFinder
 {
     public function __construct(
-        private FindEligibleAnnexHexesAction $findEligibleAnnexHexes,
         private FindEligibleBridgePairsAction $findEligibleBridgePairs,
         private BookActionOptionFinder $bookActionOptionFinder,
         private PowerActionOptionFinder $powerActionOptionFinder,
@@ -42,6 +40,7 @@ final class LegalActionFinder
         private PalaceActionOptionFinder $palaceActionOptionFinder,
         private PlayerSpecialActionOptionFinder $playerSpecialActionOptionFinder,
         private ResourceConversionOptionFinder $resourceConversionOptionFinder,
+        private PlaceAnnexOptionFinder $placeAnnexOptionFinder,
     ) {
     }
 
@@ -231,11 +230,12 @@ final class LegalActionFinder
         $this->appendSpecialActions($actions, $state, $player);
         $this->appendInnovationPurchases($actions, $state, $player);
 
-        if ($player->availableAnnexes > 0) {
-            $hexIds = $this->findEligibleAnnexHexes->execute($state, $player->playerId);
-            if ($hexIds !== []) {
-                $actions[] = new LegalActionData('place_annex', ['hexIds' => $hexIds]);
-            }
+        $annexOptions = $this->placeAnnexOptionFinder->execute($state, $player);
+        if ($annexOptions !== []) {
+            $actions[] = new LegalActionData('place_annex', [
+                'hexIds' => array_column($annexOptions, 'hexId'),
+                'options' => $annexOptions,
+            ]);
         }
 
         return $actions;
