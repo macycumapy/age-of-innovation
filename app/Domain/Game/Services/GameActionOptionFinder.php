@@ -32,6 +32,7 @@ final class GameActionOptionFinder
         private ChooseTownOptionFinder $chooseTownOptionFinder,
         private WorkshopAfterTerraformingOptionFinder $workshopAfterTerraformingOptionFinder,
         private PalaceWaterTownOptionFinder $palaceWaterTownOptionFinder,
+        private ChoosePalaceOptionFinder $choosePalaceOptionFinder,
     ) {
     }
 
@@ -83,6 +84,7 @@ final class GameActionOptionFinder
             PendingInteractionType::ChooseRoundBonus => $this->chooseRoundBonusOptionFinder->execute($state, $player),
             PendingInteractionType::BuildWorkshopAfterTerraforming => $this->workshopAfterTerraformingOptionFinder->execute($state, $player),
             PendingInteractionType::OfferPalaceWaterTown => $this->palaceWaterTownOptionFinder->execute($state, $player->playerId),
+            PendingInteractionType::ChoosePalace => $this->choosePalaceOptionFinder->execute($state, $player),
             default => [],
         };
         $resourceOptions = $state->round->phase === GamePhase::Actions

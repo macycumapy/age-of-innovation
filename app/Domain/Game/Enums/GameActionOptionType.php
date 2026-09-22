@@ -29,4 +29,5 @@ enum GameActionOptionType: string
     case ChooseTown = 'choose_town';
     case ResolveWorkshopAfterTerraforming = 'resolve_workshop_after_terraforming';
     case ResolvePalaceWaterTown = 'resolve_palace_water_town';
+    case ChoosePalace = 'choose_palace';
 }

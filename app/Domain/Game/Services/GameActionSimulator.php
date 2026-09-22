@@ -7,6 +7,7 @@ namespace App\Domain\Game\Services;
 use App\Domain\Game\Contracts\GameActionOption;
 use App\Domain\Game\Data\BookActionOptionData;
 use App\Domain\Game\Data\BuildWorkshopOptionData;
+use App\Domain\Game\Data\ChoosePalaceOptionData;
 use App\Domain\Game\Data\ChooseRoundBonusOptionData;
 use App\Domain\Game\Data\ChooseTownOptionData;
 use App\Domain\Game\Data\DevelopmentAdvancementOptionData;
@@ -51,6 +52,7 @@ final class GameActionSimulator
         private ChooseTownSimulator $chooseTownSimulator,
         private WorkshopAfterTerraformingSimulator $workshopAfterTerraformingSimulator,
         private PalaceWaterTownSimulator $palaceWaterTownSimulator,
+        private ChoosePalaceSimulator $choosePalaceSimulator,
     ) {
     }
 
@@ -133,6 +135,10 @@ final class GameActionSimulator
 
         if ($option instanceof PalaceWaterTownOptionData) {
             return $this->palaceWaterTownSimulator->execute($state, $playerId, $option);
+        }
+
+        if ($option instanceof ChoosePalaceOptionData) {
+            return $this->choosePalaceSimulator->execute($state, $playerId, $option);
         }
 
         throw new DomainException("Симуляция действия {$option->type()->value} ещё не поддерживается.");
