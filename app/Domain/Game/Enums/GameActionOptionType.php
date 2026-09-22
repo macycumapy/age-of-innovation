@@ -26,4 +26,5 @@ enum GameActionOptionType: string
     case SacrificePower = 'sacrifice_power';
     case PlaceAnnex = 'place_annex';
     case ResolvePowerOffer = 'resolve_power_offer';
+    case ChooseTown = 'choose_town';
 }

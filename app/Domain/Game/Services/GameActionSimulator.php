@@ -8,6 +8,7 @@ use App\Domain\Game\Contracts\GameActionOption;
 use App\Domain\Game\Data\BookActionOptionData;
 use App\Domain\Game\Data\BuildWorkshopOptionData;
 use App\Domain\Game\Data\ChooseRoundBonusOptionData;
+use App\Domain\Game\Data\ChooseTownOptionData;
 use App\Domain\Game\Data\DevelopmentAdvancementOptionData;
 use App\Domain\Game\Data\GameActionSimulationData;
 use App\Domain\Game\Data\GameStateData;
@@ -45,6 +46,7 @@ final class GameActionSimulator
         private ResourceConversionSimulator $resourceConversionSimulator,
         private PlaceAnnexSimulator $placeAnnexSimulator,
         private PowerOfferSimulator $powerOfferSimulator,
+        private ChooseTownSimulator $chooseTownSimulator,
     ) {
     }
 
@@ -115,6 +117,10 @@ final class GameActionSimulator
 
         if ($option instanceof PowerOfferOptionData) {
             return $this->powerOfferSimulator->execute($state, $playerId, $option);
+        }
+
+        if ($option instanceof ChooseTownOptionData) {
+            return $this->chooseTownSimulator->execute($state, $playerId, $option);
         }
 
         throw new DomainException("Симуляция действия {$option->type()->value} ещё не поддерживается.");

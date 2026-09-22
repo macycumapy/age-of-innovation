@@ -5,32 +5,21 @@ declare(strict_types=1);
 namespace App\Domain\Game\Actions;
 
 use App\Domain\Game\Data\GamePlayerStateData;
-use App\Domain\Game\Data\GameStateData;
-use App\Domain\Game\Data\PendingInteractionData;
-use App\Domain\Game\Data\TownRewardResultData;
-use App\Domain\Game\Enums\Faction;
 use App\Domain\Game\Enums\GameActionType;
 use App\Domain\Game\Enums\GamePhase;
-use App\Domain\Game\Enums\KnowledgeDiscipline;
 use App\Domain\Game\Enums\PendingInteractionType;
-use App\Domain\Game\Enums\RoundScoringGoal;
-use App\Domain\Game\Enums\RoundScoringTile;
 use App\Domain\Game\Enums\TownTile;
 use App\Models\Game;
 use App\Models\GamePlayer;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 final class ChooseTownAction
 {
     public function __construct(
         private AppendGameHistoryAction $appendGameHistory,
-        private AdvanceKnowledgeAction $advanceKnowledge,
-        private GainPowerAction $gainPower,
-        private FindEligibleTerraformHexesAction $findEligibleTerraformHexes,
-        private StartLizardTownBonusAction $startLizardTownBonus,
+        private ApplyChooseTownAction $applyChooseTown,
     ) {
     }
 
@@ -45,24 +34,14 @@ final class ChooseTownAction
             if ($lockedGame->phase !== GamePhase::Actions
                 || $lockedGame->active_player_id !== $user->id
                 || $interaction?->type !== PendingInteractionType::ChooseTown
-                || ! $player instanceof GamePlayer
-                || ! in_array($townTile->value, $interaction->optionIds, true)) {
+                || ! $player instanceof GamePlayer) {
                 throw ValidationException::withMessages(['town_tile' => 'Этот жетон города недоступен.']);
             }
 
             $playerState = collect($state->players)->firstWhere('playerId', $player->id);
-            $townHexIds = $interaction->context['townHexIds'] ?? [];
-            $builtHexId = (string) ($interaction->context['builtHexId'] ?? '');
-            $markerHexId = (string) ($interaction->context['markerHexId'] ?? $builtHexId);
-            $isFreePalaceTownTile = ($interaction->context['freePalaceTownTile'] ?? false) === true;
-            $queuedBuiltHexIds = is_array($interaction->context['queuedBuiltHexIds'] ?? null)
-                ? $interaction->context['queuedBuiltHexIds']
-                : [];
 
-            if (! $playerState instanceof GamePlayerStateData
-                || ! is_array($townHexIds)
-                || ($townHexIds === [] && ! $isFreePalaceTownTile)) {
-                throw ValidationException::withMessages(['town_tile' => 'Не найдены клетки основанного города.']);
+            if (! $playerState instanceof GamePlayerStateData) {
+                throw ValidationException::withMessages(['town_tile' => 'Не найдено состояние игрока.']);
             }
 
             $stateVersionBefore = $lockedGame->version;
@@ -72,82 +51,10 @@ final class ChooseTownAction
                 $state->round->turnStartVersion = $stateVersionBefore;
             }
 
-            $townChoiceCheckpoint = $state->toArray();
-            $townId = $isFreePalaceTownTile ? null : (string) Str::uuid();
-
-            foreach ($state->board->hexes as $hex) {
-                if (in_array($hex->id, $townHexIds, true)) {
-                    $hex->townId = $townId;
-                    $hex->townTileId = $hex->id === $markerHexId ? $townTile->value : null;
-                }
-            }
-
-            $playerState->townTileIds[] = $townTile->value;
-            $townTileIndex = array_search($townTile->value, $state->availableTownTileIds, true);
-
-            if ($townTileIndex !== false) {
-                array_splice($state->availableTownTileIds, $townTileIndex, 1);
-            }
-
-            $reward = $this->applyReward($state, $playerState, $townTile);
-            $victoryPoints = $reward->victoryPoints;
-            $playerState->victoryPoints += $victoryPoints;
-            $state->pendingInteraction = null;
-
-            $isFelineTown = $playerState->faction === Faction::Felines;
-            $isLizardTown = $playerState->faction === Faction::Lizards;
-
-            if ($townTile === TownTile::Books) {
-                $state->pendingInteraction = new PendingInteractionData(
-                    PendingInteractionType::ChooseTownBooks,
-                    $player->id,
-                    [],
-                    [
-                        'bookCount' => 2,
-                        'builtHexId' => $builtHexId,
-                        'queuedBuiltHexIds' => $queuedBuiltHexIds,
-                        ...($isFelineTown ? ['felineBonusPending' => true] : []),
-                        ...($isLizardTown ? ['lizardBonusPending' => true] : []),
-                    ],
-                );
-            } elseif ($townTile === TownTile::Terraform) {
-                $playerState->unassignedSpades += 2;
-                $eligibleHexIds = $this->findEligibleTerraformHexes->execute($state, $playerState, $playerState->homeland);
-                $state->pendingInteraction = new PendingInteractionData(
-                    PendingInteractionType::SpendSpades,
-                    $player->id,
-                    $eligibleHexIds,
-                    [
-                        'phase' => GamePhase::Actions->value,
-                        'spadeCount' => 2,
-                        'remainingSpades' => 2,
-                        'targetTerrain' => $playerState->homeland->value,
-                        ...($isFelineTown ? ['felineBonusPending' => true] : []),
-                        ...($isLizardTown ? ['lizardBonusPending' => true] : []),
-                    ],
-                );
-            } elseif ($isFelineTown) {
-                $playerState->resources->books->unassigned++;
-                $state->pendingInteraction = new PendingInteractionData(
-                    PendingInteractionType::ChooseFelineTownBonus,
-                    $player->id,
-                    [],
-                    [
-                        'bookCount' => 1,
-                        'knowledgeStepCount' => 3,
-                        'builtHexId' => $builtHexId,
-                        'queuedBuiltHexIds' => $queuedBuiltHexIds,
-                    ],
-                );
-            } elseif ($isLizardTown) {
-                $this->startLizardTownBonus->execute($state, $playerState);
-            }
-            $nextActiveUserId = $player->user_id;
-
-            $state->townChoiceCheckpoint = $townChoiceCheckpoint;
+            $result = $this->applyChooseTown->execute($state, $playerState, $townTile);
 
             $lockedGame->update([
-                'active_player_id' => $nextActiveUserId,
+                'active_player_id' => $result->nextActiveUserId,
                 'state' => $state,
                 'version' => $lockedGame->version + 1,
             ]);
@@ -157,12 +64,12 @@ final class ChooseTownAction
                 GameActionType::ChooseTown,
                 [
                     'town_tile' => $townTile->value,
-                    'town_id' => $townId,
-                    'town_hex_ids' => $townHexIds,
-                    'marker_hex_id' => $markerHexId,
-                    'queued_built_hex_ids' => $queuedBuiltHexIds,
-                    'victory_points' => $victoryPoints,
-                    'gained_power' => $reward->gainedPower,
+                    'town_id' => $result->townId,
+                    'town_hex_ids' => $result->townHexIds,
+                    'marker_hex_id' => $result->markerHexId,
+                    'queued_built_hex_ids' => $interaction->context['queuedBuiltHexIds'] ?? [],
+                    'victory_points' => $result->victoryPoints,
+                    'gained_power' => $result->gainedPower,
                 ],
                 [['type' => 'town_founded', 'player_id' => $player->id, 'town_tile' => $townTile->value]],
                 $stateVersionBefore,
@@ -171,47 +78,5 @@ final class ChooseTownAction
 
             return $lockedGame->refresh();
         });
-    }
-
-    private function applyReward(
-        GameStateData $state,
-        GamePlayerStateData $player,
-        TownTile $townTile,
-    ): TownRewardResultData {
-        $knowledgeAdvances = [];
-        $gainedPower = match ($townTile) {
-            TownTile::Tools => $player->resources->tools += 3,
-            TownTile::Books => $player->resources->books->unassigned += 2,
-            TownTile::Coins => $player->resources->coins += 6,
-            TownTile::Knowledge => array_sum(array_map(function (KnowledgeDiscipline $discipline) use ($state, $player, &$knowledgeAdvances): int {
-                $knowledgeAdvance = $this->advanceKnowledge->execute($state, $player, $discipline, 1);
-                $knowledgeAdvances[] = $knowledgeAdvance;
-
-                return $knowledgeAdvance->gainedPower;
-            }, KnowledgeDiscipline::cases())),
-            TownTile::Power => $this->gainPower->execute($player, 8),
-            TownTile::Scholar => $player->resources->scholars = min(
-                $player->scholarPoolSize,
-                $player->resources->scholars + 1,
-            ),
-            TownTile::Terraform => null,
-        };
-
-        $roundTile = RoundScoringTile::tryFrom((string) $state->round->scoringTileId);
-        $knowledgeVictoryPoints = array_sum(array_column($knowledgeAdvances, 'victoryPoints'));
-
-        $victoryPoints = match ($townTile) {
-            TownTile::Tools => 4,
-            TownTile::Terraform, TownTile::Books => 5,
-            TownTile::Coins => 6,
-            TownTile::Knowledge => 7,
-            TownTile::Power, TownTile::Scholar => 8,
-        } + ($roundTile?->goal() === RoundScoringGoal::Town ? 5 : 0)
-            + $knowledgeVictoryPoints;
-
-        return new TownRewardResultData(
-            victoryPoints: $victoryPoints,
-            gainedPower: $townTile === TownTile::Knowledge ? $gainedPower : 0,
-        );
     }
 }
