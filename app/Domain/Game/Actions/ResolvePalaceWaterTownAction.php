@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace App\Domain\Game\Actions;
 
-use App\Domain\Game\Data\GamePlayerStateData;
-use App\Domain\Game\Data\PendingInteractionData;
 use App\Domain\Game\Enums\GameActionType;
 use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\PendingInteractionType;
@@ -19,6 +17,7 @@ final class ResolvePalaceWaterTownAction
 {
     public function __construct(
         private AppendGameHistoryAction $appendGameHistory,
+        private ApplyPalaceWaterTownDecisionAction $applyPalaceWaterTownDecision,
     ) {
     }
 
@@ -29,52 +28,21 @@ final class ResolvePalaceWaterTownAction
             $state = $lockedGame->state;
             $interaction = $state->pendingInteraction;
             $player = $lockedGame->players()->whereKey($interaction?->playerId)->whereBelongsTo($user)->first();
-            $townsByWaterHexId = $interaction?->context['townsByWaterHexId'] ?? [];
 
             if ($lockedGame->phase !== GamePhase::Actions
                 || $lockedGame->active_player_id !== $user->id
                 || $interaction?->type !== PendingInteractionType::OfferPalaceWaterTown
-                || ! $player instanceof GamePlayer
-                || ! is_array($townsByWaterHexId)
-                || ($accept && (! is_string($waterHexId) || ! isset($townsByWaterHexId[$waterHexId])))) {
+                || ! $player instanceof GamePlayer) {
                 throw ValidationException::withMessages(['town' => 'Сейчас нельзя подтвердить создание города через воду.']);
             }
 
-            $playerState = collect($state->players)->firstWhere('playerId', $player->id);
-
-            if (! $playerState instanceof GamePlayerStateData) {
-                throw ValidationException::withMessages(['town' => 'Не найдено состояние игрока.']);
-            }
-
             $stateVersionBefore = $lockedGame->version;
-            $builtHexId = (string) ($interaction->context['builtHexId'] ?? '');
-            $queuedBuiltHexIds = is_array($interaction->context['queuedBuiltHexIds'] ?? null)
-                ? $interaction->context['queuedBuiltHexIds']
-                : [];
             $state->turnStartSnapshot = $state->toArray();
             $state->round->turnStartVersion = $stateVersionBefore;
-
-            if ($accept) {
-                $townHexIds = $townsByWaterHexId[$waterHexId];
-                $state->pendingInteraction = new PendingInteractionData(
-                    PendingInteractionType::ChooseTown,
-                    $player->id,
-                    array_values(array_unique($state->availableTownTileIds)),
-                    [
-                        'townHexIds' => [...$townHexIds, $waterHexId],
-                        'builtHexId' => $builtHexId,
-                        'markerHexId' => $waterHexId,
-                        'queuedBuiltHexIds' => $queuedBuiltHexIds,
-                    ],
-                );
-                $nextActiveUserId = $player->user_id;
-            } else {
-                $state->pendingInteraction = null;
-                $nextActiveUserId = $player->user_id;
-            }
+            $result = $this->applyPalaceWaterTownDecision->execute($state, $player->id, $accept, $waterHexId);
 
             $lockedGame->update([
-                'active_player_id' => $nextActiveUserId,
+                'active_player_id' => $result->nextActiveUserId,
                 'state' => $state,
                 'version' => $lockedGame->version + 1,
             ]);
@@ -84,9 +52,9 @@ final class ResolvePalaceWaterTownAction
                 $accept ? GameActionType::AcceptPalaceWaterTown : GameActionType::DeclinePalaceWaterTown,
                 [
                     'water_hex_id' => $accept ? $waterHexId : null,
-                    'built_hex_id' => $builtHexId,
-                    'town_hex_ids' => $accept ? $townsByWaterHexId[$waterHexId] : [],
-                    'queued_built_hex_ids' => $queuedBuiltHexIds,
+                    'built_hex_id' => $result->builtHexId,
+                    'town_hex_ids' => $result->townHexIds,
+                    'queued_built_hex_ids' => $result->queuedBuiltHexIds,
                 ],
                 [['type' => $accept ? 'palace_water_town_accepted' : 'palace_water_town_declined', 'player_id' => $player->id]],
                 $stateVersionBefore,

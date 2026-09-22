@@ -16,6 +16,7 @@ use App\Domain\Game\Data\InnovationSpecialActionOptionData;
 use App\Domain\Game\Data\MakeInnovationOptionData;
 use App\Domain\Game\Data\PaidTerraformingOptionData;
 use App\Domain\Game\Data\PalaceActionOptionData;
+use App\Domain\Game\Data\PalaceWaterTownOptionData;
 use App\Domain\Game\Data\PassOptionData;
 use App\Domain\Game\Data\PlaceAnnexOptionData;
 use App\Domain\Game\Data\PlayerSpecialActionOptionData;
@@ -49,6 +50,7 @@ final class GameActionSimulator
         private PowerOfferSimulator $powerOfferSimulator,
         private ChooseTownSimulator $chooseTownSimulator,
         private WorkshopAfterTerraformingSimulator $workshopAfterTerraformingSimulator,
+        private PalaceWaterTownSimulator $palaceWaterTownSimulator,
     ) {
     }
 
@@ -127,6 +129,10 @@ final class GameActionSimulator
 
         if ($option instanceof WorkshopAfterTerraformingOptionData) {
             return $this->workshopAfterTerraformingSimulator->execute($state, $playerId, $option);
+        }
+
+        if ($option instanceof PalaceWaterTownOptionData) {
+            return $this->palaceWaterTownSimulator->execute($state, $playerId, $option);
         }
 
         throw new DomainException("Симуляция действия {$option->type()->value} ещё не поддерживается.");
