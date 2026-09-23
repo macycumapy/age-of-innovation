@@ -7,7 +7,6 @@ namespace App\Domain\Game\Services;
 use App\Domain\Game\Contracts\GameActionOption;
 use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Data\GameStateData;
-use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\PendingInteractionType;
 
 final class GameActionOptionFinder
@@ -36,6 +35,7 @@ final class GameActionOptionFinder
         private ChooseCompetencyOptionFinder $chooseCompetencyOptionFinder,
         private PlaceNeutralBuildingOptionFinder $placeNeutralBuildingOptionFinder,
         private PlaceBridgeOptionFinder $placeBridgeOptionFinder,
+        private SpendSpadesOptionFinder $spendSpadesOptionFinder,
     ) {
     }
 
@@ -52,7 +52,7 @@ final class GameActionOptionFinder
             return $this->pendingOptions($state, $player);
         }
 
-        if ($state->round->phase !== GamePhase::Actions || $state->round->hasTakenMainAction) {
+        if (! $state->round->phase->isActionPhase() || $state->round->hasTakenMainAction) {
             return [];
         }
 
@@ -91,9 +91,10 @@ final class GameActionOptionFinder
             PendingInteractionType::ChooseCompetency => $this->chooseCompetencyOptionFinder->execute($state, $player),
             PendingInteractionType::PlaceNeutralBuilding => $this->placeNeutralBuildingOptionFinder->execute($state, $player),
             PendingInteractionType::PlaceBridge => $this->placeBridgeOptionFinder->execute($state, $player),
+            PendingInteractionType::SpendSpades => $this->spendSpadesOptionFinder->execute($state, $player),
             default => [],
         };
-        $resourceOptions = $state->round->phase === GamePhase::Actions
+        $resourceOptions = $state->round->phase->isActionPhase()
             ? $this->resourceConversionOptionFinder->execute($player)
             : [];
 

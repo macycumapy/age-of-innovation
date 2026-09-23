@@ -5,16 +5,15 @@ declare(strict_types=1);
 namespace App\Domain\Game\Actions;
 
 use App\Domain\Game\Data\GamePlayerStateData;
-use App\Domain\Game\Data\GameStateData;
 use App\Domain\Game\Data\PendingInteractionData;
-use App\Domain\Game\Enums\Competency;
+use App\Domain\Game\Data\SpendSpadesHistoryData;
+use App\Domain\Game\Data\SpendSpadesOptionData;
 use App\Domain\Game\Enums\Faction;
 use App\Domain\Game\Enums\GameActionType;
+use App\Domain\Game\Enums\GameEventType;
 use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\GameStatus;
 use App\Domain\Game\Enums\PendingInteractionType;
-use App\Domain\Game\Enums\RoundScoringGoal;
-use App\Domain\Game\Enums\RoundScoringTile;
 use App\Domain\Game\Enums\TerrainType;
 use App\Models\Game;
 use App\Models\GamePlayer;
@@ -26,14 +25,13 @@ final class FinishStartingSpadeAction
 {
     public function __construct(
         private AppendGameHistoryAction $appendGameHistory,
+        private ApplySpendSpadesAction $applySpendSpades,
         private DetermineStartingBuildingOrderAction $determineStartingBuildingOrder,
         private FindEligibleTerraformHexesAction $findEligibleTerraformHexes,
         private FindEligibleMoleTunnelHexesAction $findEligibleMoleTunnelHexes,
         private FindEligiblePalaceFlightHexesAction $findEligiblePalaceFlightHexes,
-        private OfferWorkshopAfterTerraformingAction $offerWorkshopAfterTerraforming,
         private ResolveCompletedStartingSetupAction $resolveCompletedStartingSetup,
         private ResolveScienceBonusPhaseAction $resolveScienceBonusPhase,
-        private StartLizardTownBonusAction $startLizardTownBonus,
     ) {
     }
 
@@ -67,6 +65,19 @@ final class FinishStartingSpadeAction
                 throw ValidationException::withMessages(['game' => 'У игрока нет доступной лопаты.']);
             }
 
+            if ($interactionPhase->isActionPhase()) {
+                return $this->finishActionPhaseSpades(
+                    $lockedGame,
+                    $user,
+                    $player,
+                    $interaction,
+                    $playerState,
+                    $hexId,
+                    $spentSpades,
+                    $stateVersionBefore,
+                );
+            }
+
             $playerState->unassignedSpades -= $spentSpades;
             $goblinBonusCoins = $playerState->faction === Faction::Goblins ? $spentSpades * 2 : 0;
             $playerState->resources->coins += $goblinBonusCoins;
@@ -79,12 +90,6 @@ final class FinishStartingSpadeAction
             $tunnelVictoryPoints = (int) ($interaction->context['tunnelVictoryPoints'] ?? 0);
             $flightScholarCost = (int) ($interaction->context['flightScholarCost'] ?? 0);
             $flightVictoryPoints = (int) ($interaction->context['flightVictoryPoints'] ?? 0);
-            $roundScoringTile = RoundScoringTile::tryFrom((string) $state->round->scoringTileId);
-            $roundScoringVictoryPoints = $interactionPhase === GamePhase::Actions
-                && $roundScoringTile?->goal() === RoundScoringGoal::Spade
-                    ? $spentSpades * 2
-                    : 0;
-            $playerState->victoryPoints += $roundScoringVictoryPoints;
             $buildableHexIds = $interaction->context['buildableHexIds'] ?? [];
 
             if ($tunnelTools > 0) {
@@ -94,10 +99,6 @@ final class FinishStartingSpadeAction
                 $interaction->context['flightUsed'] = true;
             }
 
-            if ($interactionPhase === GamePhase::Actions
-                && $terrainAfter === $playerState->homeland->value) {
-                $buildableHexIds[] = $hexId;
-            }
             unset(
                 $interaction->context['selectedHexId'],
                 $interaction->context['terrainBefore'],
@@ -145,15 +146,6 @@ final class FinishStartingSpadeAction
                     $state->pendingInteraction = $interaction;
                     $nextPlayer = $player;
                     $nextPhase = $interactionPhase;
-                } elseif ($interactionPhase === GamePhase::Actions) {
-                    $buildOffered = $this->continueAfterActionSpades(
-                        $state,
-                        $playerState,
-                        $buildableHexIds,
-                        $interaction,
-                    );
-                    $nextPlayer = $player;
-                    $nextPhase = GamePhase::Actions;
                 } elseif ($interactionPhase === GamePhase::ScienceBonus) {
                     $state->pendingInteraction = null;
                     [$nextPlayer, $nextPhase, $incomeReceipts, $finalScoring, $scienceBonusReceipts] = $this->resolveScienceBonusPhase->execute(
@@ -167,15 +159,6 @@ final class FinishStartingSpadeAction
                         $lockedGame->players()->get(),
                     );
                 }
-            } elseif ($interactionPhase === GamePhase::Actions) {
-                $buildOffered = $this->continueAfterActionSpades(
-                    $state,
-                    $playerState,
-                    $buildableHexIds,
-                    $interaction,
-                );
-                $nextPlayer = $player;
-                $nextPhase = GamePhase::Actions;
             } elseif ($interactionPhase === GamePhase::ScienceBonus) {
                 $state->pendingInteraction = null;
                 [$nextPlayer, $nextPhase, $incomeReceipts, $finalScoring, $scienceBonusReceipts] = $this->resolveScienceBonusPhase->execute(
@@ -190,9 +173,7 @@ final class FinishStartingSpadeAction
                         $player->id,
                         array_values(array_unique(array_filter(
                             array_map(
-                                static fn (Competency|string $competency): string => $competency instanceof Competency
-                                    ? $competency->value
-                                    : $competency,
+                                static fn (string $competency): string => $competency,
                                 $state->availableCompetencyIds,
                             ),
                             static fn (string $competencyId): bool => ! in_array(
@@ -231,78 +212,41 @@ final class FinishStartingSpadeAction
                 'state' => $state,
                 'version' => $lockedGame->version + 1,
             ]);
-            $this->appendGameHistory->execute(
+            $this->appendSpendSpadesHistory(
                 $lockedGame,
                 $user,
-                GameActionType::SpendStartingSpade,
-                [
-                    'hex_id' => $hexId,
-                    'terrain_before' => $terrainBefore,
-                    'terrain_after' => $terrainAfter,
-                    'remaining_spades' => $remainingSpades,
-                    'target_terrain' => $interaction->context['targetTerrain'] ?? null,
-                    'phase' => $interactionPhase->value,
-                    'income_started' => $interactionPhase === GamePhase::Setup && $nextPhase !== GamePhase::Setup,
-                    'round' => $state->round->number,
-                    'buildable_hex_ids' => $buildableHexIds,
-                    'build_offered' => $buildOffered,
-                    'paid_tools' => $paidTools,
-                    'paid_spade_count' => $paidSpadeCount,
-                    'spades_spent' => $spentSpades,
-                    'resume_starting_building_placement' => (bool) ($interaction->context['resumeStartingBuildingPlacement'] ?? false),
-                    'choose_starting_competency_after_spade' => (bool) ($interaction->context['chooseStartingCompetencyAfterSpade'] ?? false),
-                    'bonus_coins' => $goblinBonusCoins,
-                    'tunnel_tools' => $tunnelTools,
-                    'tunnel_victory_points' => $tunnelVictoryPoints,
-                    'flight_scholar_cost' => $flightScholarCost,
-                    'flight_victory_points' => $flightVictoryPoints,
-                    'victory_points' => $roundScoringVictoryPoints,
-                    'feline_bonus_pending' => (bool) ($interaction->context['felineBonusPending'] ?? false),
-                    'lizard_bonus_pending' => (bool) ($interaction->context['lizardBonusPending'] ?? false),
-                    'lizard_free_workshop' => (bool) ($interaction->context['lizardFreeWorkshop'] ?? false),
-                    'income_receipts' => $incomeReceipts,
-                    'science_bonus_receipts' => $scienceBonusReceipts,
-                    'final_scoring' => $finalScoring,
-                ],
-                [
-                    [
-                        'type' => $interactionPhase === GamePhase::Setup
-                            ? 'starting_spade_spent'
-                            : 'spade_spent',
-                        'player_id' => $player->id,
-                        'hex_id' => $hexId,
-                    ],
-                    ...($tunnelTools > 0 ? [[
-                        'type' => 'mole_tunnel_used',
-                        'player_id' => $player->id,
-                        'hex_id' => $hexId,
-                        'tools' => $tunnelTools,
-                        'victory_points' => $tunnelVictoryPoints,
-                    ]] : []),
-                    ...($flightScholarCost > 0 ? [[
-                        'type' => 'palace_flight_used',
-                        'player_id' => $player->id,
-                        'hex_id' => $hexId,
-                        'scholars' => $flightScholarCost,
-                        'victory_points' => $flightVictoryPoints,
-                    ]] : []),
-                    ...($roundScoringVictoryPoints > 0 ? [[
-                        'type' => 'round_spade_scored',
-                        'player_id' => $player->id,
-                        'spades' => $spentSpades,
-                        'victory_points' => $roundScoringVictoryPoints,
-                    ]] : []),
-                    ...($goblinBonusCoins > 0 ? [[
-                        'type' => 'goblin_spade_bonus_received',
-                        'player_id' => $player->id,
-                        'spades' => $spentSpades,
-                        'coins' => $goblinBonusCoins,
-                    ]] : []),
-                    ...($interactionPhase === GamePhase::Setup && $nextPhase !== GamePhase::Setup ? [[
-                        'type' => 'income_phase_started',
-                        'round' => $state->round->number,
-                    ]] : []),
-                ],
+                $player,
+                new SpendSpadesHistoryData(
+                    hexId: $hexId,
+                    terrainBefore: is_string($terrainBefore) ? $terrainBefore : null,
+                    terrainAfter: is_string($terrainAfter) ? $terrainAfter : null,
+                    remainingSpades: $remainingSpades,
+                    targetTerrain: is_string($interaction->context['targetTerrain'] ?? null)
+                        ? $interaction->context['targetTerrain']
+                        : null,
+                    phase: $interactionPhase,
+                    incomeStarted: $interactionPhase === GamePhase::Setup && $nextPhase !== GamePhase::Setup,
+                    round: $state->round->number,
+                    buildableHexIds: array_values(array_filter((array) $buildableHexIds, 'is_string')),
+                    buildOffered: $buildOffered,
+                    paidTools: $paidTools,
+                    paidSpadeCount: $paidSpadeCount,
+                    spentSpades: $spentSpades,
+                    resumeStartingBuildingPlacement: (bool) ($interaction->context['resumeStartingBuildingPlacement'] ?? false),
+                    chooseStartingCompetencyAfterSpade: (bool) ($interaction->context['chooseStartingCompetencyAfterSpade'] ?? false),
+                    bonusCoins: $goblinBonusCoins,
+                    tunnelTools: $tunnelTools,
+                    tunnelVictoryPoints: $tunnelVictoryPoints,
+                    flightScholarCost: $flightScholarCost,
+                    flightVictoryPoints: $flightVictoryPoints,
+                    victoryPoints: 0,
+                    felineBonusPending: (bool) ($interaction->context['felineBonusPending'] ?? false),
+                    lizardBonusPending: (bool) ($interaction->context['lizardBonusPending'] ?? false),
+                    lizardFreeWorkshop: (bool) ($interaction->context['lizardFreeWorkshop'] ?? false),
+                    incomeReceipts: $incomeReceipts,
+                    scienceBonusReceipts: $scienceBonusReceipts,
+                    finalScoring: $finalScoring,
+                ),
                 $stateVersionBefore,
                 $lockedGame->version,
                 $nextPhase !== $interactionPhase,
@@ -312,54 +256,150 @@ final class FinishStartingSpadeAction
         });
     }
 
-    /** @param list<string> $buildableHexIds */
-    private function continueAfterActionSpades(
-        GameStateData $state,
-        GamePlayerStateData $playerState,
-        array $buildableHexIds,
+    private function finishActionPhaseSpades(
+        Game $game,
+        User $user,
+        GamePlayer $player,
         PendingInteractionData $interaction,
-    ): bool {
-        if (($interaction->context['lizardBonusPending'] ?? false) === true) {
-            $this->startLizardTownBonus->execute($state, $playerState);
+        GamePlayerStateData $playerState,
+        string $hexId,
+        int $spentSpades,
+        int $stateVersionBefore,
+    ): Game {
+        $historyContext = $interaction->context;
+        $result = $this->applySpendSpades->execute(
+            $game->state,
+            $playerState,
+            new SpendSpadesOptionData($hexId, $spentSpades),
+            requireActionPhase: false,
+        );
 
-            return false;
-        }
+        $game->update([
+            'active_player_id' => $result->nextActiveUserId,
+            'state' => $game->state,
+            'version' => $game->version + 1,
+        ]);
+        $this->appendSpendSpadesHistory(
+            $game,
+            $user,
+            $player,
+            new SpendSpadesHistoryData(
+                hexId: $result->hexId,
+                terrainBefore: $result->terrainBefore,
+                terrainAfter: $result->terrainAfter,
+                remainingSpades: $result->remainingSpades,
+                targetTerrain: $historyContext['targetTerrain'] ?? null,
+                phase: GamePhase::Actions,
+                incomeStarted: false,
+                round: $game->state->round->number,
+                buildableHexIds: $result->buildableHexIds,
+                buildOffered: $result->buildOffered,
+                paidTools: (int) ($historyContext['paidTools'] ?? 0),
+                paidSpadeCount: (int) ($historyContext['paidSpadeCount'] ?? 0),
+                spentSpades: $result->spentSpades,
+                resumeStartingBuildingPlacement: false,
+                chooseStartingCompetencyAfterSpade: false,
+                bonusCoins: $result->bonusCoins,
+                tunnelTools: (int) ($historyContext['tunnelTools'] ?? 0),
+                tunnelVictoryPoints: (int) ($historyContext['tunnelVictoryPoints'] ?? 0),
+                flightScholarCost: (int) ($historyContext['flightScholarCost'] ?? 0),
+                flightVictoryPoints: (int) ($historyContext['flightVictoryPoints'] ?? 0),
+                victoryPoints: $result->victoryPoints,
+                felineBonusPending: (bool) ($historyContext['felineBonusPending'] ?? false),
+                lizardBonusPending: (bool) ($historyContext['lizardBonusPending'] ?? false),
+                lizardFreeWorkshop: (bool) ($historyContext['lizardFreeWorkshop'] ?? false),
+            ),
+            $stateVersionBefore,
+            $game->version,
+        );
 
-        if (($interaction->context['lizardFreeWorkshop'] ?? false) === true) {
-            return $this->offerWorkshopAfterTerraforming->execute(
-                $state,
-                $playerState,
-                $buildableHexIds,
-                ['toolCost' => 0, 'coinCost' => 0, 'lizardFreeWorkshop' => true],
-            );
-        }
+        return $game->refresh();
+    }
 
-        if (($interaction->context['felineBonusPending'] ?? false) === true) {
-            $buildOffered = $this->offerWorkshopAfterTerraforming->execute(
-                $state,
-                $playerState,
-                $buildableHexIds,
-                ['felineBonusPending' => true],
-            );
-
-            if ($buildOffered) {
-                return true;
-            }
-
-            $playerState->resources->books->unassigned++;
-            $state->pendingInteraction = new PendingInteractionData(
-                PendingInteractionType::ChooseFelineTownBonus,
-                $playerState->playerId,
-                [],
+    private function appendSpendSpadesHistory(
+        Game $game,
+        User $user,
+        GamePlayer $player,
+        SpendSpadesHistoryData $history,
+        int $stateVersionBefore,
+        int $stateVersionAfter,
+        bool $phaseChanged = false,
+    ): void {
+        $this->appendGameHistory->execute(
+            $game,
+            $user,
+            GameActionType::SpendStartingSpade,
+            [
+                'hex_id' => $history->hexId,
+                'terrain_before' => $history->terrainBefore,
+                'terrain_after' => $history->terrainAfter,
+                'remaining_spades' => $history->remainingSpades,
+                'target_terrain' => $history->targetTerrain,
+                'phase' => $history->phase->value,
+                'income_started' => $history->incomeStarted,
+                'round' => $history->round,
+                'buildable_hex_ids' => $history->buildableHexIds,
+                'build_offered' => $history->buildOffered,
+                'paid_tools' => $history->paidTools,
+                'paid_spade_count' => $history->paidSpadeCount,
+                'spades_spent' => $history->spentSpades,
+                'resume_starting_building_placement' => $history->resumeStartingBuildingPlacement,
+                'choose_starting_competency_after_spade' => $history->chooseStartingCompetencyAfterSpade,
+                'bonus_coins' => $history->bonusCoins,
+                'tunnel_tools' => $history->tunnelTools,
+                'tunnel_victory_points' => $history->tunnelVictoryPoints,
+                'flight_scholar_cost' => $history->flightScholarCost,
+                'flight_victory_points' => $history->flightVictoryPoints,
+                'victory_points' => $history->victoryPoints,
+                'feline_bonus_pending' => $history->felineBonusPending,
+                'lizard_bonus_pending' => $history->lizardBonusPending,
+                'lizard_free_workshop' => $history->lizardFreeWorkshop,
+                'income_receipts' => $history->incomeReceipts,
+                'science_bonus_receipts' => $history->scienceBonusReceipts,
+                'final_scoring' => $history->finalScoring,
+            ],
+            [
                 [
-                    'bookCount' => 1,
-                    'knowledgeStepCount' => 3,
+                    'type' => ($history->phase === GamePhase::Setup
+                        ? GameEventType::StartingSpadeSpent
+                        : GameEventType::SpadeSpent)->value,
+                    'player_id' => $player->id,
+                    'hex_id' => $history->hexId,
                 ],
-            );
-
-            return false;
-        }
-
-        return $this->offerWorkshopAfterTerraforming->execute($state, $playerState, $buildableHexIds);
+                ...($history->tunnelTools > 0 ? [[
+                    'type' => GameEventType::MoleTunnelUsed->value,
+                    'player_id' => $player->id,
+                    'hex_id' => $history->hexId,
+                    'tools' => $history->tunnelTools,
+                    'victory_points' => $history->tunnelVictoryPoints,
+                ]] : []),
+                ...($history->flightScholarCost > 0 ? [[
+                    'type' => GameEventType::PalaceFlightUsed->value,
+                    'player_id' => $player->id,
+                    'hex_id' => $history->hexId,
+                    'scholars' => $history->flightScholarCost,
+                    'victory_points' => $history->flightVictoryPoints,
+                ]] : []),
+                ...($history->victoryPoints > 0 ? [[
+                    'type' => GameEventType::RoundSpadeScored->value,
+                    'player_id' => $player->id,
+                    'spades' => $history->spentSpades,
+                    'victory_points' => $history->victoryPoints,
+                ]] : []),
+                ...($history->bonusCoins > 0 ? [[
+                    'type' => GameEventType::GoblinSpadeBonusReceived->value,
+                    'player_id' => $player->id,
+                    'spades' => $history->spentSpades,
+                    'coins' => $history->bonusCoins,
+                ]] : []),
+                ...($history->incomeStarted ? [[
+                    'type' => GameEventType::IncomePhaseStarted->value,
+                    'round' => $history->round,
+                ]] : []),
+            ],
+            $stateVersionBefore,
+            $stateVersionAfter,
+            $phaseChanged,
+        );
     }
 }

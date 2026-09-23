@@ -29,6 +29,7 @@ use App\Domain\Game\Data\PowerOfferOptionData;
 use App\Domain\Game\Data\ResourceExchangeOptionData;
 use App\Domain\Game\Data\SacrificePowerOptionData;
 use App\Domain\Game\Data\SendScholarOptionData;
+use App\Domain\Game\Data\SpendSpadesOptionData;
 use App\Domain\Game\Data\UpgradeBuildingOptionData;
 use App\Domain\Game\Data\WorkshopAfterTerraformingOptionData;
 use DomainException;
@@ -59,6 +60,7 @@ final class GameActionSimulator
         private ChooseCompetencySimulator $chooseCompetencySimulator,
         private PlaceNeutralBuildingSimulator $placeNeutralBuildingSimulator,
         private PlaceBridgeSimulator $placeBridgeSimulator,
+        private SpendSpadesSimulator $spendSpadesSimulator,
     ) {
     }
 
@@ -157,6 +159,10 @@ final class GameActionSimulator
 
         if ($option instanceof PlaceBridgeOptionData) {
             return $this->placeBridgeSimulator->execute($state, $playerId, $option);
+        }
+
+        if ($option instanceof SpendSpadesOptionData) {
+            return $this->spendSpadesSimulator->execute($state, $playerId, $option);
         }
 
         throw new DomainException("Симуляция действия {$option->type()->value} ещё не поддерживается.");
