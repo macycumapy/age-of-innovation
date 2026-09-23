@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Domain\Game\Actions;
 
-use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\PendingInteractionType;
 use App\Models\Game;
 use App\Models\User;
@@ -20,7 +19,7 @@ final class UndoBridgeAction
             $state = $lockedGame->state;
             $interaction = $state->pendingInteraction;
 
-            if ($lockedGame->phase !== GamePhase::Actions
+            if (! $lockedGame->phase->isActionPhase()
                 || $lockedGame->active_player_id !== $user->id
                 || $interaction?->type !== PendingInteractionType::PlaceBridge
                 || ! isset($interaction->context['selectedFromHexId'])) {

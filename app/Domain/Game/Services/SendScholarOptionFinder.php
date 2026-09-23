@@ -8,7 +8,6 @@ use App\Domain\Game\Actions\AssignScholarSlotsAction;
 use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Data\GameStateData;
 use App\Domain\Game\Data\SendScholarOptionData;
-use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\KnowledgeDiscipline;
 
 final class SendScholarOptionFinder
@@ -20,7 +19,7 @@ final class SendScholarOptionFinder
     /** @return list<SendScholarOptionData> */
     public function execute(GameStateData $state, GamePlayerStateData $player): array
     {
-        if ($state->round->phase !== GamePhase::Actions
+        if (! $state->round->phase->isActionPhase()
             || $state->pendingInteraction !== null
             || $state->round->hasTakenMainAction
             || $player->resources->scholars < 1) {

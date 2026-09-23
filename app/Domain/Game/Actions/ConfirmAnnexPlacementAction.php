@@ -7,7 +7,6 @@ namespace App\Domain\Game\Actions;
 use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Enums\GameActionType;
 use App\Domain\Game\Enums\GameEventType;
-use App\Domain\Game\Enums\GamePhase;
 use App\Models\Game;
 use App\Models\GamePlayer;
 use App\Models\User;
@@ -31,7 +30,7 @@ final class ConfirmAnnexPlacementAction
             $playerState = $player instanceof GamePlayer
                 ? collect($state->players)->firstWhere('playerId', $player->id)
                 : null;
-            if ($lockedGame->phase !== GamePhase::Actions
+            if (! $lockedGame->phase->isActionPhase()
                 || $lockedGame->active_player_id !== $user->id
                 || ! $player instanceof GamePlayer
                 || ! $playerState instanceof GamePlayerStateData) {

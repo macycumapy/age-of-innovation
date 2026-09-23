@@ -7,7 +7,6 @@ namespace App\Domain\Game\Services;
 use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Data\GameStateData;
 use App\Domain\Game\Data\InnovationSpecialActionOptionData;
-use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\Innovation;
 
 final class InnovationSpecialActionOptionFinder
@@ -15,7 +14,7 @@ final class InnovationSpecialActionOptionFinder
     /** @return list<InnovationSpecialActionOptionData> */
     public function execute(GameStateData $state, GamePlayerStateData $player): array
     {
-        if ($state->round->phase !== GamePhase::Actions
+        if (! $state->round->phase->isActionPhase()
             || $state->pendingInteraction !== null
             || $state->round->hasTakenMainAction) {
             return [];

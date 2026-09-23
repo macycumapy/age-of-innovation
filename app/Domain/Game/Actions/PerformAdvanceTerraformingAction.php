@@ -8,7 +8,6 @@ use App\Domain\Game\Data\DevelopmentAdvancementOptionData;
 use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Enums\GameActionType;
 use App\Domain\Game\Enums\GameEventType;
-use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Services\DevelopmentAdvancementOptionFinder;
 use App\Models\Game;
 use App\Models\GamePlayer;
@@ -34,7 +33,7 @@ final class PerformAdvanceTerraformingAction
             $playerState = $player instanceof GamePlayer
                 ? collect($state->players)->firstWhere('playerId', $player->id)
                 : null;
-            if ($lockedGame->phase !== GamePhase::Actions
+            if (! $lockedGame->phase->isActionPhase()
                 || $lockedGame->active_player_id !== $user->id
                 || ! $playerState instanceof GamePlayerStateData) {
                 throw ValidationException::withMessages(['terraforming' => 'Сейчас нельзя повысить уровень преобразования.']);

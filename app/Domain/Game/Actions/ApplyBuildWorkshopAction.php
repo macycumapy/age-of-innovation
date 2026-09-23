@@ -10,7 +10,6 @@ use App\Domain\Game\Data\BuildingStateData;
 use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Data\GameStateData;
 use App\Domain\Game\Enums\BuildingType;
-use App\Domain\Game\Enums\GamePhase;
 use Illuminate\Validation\ValidationException;
 
 final class ApplyBuildWorkshopAction
@@ -35,7 +34,7 @@ final class ApplyBuildWorkshopAction
                 && ! $candidate->building->isNeutral,
         ));
 
-        if ($state->round->phase !== GamePhase::Actions
+        if (! $state->round->phase->isActionPhase()
             || $state->pendingInteraction !== null
             || $state->round->hasTakenMainAction
             || ! $hex instanceof BoardHexStateData

@@ -9,7 +9,6 @@ use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Data\GameStateData;
 use App\Domain\Game\Data\PassOptionData;
 use App\Domain\Game\Enums\BuildingType;
-use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\KnowledgeDiscipline;
 use App\Domain\Game\Enums\RoundBonus;
 
@@ -18,7 +17,7 @@ final class PassOptionFinder
     /** @return list<PassOptionData> */
     public function execute(GameStateData $state, GamePlayerStateData $player): array
     {
-        if ($state->round->phase !== GamePhase::Actions
+        if (! $state->round->phase->isActionPhase()
             || $state->pendingInteraction !== null
             || $state->round->hasTakenMainAction
             || in_array($player->playerId, $state->passedPlayerIds, true)) {

@@ -36,7 +36,7 @@ final class ChooseRoundBonusAction
             $interaction = $state->pendingInteraction;
             $player = $lockedGame->players()->whereKey($interaction?->playerId)->whereBelongsTo($user)->first();
 
-            if ($lockedGame->phase !== GamePhase::Actions
+            if (! $lockedGame->phase->isActionPhase()
                 || $lockedGame->active_player_id !== $user->id
                 || $interaction?->type !== PendingInteractionType::ChooseRoundBonus
                 || ! $player instanceof GamePlayer

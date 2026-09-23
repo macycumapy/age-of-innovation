@@ -60,7 +60,7 @@ final class ApplyPaidTerraformingAction
         $player->resources->scholars -= $matchingOption->scholarCost;
         $player->unassignedSpades += $purchasedSpadeCount;
 
-        if ($state->round->phase === GamePhase::Actions) {
+        if ($state->round->phase->isActionPhase()) {
             $state->round->hasTakenMainAction = true;
         }
 

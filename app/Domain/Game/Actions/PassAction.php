@@ -32,7 +32,7 @@ final class PassAction
             $state = $lockedGame->state;
             $player = $lockedGame->players()->whereBelongsTo($user)->first();
 
-            if ($lockedGame->phase !== GamePhase::Actions
+            if (! $lockedGame->phase->isActionPhase()
                 || $lockedGame->active_player_id !== $user->id
                 || $state->pendingInteraction !== null
                 || $state->round->hasTakenMainAction

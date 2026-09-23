@@ -64,7 +64,7 @@ final class LegalActionFinder
                 && ! isset($state->pendingInteraction->context['selectedHexId'])) {
                 $this->appendPaidTerraformingAction($actions, $state, $playerState);
             }
-            if ($game->phase === GamePhase::Actions && $playerState instanceof GamePlayerStateData
+            if ($game->phase->isActionPhase() && $playerState instanceof GamePlayerStateData
                 && $game->active_player_id === $user->id) {
                 $this->appendResourceActions($actions, $playerState);
             }
@@ -80,7 +80,7 @@ final class LegalActionFinder
             return $this->setupActions($game, $player);
         }
 
-        if ($game->phase !== GamePhase::Actions || ! $playerState instanceof GamePlayerStateData) {
+        if (! $game->phase->isActionPhase() || ! $playerState instanceof GamePlayerStateData) {
             return [];
         }
 

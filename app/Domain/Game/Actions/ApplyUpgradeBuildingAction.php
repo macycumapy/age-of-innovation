@@ -9,7 +9,6 @@ use App\Domain\Game\Data\BuildingActionResultData;
 use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Data\GameStateData;
 use App\Domain\Game\Enums\BuildingType;
-use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Services\BuildingAdjacencyChecker;
 use Illuminate\Validation\ValidationException;
 
@@ -29,7 +28,7 @@ final class ApplyUpgradeBuildingAction
     ): BuildingActionResultData {
         $hex = collect($state->board->hexes)->firstWhere('id', $hexId);
 
-        if ($state->round->phase !== GamePhase::Actions
+        if (! $state->round->phase->isActionPhase()
             || $state->pendingInteraction !== null
             || $state->round->hasTakenMainAction
             || ! $hex instanceof BoardHexStateData

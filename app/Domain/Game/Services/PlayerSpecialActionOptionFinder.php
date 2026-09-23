@@ -10,7 +10,6 @@ use App\Domain\Game\Data\PlayerSpecialActionOptionData;
 use App\Domain\Game\Enums\Competency;
 use App\Domain\Game\Enums\Faction;
 use App\Domain\Game\Enums\GameActionOptionType;
-use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\KnowledgeDiscipline;
 use App\Domain\Game\Enums\RoundBonus;
 
@@ -19,7 +18,7 @@ final class PlayerSpecialActionOptionFinder
     /** @return list<PlayerSpecialActionOptionData> */
     public function execute(GameStateData $state, GamePlayerStateData $player): array
     {
-        if ($state->round->phase !== GamePhase::Actions
+        if (! $state->round->phase->isActionPhase()
             || $state->pendingInteraction !== null
             || $state->round->hasTakenMainAction) {
             return [];

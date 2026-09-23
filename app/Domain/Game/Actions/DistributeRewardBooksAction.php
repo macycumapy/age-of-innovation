@@ -7,7 +7,6 @@ namespace App\Domain\Game\Actions;
 use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Enums\GameActionType;
 use App\Domain\Game\Enums\GameEventType;
-use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\PendingInteractionType;
 use App\Models\Game;
 use App\Models\GamePlayer;
@@ -51,7 +50,7 @@ final class DistributeRewardBooksAction
                 ? collect($state->players)->firstWhere('playerId', $player->id)
                 : null;
 
-            if ($lockedGame->phase !== GamePhase::Actions
+            if (! $lockedGame->phase->isActionPhase()
                 || $lockedGame->active_player_id !== $user->id
                 || $interaction?->type !== $interactionType
                 || ! $playerState instanceof GamePlayerStateData

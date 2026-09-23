@@ -45,7 +45,7 @@ final class PlaceNeutralInnovationBuildingAction
             $isStartingCompetency = $lockedGame->phase === GamePhase::Setup
                 && ($interaction?->context['reason'] ?? null) === 'starting_competency';
 
-            if ((! $isStartingCompetency && $lockedGame->phase !== GamePhase::Actions)
+            if ((! $isStartingCompetency && ! $lockedGame->phase->isActionPhase())
                 || $lockedGame->active_player_id !== $user->id
                 || $interaction?->type !== PendingInteractionType::PlaceNeutralBuilding
                 || ! $playerState instanceof GamePlayerStateData

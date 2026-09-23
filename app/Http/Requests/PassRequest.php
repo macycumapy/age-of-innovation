@@ -7,7 +7,6 @@ namespace App\Http\Requests;
 use App\Domain\Game\Data\BoardHexStateData;
 use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Enums\BuildingType;
-use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\KnowledgeDiscipline;
 use App\Domain\Game\Enums\RoundBonus;
 use App\Models\Game;
@@ -23,7 +22,7 @@ final class PassRequest extends FormRequest
         $game = $this->route('game');
 
         return $game instanceof Game
-            && $game->phase === GamePhase::Actions
+            && $game->phase->isActionPhase()
             && $game->active_player_id === $this->user()?->id
             && $game->state->pendingInteraction === null
             && ! $game->state->round->hasTakenMainAction;

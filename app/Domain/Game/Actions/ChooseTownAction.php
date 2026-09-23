@@ -7,7 +7,6 @@ namespace App\Domain\Game\Actions;
 use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Enums\GameActionType;
 use App\Domain\Game\Enums\GameEventType;
-use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\PendingInteractionType;
 use App\Domain\Game\Enums\TownTile;
 use App\Models\Game;
@@ -32,7 +31,7 @@ final class ChooseTownAction
             $interaction = $state->pendingInteraction;
             $player = $lockedGame->players()->whereKey($interaction?->playerId)->whereBelongsTo($user)->first();
 
-            if ($lockedGame->phase !== GamePhase::Actions
+            if (! $lockedGame->phase->isActionPhase()
                 || $lockedGame->active_player_id !== $user->id
                 || $interaction?->type !== PendingInteractionType::ChooseTown
                 || ! $player instanceof GamePlayer) {

@@ -7,7 +7,6 @@ namespace App\Domain\Game\Actions;
 use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Data\GameStateData;
 use App\Domain\Game\Data\KnowledgeAdvanceResultData;
-use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\KnowledgeDiscipline;
 use App\Domain\Game\Enums\RoundScoringGoal;
 use App\Domain\Game\Enums\RoundScoringTile;
@@ -60,7 +59,7 @@ final class AdvanceKnowledgeAction
 
         $advancedSteps = $newLevel - $currentLevel;
         $roundScoringTile = RoundScoringTile::tryFrom((string) $state->round->scoringTileId);
-        $victoryPoints = $state->round->phase === GamePhase::Actions
+        $victoryPoints = $state->round->phase->isActionPhase()
             && $roundScoringTile?->goal() === RoundScoringGoal::Knowledge
                 ? $advancedSteps
                 : 0;

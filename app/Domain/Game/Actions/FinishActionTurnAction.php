@@ -6,7 +6,6 @@ namespace App\Domain\Game\Actions;
 
 use App\Domain\Game\Enums\GameActionType;
 use App\Domain\Game\Enums\GameEventType;
-use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\PendingInteractionType;
 use App\Models\Game;
 use App\Models\GamePlayer;
@@ -27,7 +26,7 @@ final class FinishActionTurnAction
             $state = $lockedGame->state;
             $player = $lockedGame->players()->whereBelongsTo($user)->first();
 
-            if ($lockedGame->phase !== GamePhase::Actions
+            if (! $lockedGame->phase->isActionPhase()
                 || $lockedGame->active_player_id !== $user->id
                 || ($state->pendingInteraction !== null
                     && ($state->pendingInteraction->type !== PendingInteractionType::BuildWorkshopAfterTerraforming

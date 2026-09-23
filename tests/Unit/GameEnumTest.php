@@ -9,6 +9,7 @@ use App\Domain\Game\Enums\Competency;
 use App\Domain\Game\Enums\EffectType;
 use App\Domain\Game\Enums\Faction;
 use App\Domain\Game\Enums\FinalRoundScoringTile;
+use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\Innovation;
 use App\Domain\Game\Enums\KnowledgeDiscipline;
 use App\Domain\Game\Enums\PalaceAbility;
@@ -46,6 +47,13 @@ final class GameEnumTest extends TestCase
             foreach ($cases as $case) {
                 $this->assertNotSame('', $case->description());
             }
+        }
+    }
+
+    public function test_only_actions_is_the_action_phase(): void
+    {
+        foreach (GamePhase::cases() as $phase) {
+            $this->assertSame($phase === GamePhase::Actions, $phase->isActionPhase());
         }
     }
 

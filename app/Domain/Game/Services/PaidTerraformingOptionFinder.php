@@ -30,7 +30,7 @@ final class PaidTerraformingOptionFinder
         $isExistingSpadeInteraction = $interaction?->type === PendingInteractionType::SpendSpades
             && $interaction->playerId === $player->playerId
             && ! isset($interaction->context['selectedHexId']);
-        $isAllowedPhase = $state->round->phase === GamePhase::Actions
+        $isAllowedPhase = $state->round->phase->isActionPhase()
             || ($isExistingSpadeInteraction && in_array(
                 $state->round->phase,
                 [GamePhase::Setup, GamePhase::ScienceBonus],

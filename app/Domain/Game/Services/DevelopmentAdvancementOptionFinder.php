@@ -8,7 +8,6 @@ use App\Domain\Game\Data\DevelopmentAdvancementOptionData;
 use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Data\GameStateData;
 use App\Domain\Game\Enums\GameActionType;
-use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\PlayerColor;
 
 final class DevelopmentAdvancementOptionFinder
@@ -16,7 +15,7 @@ final class DevelopmentAdvancementOptionFinder
     /** @return list<DevelopmentAdvancementOptionData> */
     public function execute(GameStateData $state, GamePlayerStateData $player): array
     {
-        if ($state->round->phase !== GamePhase::Actions
+        if (! $state->round->phase->isActionPhase()
             || $state->pendingInteraction !== null
             || $state->round->hasTakenMainAction) {
             return [];

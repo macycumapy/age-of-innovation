@@ -882,7 +882,7 @@ final class ReplayGameHistoryAction
             if ($eligibleHexIds !== []) {
                 $game->phase = $interactionPhase;
                 $game->active_player_id = $player->user_id;
-            } elseif ($interactionPhase === GamePhase::Actions) {
+            } elseif ($interactionPhase->isActionPhase()) {
                 $availableHexIds = $this->availableWorkshopHexIds(
                     $state,
                     $playerState,
@@ -931,7 +931,7 @@ final class ReplayGameHistoryAction
             } else {
                 $this->completeStartingInteraction($game, $state, $players);
             }
-        } elseif ($interactionPhase === GamePhase::Actions) {
+        } elseif ($interactionPhase->isActionPhase()) {
             $buildableHexIds = $action->payload['buildable_hex_ids'] ?? [];
             $playerState = $this->playerState($state, $player->id);
 

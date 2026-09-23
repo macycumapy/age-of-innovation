@@ -16,7 +16,6 @@ use App\Domain\Game\Enums\BookAction;
 use App\Domain\Game\Enums\BuildingType;
 use App\Domain\Game\Enums\Competency;
 use App\Domain\Game\Enums\Faction;
-use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\GameStatus;
 use App\Domain\Game\Enums\Innovation;
 use App\Domain\Game\Enums\KnowledgeDiscipline;
@@ -85,27 +84,27 @@ class GameResource extends JsonResource
                 && $isOwner
                 && $hasActions
                 && ! $hasUnsupportedActions,
-            'canRestartCurrentTurn' => $this->phase === GamePhase::Actions
+            'canRestartCurrentTurn' => $this->phase->isActionPhase()
                 && $this->active_player_id === $request->user()?->id
                 && $this->state->turnStartSnapshot !== null
                 && $this->state->pendingInteraction?->type !== PendingInteractionType::PowerOffer,
-            'canFinishCurrentTurn' => $this->phase === GamePhase::Actions
+            'canFinishCurrentTurn' => $this->phase->isActionPhase()
                 && $this->active_player_id === $request->user()?->id
                 && ($this->state->pendingInteraction === null
                     || $this->state->pendingInteraction->type === PendingInteractionType::BuildWorkshopAfterTerraforming)
                 && $this->state->round->turnStartVersion !== null
                 && $this->state->round->hasTakenMainAction,
-            'canPass' => $this->phase === GamePhase::Actions
+            'canPass' => $this->phase->isActionPhase()
                 && $this->active_player_id === $request->user()?->id
                 && $this->state->pendingInteraction === null
                 && ! $this->state->round->hasTakenMainAction,
-            'canSendScholar' => $this->phase === GamePhase::Actions
+            'canSendScholar' => $this->phase->isActionPhase()
                 && $this->active_player_id === $request->user()?->id
                 && $this->state->pendingInteraction === null
                 && ! $this->state->round->hasTakenMainAction
                 && $currentPlayerState instanceof GamePlayerStateData
                 && $currentPlayerState->resources->scholars > 0,
-            'canMakeInnovation' => $this->phase === GamePhase::Actions
+            'canMakeInnovation' => $this->phase->isActionPhase()
                 && $this->active_player_id === $request->user()?->id
                 && $this->state->pendingInteraction === null
                 && ! $this->state->round->hasTakenMainAction
@@ -114,7 +113,7 @@ class GameResource extends JsonResource
                 && collect($innovationStates)->contains(
                     static fn (array $innovation): bool => $innovation['isAvailable'] && $innovation['isAffordable'],
                 ),
-            'canPlaceAnnex' => $this->phase === GamePhase::Actions
+            'canPlaceAnnex' => $this->phase->isActionPhase()
                 && $this->active_player_id === $request->user()?->id
                 && $this->state->pendingInteraction === null
                 && ! $this->state->round->hasTakenMainAction
@@ -218,7 +217,7 @@ class GameResource extends JsonResource
                     'canUsePalaceAction' => $this->canUsePalaceAction($player),
                     'availableInnovationActionIds' => array_values(array_filter(
                         $player->inventionIds,
-                        fn (string $innovationId): bool => $this->phase === GamePhase::Actions
+                        fn (string $innovationId): bool => $this->phase->isActionPhase()
                             && $this->state->pendingInteraction === null
                             && ! $this->state->round->hasTakenMainAction
                             && ($innovation = Innovation::tryFrom($innovationId))?->hasSpecialAction() === true
@@ -379,7 +378,7 @@ class GameResource extends JsonResource
                 ],
                 PowerAction::cases(),
             ),
-            'buildingUpgrades' => $this->phase === GamePhase::Actions
+            'buildingUpgrades' => $this->phase->isActionPhase()
                 && $this->active_player_id === $request->user()?->id
                 && $this->state->pendingInteraction === null
                 && ! $this->state->round->hasTakenMainAction

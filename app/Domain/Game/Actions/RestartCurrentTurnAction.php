@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Domain\Game\Actions;
 
 use App\Domain\Game\Data\GameStateData;
-use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\PendingInteractionType;
 use App\Models\Game;
 use App\Models\GamePlayer;
@@ -23,7 +22,7 @@ final class RestartCurrentTurnAction
             $turnStartVersion = $lockedGame->state->round->turnStartVersion;
             $turnStartSnapshot = $lockedGame->state->turnStartSnapshot;
 
-            if ($lockedGame->phase !== GamePhase::Actions
+            if (! $lockedGame->phase->isActionPhase()
                 || $lockedGame->active_player_id !== $user->id
                 || ! $player instanceof GamePlayer
                 || $lockedGame->state->pendingInteraction?->type === PendingInteractionType::PowerOffer

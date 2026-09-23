@@ -8,7 +8,6 @@ use App\Domain\Game\Data\BoardHexStateData;
 use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Data\GameStateData;
 use App\Domain\Game\Data\PlaceAnnexResultData;
-use App\Domain\Game\Enums\GamePhase;
 use Illuminate\Validation\ValidationException;
 
 final class ApplyPlaceAnnexAction
@@ -26,7 +25,7 @@ final class ApplyPlaceAnnexAction
     ): PlaceAnnexResultData {
         $hex = collect($state->board->hexes)->firstWhere('id', $hexId);
 
-        if ($state->round->phase !== GamePhase::Actions
+        if (! $state->round->phase->isActionPhase()
             || $state->pendingInteraction !== null
             || $state->round->hasTakenMainAction
             || ! $hex instanceof BoardHexStateData

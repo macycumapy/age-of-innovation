@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Http\Requests;
 
-use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\PendingInteractionType;
 use App\Models\Game;
 use Illuminate\Foundation\Http\FormRequest;
@@ -16,7 +15,7 @@ final class ResolveWorkshopAfterTerraformingRequest extends FormRequest
         $game = $this->route('game');
 
         return $game instanceof Game
-            && $game->phase === GamePhase::Actions
+            && $game->phase->isActionPhase()
             && $game->active_player_id === $this->user()?->id
             && $game->state->pendingInteraction?->type === PendingInteractionType::BuildWorkshopAfterTerraforming;
     }

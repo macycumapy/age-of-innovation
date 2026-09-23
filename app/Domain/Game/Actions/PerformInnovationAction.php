@@ -8,7 +8,6 @@ use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Data\InnovationSpecialActionOptionData;
 use App\Domain\Game\Enums\GameActionType;
 use App\Domain\Game\Enums\GameEventType;
-use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\Innovation;
 use App\Domain\Game\Services\InnovationSpecialActionOptionFinder;
 use App\Models\Game;
@@ -34,7 +33,7 @@ final class PerformInnovationAction
             $player = $lockedGame->players()->whereBelongsTo($user)->first();
             $playerState = $player instanceof GamePlayer ? collect($state->players)->firstWhere('playerId', $player->id) : null;
 
-            if ($lockedGame->phase !== GamePhase::Actions || $lockedGame->active_player_id !== $user->id
+            if (! $lockedGame->phase->isActionPhase() || $lockedGame->active_player_id !== $user->id
                 || $state->pendingInteraction !== null || $state->round->hasTakenMainAction
                 || ! $playerState instanceof GamePlayerStateData) {
                 throw ValidationException::withMessages(['innovation' => 'Особое действие этой инновации недоступно.']);

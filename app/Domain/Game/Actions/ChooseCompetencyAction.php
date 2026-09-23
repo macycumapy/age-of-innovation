@@ -44,9 +44,9 @@ final class ChooseCompetencyAction
                 ->whereKey($interaction?->playerId)
                 ->whereBelongsTo($user)
                 ->first();
-            $isBuildingChoice = $lockedGame->phase === GamePhase::Actions
+            $isBuildingChoice = $lockedGame->phase->isActionPhase()
                 && ($interaction?->context['reason'] ?? null) === 'building';
-            $isInnovationChoice = $lockedGame->phase === GamePhase::Actions
+            $isInnovationChoice = $lockedGame->phase->isActionPhase()
                 && ($interaction?->context['reason'] ?? null) === 'innovation';
             $isStartingChoice = $lockedGame->phase === GamePhase::Setup
                 && in_array($player?->faction, [Faction::Monks, Faction::Inventors], true);

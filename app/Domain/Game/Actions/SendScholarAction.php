@@ -8,7 +8,6 @@ use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Data\SendScholarOptionData;
 use App\Domain\Game\Enums\GameActionType;
 use App\Domain\Game\Enums\GameEventType;
-use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\KnowledgeDiscipline;
 use App\Domain\Game\Services\SendScholarOptionFinder;
 use App\Models\Game;
@@ -35,7 +34,7 @@ final class SendScholarAction
             $playerState = $player instanceof GamePlayer
                 ? collect($state->players)->firstWhere('playerId', $player->id)
                 : null;
-            if ($lockedGame->phase !== GamePhase::Actions
+            if (! $lockedGame->phase->isActionPhase()
                 || $lockedGame->active_player_id !== $user->id
                 || ! $player instanceof GamePlayer
                 || ! $playerState instanceof GamePlayerStateData) {

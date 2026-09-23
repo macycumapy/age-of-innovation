@@ -8,7 +8,6 @@ use App\Domain\Game\Data\BoardHexStateData;
 use App\Domain\Game\Data\BuildingStateData;
 use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Enums\BuildingType;
-use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\PendingInteractionType;
 use App\Models\Game;
 use App\Models\GamePlayer;
@@ -26,7 +25,7 @@ final class PlacePalaceGuildAction
             $interaction = $state->pendingInteraction;
             $player = $lockedGame->players()->whereBelongsTo($user)->first();
 
-            if ($lockedGame->phase !== GamePhase::Actions
+            if (! $lockedGame->phase->isActionPhase()
                 || $lockedGame->active_player_id !== $user->id
                 || $interaction?->type !== PendingInteractionType::PlacePalaceGuild
                 || ! $player instanceof GamePlayer

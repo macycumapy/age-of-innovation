@@ -11,4 +11,9 @@ enum GamePhase: string
     case Actions = 'actions';
     case ScienceBonus = 'science_bonus';
     case Finished = 'finished';
+
+    public function isActionPhase(): bool
+    {
+        return $this === self::Actions;
+    }
 }

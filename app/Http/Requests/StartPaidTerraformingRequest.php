@@ -29,7 +29,7 @@ final class StartPaidTerraformingRequest extends FormRequest
             && ! isset($interaction->context['selectedHexId']);
 
         return $continuesSpadeInteraction
-            || ($game->phase === GamePhase::Actions && $interaction === null);
+            || ($game->phase->isActionPhase() && $interaction === null);
     }
 
     /** @return array<string, array<int, mixed>> */

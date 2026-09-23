@@ -10,7 +10,6 @@ use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Data\GameStateData;
 use App\Domain\Game\Data\PalaceActionOptionData;
 use App\Domain\Game\Enums\BuildingType;
-use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\KnowledgeDiscipline;
 use App\Domain\Game\Enums\PalaceAbility;
 
@@ -24,7 +23,7 @@ final class PalaceActionOptionFinder
     public function execute(GameStateData $state, GamePlayerStateData $player): array
     {
         $palace = PalaceAbility::tryFrom((string) $player->palaceId);
-        if ($state->round->phase !== GamePhase::Actions
+        if (! $state->round->phase->isActionPhase()
             || $state->pendingInteraction !== null
             || $state->round->hasTakenMainAction
             || ! $palace?->hasSpecialAction()

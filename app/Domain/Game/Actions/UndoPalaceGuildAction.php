@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Domain\Game\Actions;
 
-use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\PendingInteractionType;
 use App\Models\Game;
 use App\Models\User;
@@ -21,7 +20,7 @@ final class UndoPalaceGuildAction
             $interaction = $state->pendingInteraction;
             $selectedHexId = $interaction?->context['selectedHexId'] ?? null;
 
-            if ($lockedGame->phase !== GamePhase::Actions
+            if (! $lockedGame->phase->isActionPhase()
                 || $lockedGame->active_player_id !== $user->id
                 || $interaction?->type !== PendingInteractionType::PlacePalaceGuild
                 || ! is_string($selectedHexId)) {

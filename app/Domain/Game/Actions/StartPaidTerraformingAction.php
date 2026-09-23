@@ -6,7 +6,6 @@ namespace App\Domain\Game\Actions;
 
 use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Data\PaidTerraformingOptionData;
-use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Services\PaidTerraformingOptionFinder;
 use App\Models\Game;
 use App\Models\GamePlayer;
@@ -56,7 +55,7 @@ final class StartPaidTerraformingAction
                 throw ValidationException::withMessages(['hex_id' => 'Эта клетка недоступна для преобразования.']);
             }
 
-            if ($lockedGame->phase === GamePhase::Actions && $state->turnStartSnapshot === null) {
+            if ($lockedGame->phase->isActionPhase() && $state->turnStartSnapshot === null) {
                 $state->turnStartSnapshot = $state->toArray();
                 $state->round->turnStartVersion = $lockedGame->version;
             }
