@@ -21,6 +21,7 @@ use App\Domain\Game\Data\PalaceActionOptionData;
 use App\Domain\Game\Data\PalaceWaterTownOptionData;
 use App\Domain\Game\Data\PassOptionData;
 use App\Domain\Game\Data\PlaceAnnexOptionData;
+use App\Domain\Game\Data\PlaceNeutralBuildingOptionData;
 use App\Domain\Game\Data\PlayerSpecialActionOptionData;
 use App\Domain\Game\Data\PowerActionOptionData;
 use App\Domain\Game\Data\PowerOfferOptionData;
@@ -55,6 +56,7 @@ final class GameActionSimulator
         private PalaceWaterTownSimulator $palaceWaterTownSimulator,
         private ChoosePalaceSimulator $choosePalaceSimulator,
         private ChooseCompetencySimulator $chooseCompetencySimulator,
+        private PlaceNeutralBuildingSimulator $placeNeutralBuildingSimulator,
     ) {
     }
 
@@ -145,6 +147,10 @@ final class GameActionSimulator
 
         if ($option instanceof ChooseCompetencyOptionData) {
             return $this->chooseCompetencySimulator->execute($state, $playerId, $option);
+        }
+
+        if ($option instanceof PlaceNeutralBuildingOptionData) {
+            return $this->placeNeutralBuildingSimulator->execute($state, $playerId, $option);
         }
 
         throw new DomainException("Симуляция действия {$option->type()->value} ещё не поддерживается.");

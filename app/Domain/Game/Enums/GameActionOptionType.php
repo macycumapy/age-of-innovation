@@ -31,4 +31,5 @@ enum GameActionOptionType: string
     case ResolvePalaceWaterTown = 'resolve_palace_water_town';
     case ChoosePalace = 'choose_palace';
     case ChooseCompetency = 'choose_competency';
+    case PlaceNeutralBuilding = 'place_neutral_building';
 }

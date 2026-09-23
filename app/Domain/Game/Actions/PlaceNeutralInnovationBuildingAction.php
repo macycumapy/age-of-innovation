@@ -21,9 +21,8 @@ final class PlaceNeutralInnovationBuildingAction
 {
     public function __construct(
         private FindEligibleNeutralBuildingHexesAction $findEligibleHexes,
+        private ApplyPlaceNeutralBuildingAction $applyPlaceNeutralBuilding,
         private ApplyBuildingBonusesAction $applyBuildingBonuses,
-        private CreateBuildingFollowUpInteractionAction $createBuildingFollowUpInteraction,
-        private CreateTownChoiceAfterBuildingAction $createTownChoiceAfterBuilding,
         private DetermineStartingBuildingOrderAction $determineStartingBuildingOrder,
         private ResolveCompletedStartingSetupAction $resolveCompletedStartingSetup,
     ) {
@@ -55,39 +54,53 @@ final class PlaceNeutralInnovationBuildingAction
                 throw ValidationException::withMessages(['hex_id' => 'На этой клетке нельзя поставить нейтральное здание.']);
             }
 
+            if (! $isStartingCompetency) {
+                $result = $this->applyPlaceNeutralBuilding->execute($state, $playerState, $hexId, $buildingType);
+                $lockedGame->update([
+                    'active_player_id' => $result->nextActiveUserId,
+                    'state' => $state,
+                    'version' => $lockedGame->version + 1,
+                ]);
+
+                $this->updateSourceAction(
+                    $lockedGame,
+                    $user,
+                    $player,
+                    $interaction->context,
+                    $hexId,
+                    $buildingType,
+                    $result->toolCost,
+                    $result->victoryPoints,
+                    $result->bonusCoins,
+                    $result->scoringSources,
+                );
+
+                return $lockedGame->refresh();
+            }
+
             $toolCost = $hex->terrain->spadesTo($playerState->homeland) * max(1, 3 - $playerState->terraformingLevel);
             $playerState->resources->tools -= $toolCost;
             $hex->terrain = $playerState->homeland;
             $hex->building = new BuildingStateData($buildingType, $playerState->playerId, isNeutral: true);
             $state->pendingInteraction = null;
             $bonuses = $this->applyBuildingBonuses->execute($state, $playerState, $hex, $buildingType);
-            $queuedBuiltHexIds = array_values(array_filter(
-                (array) ($interaction->context['queuedBuiltHexIds'] ?? []),
-                'is_string',
-            ));
             $nextPhase = $lockedGame->phase;
             $incomeReceipts = [];
 
-            if ($isStartingCompetency) {
-                $placementOrder = $this->determineStartingBuildingOrder->execute($lockedGame);
+            $placementOrder = $this->determineStartingBuildingOrder->execute($lockedGame);
 
-                if ($state->startingBuildingTurnIndex >= count($placementOrder)) {
-                    [$nextPlayer, $nextPhase, $incomeReceipts] = $this->resolveCompletedStartingSetup->execute(
-                        $state,
-                        $lockedGame->players()->get(),
-                    );
-                } else {
-                    $nextPlayer = $lockedGame->players()
-                        ->whereKey($placementOrder[$state->startingBuildingTurnIndex])
-                        ->firstOrFail();
-                }
-
-                $nextActiveUserId = $nextPlayer->user_id;
+            if ($state->startingBuildingTurnIndex >= count($placementOrder)) {
+                [$nextPlayer, $nextPhase, $incomeReceipts] = $this->resolveCompletedStartingSetup->execute(
+                    $state,
+                    $lockedGame->players()->get(),
+                );
             } else {
-                $nextActiveUserId = $buildingType === BuildingType::Tower
-                    ? $this->createTownChoiceAfterBuilding->execute($state, $playerState, $hexId, $queuedBuiltHexIds)
-                    : $this->createBuildingFollowUpInteraction->execute($state, $playerState, $hexId, $buildingType);
+                $nextPlayer = $lockedGame->players()
+                    ->whereKey($placementOrder[$state->startingBuildingTurnIndex])
+                    ->firstOrFail();
             }
+
+            $nextActiveUserId = $nextPlayer->user_id;
             $lockedGame->update([
                 'phase' => $nextPhase,
                 'active_player_id' => $nextActiveUserId,
@@ -95,38 +108,71 @@ final class PlaceNeutralInnovationBuildingAction
                 'version' => $lockedGame->version + 1,
             ]);
 
-            $sourceActionType = ($interaction->context['source'] ?? null) === 'competency'
-                ? GameActionType::ChooseCompetency
-                : GameActionType::MakeInnovation;
-            $sourceAction = $lockedGame->actions()
-                ->where('type', $sourceActionType)
-                ->where('player_id', $user->id)
-                ->latest('sequence')
-                ->first();
-
-            if ($sourceAction === null) {
-                throw ValidationException::withMessages(['game' => 'Не найден источник нейтрального здания.']);
-            }
-
-            $payload = $sourceAction->payload;
-            $payload['neutral_building'] = [
-                'hex_id' => $hexId,
-                'type' => $buildingType->value,
-                'tools' => $toolCost,
-                'victory_points' => $bonuses['victoryPoints'],
-                'bonus_coins' => $bonuses['coins'],
-                'scoring_sources' => $bonuses['sources'],
-            ];
-            $payload['income_receipts'] = $incomeReceipts;
-            $events = $sourceAction->events ?? [];
-            $events[] = ['type' => 'neutral_building_built', 'player_id' => $player->id, 'hex_id' => $hexId];
-            $sourceAction->update([
-                'payload' => $payload,
-                'events' => $events,
-                'state_version_after' => $lockedGame->version,
-            ]);
+            $this->updateSourceAction(
+                $lockedGame,
+                $user,
+                $player,
+                $interaction->context,
+                $hexId,
+                $buildingType,
+                $toolCost,
+                $bonuses['victoryPoints'],
+                $bonuses['coins'],
+                $bonuses['sources'],
+                $incomeReceipts,
+            );
 
             return $lockedGame->refresh();
         });
+    }
+
+    /**
+     * @param array<string, mixed> $context
+     * @param list<array{source: string, id: string, points: int}> $scoringSources
+     * @param list<array<string, mixed>> $incomeReceipts
+     */
+    private function updateSourceAction(
+        Game $game,
+        User $user,
+        GamePlayer $player,
+        array $context,
+        string $hexId,
+        BuildingType $buildingType,
+        int $toolCost,
+        int $victoryPoints,
+        int $bonusCoins,
+        array $scoringSources,
+        array $incomeReceipts = [],
+    ): void {
+        $sourceActionType = ($context['source'] ?? null) === 'competency'
+            ? GameActionType::ChooseCompetency
+            : GameActionType::MakeInnovation;
+        $sourceAction = $game->actions()
+            ->where('type', $sourceActionType)
+            ->where('player_id', $user->id)
+            ->latest('sequence')
+            ->first();
+
+        if ($sourceAction === null) {
+            throw ValidationException::withMessages(['game' => 'Не найден источник нейтрального здания.']);
+        }
+
+        $payload = $sourceAction->payload;
+        $payload['neutral_building'] = [
+            'hex_id' => $hexId,
+            'type' => $buildingType->value,
+            'tools' => $toolCost,
+            'victory_points' => $victoryPoints,
+            'bonus_coins' => $bonusCoins,
+            'scoring_sources' => $scoringSources,
+        ];
+        $payload['income_receipts'] = $incomeReceipts;
+        $events = $sourceAction->events ?? [];
+        $events[] = ['type' => 'neutral_building_built', 'player_id' => $player->id, 'hex_id' => $hexId];
+        $sourceAction->update([
+            'payload' => $payload,
+            'events' => $events,
+            'state_version_after' => $game->version,
+        ]);
     }
 }
