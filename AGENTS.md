@@ -48,6 +48,7 @@ This project has domain-specific skills available in `**/skills/**`. You MUST ac
 - Stick to existing directory structure; don't create new base folders without approval.
 - Do not change the application's dependencies without approval.
 - Prefer dedicated DTOs for structured domain action results instead of associative arrays with PHPDoc array shapes. Use associative arrays only for simple serialization-bound payloads or truly local, short-lived data.
+- Action classes must expose exactly one public operation method, conventionally `execute()`. If validation must be called independently, extract it to a dedicated validator instead of adding another public method to the action.
 
 ## Frontend Bundling
 
