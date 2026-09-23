@@ -16,17 +16,28 @@ final class RewardDistributionOptionFinder
     public function execute(GameStateData $state, GamePlayerStateData $player): array
     {
         $interaction = $state->pendingInteraction;
-        if ($interaction?->type !== PendingInteractionType::ChooseTownBooks
+        if (! in_array($interaction?->type, [
+            PendingInteractionType::ChooseTownBooks,
+            PendingInteractionType::ChooseFelineTownBonus,
+        ], true)
             || $interaction->playerId !== $player->playerId) {
             return [];
         }
 
         $bookCount = (int) ($interaction->context['bookCount'] ?? 0);
+        $knowledgeStepCount = (int) ($interaction->context['knowledgeStepCount'] ?? 0);
+        $disciplineIds = array_column(KnowledgeDiscipline::cases(), 'value');
+        $bookDistributions = $this->distributions($disciplineIds, $bookCount);
+        $knowledgeDistributions = $this->distributions($disciplineIds, $knowledgeStepCount);
+        $options = [];
 
-        return array_map(
-            static fn (array $bookCounts): RewardDistributionOptionData => new RewardDistributionOptionData($bookCounts),
-            $this->distributions(array_column(KnowledgeDiscipline::cases(), 'value'), $bookCount),
-        );
+        foreach ($bookDistributions as $bookCounts) {
+            foreach ($knowledgeDistributions as $knowledgeCounts) {
+                $options[] = new RewardDistributionOptionData($bookCounts, $knowledgeCounts);
+            }
+        }
+
+        return $options;
     }
 
     /**

@@ -7,7 +7,6 @@ namespace App\Domain\Game\Actions;
 use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Enums\GameActionType;
 use App\Domain\Game\Enums\GameEventType;
-use App\Domain\Game\Enums\KnowledgeDiscipline;
 use App\Domain\Game\Enums\PendingInteractionType;
 use App\Models\Game;
 use App\Models\GamePlayer;
@@ -19,8 +18,7 @@ final class ChooseFelineTownBonusAction
 {
     public function __construct(
         private AppendGameHistoryAction $appendGameHistory,
-        private AdvanceKnowledgeAction $advanceKnowledge,
-        private CreateTownChoiceAfterBuildingAction $createTownChoiceAfterBuilding,
+        private ApplyChooseFelineTownBonusAction $applyChooseFelineTownBonus,
     ) {
     }
 
@@ -36,55 +34,24 @@ final class ChooseFelineTownBonusAction
             $interaction = $state->pendingInteraction;
             $player = $lockedGame->players()->whereKey($interaction?->playerId)->whereBelongsTo($user)->first();
             $playerState = collect($state->players)->firstWhere('playerId', $player?->id);
-            $bookCount = (int) ($interaction?->context['bookCount'] ?? 0);
-            $knowledgeStepCount = (int) ($interaction?->context['knowledgeStepCount'] ?? 0);
 
             if ($interaction?->type !== PendingInteractionType::ChooseFelineTownBonus
                 || ! $player instanceof GamePlayer
-                || ! $playerState instanceof GamePlayerStateData
-                || array_sum($bookCounts) !== $bookCount
-                || array_sum($knowledgeCounts) !== $knowledgeStepCount
-                || $playerState->resources->books->unassigned < $bookCount) {
+                || ! $playerState instanceof GamePlayerStateData) {
                 throw ValidationException::withMessages(['book_counts' => 'Нельзя распределить бонус Кошачьих.']);
             }
 
             $stateVersionBefore = $lockedGame->version;
-
-            if ($state->turnStartSnapshot === null) {
-                $state->turnStartSnapshot = $state->toArray();
-                $state->round->turnStartVersion = $stateVersionBefore;
-            }
-
-            foreach ($bookCounts as $discipline => $count) {
-                $playerState->resources->books->{$discipline} += $count;
-            }
-
-            $playerState->resources->books->unassigned -= $bookCount;
-            $gainedPower = 0;
-            $victoryPoints = 0;
-
-            foreach ($knowledgeCounts as $discipline => $count) {
-                $knowledgeDiscipline = KnowledgeDiscipline::from($discipline);
-                $knowledgeAdvance = $this->advanceKnowledge->execute($state, $playerState, $knowledgeDiscipline, $count);
-                $gainedPower += $knowledgeAdvance->gainedPower;
-                $victoryPoints += $knowledgeAdvance->victoryPoints;
-            }
-
-            $playerState->victoryPoints += $victoryPoints;
-            $state->pendingInteraction = null;
-            $nextActiveUserId = $player->user_id;
-
-            if (is_string($interaction->context['continueBuildingAfterPowerHexId'] ?? null)) {
-                $nextActiveUserId = $this->createTownChoiceAfterBuilding->execute(
-                    $state,
-                    $playerState,
-                    $interaction->context['continueBuildingAfterPowerHexId'],
-                    powerOffersResolved: true,
-                );
-            }
+            $result = $this->applyChooseFelineTownBonus->execute(
+                $state,
+                $playerState,
+                $bookCounts,
+                $knowledgeCounts,
+                $stateVersionBefore,
+            );
 
             $lockedGame->update([
-                'active_player_id' => $nextActiveUserId,
+                'active_player_id' => $result->nextActiveUserId,
                 'state' => $state,
                 'version' => $lockedGame->version + 1,
             ]);
@@ -95,9 +62,9 @@ final class ChooseFelineTownBonusAction
                 [
                     'book_counts' => $bookCounts,
                     'knowledge_counts' => $knowledgeCounts,
-                    'victory_points' => $victoryPoints,
-                    'continue_building_after_power_hex_id' => $interaction->context['continueBuildingAfterPowerHexId'] ?? null,
-                    'gained_power' => $gainedPower,
+                    'victory_points' => $result->victoryPoints,
+                    'continue_building_after_power_hex_id' => $result->continueBuildingHexId,
+                    'gained_power' => $result->gainedPower,
                 ],
                 [[
                     'type' => GameEventType::FelineTownBonusChosen->value,
