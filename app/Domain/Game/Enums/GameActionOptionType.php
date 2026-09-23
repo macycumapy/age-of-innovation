@@ -35,4 +35,5 @@ enum GameActionOptionType: string
     case PlaceBridge = 'place_bridge';
     case SpendSpades = 'spend_spades';
     case PlacePalaceGuild = 'place_palace_guild';
+    case DistributeRewards = 'distribute_rewards';
 }

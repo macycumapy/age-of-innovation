@@ -28,6 +28,7 @@ use App\Domain\Game\Data\PlayerSpecialActionOptionData;
 use App\Domain\Game\Data\PowerActionOptionData;
 use App\Domain\Game\Data\PowerOfferOptionData;
 use App\Domain\Game\Data\ResourceExchangeOptionData;
+use App\Domain\Game\Data\RewardDistributionOptionData;
 use App\Domain\Game\Data\SacrificePowerOptionData;
 use App\Domain\Game\Data\SendScholarOptionData;
 use App\Domain\Game\Data\SpendSpadesOptionData;
@@ -63,6 +64,7 @@ final class GameActionSimulator
         private PlaceBridgeSimulator $placeBridgeSimulator,
         private SpendSpadesSimulator $spendSpadesSimulator,
         private PlacePalaceGuildSimulator $placePalaceGuildSimulator,
+        private RewardDistributionSimulator $rewardDistributionSimulator,
     ) {
     }
 
@@ -169,6 +171,10 @@ final class GameActionSimulator
 
         if ($option instanceof PlacePalaceGuildOptionData) {
             return $this->placePalaceGuildSimulator->execute($state, $playerId, $option);
+        }
+
+        if ($option instanceof RewardDistributionOptionData) {
+            return $this->rewardDistributionSimulator->execute($state, $playerId, $option);
         }
 
         throw new DomainException("Симуляция действия {$option->type()->value} ещё не поддерживается.");

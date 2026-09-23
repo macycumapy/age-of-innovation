@@ -37,6 +37,7 @@ final class GameActionOptionFinder
         private PlaceBridgeOptionFinder $placeBridgeOptionFinder,
         private SpendSpadesOptionFinder $spendSpadesOptionFinder,
         private PlacePalaceGuildOptionFinder $placePalaceGuildOptionFinder,
+        private RewardDistributionOptionFinder $rewardDistributionOptionFinder,
     ) {
     }
 
@@ -94,6 +95,7 @@ final class GameActionOptionFinder
             PendingInteractionType::PlaceBridge => $this->placeBridgeOptionFinder->execute($state, $player),
             PendingInteractionType::SpendSpades => $this->spendSpadesOptionFinder->execute($state, $player),
             PendingInteractionType::PlacePalaceGuild => $this->placePalaceGuildOptionFinder->execute($state, $player),
+            PendingInteractionType::ChooseTownBooks => $this->rewardDistributionOptionFinder->execute($state, $player),
             default => [],
         };
         $resourceOptions = $state->round->phase->isActionPhase()
