@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Domain\Game\Actions;
 
-use App\Domain\Game\Data\BridgeStateData;
 use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Enums\GameActionType;
 use App\Domain\Game\Enums\GamePhase;
@@ -19,7 +18,7 @@ final class ConfirmBridgeAction
 {
     public function __construct(
         private AppendGameHistoryAction $appendGameHistory,
-        private CreateTownChoiceAfterBuildingAction $createTownChoiceAfterBuilding,
+        private ApplyPlaceBridgeAction $applyPlaceBridge,
     ) {
     }
 
@@ -46,25 +45,20 @@ final class ConfirmBridgeAction
             }
 
             $stateVersionBefore = $lockedGame->version;
-            $source = $interaction->context['source'] ?? null;
-
-            if (! in_array($source, ['power', 'round_bonus', 'faction'], true)) {
-                throw ValidationException::withMessages(['bridge' => 'Не определён источник строительства моста.']);
-            }
-
-            $state->board->bridges[] = new BridgeStateData($fromHexId, $toHexId, $player->id);
             $playerState = collect($state->players)->firstWhere('playerId', $player->id);
 
             if (! $playerState instanceof GamePlayerStateData) {
                 throw ValidationException::withMessages(['bridge' => 'Не найдено состояние игрока.']);
             }
 
-            $lockedGame->active_player_id = $this->createTownChoiceAfterBuilding->execute(
+            $result = $this->applyPlaceBridge->execute(
                 $state,
                 $playerState,
                 $fromHexId,
-                powerOffersResolved: true,
+                $toHexId,
             );
+            $source = $result->source;
+            $lockedGame->active_player_id = $result->nextActiveUserId;
             $lockedGame->state = $state;
             $lockedGame->version++;
             $lockedGame->save();

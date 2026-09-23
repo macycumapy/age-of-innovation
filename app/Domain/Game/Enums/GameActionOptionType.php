@@ -32,4 +32,5 @@ enum GameActionOptionType: string
     case ChoosePalace = 'choose_palace';
     case ChooseCompetency = 'choose_competency';
     case PlaceNeutralBuilding = 'place_neutral_building';
+    case PlaceBridge = 'place_bridge';
 }
