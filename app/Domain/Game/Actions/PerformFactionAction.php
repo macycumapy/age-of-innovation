@@ -7,6 +7,7 @@ namespace App\Domain\Game\Actions;
 use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Enums\Faction;
 use App\Domain\Game\Enums\GameActionType;
+use App\Domain\Game\Enums\GameEventType;
 use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\KnowledgeDiscipline;
 use App\Models\Game;
@@ -64,7 +65,7 @@ final class PerformFactionAction
                     GameActionType::SpecialAction,
                     ['faction' => $faction->value, 'discipline' => $discipline?->value],
                     [[
-                        'type' => 'faction_action_used',
+                        'type' => GameEventType::FactionActionUsed->value,
                         'player_id' => $player->id,
                         'faction' => $faction->value,
                         'discipline' => $discipline?->value,

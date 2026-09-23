@@ -6,6 +6,7 @@ namespace App\Domain\Game\Actions;
 
 use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Enums\GameActionType;
+use App\Domain\Game\Enums\GameEventType;
 use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\PowerAction;
 use App\Models\Game;
@@ -79,7 +80,7 @@ final class PerformPowerActionAction
                         'victory_points' => $victoryPoints,
                     ],
                     [[
-                        'type' => 'power_action_used',
+                        'type' => GameEventType::PowerActionUsed->value,
                         'player_id' => $player->id,
                         'action' => $action->value,
                         'sacrifice_amount' => $sacrificeAmount,

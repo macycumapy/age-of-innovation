@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Domain\Game\Actions;
 
 use App\Domain\Game\Enums\GameActionType;
+use App\Domain\Game\Enums\GameEventType;
 use App\Events\GameHistoryChanged;
 use App\Models\Game;
 use App\Models\GameAction;
@@ -78,7 +79,7 @@ final class AppendGameHistoryAction
                 'income_receipts' => $receipts,
             ],
             'events' => [[
-                'type' => 'income_phase_resolved',
+                'type' => GameEventType::IncomePhaseResolved->value,
                 'round' => $game->round,
             ]],
             'state_version_before' => $game->version,
@@ -98,7 +99,7 @@ final class AppendGameHistoryAction
                 'science_bonus_receipts' => $receipts,
             ],
             'events' => [[
-                'type' => 'science_bonus_phase_resolved',
+                'type' => GameEventType::ScienceBonusPhaseResolved->value,
                 'round' => $receipts[0]['round'] ?? $game->round,
             ]],
             'state_version_before' => $game->version,
@@ -139,7 +140,7 @@ final class AppendGameHistoryAction
                 ...$additionalPayload,
             ],
             'events' => [[
-                'type' => 'phase_started',
+                'type' => GameEventType::PhaseStarted->value,
                 'phase' => $game->phase->value,
                 'round' => $game->round,
             ]],

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Domain\Game\Actions;
 
 use App\Domain\Game\Enums\GameActionType;
+use App\Domain\Game\Enums\GameEventType;
 use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\PendingInteractionType;
 use App\Models\Game;
@@ -67,7 +68,7 @@ final class ResolvePowerOfferAction
                     'built_hex_id' => $interaction->context['builtHexId'] ?? null,
                 ],
                 [[
-                    'type' => $accept ? 'power_accepted' : 'power_declined',
+                    'type' => $accept ? GameEventType::PowerAccepted->value : GameEventType::PowerDeclined->value,
                     'player_id' => $player->id,
                     'received_power' => $result['receivedPower'],
                     'victory_points_spent' => $result['victoryPointsSpent'],

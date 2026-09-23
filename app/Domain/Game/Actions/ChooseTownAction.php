@@ -6,6 +6,7 @@ namespace App\Domain\Game\Actions;
 
 use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Enums\GameActionType;
+use App\Domain\Game\Enums\GameEventType;
 use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\PendingInteractionType;
 use App\Domain\Game\Enums\TownTile;
@@ -71,7 +72,7 @@ final class ChooseTownAction
                     'victory_points' => $result->victoryPoints,
                     'gained_power' => $result->gainedPower,
                 ],
-                [['type' => 'town_founded', 'player_id' => $player->id, 'town_tile' => $townTile->value]],
+                [['type' => GameEventType::TownFounded->value, 'player_id' => $player->id, 'town_tile' => $townTile->value]],
                 $stateVersionBefore,
                 $lockedGame->version,
             );

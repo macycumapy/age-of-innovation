@@ -9,6 +9,7 @@ use App\Domain\Game\Data\BuildingStateData;
 use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Enums\BuildingType;
 use App\Domain\Game\Enums\GameActionType;
+use App\Domain\Game\Enums\GameEventType;
 use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\PendingInteractionType;
 use App\Models\Game;
@@ -168,7 +169,7 @@ final class PlaceNeutralInnovationBuildingAction
         ];
         $payload['income_receipts'] = $incomeReceipts;
         $events = $sourceAction->events ?? [];
-        $events[] = ['type' => 'neutral_building_built', 'player_id' => $player->id, 'hex_id' => $hexId];
+        $events[] = ['type' => GameEventType::NeutralBuildingBuilt->value, 'player_id' => $player->id, 'hex_id' => $hexId];
         $sourceAction->update([
             'payload' => $payload,
             'events' => $events,

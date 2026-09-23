@@ -8,6 +8,7 @@ use App\Domain\Game\Data\BoardHexStateData;
 use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Enums\BuildingType;
 use App\Domain\Game\Enums\GameActionType;
+use App\Domain\Game\Enums\GameEventType;
 use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\PendingInteractionType;
 use App\Models\Game;
@@ -79,7 +80,7 @@ final class ConfirmPalaceGuildAction
                     'scoring_sources' => $bonuses['sources'],
                 ],
                 [[
-                    'type' => 'palace_guild_placed',
+                    'type' => GameEventType::PalaceGuildPlaced->value,
                     'player_id' => $player->id,
                     'hex_id' => $selectedHexId,
                 ]],

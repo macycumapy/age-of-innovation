@@ -9,6 +9,7 @@ use App\Domain\Game\Data\PlanningBundleData;
 use App\Domain\Game\Data\RoundBonusOfferData;
 use App\Domain\Game\Data\RoundStateData;
 use App\Domain\Game\Enums\GameActionType;
+use App\Domain\Game\Enums\GameEventType;
 use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\GameStatus;
 use App\Domain\Game\Factories\GameSetupPoolFactory;
@@ -121,7 +122,7 @@ final class StartGameAction
                 GameActionType::StartGame,
                 [],
                 [[
-                    'type' => 'game_started',
+                    'type' => GameEventType::GameStarted->value,
                     'turn_order' => $orderedPlayers->pluck('id')->all(),
                     'active_game_player_id' => $activePlayer->id,
                     'map_variant' => $lockedGame->state->board->variant->value,

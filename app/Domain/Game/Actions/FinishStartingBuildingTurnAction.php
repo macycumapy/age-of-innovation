@@ -8,6 +8,7 @@ use App\Domain\Game\Data\PendingInteractionData;
 use App\Domain\Game\Enums\Competency;
 use App\Domain\Game\Enums\Faction;
 use App\Domain\Game\Enums\GameActionType;
+use App\Domain\Game\Enums\GameEventType;
 use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\PendingInteractionType;
 use App\Models\Game;
@@ -118,13 +119,13 @@ final class FinishStartingBuildingTurnAction
                 ],
                 [
                     [
-                        'type' => 'starting_building_placed',
+                        'type' => GameEventType::StartingBuildingPlaced->value,
                         'player_id' => $player->id,
                         'hex_id' => $confirmedHexId,
                         'building_type' => $confirmedBuilding->type->value,
                     ],
                     ...($nextPhase !== GamePhase::Setup ? [[
-                        'type' => 'income_phase_started',
+                        'type' => GameEventType::IncomePhaseStarted->value,
                         'round' => $state->round->number,
                     ]] : []),
                 ],

@@ -7,6 +7,7 @@ namespace App\Domain\Game\Actions;
 use App\Domain\Game\Data\ChooseRoundBonusOptionData;
 use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Enums\GameActionType;
+use App\Domain\Game\Enums\GameEventType;
 use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\GameStatus;
 use App\Domain\Game\Enums\PendingInteractionType;
@@ -78,7 +79,7 @@ final class ChooseRoundBonusAction
                 'final_scoring' => $result->finalScoring,
                 'science_bonus_receipts' => $result->scienceBonusReceipts,
             ],
-                [['type' => 'round_bonus_chosen', 'player_id' => $player->id, 'round_bonus' => $roundBonus->value]],
+                [['type' => GameEventType::RoundBonusChosen->value, 'player_id' => $player->id, 'round_bonus' => $roundBonus->value]],
                 $before,
                 $lockedGame->version,
                 $result->phase !== $phaseBefore

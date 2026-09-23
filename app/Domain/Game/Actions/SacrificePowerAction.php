@@ -6,6 +6,7 @@ namespace App\Domain\Game\Actions;
 
 use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Enums\GameActionType;
+use App\Domain\Game\Enums\GameEventType;
 use App\Domain\Game\Enums\GamePhase;
 use App\Models\Game;
 use App\Models\GamePlayer;
@@ -63,7 +64,7 @@ final class SacrificePowerAction
                 GameActionType::SacrificePower,
                 ['amount' => $amount],
                 [[
-                    'type' => 'power_sacrificed',
+                    'type' => GameEventType::PowerSacrificed->value,
                     'player_id' => $player->id,
                     'sacrificed' => $amount,
                     'moved_to_bowl_three' => $amount,

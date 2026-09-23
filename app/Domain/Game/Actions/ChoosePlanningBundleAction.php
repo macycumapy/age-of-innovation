@@ -9,6 +9,7 @@ use App\Domain\Game\Data\PlanningBundleData;
 use App\Domain\Game\Data\PlayerPlanningSelectionData;
 use App\Domain\Game\Data\PowerBowlsStateData;
 use App\Domain\Game\Enums\GameActionType;
+use App\Domain\Game\Enums\GameEventType;
 use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\GameStatus;
 use App\Domain\Game\Enums\KnowledgeDiscipline;
@@ -130,7 +131,7 @@ final class ChoosePlanningBundleAction
                     'gained_power' => $gainedPower,
                 ],
                 [[
-                    'type' => 'planning_bundle_chosen',
+                    'type' => GameEventType::PlanningBundleChosen->value,
                     'player_id' => $player->id,
                     'homeland' => $bundle->homeland->value,
                     'faction' => $bundle->faction->value,

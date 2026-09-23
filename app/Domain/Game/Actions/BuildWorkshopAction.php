@@ -6,6 +6,7 @@ namespace App\Domain\Game\Actions;
 
 use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Enums\GameActionType;
+use App\Domain\Game\Enums\GameEventType;
 use App\Domain\Game\Enums\GamePhase;
 use App\Models\Game;
 use App\Models\GamePlayer;
@@ -67,7 +68,7 @@ final class BuildWorkshopAction
                     'bonus_coins' => $result->bonusCoins,
                     'scoring_sources' => $result->scoringSources,
                 ],
-                [['type' => 'workshop_built', 'player_id' => $player->id, 'hex_id' => $hexId]],
+                [['type' => GameEventType::WorkshopBuilt->value, 'player_id' => $player->id, 'hex_id' => $hexId]],
                 $stateVersionBefore,
                 $lockedGame->version,
             );

@@ -7,6 +7,7 @@ namespace App\Domain\Game\Actions;
 use App\Domain\Game\Data\DevelopmentAdvancementOptionData;
 use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Enums\GameActionType;
+use App\Domain\Game\Enums\GameEventType;
 use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Services\DevelopmentAdvancementOptionFinder;
 use App\Models\Game;
@@ -68,7 +69,7 @@ final class PerformAdvanceTerraformingAction
                     'reward' => $reward->toArray(),
                 ],
                 [[
-                    'type' => 'terraforming_advanced',
+                    'type' => GameEventType::TerraformingAdvanced->value,
                     'player_id' => $player->id,
                     'level' => $playerState->terraformingLevel,
                 ]],

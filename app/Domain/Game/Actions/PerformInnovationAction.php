@@ -7,6 +7,7 @@ namespace App\Domain\Game\Actions;
 use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Data\InnovationSpecialActionOptionData;
 use App\Domain\Game\Enums\GameActionType;
+use App\Domain\Game\Enums\GameEventType;
 use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\Innovation;
 use App\Domain\Game\Services\InnovationSpecialActionOptionFinder;
@@ -61,7 +62,7 @@ final class PerformInnovationAction
                 $user,
                 GameActionType::SpecialAction,
                 ['innovation' => $innovation->value, 'reward' => $reward->toArray()],
-                [['type' => 'innovation_action_used', 'player_id' => $player->id, 'innovation' => $innovation->value]],
+                [['type' => GameEventType::InnovationActionUsed->value, 'player_id' => $player->id, 'innovation' => $innovation->value]],
                 $stateVersionBefore,
                 $lockedGame->version
             );

@@ -8,6 +8,7 @@ use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Data\GameStateData;
 use App\Domain\Game\Enums\Competency;
 use App\Domain\Game\Enums\GameActionType;
+use App\Domain\Game\Enums\GameEventType;
 use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\GameStatus;
 use App\Domain\Game\Enums\KnowledgeDiscipline;
@@ -132,8 +133,8 @@ final class ChooseStartingResourcesAction
                 ],
                 [[
                     'type' => $interactionPhase === GamePhase::Income
-                        ? 'income_resources_chosen'
-                        : 'starting_resources_chosen',
+                        ? GameEventType::IncomeResourcesChosen->value
+                        : GameEventType::StartingResourcesChosen->value,
                     'player_id' => $player->id,
                 ]],
                 $stateVersionBefore,

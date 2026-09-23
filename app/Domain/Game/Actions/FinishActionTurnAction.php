@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Domain\Game\Actions;
 
 use App\Domain\Game\Enums\GameActionType;
+use App\Domain\Game\Enums\GameEventType;
 use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\PendingInteractionType;
 use App\Models\Game;
@@ -75,7 +76,7 @@ final class FinishActionTurnAction
                 GameActionType::FinishTurn,
                 ['next_player_id' => $nextPlayer->id],
                 [[
-                    'type' => 'turn_finished',
+                    'type' => GameEventType::TurnFinished->value,
                     'player_id' => $player->id,
                     'next_player_id' => $nextPlayer->id,
                 ]],

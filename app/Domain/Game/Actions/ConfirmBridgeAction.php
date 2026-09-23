@@ -6,6 +6,7 @@ namespace App\Domain\Game\Actions;
 
 use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Enums\GameActionType;
+use App\Domain\Game\Enums\GameEventType;
 use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\PendingInteractionType;
 use App\Models\Game;
@@ -88,7 +89,7 @@ final class ConfirmBridgeAction
                 $actionType,
                 $payload,
                 [[
-                    'type' => 'bridge_built',
+                    'type' => GameEventType::BridgeBuilt->value,
                     'player_id' => $player->id,
                     'from_hex_id' => $fromHexId,
                     'to_hex_id' => $toHexId,

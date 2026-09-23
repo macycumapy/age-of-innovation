@@ -6,6 +6,7 @@ namespace App\Domain\Game\Actions;
 
 use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Enums\GameActionType;
+use App\Domain\Game\Enums\GameEventType;
 use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\GameStatus;
 use App\Domain\Game\Enums\KnowledgeDiscipline;
@@ -76,7 +77,7 @@ final class PassAction
                 'final_resource_conversion' => $result['finalResourceConversion'],
                 'gained_power' => $result['gainedPower'],
             ], [[
-                'type' => 'player_passed',
+                'type' => GameEventType::PlayerPassed->value,
                 'player_id' => $player->id,
                 'pass_order' => $result['passOrder'],
             ]], $stateVersionBefore, $lockedGame->version, $lockedGame->phase !== $phaseBefore);

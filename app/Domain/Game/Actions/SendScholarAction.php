@@ -7,6 +7,7 @@ namespace App\Domain\Game\Actions;
 use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Data\SendScholarOptionData;
 use App\Domain\Game\Enums\GameActionType;
+use App\Domain\Game\Enums\GameEventType;
 use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\KnowledgeDiscipline;
 use App\Domain\Game\Services\SendScholarOptionFinder;
@@ -75,7 +76,7 @@ final class SendScholarAction
                     'gained_power' => $result->gainedPower,
                 ],
                 [[
-                    'type' => 'scholar_sent',
+                    'type' => GameEventType::ScholarSent->value,
                     'player_id' => $player->id,
                     'discipline' => $discipline->value,
                     'placed' => $place,

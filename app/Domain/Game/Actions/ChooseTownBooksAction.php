@@ -8,6 +8,7 @@ use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Data\PendingInteractionData;
 use App\Domain\Game\Enums\Faction;
 use App\Domain\Game\Enums\GameActionType;
+use App\Domain\Game\Enums\GameEventType;
 use App\Domain\Game\Enums\PendingInteractionType;
 use App\Models\Game;
 use App\Models\GamePlayer;
@@ -88,7 +89,7 @@ final class ChooseTownBooksAction
                     'knowledge_counts' => $knowledgeCounts,
                 ],
                 [[
-                    'type' => 'town_books_chosen',
+                    'type' => GameEventType::TownBooksChosen->value,
                     'player_id' => $player->id,
                     'book_counts' => $bookCounts,
                     'knowledge_counts' => $knowledgeCounts,

@@ -6,6 +6,7 @@ namespace App\Domain\Game\Actions;
 
 use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Enums\GameActionType;
+use App\Domain\Game\Enums\GameEventType;
 use App\Domain\Game\Enums\KnowledgeDiscipline;
 use App\Domain\Game\Enums\PendingInteractionType;
 use App\Models\Game;
@@ -89,7 +90,7 @@ final class ChooseInnovationRewardAction
             $payload['gained_power'] = (int) ($payload['gained_power'] ?? 0) + $gainedPower;
             $events = $sourceAction->events ?? [];
             $events[] = [
-                'type' => 'innovation_reward_distributed',
+                'type' => GameEventType::InnovationRewardDistributed->value,
                 'player_id' => $player->id,
                 'book_counts' => $bookCounts,
                 'knowledge_counts' => $knowledgeCounts,

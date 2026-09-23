@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Domain\Game\Actions;
 
 use App\Domain\Game\Enums\GameActionType;
+use App\Domain\Game\Enums\GameEventType;
 use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\PendingInteractionType;
 use App\Models\Game;
@@ -56,7 +57,7 @@ final class ResolvePalaceWaterTownAction
                     'town_hex_ids' => $result->townHexIds,
                     'queued_built_hex_ids' => $result->queuedBuiltHexIds,
                 ],
-                [['type' => $accept ? 'palace_water_town_accepted' : 'palace_water_town_declined', 'player_id' => $player->id]],
+                [['type' => $accept ? GameEventType::PalaceWaterTownAccepted->value : GameEventType::PalaceWaterTownDeclined->value, 'player_id' => $player->id]],
                 $stateVersionBefore,
                 $lockedGame->version,
             );

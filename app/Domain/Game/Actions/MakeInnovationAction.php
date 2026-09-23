@@ -6,6 +6,7 @@ namespace App\Domain\Game\Actions;
 
 use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Enums\GameActionType;
+use App\Domain\Game\Enums\GameEventType;
 use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\Innovation;
 use App\Models\Game;
@@ -67,7 +68,7 @@ final class MakeInnovationAction
                     'gained_power' => $result->reward->gainedPower,
                 ],
                 [[
-                    'type' => 'innovation_created',
+                    'type' => GameEventType::InnovationCreated->value,
                     'player_id' => $player->id,
                     'innovation' => $innovation->value,
                 ]],

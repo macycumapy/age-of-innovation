@@ -6,6 +6,7 @@ namespace App\Domain\Game\Actions;
 
 use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Enums\GameActionType;
+use App\Domain\Game\Enums\GameEventType;
 use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\GameStatus;
 use App\Domain\Game\Enums\KnowledgeDiscipline;
@@ -71,7 +72,7 @@ final class ChooseScienceBonusBooksAction
                 'final_scoring' => $finalScoring,
                 'science_bonus_receipts' => $scienceBonusReceipts,
             ], [[
-                'type' => 'science_bonus_books_chosen',
+                'type' => GameEventType::ScienceBonusBooksChosen->value,
                 'player_id' => $player->id,
             ]], $stateVersionBefore, $lockedGame->version, $nextPhase !== GamePhase::ScienceBonus);
 

@@ -7,6 +7,7 @@ namespace App\Domain\Game\Actions;
 use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Enums\BuildingType;
 use App\Domain\Game\Enums\GameActionType;
+use App\Domain\Game\Enums\GameEventType;
 use App\Domain\Game\Enums\GamePhase;
 use App\Models\Game;
 use App\Models\GamePlayer;
@@ -71,7 +72,7 @@ final class UpgradeBuildingAction
                     'scoring_sources' => $result->scoringSources,
                 ],
                 [[
-                    'type' => 'building_upgraded',
+                    'type' => GameEventType::BuildingUpgraded->value,
                     'player_id' => $player->id,
                     'hex_id' => $hexId,
                     'source' => $result->source?->value,

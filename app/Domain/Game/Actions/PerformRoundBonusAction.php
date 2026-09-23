@@ -6,6 +6,7 @@ namespace App\Domain\Game\Actions;
 
 use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Enums\GameActionType;
+use App\Domain\Game\Enums\GameEventType;
 use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\KnowledgeDiscipline;
 use App\Domain\Game\Enums\RoundBonus;
@@ -70,7 +71,7 @@ final class PerformRoundBonusAction
                         'victory_points' => $result->victoryPoints,
                     ],
                     [[
-                        'type' => 'round_bonus_action_used',
+                        'type' => GameEventType::RoundBonusActionUsed->value,
                         'player_id' => $player->id,
                         'round_bonus' => $roundBonus->value,
                         'discipline' => $discipline?->value,

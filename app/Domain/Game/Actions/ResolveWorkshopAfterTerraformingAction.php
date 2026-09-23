@@ -6,6 +6,7 @@ namespace App\Domain\Game\Actions;
 
 use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Enums\GameActionType;
+use App\Domain\Game\Enums\GameEventType;
 use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\PendingInteractionType;
 use App\Models\Game;
@@ -67,7 +68,7 @@ final class ResolveWorkshopAfterTerraformingAction
                     'coin_cost' => $result->coinCost,
                 ],
                 [[
-                    'type' => $build ? 'workshop_built_after_terraforming' : 'workshop_declined_after_terraforming',
+                    'type' => $build ? GameEventType::WorkshopBuiltAfterTerraforming->value : GameEventType::WorkshopDeclinedAfterTerraforming->value,
                     'player_id' => $player->id,
                     'hex_id' => $build ? $hexId : null,
                 ]],

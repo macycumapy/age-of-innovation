@@ -7,6 +7,7 @@ namespace App\Domain\Game\Actions;
 use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Enums\Competency;
 use App\Domain\Game\Enums\GameActionType;
+use App\Domain\Game\Enums\GameEventType;
 use App\Domain\Game\Enums\GamePhase;
 use App\Models\Game;
 use App\Models\GamePlayer;
@@ -59,7 +60,7 @@ final class PerformCompetencyAction
                 GameActionType::SpecialAction,
                 ['competency' => Competency::Competency07->value],
                 [[
-                    'type' => 'competency_action_used',
+                    'type' => GameEventType::CompetencyActionUsed->value,
                     'player_id' => $player->id,
                     'competency' => Competency::Competency07->value,
                     'power' => 4,

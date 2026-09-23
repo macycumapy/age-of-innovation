@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Domain\Game\Actions;
 
 use App\Domain\Game\Enums\GameActionType;
+use App\Domain\Game\Enums\GameEventType;
 use App\Domain\Game\Enums\PendingInteractionType;
 use App\Models\Game;
 use App\Models\User;
@@ -24,7 +25,7 @@ final class ChoosePalaceBooksAction
             $bookCounts,
             PendingInteractionType::ChoosePalaceBooks,
             GameActionType::ChoosePalace,
-            'palace_books_chosen',
+            GameEventType::PalaceBooksChosen,
             'Крепости',
             true,
         );

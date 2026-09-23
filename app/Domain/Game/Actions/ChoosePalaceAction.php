@@ -6,6 +6,7 @@ namespace App\Domain\Game\Actions;
 
 use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Enums\GameActionType;
+use App\Domain\Game\Enums\GameEventType;
 use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\PalaceAbility;
 use App\Domain\Game\Enums\PendingInteractionType;
@@ -64,7 +65,7 @@ final class ChoosePalaceAction
                     'shipping_reward' => $result->shippingReward,
                 ],
                 [[
-                    'type' => 'palace_chosen',
+                    'type' => GameEventType::PalaceChosen->value,
                     'player_id' => $player->id,
                     'palace_id' => $palace->value,
                     'built_hex_id' => $result->builtHexId,

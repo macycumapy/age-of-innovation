@@ -11,6 +11,7 @@ use App\Domain\Game\Enums\BuildingType;
 use App\Domain\Game\Enums\Competency;
 use App\Domain\Game\Enums\Faction;
 use App\Domain\Game\Enums\GameActionType;
+use App\Domain\Game\Enums\GameEventType;
 use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\PendingInteractionType;
 use App\Models\Game;
@@ -94,7 +95,7 @@ final class ChooseCompetencyAction
                         'victory_points' => $result->victoryPoints,
                     ],
                     [[
-                        'type' => $result->reason === 'building' ? 'building_competency_chosen' : 'innovation_competency_chosen',
+                        'type' => $result->reason === 'building' ? GameEventType::BuildingCompetencyChosen->value : GameEventType::InnovationCompetencyChosen->value,
                         'player_id' => $player->id,
                         'competency_id' => $competency->value,
                         'built_hex_id' => $result->reason === 'building' ? $result->builtHexId : null,
@@ -171,14 +172,14 @@ final class ChooseCompetencyAction
                 ],
                 [
                     [
-                        'type' => 'starting_competency_chosen',
+                        'type' => GameEventType::StartingCompetencyChosen->value,
                         'player_id' => $player->id,
                         'competency_id' => $competency->value,
                         'next_player_id' => $nextPlayer->id,
                         'next_phase' => $nextPhase->value,
                     ],
                     ...($nextPhase !== GamePhase::Setup ? [[
-                        'type' => 'income_phase_started',
+                        'type' => GameEventType::IncomePhaseStarted->value,
                         'round' => $state->round->number,
                     ]] : []),
                 ],

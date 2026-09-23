@@ -7,6 +7,7 @@ namespace App\Domain\Game\Actions;
 use App\Domain\Game\Data\DevelopmentAdvancementOptionData;
 use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Enums\GameActionType;
+use App\Domain\Game\Enums\GameEventType;
 use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Services\DevelopmentAdvancementOptionFinder;
 use App\Models\Game;
@@ -63,7 +64,7 @@ final class PerformAdvanceShippingAction
                 $user,
                 GameActionType::AdvanceShipping,
                 ['coins' => $option->coins, 'scholars' => $option->scholars, 'reward' => $reward->toArray()],
-                [['type' => 'shipping_advanced', 'player_id' => $player->id, 'level' => $playerState->shippingLevel]],
+                [['type' => GameEventType::ShippingAdvanced->value, 'player_id' => $player->id, 'level' => $playerState->shippingLevel]],
                 $stateVersionBefore,
                 $lockedGame->version,
             );

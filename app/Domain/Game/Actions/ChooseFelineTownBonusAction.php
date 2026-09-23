@@ -6,6 +6,7 @@ namespace App\Domain\Game\Actions;
 
 use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Enums\GameActionType;
+use App\Domain\Game\Enums\GameEventType;
 use App\Domain\Game\Enums\KnowledgeDiscipline;
 use App\Domain\Game\Enums\PendingInteractionType;
 use App\Models\Game;
@@ -99,7 +100,7 @@ final class ChooseFelineTownBonusAction
                     'gained_power' => $gainedPower,
                 ],
                 [[
-                    'type' => 'feline_town_bonus_chosen',
+                    'type' => GameEventType::FelineTownBonusChosen->value,
                     'player_id' => $player->id,
                     'book_counts' => $bookCounts,
                     'knowledge_counts' => $knowledgeCounts,

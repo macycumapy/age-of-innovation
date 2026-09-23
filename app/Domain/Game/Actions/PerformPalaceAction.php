@@ -6,6 +6,7 @@ namespace App\Domain\Game\Actions;
 
 use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Enums\GameActionType;
+use App\Domain\Game\Enums\GameEventType;
 use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\KnowledgeDiscipline;
 use App\Models\Game;
@@ -72,7 +73,7 @@ final class PerformPalaceAction
                 'bonus_coins' => $result['bonusCoins'],
                 'gained_power' => $result['gainedPower'],
             ], [[
-                'type' => 'palace_action_used',
+                'type' => GameEventType::PalaceActionUsed->value,
                 'player_id' => $player->id,
                 'palace' => $palaceId,
             ]], $before, $lockedGame->version);

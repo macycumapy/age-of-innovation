@@ -7,6 +7,7 @@ namespace App\Domain\Game\Actions;
 use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Enums\BookAction;
 use App\Domain\Game\Enums\GameActionType;
+use App\Domain\Game\Enums\GameEventType;
 use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\KnowledgeDiscipline;
 use App\Models\Game;
@@ -84,7 +85,7 @@ final class PerformBookActionAction
                     'gained_power' => $result->gainedPower,
                 ],
                 [[
-                    'type' => 'book_action_used',
+                    'type' => GameEventType::BookActionUsed->value,
                     'player_id' => $player->id,
                     'action' => $action->value,
                 ]],

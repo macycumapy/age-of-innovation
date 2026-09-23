@@ -6,6 +6,7 @@ namespace App\Domain\Game\Actions;
 
 use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Enums\GameActionType;
+use App\Domain\Game\Enums\GameEventType;
 use App\Domain\Game\Enums\GamePhase;
 use App\Models\Game;
 use App\Models\GamePlayer;
@@ -59,7 +60,7 @@ final class ExchangeResourcesAction
                 $user,
                 GameActionType::ExchangeResources,
                 ['exchanges' => $exchanges],
-                [['type' => 'resources_exchanged', 'player_id' => $player->id, 'exchanges' => $exchanges]],
+                [['type' => GameEventType::ResourcesExchanged->value, 'player_id' => $player->id, 'exchanges' => $exchanges]],
                 $stateVersionBefore,
                 $lockedGame->version,
             );

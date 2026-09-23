@@ -6,6 +6,7 @@ namespace App\Domain\Game\Actions;
 
 use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Enums\GameActionType;
+use App\Domain\Game\Enums\GameEventType;
 use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\PendingInteractionType;
 use App\Models\Game;
@@ -27,7 +28,7 @@ final class DistributeRewardBooksAction
         array $bookCounts,
         PendingInteractionType $interactionType,
         GameActionType $sourceActionType,
-        string $historyEventType,
+        GameEventType $historyEventType,
         string $rewardName,
         bool $continuePalaceBuilding = false,
     ): Game {
@@ -98,7 +99,7 @@ final class DistributeRewardBooksAction
             $payload['reward_book_counts'] = $bookCounts;
             $events = $sourceAction->events ?? [];
             $events[] = [
-                'type' => $historyEventType,
+                'type' => $historyEventType->value,
                 'player_id' => $player->id,
                 'book_counts' => $bookCounts,
             ];
