@@ -53,10 +53,10 @@ final class CompletePassTurnAction
         $state->passedPlayerIds = [];
         $state->round->phase = GamePhase::ScienceBonus;
         $state->round->scienceBonusTurnIndex = 0;
-        [$nextPlayer, $phase, $incomeReceipts, $finalScoring, $scienceBonusReceipts] = $this->resolveScienceBonusPhase->execute($state, $players);
+        [$nextPlayer, $phase, $incomeReceipts, $finalScoring, $scienceBonusReceipts] = $this->resolveScienceBonusPhase->execute($state);
 
         return [
-            'nextActiveUserId' => $nextPlayer?->user_id,
+            'nextActiveUserId' => $nextPlayer?->userId,
             'phase' => $phase,
             'nextRoundStarted' => $phase !== GamePhase::ScienceBonus,
             'incomeReceipts' => $incomeReceipts,

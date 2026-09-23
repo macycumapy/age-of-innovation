@@ -69,6 +69,13 @@ final class ResolveCompletedStartingSetupAction
         $state->round->incomeOrder = [];
         $state->round->incomeReceipts = [];
 
-        return $this->resolveIncomePhase->execute($state, $players);
+        [$nextPlayerState, $phase, $incomeReceipts] = $this->resolveIncomePhase->execute($state);
+        $nextPlayer = $players->firstWhere('id', $nextPlayerState->playerId);
+
+        if (! $nextPlayer instanceof GamePlayer) {
+            throw new \DomainException('Не найден следующий игрок после фазы дохода.');
+        }
+
+        return [$nextPlayer, $phase, $incomeReceipts];
     }
 }

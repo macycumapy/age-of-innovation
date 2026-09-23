@@ -1214,11 +1214,9 @@ class GameManagementTest extends TestCase
             board: new BoardStateData(),
             players: [$firstPlayerState, $secondPlayerState],
         );
-        $players = $game->players()->get();
+        [$activePlayer, $phase] = app(ResolveIncomePhaseAction::class)->execute($state);
 
-        [$activePlayer, $phase] = app(ResolveIncomePhaseAction::class)->execute($state, $players);
-
-        $this->assertSame($secondPlayer->id, $activePlayer->id);
+        $this->assertSame($secondPlayer->id, $activePlayer->playerId);
         $this->assertSame(GamePhase::Income, $phase);
         $this->assertSame(GamePhase::Income, $state->round->phase);
         $this->assertSame(1, $state->round->incomeTurnIndex);
@@ -1233,9 +1231,9 @@ class GameManagementTest extends TestCase
 
         $secondPlayerState->resources->books->unassigned = 0;
         $secondPlayerTools = $secondPlayerState->resources->tools;
-        [$activePlayer, $phase] = app(ResolveIncomePhaseAction::class)->execute($state, $players);
+        [$activePlayer, $phase] = app(ResolveIncomePhaseAction::class)->execute($state);
 
-        $this->assertSame($firstPlayer->id, $activePlayer->id);
+        $this->assertSame($firstPlayer->id, $activePlayer->playerId);
         $this->assertSame(GamePhase::Actions, $phase);
         $this->assertSame(GamePhase::Actions, $state->round->phase);
         $this->assertSame(1, $firstPlayerState->resources->tools);
@@ -1380,12 +1378,9 @@ class GameManagementTest extends TestCase
         );
         $state->round->phase = GamePhase::Income;
 
-        [$activePlayer, $phase] = app(ResolveIncomePhaseAction::class)->execute(
-            $state,
-            $game->players()->get(),
-        );
+        [$activePlayer, $phase] = app(ResolveIncomePhaseAction::class)->execute($state);
         $game->update([
-            'active_player_id' => $activePlayer->user_id,
+            'active_player_id' => $activePlayer->userId,
             'phase' => $phase,
             'state' => $state,
         ]);
@@ -2220,6 +2215,7 @@ class GameManagementTest extends TestCase
         $this->assertSame($firstUser->id, $game->active_player_id);
         $this->assertSame(PendingInteractionType::ChooseScienceBonusBooks, $game->state->pendingInteraction?->type);
         $this->assertSame(3, $game->state->pendingInteraction?->context['bookCount']);
+        $this->assertSame(3, $game->state->players[0]->resources->books->unassigned);
 
         $this->actingAs($firstUser)->post(route('games.rewards', $game), [
             'book_counts' => ['banking' => 3, 'law' => 0, 'engineering' => 0, 'medicine' => 0],
@@ -2227,10 +2223,12 @@ class GameManagementTest extends TestCase
 
         $game->refresh();
         $this->assertSame(3, $game->state->players[0]->resources->books->banking);
+        $this->assertSame(0, $game->state->players[0]->resources->books->unassigned);
         $this->assertSame(0, $game->state->players[0]->resources->books->medicine);
         $this->assertSame($secondUser->id, $game->active_player_id);
         $this->assertSame(PendingInteractionType::ChooseScienceBonusBooks, $game->state->pendingInteraction?->type);
         $this->assertSame(1, $game->state->pendingInteraction?->context['bookCount']);
+        $this->assertSame(1, $game->state->players[1]->resources->books->unassigned);
 
         $this->actingAs($secondUser)->post(route('games.rewards', $game), [
             'book_counts' => ['banking' => 0, 'law' => 1, 'engineering' => 0, 'medicine' => 0],
@@ -2238,6 +2236,7 @@ class GameManagementTest extends TestCase
 
         $game->refresh();
         $this->assertSame(1, $game->state->players[1]->resources->books->law);
+        $this->assertSame(0, $game->state->players[1]->resources->books->unassigned);
         $this->assertSame(2, $game->state->round->number);
         $this->assertSame(GamePhase::Actions, $game->phase);
         $this->assertSame($firstUser->id, $game->active_player_id);

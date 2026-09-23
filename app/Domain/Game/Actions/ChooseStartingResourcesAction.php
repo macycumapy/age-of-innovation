@@ -97,10 +97,8 @@ final class ChooseStartingResourcesAction
             $incomeReceipts = [];
 
             if ($interactionPhase === GamePhase::Income) {
-                [$nextPlayer, $nextPhase, $incomeReceipts] = $this->resolveIncomePhase->execute(
-                    $state,
-                    $lockedGame->players()->get(),
-                );
+                [$nextPlayerState, $nextPhase, $incomeReceipts] = $this->resolveIncomePhase->execute($state);
+                $nextPlayer = $lockedGame->players()->findOrFail($nextPlayerState->playerId);
             } else {
                 $nextPlayer = $this->determineNextPlanningPlayer->execute($lockedGame, $player);
             }

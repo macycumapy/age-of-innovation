@@ -97,6 +97,7 @@ final class GameActionOptionFinder
             PendingInteractionType::PlacePalaceGuild => $this->placePalaceGuildOptionFinder->execute($state, $player),
             PendingInteractionType::ChooseTownBooks,
             PendingInteractionType::ChooseFelineTownBonus,
+            PendingInteractionType::ChooseScienceBonusBooks,
             PendingInteractionType::ChooseShippingBooks,
             PendingInteractionType::ChooseTerraformingBooks,
             PendingInteractionType::ChoosePalaceBooks,

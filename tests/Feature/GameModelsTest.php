@@ -97,6 +97,47 @@ class GameModelsTest extends TestCase
         );
     }
 
+    public function test_pending_science_books_migration_credits_saved_rewards(): void
+    {
+        $game = Game::factory()->create();
+        $pendingInteraction = [
+            'type' => 'choose_science_bonus_books',
+            'playerId' => 7,
+            'context' => ['bookCount' => 2],
+        ];
+        $player = [
+            'playerId' => 7,
+            'resources' => ['books' => ['unassigned' => 1]],
+        ];
+        $state = [
+            'players' => [$player],
+            'pendingInteraction' => $pendingInteraction,
+            'turnStartSnapshot' => [
+                'players' => [$player],
+                'pendingInteraction' => $pendingInteraction,
+            ],
+        ];
+        DB::table('games')->where('id', $game->id)->update([
+            'state' => json_encode($state, JSON_THROW_ON_ERROR),
+        ]);
+
+        $migration = require database_path(
+            'migrations/2026_09_23_135510_credit_pending_science_bonus_books.php',
+        );
+        $migration->up();
+
+        $migratedState = json_decode(
+            (string) DB::table('games')->where('id', $game->id)->value('state'),
+            true,
+            flags: JSON_THROW_ON_ERROR,
+        );
+        $this->assertSame(3, $migratedState['players'][0]['resources']['books']['unassigned']);
+        $this->assertSame(
+            3,
+            $migratedState['turnStartSnapshot']['players'][0]['resources']['books']['unassigned'],
+        );
+    }
+
     public function test_a_user_cannot_join_the_same_game_twice(): void
     {
         $game = Game::factory()->create();

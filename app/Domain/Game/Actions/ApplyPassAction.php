@@ -120,10 +120,10 @@ final class ApplyPassAction
 
         $state->round->phase = GamePhase::ScienceBonus;
         $state->round->scienceBonusTurnIndex = 0;
-        [$nextPlayer, $phase, $incomeReceipts, $finalScoring] = $this->resolveScienceBonusPhase->execute($state, $players);
+        [$nextPlayer, $phase, $incomeReceipts, $finalScoring] = $this->resolveScienceBonusPhase->execute($state);
 
         return [
-            'nextActiveUserId' => $nextPlayer?->user_id,
+            'nextActiveUserId' => $nextPlayer?->userId,
             'phase' => $phase,
             'bonusCoins' => $bonusCoins,
             'victoryPoints' => $bonuses['victoryPoints'],

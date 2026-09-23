@@ -4,11 +4,10 @@ declare(strict_types=1);
 
 namespace App\Domain\Game\Actions;
 
+use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Data\GameStateData;
 use App\Domain\Game\Enums\GamePhase;
-use App\Models\GamePlayer;
 use BackedEnum;
-use Illuminate\Database\Eloquent\Collection;
 
 final class StartNextRoundAction
 {
@@ -17,10 +16,9 @@ final class StartNextRoundAction
     }
 
     /**
-     * @param Collection<int, GamePlayer> $players
-     * @return array{GamePlayer, GamePhase, list<array{player_id: int, tools: int, coins: int, scholars: int, power: int, books: int, knowledge_steps: int}>}
+     * @return array{GamePlayerStateData, GamePhase, list<array{player_id: int, tools: int, coins: int, scholars: int, power: int, books: int, knowledge_steps: int}>}
      */
-    public function execute(GameStateData $state, Collection $players): array
+    public function execute(GameStateData $state): array
     {
         foreach ($state->setupPool?->availableRoundBonuses ?? [] as $roundBonus) {
             $roundBonus->coins++;
@@ -41,6 +39,6 @@ final class StartNextRoundAction
         $state->round->scienceBonusTurnIndex = 0;
         $state->round->phase = GamePhase::Income;
 
-        return $this->resolveIncomePhase->execute($state, $players);
+        return $this->resolveIncomePhase->execute($state);
     }
 }

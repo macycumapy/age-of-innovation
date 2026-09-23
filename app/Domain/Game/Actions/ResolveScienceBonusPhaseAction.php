@@ -10,8 +10,6 @@ use App\Domain\Game\Data\PendingInteractionData;
 use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\PendingInteractionType;
 use App\Domain\Game\Enums\RoundScoringTile;
-use App\Models\GamePlayer;
-use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Validation\ValidationException;
 
 final class ResolveScienceBonusPhaseAction
@@ -25,10 +23,9 @@ final class ResolveScienceBonusPhaseAction
     }
 
     /**
-     * @param Collection<int, GamePlayer> $players
-     * @return array{GamePlayer|null, GamePhase, list<array{player_id: int, tools: int, coins: int, scholars: int, power: int, books: int, knowledge_steps: int}>, list<array{playerId: int, victoryPoints: int, sources: list<array{source: string, id: string, value: int, rank: int, points: int}>}>, list<array<string, int|string>>}
+     * @return array{GamePlayerStateData|null, GamePhase, list<array{player_id: int, tools: int, coins: int, scholars: int, power: int, books: int, knowledge_steps: int}>, list<array{playerId: int, victoryPoints: int, sources: list<array{source: string, id: string, value: int, rank: int, points: int}>}>, list<array<string, int|string>>}
      */
-    public function execute(GameStateData $state, Collection $players): array
+    public function execute(GameStateData $state): array
     {
         if ($state->round->number >= 6) {
             $state->pendingInteraction = null;
@@ -51,10 +48,9 @@ final class ResolveScienceBonusPhaseAction
 
         while ($state->round->scienceBonusTurnIndex < count($state->turnOrder)) {
             $playerId = $state->turnOrder[$state->round->scienceBonusTurnIndex];
-            $player = $players->firstWhere('id', $playerId);
             $playerState = collect($state->players)->firstWhere('playerId', $playerId);
 
-            if (! $player instanceof GamePlayer || ! $playerState instanceof GamePlayerStateData) {
+            if (! $playerState instanceof GamePlayerStateData) {
                 throw ValidationException::withMessages(['game' => 'Нарушен порядок научных бонусов.']);
             }
 
@@ -85,6 +81,7 @@ final class ResolveScienceBonusPhaseAction
             $state->round->scienceBonusTurnIndex++;
 
             if ($reward['books'] > 0) {
+                $playerState->resources->books->unassigned += $reward['books'];
                 $state->pendingInteraction = new PendingInteractionData(
                     PendingInteractionType::ChooseScienceBonusBooks,
                     $playerId,
@@ -92,7 +89,7 @@ final class ResolveScienceBonusPhaseAction
                     ['bookCount' => $reward['books']],
                 );
 
-                return [$player, GamePhase::ScienceBonus, [], [], []];
+                return [$playerState, GamePhase::ScienceBonus, [], [], []];
             }
 
             if ($reward['spades'] > 0) {
@@ -111,7 +108,7 @@ final class ResolveScienceBonusPhaseAction
                         ],
                     );
 
-                    return [$player, GamePhase::ScienceBonus, [], [], []];
+                    return [$playerState, GamePhase::ScienceBonus, [], [], []];
                 }
             }
         }
@@ -120,6 +117,6 @@ final class ResolveScienceBonusPhaseAction
         $scienceBonusReceipts = $state->round->scienceBonusReceipts;
         $state->round->scienceBonusReceipts = [];
 
-        return [...$this->startNextRound->execute($state, $players), [], $scienceBonusReceipts];
+        return [...$this->startNextRound->execute($state), [], $scienceBonusReceipts];
     }
 }

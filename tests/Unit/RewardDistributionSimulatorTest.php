@@ -16,6 +16,7 @@ use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\PendingInteractionType;
 use App\Domain\Game\Enums\PlayerColor;
 use App\Domain\Game\Enums\RoundBonus;
+use App\Domain\Game\Enums\RoundScoringTile;
 use App\Domain\Game\Enums\TerrainType;
 use App\Domain\Game\Services\GameActionOptionFinder;
 use App\Domain\Game\Services\GameActionSimulator;
@@ -206,5 +207,68 @@ class RewardDistributionSimulatorTest extends TestCase
         $this->assertSame(0, $simulation->state->players[0]->knowledge->unassignedSteps);
         $this->assertNull($simulation->state->pendingInteraction);
         $this->assertSame(10, $simulation->nextActiveUserId);
+    }
+
+    public function test_it_enumerates_and_simulates_science_bonus_book_distributions(): void
+    {
+        $state = new GameStateData(
+            schemaVersion: 4,
+            turnOrder: [1, 2],
+            players: [
+                new GamePlayerStateData(
+                    playerId: 1,
+                    userId: 10,
+                    color: PlayerColor::Green,
+                    faction: Faction::Blessed,
+                    homeland: TerrainType::Forest,
+                    roundBonus: RoundBonus::Coins,
+                    resources: new PlayerResourcesData(),
+                ),
+                new GamePlayerStateData(
+                    playerId: 2,
+                    userId: 20,
+                    color: PlayerColor::Red,
+                    faction: Faction::Inventors,
+                    homeland: TerrainType::Desert,
+                    roundBonus: RoundBonus::PowerCoins,
+                    resources: new PlayerResourcesData(),
+                ),
+            ],
+            round: new RoundStateData(
+                phase: GamePhase::ScienceBonus,
+                scoringTileId: RoundScoringTile::GuildLaw->value,
+                scienceBonusTurnIndex: 1,
+            ),
+            pendingInteraction: new PendingInteractionData(
+                PendingInteractionType::ChooseScienceBonusBooks,
+                1,
+                [],
+                ['bookCount' => 3],
+            ),
+        );
+        $state->players[0]->resources->books->unassigned = 3;
+        $state->players[1]->knowledge->law = 3;
+
+        $options = array_values(array_filter(
+            app(GameActionOptionFinder::class)->execute($state, 1),
+            static fn ($option): bool => $option instanceof RewardDistributionOptionData,
+        ));
+
+        $this->assertCount(20, $options);
+        $simulation = app(GameActionSimulator::class)->execute($state, 1, $options[0]);
+
+        $this->assertSame(0, $state->players[0]->resources->books->medicine);
+        $this->assertSame(3, $state->players[0]->resources->books->unassigned);
+        $this->assertSame(3, $simulation->state->players[0]->resources->books->medicine);
+        $this->assertSame(0, $simulation->state->players[0]->resources->books->unassigned);
+        $this->assertSame(20, $simulation->nextActiveUserId);
+        $this->assertNotNull($simulation->state->pendingInteraction);
+        $this->assertSame(
+            PendingInteractionType::ChooseScienceBonusBooks,
+            $simulation->state->pendingInteraction->type,
+        );
+        $this->assertSame(2, $simulation->state->pendingInteraction->playerId);
+        $this->assertSame(1, $simulation->state->pendingInteraction->context['bookCount']);
+        $this->assertSame(1, $simulation->state->players[1]->resources->books->unassigned);
     }
 }

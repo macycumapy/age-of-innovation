@@ -148,10 +148,11 @@ final class FinishStartingSpadeAction
                     $nextPhase = $interactionPhase;
                 } elseif ($interactionPhase === GamePhase::ScienceBonus) {
                     $state->pendingInteraction = null;
-                    [$nextPlayer, $nextPhase, $incomeReceipts, $finalScoring, $scienceBonusReceipts] = $this->resolveScienceBonusPhase->execute(
-                        $state,
-                        $lockedGame->players()->get(),
-                    );
+                    [$nextPlayerState, $nextPhase, $incomeReceipts, $finalScoring, $scienceBonusReceipts]
+                        = $this->resolveScienceBonusPhase->execute($state);
+                    $nextPlayer = $nextPlayerState === null
+                        ? null
+                        : $lockedGame->players()->findOrFail($nextPlayerState->playerId);
                 } else {
                     $state->pendingInteraction = null;
                     [$nextPlayer, $nextPhase, $incomeReceipts] = $this->resolveCompletedStartingSetup->execute(
@@ -161,10 +162,11 @@ final class FinishStartingSpadeAction
                 }
             } elseif ($interactionPhase === GamePhase::ScienceBonus) {
                 $state->pendingInteraction = null;
-                [$nextPlayer, $nextPhase, $incomeReceipts, $finalScoring, $scienceBonusReceipts] = $this->resolveScienceBonusPhase->execute(
-                    $state,
-                    $lockedGame->players()->get(),
-                );
+                [$nextPlayerState, $nextPhase, $incomeReceipts, $finalScoring, $scienceBonusReceipts]
+                    = $this->resolveScienceBonusPhase->execute($state);
+                $nextPlayer = $nextPlayerState === null
+                    ? null
+                    : $lockedGame->players()->findOrFail($nextPlayerState->playerId);
             } else {
                 $state->pendingInteraction = null;
                 if (($interaction->context['chooseStartingCompetencyAfterSpade'] ?? false) === true) {

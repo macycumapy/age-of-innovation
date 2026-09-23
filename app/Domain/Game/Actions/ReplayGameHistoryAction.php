@@ -116,6 +116,7 @@ final class ReplayGameHistoryAction
         private BeginPassAction $beginPassAction,
         private CompletePassTurnAction $completePassTurnAction,
         private ResolveScienceBonusPhaseAction $resolveScienceBonusPhase,
+        private ApplyScienceBonusBookDistributionAction $applyScienceBonusBookDistribution,
         private ResolveIncomePhaseAction $resolveIncomePhase,
         private GainPowerAction $gainPower,
     ) {
@@ -533,9 +534,9 @@ final class ReplayGameHistoryAction
         $game->state = $state;
 
         if (($action->payload['phase'] ?? GamePhase::Setup->value) === GamePhase::Income->value) {
-            [$nextPlayer, $nextPhase] = $this->resolveIncomePhase->execute($state, $players);
+            [$nextPlayer, $nextPhase] = $this->resolveIncomePhase->execute($state);
             $game->phase = $nextPhase;
-            $game->active_player_id = $nextPlayer->user_id;
+            $game->active_player_id = $nextPlayer->userId;
 
             return;
         }
@@ -917,9 +918,9 @@ final class ReplayGameHistoryAction
                 }
             } elseif ($interactionPhase === GamePhase::ScienceBonus) {
                 $state->pendingInteraction = null;
-                [$nextPlayer, $nextPhase] = $this->resolveScienceBonusPhase->execute($state, $players);
+                [$nextPlayer, $nextPhase] = $this->resolveScienceBonusPhase->execute($state);
                 $game->phase = $nextPhase;
-                $game->active_player_id = $nextPlayer?->user_id;
+                $game->active_player_id = $nextPlayer?->userId;
             } else {
                 $this->completeStartingInteraction($game, $state, $players);
             }
@@ -952,9 +953,9 @@ final class ReplayGameHistoryAction
             }
         } elseif ($interactionPhase === GamePhase::ScienceBonus) {
             $state->pendingInteraction = null;
-            [$nextPlayer, $nextPhase] = $this->resolveScienceBonusPhase->execute($state, $players);
+            [$nextPlayer, $nextPhase] = $this->resolveScienceBonusPhase->execute($state);
             $game->phase = $nextPhase;
-            $game->active_player_id = $nextPlayer?->user_id;
+            $game->active_player_id = $nextPlayer?->userId;
         } else {
             if (($action->payload['choose_starting_competency_after_spade'] ?? false) === true) {
                 $playerState = $this->playerState($state, $player->id);
@@ -1717,15 +1718,15 @@ final class ReplayGameHistoryAction
 
         $playerState = $this->playerState($state, $player->id);
 
+        $bookCounts = array_fill_keys(array_column(KnowledgeDiscipline::cases(), 'value'), 0);
         foreach ($action->payload['disciplines'] ?? [] as $disciplineValue) {
             $discipline = KnowledgeDiscipline::from((string) $disciplineValue);
-            $playerState->resources->books->{$discipline->value}++;
+            $bookCounts[$discipline->value]++;
         }
 
-        $state->pendingInteraction = null;
-        [$nextPlayer, $nextPhase] = $this->resolveScienceBonusPhase->execute($state, $players);
-        $game->phase = $nextPhase;
-        $game->active_player_id = $nextPlayer?->user_id;
+        $result = $this->applyScienceBonusBookDistribution->execute($state, $playerState, $bookCounts);
+        $game->phase = $result->nextPhase;
+        $game->active_player_id = $result->nextActiveUserId;
         $game->state = $state;
     }
 

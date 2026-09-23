@@ -11,8 +11,6 @@ use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\KnowledgeDiscipline;
 use App\Domain\Game\Enums\PendingInteractionType;
 use App\Domain\Game\Services\PlayerIncomeCalculator;
-use App\Models\GamePlayer;
-use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Validation\ValidationException;
 
 final class ResolveIncomePhaseAction
@@ -22,10 +20,9 @@ final class ResolveIncomePhaseAction
     }
 
     /**
-     * @param Collection<int, GamePlayer> $players
-     * @return array{GamePlayer, GamePhase, list<array{player_id: int, tools: int, coins: int, scholars: int, power: int, books: int, knowledge_steps: int}>}
+     * @return array{GamePlayerStateData, GamePhase, list<array{player_id: int, tools: int, coins: int, scholars: int, power: int, books: int, knowledge_steps: int}>}
      */
-    public function execute(GameStateData $state, Collection $players): array
+    public function execute(GameStateData $state): array
     {
         if ($state->round->incomeOrder === []) {
             $state->round->incomeOrder = $this->prepareManualResources($state);
@@ -33,10 +30,9 @@ final class ResolveIncomePhaseAction
 
         while ($state->round->incomeTurnIndex < count($state->round->incomeOrder)) {
             $playerId = $state->round->incomeOrder[$state->round->incomeTurnIndex];
-            $player = $players->firstWhere('id', $playerId);
             $playerState = collect($state->players)->firstWhere('playerId', $playerId);
 
-            if (! $player instanceof GamePlayer || ! $playerState instanceof GamePlayerStateData) {
+            if (! $playerState instanceof GamePlayerStateData) {
                 throw ValidationException::withMessages(['game' => 'Нарушен порядок получения дохода.']);
             }
 
@@ -57,7 +53,7 @@ final class ResolveIncomePhaseAction
                     ],
                 );
 
-                return [$player, GamePhase::Income, []];
+                return [$playerState, GamePhase::Income, []];
             }
         }
 
@@ -81,9 +77,9 @@ final class ResolveIncomePhaseAction
             ];
         }
 
-        $firstPlayer = $players->firstWhere('id', $state->turnOrder[0] ?? null);
+        $firstPlayer = collect($state->players)->firstWhere('playerId', $state->turnOrder[0] ?? null);
 
-        if (! $firstPlayer instanceof GamePlayer) {
+        if (! $firstPlayer instanceof GamePlayerStateData) {
             throw ValidationException::withMessages(['game' => 'Не найден первый игрок нового раунда.']);
         }
 
