@@ -6,14 +6,15 @@ namespace App\Domain\Game\Actions;
 
 use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Data\GameStateData;
-use App\Domain\Game\Enums\KnowledgeDiscipline;
 use App\Domain\Game\Enums\PendingInteractionType;
 use Illuminate\Validation\ValidationException;
 
 final class ApplyRewardBookDistributionAction
 {
-    public function __construct(private CreateTownChoiceAfterBuildingAction $createTownChoiceAfterBuilding)
-    {
+    public function __construct(
+        private ApplyBookDistributionAction $applyBookDistribution,
+        private CreateTownChoiceAfterBuildingAction $createTownChoiceAfterBuilding,
+    ) {
     }
 
     /** @param array<string, int> $bookCounts */
@@ -28,17 +29,11 @@ final class ApplyRewardBookDistributionAction
 
         if (! in_array($expectedInteractionType, $this->supportedInteractionTypes(), true)
             || $interaction?->type !== $expectedInteractionType
-            || $interaction->playerId !== $player->playerId
-            || ! $this->hasOnlyDisciplines($bookCounts)
-            || array_sum($bookCounts) !== $bookCount
-            || $player->resources->books->unassigned < $bookCount) {
+            || $interaction->playerId !== $player->playerId) {
             throw ValidationException::withMessages(['book_counts' => 'Сейчас нельзя распределить эти книги.']);
         }
 
-        foreach ($bookCounts as $discipline => $count) {
-            $player->resources->books->{$discipline} += $count;
-        }
-        $player->resources->books->unassigned -= $bookCount;
+        $this->applyBookDistribution->execute($player, $bookCounts, $bookCount);
         $state->pendingInteraction = null;
 
         if ($expectedInteractionType === PendingInteractionType::ChoosePalaceBooks) {
@@ -60,17 +55,5 @@ final class ApplyRewardBookDistributionAction
             PendingInteractionType::ChooseTerraformingBooks,
             PendingInteractionType::ChoosePalaceBooks,
         ];
-    }
-
-    /** @param array<string, int> $bookCounts */
-    private function hasOnlyDisciplines(array $bookCounts): bool
-    {
-        $disciplineIds = array_column(KnowledgeDiscipline::cases(), 'value');
-
-        return collect($bookCounts)->keys()->every(
-            static fn (string $discipline): bool => in_array($discipline, $disciplineIds, true),
-        ) && collect($bookCounts)->every(
-            static fn (int $count): bool => $count >= 0,
-        );
     }
 }

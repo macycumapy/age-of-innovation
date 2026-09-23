@@ -7,7 +7,6 @@ namespace App\Domain\Game\Actions;
 use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Enums\GameActionType;
 use App\Domain\Game\Enums\GameEventType;
-use App\Domain\Game\Enums\KnowledgeDiscipline;
 use App\Domain\Game\Enums\PendingInteractionType;
 use App\Models\Game;
 use App\Models\GamePlayer;
@@ -17,7 +16,7 @@ use Illuminate\Validation\ValidationException;
 
 final class ChooseInnovationRewardAction
 {
-    public function __construct(private AdvanceKnowledgeAction $advanceKnowledge)
+    public function __construct(private ApplyInnovationRewardDistributionAction $applyInnovationRewardDistribution)
     {
     }
 
@@ -33,41 +32,19 @@ final class ChooseInnovationRewardAction
             $interaction = $state->pendingInteraction;
             $player = $lockedGame->players()->whereKey($interaction?->playerId)->whereBelongsTo($user)->first();
             $playerState = collect($state->players)->firstWhere('playerId', $player?->id);
-            $bookCount = (int) ($interaction?->context['bookCount'] ?? 0);
-            $knowledgeStepCount = (int) ($interaction?->context['knowledgeStepCount'] ?? 0);
 
-            if ($interaction?->type !== PendingInteractionType::ChooseInnovationBooks
+            if ($interaction?->type !== PendingInteractionType::ChooseInnovationReward
                 || ! $player instanceof GamePlayer
-                || ! $playerState instanceof GamePlayerStateData
-                || array_sum($bookCounts) !== $bookCount
-                || array_sum($knowledgeCounts) !== $knowledgeStepCount
-                || $playerState->resources->books->unassigned < $bookCount
-                || $playerState->knowledge->unassignedSteps < $knowledgeStepCount) {
+                || ! $playerState instanceof GamePlayerStateData) {
                 throw ValidationException::withMessages(['game' => 'Нельзя распределить награду инновации.']);
             }
 
-            foreach ($bookCounts as $discipline => $count) {
-                $playerState->resources->books->{$discipline} += $count;
-            }
-
-            $playerState->resources->books->unassigned -= $bookCount;
-            $gainedPower = 0;
-            $victoryPoints = 0;
-
-            foreach ($knowledgeCounts as $discipline => $count) {
-                $knowledgeAdvance = $this->advanceKnowledge->execute(
-                    $state,
-                    $playerState,
-                    KnowledgeDiscipline::from($discipline),
-                    $count,
-                );
-                $gainedPower += $knowledgeAdvance->gainedPower;
-                $victoryPoints += $knowledgeAdvance->victoryPoints;
-            }
-
-            $playerState->knowledge->unassignedSteps -= $knowledgeStepCount;
-            $playerState->victoryPoints += $victoryPoints;
-            $state->pendingInteraction = null;
+            $result = $this->applyInnovationRewardDistribution->execute(
+                $state,
+                $playerState,
+                $bookCounts,
+                $knowledgeCounts,
+            );
             $lockedGame->update([
                 'state' => $state,
                 'version' => $lockedGame->version + 1,
@@ -86,8 +63,8 @@ final class ChooseInnovationRewardAction
             $payload = $sourceAction->payload;
             $payload['reward_book_counts'] = $bookCounts;
             $payload['reward_knowledge_counts'] = $knowledgeCounts;
-            $payload['reward_knowledge_victory_points'] = $victoryPoints;
-            $payload['gained_power'] = (int) ($payload['gained_power'] ?? 0) + $gainedPower;
+            $payload['reward_knowledge_victory_points'] = $result->victoryPoints;
+            $payload['gained_power'] = (int) ($payload['gained_power'] ?? 0) + $result->gainedPower;
             $events = $sourceAction->events ?? [];
             $events[] = [
                 'type' => GameEventType::InnovationRewardDistributed->value,

@@ -11,7 +11,6 @@ use App\Domain\Game\Data\PendingInteractionData;
 use App\Domain\Game\Data\SpendSpadesOptionData;
 use App\Domain\Game\Data\SpendSpadesResultData;
 use App\Domain\Game\Enums\Faction;
-use App\Domain\Game\Enums\PendingInteractionType;
 use App\Domain\Game\Enums\RoundScoringGoal;
 use App\Domain\Game\Enums\RoundScoringTile;
 use App\Domain\Game\Enums\TerrainType;
@@ -26,6 +25,7 @@ final class ApplySpendSpadesAction
         private FindEligibleMoleTunnelHexesAction $findEligibleMoleTunnelHexes,
         private FindEligiblePalaceFlightHexesAction $findEligiblePalaceFlightHexes,
         private OfferWorkshopAfterTerraformingAction $offerWorkshopAfterTerraforming,
+        private StartFelineTownBonusAction $startFelineTownBonus,
         private StartLizardTownBonusAction $startLizardTownBonus,
     ) {
     }
@@ -185,13 +185,7 @@ final class ApplySpendSpadesAction
                 return true;
             }
 
-            $player->resources->books->unassigned++;
-            $state->pendingInteraction = new PendingInteractionData(
-                PendingInteractionType::ChooseFelineTownBonus,
-                $player->playerId,
-                [],
-                ['bookCount' => 1, 'knowledgeStepCount' => 3],
-            );
+            $this->startFelineTownBonus->execute($state, $player);
 
             return false;
         }

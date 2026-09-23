@@ -93,6 +93,7 @@ class RewardDistributionSimulatorTest extends TestCase
             ),
         );
         $state->players[0]->resources->books->unassigned = 1;
+        $state->players[0]->knowledge->unassignedSteps = 3;
 
         $options = array_values(array_filter(
             app(GameActionOptionFinder::class)->execute($state, 1),
@@ -106,7 +107,9 @@ class RewardDistributionSimulatorTest extends TestCase
         $simulation = app(GameActionSimulator::class)->execute($state, 1, $options[0]);
 
         $this->assertSame(1, $state->players[0]->resources->books->unassigned);
+        $this->assertSame(3, $state->players[0]->knowledge->unassignedSteps);
         $this->assertSame(0, $state->players[0]->knowledge->medicine);
+        $this->assertSame(0, $simulation->state->players[0]->knowledge->unassignedSteps);
         $this->assertSame(1, $simulation->state->players[0]->resources->books->medicine);
         $this->assertSame(3, $simulation->state->players[0]->knowledge->medicine);
         $this->assertNotNull($simulation->state->turnStartSnapshot);
@@ -162,5 +165,46 @@ class RewardDistributionSimulatorTest extends TestCase
             'terraforming' => [PendingInteractionType::ChooseTerraformingBooks],
             'palace' => [PendingInteractionType::ChoosePalaceBooks],
         ];
+    }
+
+    public function test_it_enumerates_and_simulates_innovation_reward_distributions(): void
+    {
+        $state = new GameStateData(
+            schemaVersion: 4,
+            players: [new GamePlayerStateData(
+                playerId: 1,
+                userId: 10,
+                color: PlayerColor::Green,
+                faction: Faction::Blessed,
+                homeland: TerrainType::Forest,
+                roundBonus: RoundBonus::Coins,
+                resources: new PlayerResourcesData(),
+            )],
+            round: new RoundStateData(phase: GamePhase::Actions),
+            pendingInteraction: new PendingInteractionData(
+                PendingInteractionType::ChooseInnovationReward,
+                1,
+                [],
+                ['bookCount' => 1, 'knowledgeStepCount' => 3],
+            ),
+        );
+        $state->players[0]->resources->books->unassigned = 1;
+        $state->players[0]->knowledge->unassignedSteps = 3;
+
+        $options = array_values(array_filter(
+            app(GameActionOptionFinder::class)->execute($state, 1),
+            static fn ($option): bool => $option instanceof RewardDistributionOptionData,
+        ));
+
+        $this->assertCount(80, $options);
+        $simulation = app(GameActionSimulator::class)->execute($state, 1, $options[0]);
+
+        $this->assertSame(1, $state->players[0]->resources->books->unassigned);
+        $this->assertSame(3, $state->players[0]->knowledge->unassignedSteps);
+        $this->assertSame(1, $simulation->state->players[0]->resources->books->medicine);
+        $this->assertSame(3, $simulation->state->players[0]->knowledge->medicine);
+        $this->assertSame(0, $simulation->state->players[0]->knowledge->unassignedSteps);
+        $this->assertNull($simulation->state->pendingInteraction);
+        $this->assertSame(10, $simulation->nextActiveUserId);
     }
 }

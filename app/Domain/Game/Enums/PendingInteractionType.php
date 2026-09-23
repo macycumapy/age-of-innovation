@@ -22,7 +22,7 @@ enum PendingInteractionType: string
     case BuildWorkshopAfterTerraforming = 'build_workshop_after_terraforming';
     case PlaceBridge = 'place_bridge';
     case ChooseScienceBonusBooks = 'choose_science_bonus_books';
-    case ChooseInnovationBooks = 'choose_innovation_books';
+    case ChooseInnovationReward = 'choose_innovation_reward';
     case ChooseShippingBooks = 'choose_shipping_books';
     case ChooseTerraformingBooks = 'choose_terraforming_books';
     case ChoosePalaceBooks = 'choose_palace_books';

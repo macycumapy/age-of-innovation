@@ -25,6 +25,7 @@ final class ApplyChooseTownAction
         private AdvanceKnowledgeAction $advanceKnowledge,
         private GainPowerAction $gainPower,
         private FindEligibleTerraformHexesAction $findEligibleTerraformHexes,
+        private StartFelineTownBonusAction $startFelineTownBonus,
         private StartLizardTownBonusAction $startLizardTownBonus,
     ) {
     }
@@ -104,17 +105,10 @@ final class ApplyChooseTownAction
                 ],
             );
         } elseif ($isFelineTown) {
-            $player->resources->books->unassigned++;
-            $state->pendingInteraction = new PendingInteractionData(
-                PendingInteractionType::ChooseFelineTownBonus,
-                $player->playerId,
-                context: [
-                    'bookCount' => 1,
-                    'knowledgeStepCount' => 3,
-                    'builtHexId' => $builtHexId,
-                    'queuedBuiltHexIds' => $queuedBuiltHexIds,
-                ],
-            );
+            $this->startFelineTownBonus->execute($state, $player, [
+                'builtHexId' => $builtHexId,
+                'queuedBuiltHexIds' => $queuedBuiltHexIds,
+            ]);
         } elseif ($isLizardTown) {
             $this->startLizardTownBonus->execute($state, $player);
         }

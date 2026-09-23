@@ -392,7 +392,7 @@ export type PendingInteraction =
           };
       }
     | {
-          type: 'choose_innovation_books';
+          type: 'choose_innovation_reward';
           playerId: number;
           optionIds: never[];
           context: {

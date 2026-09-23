@@ -20,6 +20,7 @@ final class ApplyWorkshopAfterTerraformingAction
         private CreateBuildingFollowUpInteractionAction $createBuildingFollowUpInteraction,
         private CreatePowerOffersAfterBuildingAction $createPowerOffersAfterBuilding,
         private ApplyBuildingBonusesAction $applyBuildingBonuses,
+        private StartFelineTownBonusAction $startFelineTownBonus,
     ) {
     }
 
@@ -78,16 +79,9 @@ final class ApplyWorkshopAfterTerraformingAction
             if ($nextActiveUserId !== null && $powerOffer !== null) {
                 $powerOffer->context['felineBonusPending'] = true;
             } else {
-                $player->resources->books->unassigned++;
-                $state->pendingInteraction = new PendingInteractionData(
-                    PendingInteractionType::ChooseFelineTownBonus,
-                    $player->playerId,
-                    context: [
-                        'bookCount' => 1,
-                        'knowledgeStepCount' => 3,
-                        ...($build ? ['continueBuildingAfterPowerHexId' => (string) $hexId] : []),
-                    ],
-                );
+                $this->startFelineTownBonus->execute($state, $player, [
+                    ...($build ? ['continueBuildingAfterPowerHexId' => (string) $hexId] : []),
+                ]);
                 $nextActiveUserId = $player->userId;
             }
         } else {

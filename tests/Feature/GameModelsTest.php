@@ -16,6 +16,7 @@ use App\Models\GameAction;
 use App\Models\GamePlayer;
 use App\Models\User;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 class GameModelsTest extends TestCase
@@ -64,6 +65,36 @@ class GameModelsTest extends TestCase
 
         $this->assertSame(['hexId' => 'D7'], $action->payload);
         $this->assertSame([['type' => 'building_built']], $action->events);
+    }
+
+    public function test_pending_innovation_reward_type_migration_updates_saved_snapshots(): void
+    {
+        $game = Game::factory()->create();
+        $state = [
+            'pendingInteraction' => ['type' => 'choose_innovation_books'],
+            'turnStartSnapshot' => [
+                'pendingInteraction' => ['type' => 'choose_innovation_books'],
+            ],
+        ];
+        DB::table('games')->where('id', $game->id)->update([
+            'state' => json_encode($state, JSON_THROW_ON_ERROR),
+        ]);
+
+        $migration = require database_path(
+            'migrations/2026_09_23_131450_rename_choose_innovation_books_pending_interaction.php',
+        );
+        $migration->up();
+
+        $migratedState = json_decode(
+            (string) DB::table('games')->where('id', $game->id)->value('state'),
+            true,
+            flags: JSON_THROW_ON_ERROR,
+        );
+        $this->assertSame('choose_innovation_reward', $migratedState['pendingInteraction']['type']);
+        $this->assertSame(
+            'choose_innovation_reward',
+            $migratedState['turnStartSnapshot']['pendingInteraction']['type'],
+        );
     }
 
     public function test_a_user_cannot_join_the_same_game_twice(): void

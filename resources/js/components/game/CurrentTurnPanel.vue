@@ -77,7 +77,7 @@ const otherPlayerStatusMessage = computed(() => {
         return `${playerName} выбирает компетенцию.`;
     }
 
-    if (props.game.data.pendingInteraction?.type === 'choose_innovation_books') {
+    if (props.game.data.pendingInteraction?.type === 'choose_innovation_reward') {
         return `${playerName} распределяет награду инновации.`;
     }
 
@@ -216,7 +216,7 @@ function scrollToPageTop(event: MouseEvent): void {
                         game.data.pendingInteraction?.type === 'choose_feline_town_bonus' ||
                         game.data.pendingInteraction?.type === 'choose_palace' ||
                         game.data.pendingInteraction?.type === 'choose_science_bonus_books' ||
-                        game.data.pendingInteraction?.type === 'choose_innovation_books' ||
+                        game.data.pendingInteraction?.type === 'choose_innovation_reward' ||
                         game.data.pendingInteraction?.type === 'choose_shipping_books' ||
                         game.data.pendingInteraction?.type === 'choose_terraforming_books' ||
                         game.data.pendingInteraction?.type === 'choose_palace_books'))
@@ -272,7 +272,7 @@ function scrollToPageTop(event: MouseEvent): void {
             <template v-else-if="game.data.pendingInteraction?.type === 'choose_science_bonus_books'">
                 Выберите книги, полученные за научную цель раунда.
             </template>
-            <template v-else-if="game.data.pendingInteraction?.type === 'choose_innovation_books'">
+            <template v-else-if="game.data.pendingInteraction?.type === 'choose_innovation_reward'">
                 Распределите награду, полученную за инновацию.
             </template>
             <template v-else-if="game.data.pendingInteraction?.type === 'choose_shipping_books'">

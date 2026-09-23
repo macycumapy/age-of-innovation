@@ -77,7 +77,7 @@ final class ApplyMakeInnovationAction
 
         if ($reward['books'] > 0 || $unassignedKnowledgeStepCount > 0) {
             $state->pendingInteraction = new PendingInteractionData(
-                PendingInteractionType::ChooseInnovationBooks,
+                PendingInteractionType::ChooseInnovationReward,
                 $playerState->playerId,
                 context: [
                     'bookCount' => $reward['books'],

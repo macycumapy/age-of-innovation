@@ -29,7 +29,7 @@ import medicineKnowledgeUrl from '../../../images/token_parts/medicine_round.png
 
 type RewardDistributionType =
     | 'choose_science_bonus_books'
-    | 'choose_innovation_books'
+    | 'choose_innovation_reward'
     | 'choose_shipping_books'
     | 'choose_terraforming_books'
     | 'choose_palace_books'

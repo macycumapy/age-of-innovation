@@ -3509,6 +3509,7 @@ class GameManagementTest extends TestCase
         $this->assertSame(PendingInteractionType::ChooseFelineTownBonus, $game->state->pendingInteraction?->type);
         $this->assertSame(1, $game->state->pendingInteraction?->context['bookCount']);
         $this->assertSame(3, $game->state->pendingInteraction?->context['knowledgeStepCount']);
+        $this->assertSame(3, $game->state->players[0]->knowledge->unassignedSteps);
 
         $this->post(route('games.rewards', $game), [
             'book_counts' => ['banking' => 0, 'law' => 0, 'engineering' => 0, 'medicine' => 1],
@@ -3526,6 +3527,7 @@ class GameManagementTest extends TestCase
         $this->assertSame(1, $game->state->players[0]->resources->books->medicine);
         $this->assertSame(3, $game->state->players[0]->knowledge->law);
         $this->assertSame(2, $game->state->players[0]->knowledge->engineering);
+        $this->assertSame(0, $game->state->players[0]->knowledge->unassignedSteps);
         $this->assertSame(2, $game->state->players[0]->resources->power->bowlOne);
         $this->assertSame(1, $game->state->players[0]->resources->power->bowlTwo);
         $this->assertSame(28, $game->state->players[0]->victoryPoints);
@@ -3653,6 +3655,7 @@ class GameManagementTest extends TestCase
         $this->assertSame(PendingInteractionType::ChooseFelineTownBonus, $game->state->pendingInteraction?->type);
         $this->assertSame($user->id, $game->active_player_id);
         $this->assertSame(1, $game->state->players[0]->resources->books->unassigned);
+        $this->assertSame(3, $game->state->players[0]->knowledge->unassignedSteps);
         $this->actingAs($user);
 
         $this->post(route('games.rewards', $game), [
@@ -3662,6 +3665,7 @@ class GameManagementTest extends TestCase
         $game->refresh();
 
         $this->assertNull($game->state->pendingInteraction);
+        $this->assertSame(0, $game->state->players[0]->knowledge->unassignedSteps);
         $this->assertSame(GameActionType::ChooseFelineTownBonus, $game->actions()->latest('sequence')->first()?->type);
     }
 
@@ -5532,7 +5536,7 @@ class GameManagementTest extends TestCase
         ])->assertNoContent();
 
         $game->refresh();
-        $this->assertSame(PendingInteractionType::ChooseInnovationBooks, $game->state->pendingInteraction?->type);
+        $this->assertSame(PendingInteractionType::ChooseInnovationReward, $game->state->pendingInteraction?->type);
         $this->assertSame(3, $game->state->pendingInteraction?->context['knowledgeStepCount']);
         $this->assertSame(3, $game->state->players[0]->knowledge->unassignedSteps);
 
@@ -5926,7 +5930,7 @@ class GameManagementTest extends TestCase
         ])->assertNoContent();
 
         $game->refresh();
-        $this->assertSame(PendingInteractionType::ChooseInnovationBooks, $game->state->pendingInteraction?->type);
+        $this->assertSame(PendingInteractionType::ChooseInnovationReward, $game->state->pendingInteraction?->type);
         $this->assertSame(2, $game->state->pendingInteraction?->context['bookCount']);
         $this->assertSame('innovation', $game->state->pendingInteraction?->context['source']);
         $this->assertSame(2, $game->state->players[0]->resources->books->unassigned);
@@ -5937,7 +5941,7 @@ class GameManagementTest extends TestCase
         ])->assertSessionHasErrors('book_counts');
 
         $game->refresh();
-        $this->assertSame(PendingInteractionType::ChooseInnovationBooks, $game->state->pendingInteraction?->type);
+        $this->assertSame(PendingInteractionType::ChooseInnovationReward, $game->state->pendingInteraction?->type);
         $this->assertSame(2, $game->state->players[0]->resources->books->unassigned);
         $this->assertSame(1, $game->actions()->count());
 

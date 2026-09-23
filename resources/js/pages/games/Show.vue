@@ -74,7 +74,7 @@ const interactionsShownAboveBoard = new Set([
     'choose_round_bonus',
     'choose_starting_resources',
     'choose_science_bonus_books',
-    'choose_innovation_books',
+    'choose_innovation_reward',
     'choose_shipping_books',
     'choose_terraforming_books',
     'choose_palace_books',
@@ -572,7 +572,7 @@ const pendingRewardDistribution = computed(() => {
 
     if (
         interaction?.type !== 'choose_science_bonus_books' &&
-        interaction?.type !== 'choose_innovation_books' &&
+        interaction?.type !== 'choose_innovation_reward' &&
         interaction?.type !== 'choose_shipping_books' &&
         interaction?.type !== 'choose_terraforming_books' &&
         interaction?.type !== 'choose_palace_books' &&

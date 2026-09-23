@@ -22,6 +22,7 @@ final class RewardDistributionOptionFinder
             PendingInteractionType::ChooseShippingBooks,
             PendingInteractionType::ChooseTerraformingBooks,
             PendingInteractionType::ChoosePalaceBooks,
+            PendingInteractionType::ChooseInnovationReward,
         ], true)
             || $interaction->playerId !== $player->playerId) {
             return [];
@@ -29,6 +30,16 @@ final class RewardDistributionOptionFinder
 
         $bookCount = (int) ($interaction->context['bookCount'] ?? 0);
         $knowledgeStepCount = (int) ($interaction->context['knowledgeStepCount'] ?? 0);
+        if ($bookCount < 0
+            || $knowledgeStepCount < 0
+            || $player->resources->books->unassigned < $bookCount
+            || (in_array($interaction->type, [
+                PendingInteractionType::ChooseFelineTownBonus,
+                PendingInteractionType::ChooseInnovationReward,
+            ], true)
+                && $player->knowledge->unassignedSteps < $knowledgeStepCount)) {
+            return [];
+        }
         $disciplineIds = array_column(KnowledgeDiscipline::cases(), 'value');
         $bookDistributions = $this->distributions($disciplineIds, $bookCount);
         $knowledgeDistributions = $this->distributions($disciplineIds, $knowledgeStepCount);

@@ -16,6 +16,7 @@ final class ApplyPowerOfferDecisionAction
         private CreatePowerOffersAfterBuildingAction $createPowerOffersAfterBuilding,
         private CreateTownChoiceAfterBuildingAction $createTownChoiceAfterBuilding,
         private GainPowerAction $gainPower,
+        private StartFelineTownBonusAction $startFelineTownBonus,
     ) {
     }
 
@@ -103,17 +104,9 @@ final class ApplyPowerOfferDecisionAction
 
             if ($nextActiveUserId === null) {
                 if (($interaction->context['felineBonusPending'] ?? false) === true) {
-                    $buildingPlayer->resources->books->unassigned++;
-                    $state->pendingInteraction = new PendingInteractionData(
-                        PendingInteractionType::ChooseFelineTownBonus,
-                        $buildingPlayer->playerId,
-                        [],
-                        [
-                            'bookCount' => 1,
-                            'knowledgeStepCount' => 3,
-                            'continueBuildingAfterPowerHexId' => (string) $interaction->context['builtHexId'],
-                        ],
-                    );
+                    $this->startFelineTownBonus->execute($state, $buildingPlayer, [
+                        'continueBuildingAfterPowerHexId' => (string) $interaction->context['builtHexId'],
+                    ]);
                     $nextActiveUserId = $buildingPlayer->userId;
                 } else {
                     $townBuiltHexId = $interaction->context['townBuiltHexId'] ?? null;

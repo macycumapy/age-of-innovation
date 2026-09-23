@@ -46,7 +46,7 @@ final class DistributeRewardsAction
                 ? $this->chooseCompetency->execute($game, $user, $competency)
                 : throw ValidationException::withMessages(['competency_id' => 'Выберите компетенцию.']),
             PendingInteractionType::ChooseScienceBonusBooks => $this->chooseScienceBonusBooks->execute($game, $user, $this->disciplines($bookCounts)),
-            PendingInteractionType::ChooseInnovationBooks => $this->chooseInnovationReward->execute($game, $user, $bookCounts, $knowledgeCounts),
+            PendingInteractionType::ChooseInnovationReward => $this->chooseInnovationReward->execute($game, $user, $bookCounts, $knowledgeCounts),
             PendingInteractionType::ChooseShippingBooks => $this->chooseShippingBooks->execute($game, $user, $bookCounts),
             PendingInteractionType::ChooseTerraformingBooks => $this->chooseTerraformingBooks->execute($game, $user, $bookCounts),
             PendingInteractionType::ChoosePalaceBooks => $this->choosePalaceBooks->execute($game, $user, $bookCounts),

@@ -109,7 +109,7 @@ final class LegalActionFinder
             PendingInteractionType::ChooseTownBooks,
             PendingInteractionType::ChooseFelineTownBonus,
             PendingInteractionType::ChooseScienceBonusBooks,
-            PendingInteractionType::ChooseInnovationBooks,
+            PendingInteractionType::ChooseInnovationReward,
             PendingInteractionType::ChooseShippingBooks,
             PendingInteractionType::ChooseTerraformingBooks,
             PendingInteractionType::ChoosePalaceBooks => [new LegalActionData('distribute_rewards', $parameters)],

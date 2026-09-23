@@ -24,7 +24,7 @@ final class DistributeRewardsRequest extends FormRequest
                 PendingInteractionType::ChooseStartingResources,
                 PendingInteractionType::ChooseCompetency,
                 PendingInteractionType::ChooseScienceBonusBooks,
-                PendingInteractionType::ChooseInnovationBooks,
+                PendingInteractionType::ChooseInnovationReward,
                 PendingInteractionType::ChooseShippingBooks,
                 PendingInteractionType::ChooseTerraformingBooks,
                 PendingInteractionType::ChoosePalaceBooks,
