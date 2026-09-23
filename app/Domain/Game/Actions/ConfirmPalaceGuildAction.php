@@ -4,9 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domain\Game\Actions;
 
-use App\Domain\Game\Data\BoardHexStateData;
 use App\Domain\Game\Data\GamePlayerStateData;
-use App\Domain\Game\Enums\BuildingType;
 use App\Domain\Game\Enums\GameActionType;
 use App\Domain\Game\Enums\GameEventType;
 use App\Domain\Game\Enums\PendingInteractionType;
@@ -20,8 +18,7 @@ final class ConfirmPalaceGuildAction
 {
     public function __construct(
         private AppendGameHistoryAction $appendGameHistory,
-        private ApplyBuildingBonusesAction $applyBuildingBonuses,
-        private CreateTownChoiceAfterBuildingAction $createTownChoiceAfterBuilding,
+        private ApplyPlacePalaceGuildAction $applyPlacePalaceGuild,
     ) {
     }
 
@@ -42,28 +39,20 @@ final class ConfirmPalaceGuildAction
                 throw ValidationException::withMessages(['game' => 'Сначала разместите бесплатный рынок.']);
             }
 
-            $hex = collect($state->board->hexes)->firstWhere('id', $selectedHexId);
             $playerState = collect($state->players)->firstWhere('playerId', $player->id);
 
-            if (! $hex instanceof BoardHexStateData
-                || $hex->building?->type !== BuildingType::Guild
-                || $hex->building->ownerPlayerId !== $player->id
-                || ! $playerState instanceof GamePlayerStateData) {
+            if (! $playerState instanceof GamePlayerStateData) {
                 throw ValidationException::withMessages(['game' => 'Размещённый рынок не найден.']);
             }
 
             $stateVersionBefore = $lockedGame->version;
-            $bonuses = $this->applyBuildingBonuses->execute($state, $playerState, $hex, BuildingType::Guild);
-            $palaceBuiltHexId = (string) ($interaction->context['palaceBuiltHexId'] ?? '');
-            $state->pendingInteraction = null;
-            $nextActiveUserId = $this->createTownChoiceAfterBuilding->execute(
+            $result = $this->applyPlacePalaceGuild->execute(
                 $state,
                 $playerState,
                 $selectedHexId,
-                $palaceBuiltHexId === '' ? [] : [$palaceBuiltHexId],
             );
             $lockedGame->update([
-                'active_player_id' => $nextActiveUserId,
+                'active_player_id' => $result->nextActiveUserId,
                 'state' => $state,
                 'version' => $lockedGame->version + 1,
             ]);
@@ -73,10 +62,10 @@ final class ConfirmPalaceGuildAction
                 GameActionType::PlacePalaceGuild,
                 [
                     'hex_id' => $selectedHexId,
-                    'palace_built_hex_id' => $palaceBuiltHexId,
-                    'victory_points' => $bonuses['victoryPoints'],
-                    'bonus_coins' => $bonuses['coins'],
-                    'scoring_sources' => $bonuses['sources'],
+                    'palace_built_hex_id' => $result->palaceBuiltHexId,
+                    'victory_points' => $result->bonuses['victoryPoints'],
+                    'bonus_coins' => $result->bonuses['coins'],
+                    'scoring_sources' => $result->bonuses['sources'],
                 ],
                 [[
                     'type' => GameEventType::PalaceGuildPlaced->value,

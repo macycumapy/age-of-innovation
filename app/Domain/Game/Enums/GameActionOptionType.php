@@ -34,4 +34,5 @@ enum GameActionOptionType: string
     case PlaceNeutralBuilding = 'place_neutral_building';
     case PlaceBridge = 'place_bridge';
     case SpendSpades = 'spend_spades';
+    case PlacePalaceGuild = 'place_palace_guild';
 }

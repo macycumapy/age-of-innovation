@@ -36,6 +36,7 @@ final class GameActionOptionFinder
         private PlaceNeutralBuildingOptionFinder $placeNeutralBuildingOptionFinder,
         private PlaceBridgeOptionFinder $placeBridgeOptionFinder,
         private SpendSpadesOptionFinder $spendSpadesOptionFinder,
+        private PlacePalaceGuildOptionFinder $placePalaceGuildOptionFinder,
     ) {
     }
 
@@ -92,6 +93,7 @@ final class GameActionOptionFinder
             PendingInteractionType::PlaceNeutralBuilding => $this->placeNeutralBuildingOptionFinder->execute($state, $player),
             PendingInteractionType::PlaceBridge => $this->placeBridgeOptionFinder->execute($state, $player),
             PendingInteractionType::SpendSpades => $this->spendSpadesOptionFinder->execute($state, $player),
+            PendingInteractionType::PlacePalaceGuild => $this->placePalaceGuildOptionFinder->execute($state, $player),
             default => [],
         };
         $resourceOptions = $state->round->phase->isActionPhase()
