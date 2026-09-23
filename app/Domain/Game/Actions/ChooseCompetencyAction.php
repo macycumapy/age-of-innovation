@@ -23,8 +23,8 @@ final class ChooseCompetencyAction
 {
     public function __construct(
         private AppendGameHistoryAction $appendGameHistory,
+        private ApplyChooseCompetencyAction $applyChooseCompetency,
         private CreateNeutralBuildingInteractionAction $createNeutralBuildingInteraction,
-        private CreateTownChoiceAfterBuildingAction $createTownChoiceAfterBuilding,
         private DetermineStartingBuildingOrderAction $determineStartingBuildingOrder,
         private FindEligibleTerraformHexesAction $findEligibleTerraformHexes,
         private GrantCompetencyAction $grantCompetency,
@@ -74,38 +74,11 @@ final class ChooseCompetencyAction
             }
 
             $playerState = $state->players[$playerStateIndex];
-            $knowledgeAdvance = $this->grantCompetency->execute(
-                $state,
-                $playerState,
-                $competency,
-                $state->setupPool?->competencies ?? $state->availableCompetencyIds,
-            );
-            $playerState->victoryPoints += $knowledgeAdvance->victoryPoints;
-            $state->players[$playerStateIndex] = $playerState;
-            $state->pendingInteraction = null;
 
             if ($isBuildingChoice || $isInnovationChoice) {
-                $builtHexId = (string) ($interaction->context['builtHexId'] ?? '');
-                $awaitsTerraforming = $competency === Competency::Competency05
-                    && $this->createTerraformingInteraction($state, $playerState);
-                $awaitsTowerPlacement = $competency === Competency::Competency10
-                    && $this->createNeutralBuildingInteraction->execute(
-                        $state,
-                        $playerState,
-                        BuildingType::Tower,
-                        [
-                            'competency' => $competency->value,
-                            'source' => 'competency',
-                            'queuedBuiltHexIds' => $isBuildingChoice ? [$builtHexId] : [],
-                        ],
-                    );
-                $nextActiveUserId = $awaitsTerraforming || $awaitsTowerPlacement
-                    ? $playerState->userId
-                    : ($isBuildingChoice
-                        ? $this->createTownChoiceAfterBuilding->execute($state, $playerState, $builtHexId)
-                        : $playerState->userId);
+                $result = $this->applyChooseCompetency->execute($state, $playerState, $competency);
                 $lockedGame->update([
-                    'active_player_id' => $nextActiveUserId,
+                    'active_player_id' => $result->nextActiveUserId,
                     'state' => $state,
                     'version' => $lockedGame->version + 1,
                 ]);
@@ -115,16 +88,16 @@ final class ChooseCompetencyAction
                     GameActionType::ChooseCompetency,
                     [
                         'competency_id' => $competency->value,
-                        'reason' => $isBuildingChoice ? 'building' : 'innovation',
-                        'built_hex_id' => $isBuildingChoice ? $builtHexId : null,
-                        'gained_power' => $knowledgeAdvance->gainedPower,
-                        'victory_points' => $knowledgeAdvance->victoryPoints,
+                        'reason' => $result->reason,
+                        'built_hex_id' => $result->reason === 'building' ? $result->builtHexId : null,
+                        'gained_power' => $result->gainedPower,
+                        'victory_points' => $result->victoryPoints,
                     ],
                     [[
-                        'type' => $isBuildingChoice ? 'building_competency_chosen' : 'innovation_competency_chosen',
+                        'type' => $result->reason === 'building' ? 'building_competency_chosen' : 'innovation_competency_chosen',
                         'player_id' => $player->id,
                         'competency_id' => $competency->value,
-                        'built_hex_id' => $isBuildingChoice ? $builtHexId : null,
+                        'built_hex_id' => $result->reason === 'building' ? $result->builtHexId : null,
                     ]],
                     $stateVersionBefore,
                     $lockedGame->version,
@@ -132,6 +105,15 @@ final class ChooseCompetencyAction
 
                 return $lockedGame->refresh();
             }
+
+            $knowledgeAdvance = $this->grantCompetency->execute(
+                $state,
+                $playerState,
+                $competency,
+                $state->setupPool === null ? $state->availableCompetencyIds : $state->setupPool->competencies,
+            );
+            $playerState->victoryPoints += $knowledgeAdvance->victoryPoints;
+            $state->pendingInteraction = null;
 
             $placementOrder = $this->determineStartingBuildingOrder->execute($lockedGame);
             $incomeReceipts = [];
