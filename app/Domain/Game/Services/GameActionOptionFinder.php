@@ -96,7 +96,10 @@ final class GameActionOptionFinder
             PendingInteractionType::SpendSpades => $this->spendSpadesOptionFinder->execute($state, $player),
             PendingInteractionType::PlacePalaceGuild => $this->placePalaceGuildOptionFinder->execute($state, $player),
             PendingInteractionType::ChooseTownBooks,
-            PendingInteractionType::ChooseFelineTownBonus => $this->rewardDistributionOptionFinder->execute($state, $player),
+            PendingInteractionType::ChooseFelineTownBonus,
+            PendingInteractionType::ChooseShippingBooks,
+            PendingInteractionType::ChooseTerraformingBooks,
+            PendingInteractionType::ChoosePalaceBooks => $this->rewardDistributionOptionFinder->execute($state, $player),
             default => [],
         };
         $resourceOptions = $state->round->phase->isActionPhase()

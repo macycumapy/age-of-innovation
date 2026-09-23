@@ -27,7 +27,6 @@ final class ChoosePalaceBooksAction
             GameActionType::ChoosePalace,
             GameEventType::PalaceBooksChosen,
             'Крепости',
-            true,
         );
     }
 }

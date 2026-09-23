@@ -6,6 +6,7 @@ namespace App\Domain\Game\Services;
 
 use App\Domain\Game\Actions\ApplyChooseFelineTownBonusAction;
 use App\Domain\Game\Actions\ApplyChooseTownBooksAction;
+use App\Domain\Game\Actions\ApplyRewardBookDistributionAction;
 use App\Domain\Game\Data\GameActionSimulationData;
 use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Data\GameStateData;
@@ -19,6 +20,7 @@ final class RewardDistributionSimulator
     public function __construct(
         private ApplyChooseTownBooksAction $applyChooseTownBooks,
         private ApplyChooseFelineTownBonusAction $applyChooseFelineTownBonus,
+        private ApplyRewardBookDistributionAction $applyRewardBookDistribution,
     ) {
     }
 
@@ -45,6 +47,14 @@ final class RewardDistributionSimulator
                 $option->bookCounts,
                 $option->knowledgeCounts,
             )->nextActiveUserId,
+            PendingInteractionType::ChooseShippingBooks,
+            PendingInteractionType::ChooseTerraformingBooks,
+            PendingInteractionType::ChoosePalaceBooks => $this->applyRewardBookDistribution->execute(
+                $simulatedState,
+                $player,
+                $option->bookCounts,
+                $simulatedState->pendingInteraction->type,
+            ),
             default => throw new DomainException('Это распределение наград сейчас недоступно.'),
         };
 

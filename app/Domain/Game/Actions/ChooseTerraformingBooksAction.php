@@ -27,7 +27,6 @@ final class ChooseTerraformingBooksAction
             GameActionType::AdvanceTerraforming,
             GameEventType::TerraformingBooksChosen,
             'за терраформинг',
-            false,
         );
     }
 }

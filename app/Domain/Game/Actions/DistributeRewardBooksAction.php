@@ -16,7 +16,7 @@ use Illuminate\Validation\ValidationException;
 
 final class DistributeRewardBooksAction
 {
-    public function __construct(private CreateTownChoiceAfterBuildingAction $createTownChoiceAfterBuilding)
+    public function __construct(private ApplyRewardBookDistributionAction $applyRewardBookDistribution)
     {
     }
 
@@ -29,7 +29,6 @@ final class DistributeRewardBooksAction
         GameActionType $sourceActionType,
         GameEventType $historyEventType,
         string $rewardName,
-        bool $continuePalaceBuilding = false,
     ): Game {
         return DB::transaction(function () use (
             $game,
@@ -39,12 +38,10 @@ final class DistributeRewardBooksAction
             $sourceActionType,
             $historyEventType,
             $rewardName,
-            $continuePalaceBuilding,
         ): Game {
             $lockedGame = Game::query()->lockForUpdate()->findOrFail($game->id);
             $state = $lockedGame->state;
             $interaction = $state->pendingInteraction;
-            $bookCount = (int) ($interaction?->context['bookCount'] ?? 0);
             $player = $lockedGame->players()->whereKey($interaction?->playerId)->whereBelongsTo($user)->first();
             $playerState = $player instanceof GamePlayer
                 ? collect($state->players)->firstWhere('playerId', $player->id)
@@ -53,29 +50,18 @@ final class DistributeRewardBooksAction
             if (! $lockedGame->phase->isActionPhase()
                 || $lockedGame->active_player_id !== $user->id
                 || $interaction?->type !== $interactionType
-                || ! $playerState instanceof GamePlayerStateData
-                || array_sum($bookCounts) !== $bookCount
-                || $playerState->resources->books->unassigned < $bookCount) {
+                || ! $playerState instanceof GamePlayerStateData) {
                 throw ValidationException::withMessages([
                     'book_counts' => "Сейчас нельзя распределить книги {$rewardName}.",
                 ]);
             }
 
-            foreach ($bookCounts as $discipline => $count) {
-                $playerState->resources->books->{$discipline} += $count;
-            }
-
-            $playerState->resources->books->unassigned -= $bookCount;
-            $state->pendingInteraction = null;
-            $nextActiveUserId = $lockedGame->active_player_id;
-
-            if ($continuePalaceBuilding) {
-                $nextActiveUserId = $this->createTownChoiceAfterBuilding->execute(
-                    $state,
-                    $playerState,
-                    (string) ($interaction->context['builtHexId'] ?? ''),
-                );
-            }
+            $nextActiveUserId = $this->applyRewardBookDistribution->execute(
+                $state,
+                $playerState,
+                $bookCounts,
+                $interactionType,
+            );
 
             $lockedGame->update([
                 'active_player_id' => $nextActiveUserId,

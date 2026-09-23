@@ -19,6 +19,7 @@ use App\Domain\Game\Enums\RoundBonus;
 use App\Domain\Game\Enums\TerrainType;
 use App\Domain\Game\Services\GameActionOptionFinder;
 use App\Domain\Game\Services\GameActionSimulator;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 class RewardDistributionSimulatorTest extends TestCase
@@ -111,5 +112,55 @@ class RewardDistributionSimulatorTest extends TestCase
         $this->assertNotNull($simulation->state->turnStartSnapshot);
         $this->assertNull($simulation->state->pendingInteraction);
         $this->assertSame(10, $simulation->nextActiveUserId);
+    }
+
+    #[DataProvider('developmentRewardInteractionTypes')]
+    public function test_it_enumerates_and_simulates_development_reward_books(
+        PendingInteractionType $interactionType,
+    ): void {
+        $state = new GameStateData(
+            schemaVersion: 4,
+            players: [new GamePlayerStateData(
+                playerId: 1,
+                userId: 10,
+                color: PlayerColor::Green,
+                faction: Faction::Blessed,
+                homeland: TerrainType::Forest,
+                roundBonus: RoundBonus::Coins,
+                resources: new PlayerResourcesData(),
+            )],
+            round: new RoundStateData(phase: GamePhase::Actions),
+            pendingInteraction: new PendingInteractionData(
+                $interactionType,
+                1,
+                [],
+                ['bookCount' => 2, 'builtHexId' => '0:0'],
+            ),
+        );
+        $state->players[0]->resources->books->unassigned = 2;
+
+        $options = array_values(array_filter(
+            app(GameActionOptionFinder::class)->execute($state, 1),
+            static fn ($option): bool => $option instanceof RewardDistributionOptionData,
+        ));
+
+        $this->assertCount(10, $options);
+        $simulation = app(GameActionSimulator::class)->execute($state, 1, $options[0]);
+
+        $this->assertSame(2, $state->players[0]->resources->books->unassigned);
+        $this->assertSame(0, $simulation->state->players[0]->resources->books->unassigned);
+        $this->assertSame(2, $simulation->state->players[0]->resources->books->medicine);
+        $this->assertNull($simulation->state->pendingInteraction);
+        $this->assertSame(10, $simulation->nextActiveUserId);
+    }
+
+    /** @return array<string, array{PendingInteractionType}> */
+    public static function developmentRewardInteractionTypes(): array
+    {
+        return [
+            'shipping' => [PendingInteractionType::ChooseShippingBooks],
+            'terraforming' => [PendingInteractionType::ChooseTerraformingBooks],
+            'palace' => [PendingInteractionType::ChoosePalaceBooks],
+        ];
     }
 }

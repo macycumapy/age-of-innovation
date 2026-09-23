@@ -19,6 +19,9 @@ final class RewardDistributionOptionFinder
         if (! in_array($interaction?->type, [
             PendingInteractionType::ChooseTownBooks,
             PendingInteractionType::ChooseFelineTownBonus,
+            PendingInteractionType::ChooseShippingBooks,
+            PendingInteractionType::ChooseTerraformingBooks,
+            PendingInteractionType::ChoosePalaceBooks,
         ], true)
             || $interaction->playerId !== $player->playerId) {
             return [];

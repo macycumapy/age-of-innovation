@@ -27,7 +27,6 @@ final class ChooseShippingBooksAction
             GameActionType::AdvanceShipping,
             GameEventType::ShippingBooksChosen,
             'за навигацию',
-            false,
         );
     }
 }
