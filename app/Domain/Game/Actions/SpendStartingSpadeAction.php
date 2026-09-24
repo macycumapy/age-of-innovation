@@ -9,28 +9,24 @@ use App\Domain\Game\Enums\PendingInteractionType;
 use App\Domain\Game\Enums\TerrainType;
 use App\Models\Game;
 use App\Models\GamePlayer;
-use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 final class SpendStartingSpadeAction
 {
-    public function execute(Game $game, User $user, string $hexId): Game
+    public function execute(Game $game, GamePlayer $player, string $hexId): Game
     {
-        return DB::transaction(function () use ($game, $user, $hexId): Game {
+        return DB::transaction(function () use ($game, $player, $hexId): Game {
             $lockedGame = Game::query()->lockForUpdate()->findOrFail($game->id);
             $state = $lockedGame->state;
             $interaction = $state->pendingInteraction;
-            $player = $lockedGame->players()
-                ->whereKey($interaction?->playerId)
-                ->whereBelongsTo($user)
-                ->first();
 
             if (! in_array($lockedGame->phase, [GamePhase::Setup, GamePhase::Actions, GamePhase::ScienceBonus], true)
-                || $lockedGame->active_player_id !== $user->id
+                || $player->game_id !== $lockedGame->id
+                || ! $lockedGame->isActivePlayer($player)
                 || $interaction?->type !== PendingInteractionType::SpendSpades
+                || $interaction->playerId !== $player->id
                 || isset($interaction->context['selectedHexId'])
-                || ! $player instanceof GamePlayer
                 || ! in_array($hexId, $interaction->optionIds, true)) {
                 throw ValidationException::withMessages(['hex_id' => 'Эта клетка недоступна для преобразования.']);
             }

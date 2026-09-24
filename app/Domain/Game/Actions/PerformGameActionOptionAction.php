@@ -128,10 +128,17 @@ final class PerformGameActionOptionAction
             );
         }
 
+        if ($option instanceof PaidTerraformingOptionData) {
+            return $this->performPaidTerraforming($game, $player, $option);
+        }
+
+        if ($option instanceof SpendSpadesOptionData) {
+            return $this->performSpadeSpending($game, $player, $option);
+        }
+
         $user = $player->user()->firstOrFail();
 
         return DB::transaction(fn (): Game => match (true) {
-            $option instanceof PaidTerraformingOptionData => $this->performPaidTerraforming($game, $user, $option),
             $option instanceof DevelopmentAdvancementOptionData => $this->performDevelopmentAdvancement($game, $user, $option),
             $option instanceof SendScholarOptionData => $this->sendScholar->execute(
                 $game,
@@ -178,7 +185,6 @@ final class PerformGameActionOptionAction
             $option instanceof ChooseCompetencyOptionData => $this->chooseCompetency->execute($game, $user, $option->competency),
             $option instanceof PlaceNeutralBuildingOptionData => $this->placeNeutralBuilding->execute($game, $user, $option->hexId),
             $option instanceof PlaceBridgeOptionData => $this->performBridgePlacement($game, $user, $option),
-            $option instanceof SpendSpadesOptionData => $this->performSpadeSpending($game, $user, $option),
             $option instanceof PlacePalaceGuildOptionData => $this->performPalaceGuildPlacement($game, $user, $option),
             $option instanceof RewardDistributionOptionData => $this->distributeRewards->execute(
                 $game,
@@ -215,11 +221,11 @@ final class PerformGameActionOptionAction
         };
     }
 
-    private function performPaidTerraforming(Game $game, User $user, PaidTerraformingOptionData $option): Game
+    private function performPaidTerraforming(Game $game, GamePlayer $player, PaidTerraformingOptionData $option): Game
     {
         $game = $this->startPaidTerraforming->execute(
             $game,
-            $user,
+            $player,
             $option->hexId,
             $option->useAvailable,
             $option->useTunnel,
@@ -228,7 +234,7 @@ final class PerformGameActionOptionAction
 
         return $this->performSpadeSpending(
             $game,
-            $user,
+            $player,
             new SpendSpadesOptionData($option->hexId, $option->spadeCount),
         );
     }
@@ -246,15 +252,15 @@ final class PerformGameActionOptionAction
         return $this->confirmBridge->execute($game, $user);
     }
 
-    private function performSpadeSpending(Game $game, User $user, SpendSpadesOptionData $option): Game
+    private function performSpadeSpending(Game $game, GamePlayer $player, SpendSpadesOptionData $option): Game
     {
         $selectedHexId = $game->state->pendingInteraction?->context['selectedHexId'] ?? null;
 
         if ($selectedHexId !== $option->hexId) {
-            $game = $this->spendSpade->execute($game, $user, $option->hexId);
+            $game = $this->spendSpade->execute($game, $player, $option->hexId);
         }
 
-        return $this->finishSpade->execute($game, $user);
+        return $this->finishSpade->execute($game, $player);
     }
 
     private function performPalaceGuildPlacement(

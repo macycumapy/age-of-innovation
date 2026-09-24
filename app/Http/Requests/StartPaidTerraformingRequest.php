@@ -7,6 +7,8 @@ namespace App\Http\Requests;
 use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\PendingInteractionType;
 use App\Models\Game;
+use App\Models\GamePlayer;
+use App\Models\User;
 use Illuminate\Foundation\Http\FormRequest;
 
 final class StartPaidTerraformingRequest extends FormRequest
@@ -14,8 +16,15 @@ final class StartPaidTerraformingRequest extends FormRequest
     public function authorize(): bool
     {
         $game = $this->route('game');
+        $user = $this->user();
 
-        if (! $game instanceof Game || $game->active_player_id !== $this->user()?->id) {
+        if (! $game instanceof Game || ! $user instanceof User) {
+            return false;
+        }
+
+        $player = $game->players()->whereBelongsTo($user)->first();
+
+        if (! $player instanceof GamePlayer || ! $game->isActivePlayer($player)) {
             return false;
         }
 

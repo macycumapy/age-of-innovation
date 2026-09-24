@@ -22,16 +22,17 @@ final class PaidTerraformingController extends Controller
     ): Response {
         /** @var User $user */
         $user = $request->user();
-        DB::transaction(function () use ($game, $user, $request, $startPaidTerraforming, $spendStartingSpade): void {
+        $player = $game->players()->whereBelongsTo($user)->firstOrFail();
+        DB::transaction(function () use ($game, $player, $request, $startPaidTerraforming, $spendStartingSpade): void {
             $preparedGame = $startPaidTerraforming->execute(
                 $game,
-                $user,
+                $player,
                 $request->hexId(),
                 $request->useAvailable(),
                 $request->useTunnel(),
                 $request->useFlight(),
             );
-            $spendStartingSpade->execute($preparedGame, $user, $request->hexId());
+            $spendStartingSpade->execute($preparedGame, $player, $request->hexId());
         });
 
         return $this->gameChanged($game);

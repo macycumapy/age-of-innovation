@@ -17,7 +17,6 @@ use App\Domain\Game\Enums\PendingInteractionType;
 use App\Domain\Game\Enums\TerrainType;
 use App\Models\Game;
 use App\Models\GamePlayer;
-use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -35,25 +34,23 @@ final class FinishStartingSpadeAction
     ) {
     }
 
-    public function execute(Game $game, User $user): Game
+    public function execute(Game $game, GamePlayer $player): Game
     {
-        return DB::transaction(function () use ($game, $user): Game {
+        return DB::transaction(function () use ($game, $player): Game {
             $lockedGame = Game::query()->lockForUpdate()->findOrFail($game->id);
             $state = $lockedGame->state;
             $interactionPhase = $lockedGame->phase;
             $interaction = $state->pendingInteraction;
             $hexId = $interaction?->context['selectedHexId'] ?? null;
             $stateVersionBefore = $lockedGame->version;
-            $player = $lockedGame->players()
-                ->whereKey($interaction?->playerId)
-                ->whereBelongsTo($user)
-                ->first();
 
             if (! in_array($lockedGame->phase, [GamePhase::Setup, GamePhase::Actions, GamePhase::ScienceBonus], true)
-                || $lockedGame->active_player_id !== $user->id
+                || $player->game_id !== $lockedGame->id
+                || ! $lockedGame->isActivePlayer($player)
                 || $interaction?->type !== PendingInteractionType::SpendSpades
+                || $interaction->playerId !== $player->id
                 || ! is_string($hexId)
-                || ! $player instanceof GamePlayer) {
+            ) {
                 throw ValidationException::withMessages(['game' => 'Сначала выберите клетку для преобразования.']);
             }
 
@@ -68,7 +65,6 @@ final class FinishStartingSpadeAction
             if ($interactionPhase->isActionPhase()) {
                 return $this->finishActionPhaseSpades(
                     $lockedGame,
-                    $user,
                     $player,
                     $interaction,
                     $playerState,
@@ -210,7 +206,7 @@ final class FinishStartingSpadeAction
             $lockedGame->update([
                 'status' => $nextPhase === GamePhase::Finished ? GameStatus::Finished : GameStatus::Active,
                 'phase' => $nextPhase,
-                'active_player_id' => $nextPlayer?->user_id,
+                'active_game_player_id' => $nextPlayer?->id,
                 'state' => $state,
                 'version' => $lockedGame->version + 1,
             ]);
@@ -259,7 +255,6 @@ final class FinishStartingSpadeAction
 
     private function finishActionPhaseSpades(
         Game $game,
-        User $user,
         GamePlayer $player,
         PendingInteractionData $interaction,
         GamePlayerStateData $playerState,

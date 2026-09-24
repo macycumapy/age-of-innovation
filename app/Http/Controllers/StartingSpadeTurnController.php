@@ -19,7 +19,8 @@ final class StartingSpadeTurnController extends Controller
     ): Response {
         /** @var User $user */
         $user = $request->user();
-        $finishStartingSpade->execute($game, $user);
+        $player = $game->players()->whereBelongsTo($user)->firstOrFail();
+        $finishStartingSpade->execute($game, $player);
 
         return $this->gameChanged($game);
     }

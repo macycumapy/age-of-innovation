@@ -21,7 +21,8 @@ final class StartingSpadeController extends Controller
     ): Response {
         /** @var User $user */
         $user = $request->user();
-        $spendStartingSpade->execute($game, $user, $request->hexId());
+        $player = $game->players()->whereBelongsTo($user)->firstOrFail();
+        $spendStartingSpade->execute($game, $player, $request->hexId());
 
         return $this->gameChanged($game);
     }

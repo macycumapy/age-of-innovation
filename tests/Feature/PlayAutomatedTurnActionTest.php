@@ -36,6 +36,7 @@ use App\Domain\Game\Enums\RoundBonus;
 use App\Domain\Game\Enums\TerrainType;
 use App\Domain\Game\Enums\TownTile;
 use App\Domain\Game\Factories\GameSetupPoolFactory;
+use App\Domain\Game\Services\PaidTerraformingOptionFinder;
 use App\Jobs\PlayAutomatedTurnJob;
 use App\Models\Game;
 use App\Models\GamePlayer;
@@ -409,6 +410,59 @@ class PlayAutomatedTurnActionTest extends TestCase
 
         $game->refresh();
         $this->assertSame(BuildingType::Guild, $game->state->board->hexes[0]->building?->type);
+        $this->assertTrue($game->state->round->hasTakenMainAction);
+        $this->assertSame([$botPlayer->id], $game->actions()->pluck('game_player_id')->all());
+        $this->assertSame([null], $game->actions()->pluck('player_id')->all());
+    }
+
+    public function test_bot_without_user_can_perform_paid_terraforming(): void
+    {
+        Queue::fake();
+
+        $game = Game::factory()->create([
+            'status' => GameStatus::Active,
+            'phase' => GamePhase::Actions,
+        ]);
+        $botPlayer = GamePlayer::factory()->bot(GameBotDifficulty::Fast)->create([
+            'game_id' => $game->id,
+            'user_id' => null,
+        ]);
+        $botState = $this->playerState($botPlayer);
+        $botState->resources->tools = 10;
+        $state = new GameStateData(
+            turnOrder: [$botPlayer->id],
+            board: new BoardStateData(hexes: [
+                new BoardHexStateData(
+                    id: '0:0',
+                    q: 0,
+                    r: 0,
+                    initialTerrain: TerrainType::Forest,
+                    terrain: TerrainType::Forest,
+                    adjacentHexIds: ['1:0'],
+                    building: new BuildingStateData(BuildingType::Workshop, $botPlayer->id),
+                ),
+                new BoardHexStateData(
+                    id: '1:0',
+                    q: 1,
+                    r: 0,
+                    initialTerrain: TerrainType::Mountain,
+                    terrain: TerrainType::Mountain,
+                    adjacentHexIds: ['0:0'],
+                ),
+            ]),
+            players: [$botState],
+            round: new RoundStateData(phase: GamePhase::Actions),
+        );
+        $game->update([
+            'active_game_player_id' => $botPlayer->id,
+            'state' => $state,
+        ]);
+        $option = app(PaidTerraformingOptionFinder::class)->execute($state, $botState)[0];
+
+        app(PerformGameActionOptionAction::class)->execute($game, $botPlayer, $option);
+
+        $game->refresh();
+        $this->assertSame(TerrainType::Forest, $game->state->board->hexes[1]->terrain);
         $this->assertTrue($game->state->round->hasTakenMainAction);
         $this->assertSame([$botPlayer->id], $game->actions()->pluck('game_player_id')->all());
         $this->assertSame([null], $game->actions()->pluck('player_id')->all());

@@ -9,7 +9,6 @@ use App\Domain\Game\Data\PaidTerraformingOptionData;
 use App\Domain\Game\Services\PaidTerraformingOptionFinder;
 use App\Models\Game;
 use App\Models\GamePlayer;
-use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -23,17 +22,16 @@ final class StartPaidTerraformingAction
 
     public function execute(
         Game $game,
-        User $user,
+        GamePlayer $player,
         string $hexId,
         bool $useAvailable,
         bool $useTunnel = false,
         bool $useFlight = false,
     ): Game {
-        return DB::transaction(function () use ($game, $user, $hexId, $useAvailable, $useTunnel, $useFlight): Game {
+        return DB::transaction(function () use ($game, $player, $hexId, $useAvailable, $useTunnel, $useFlight): Game {
             $lockedGame = Game::query()->lockForUpdate()->findOrFail($game->id);
-            $player = $lockedGame->players()->whereBelongsTo($user)->first();
 
-            if ($lockedGame->active_player_id !== $user->id || ! $player instanceof GamePlayer) {
+            if ($player->game_id !== $lockedGame->id || ! $lockedGame->isActivePlayer($player)) {
                 throw ValidationException::withMessages(['game' => 'Сейчас нельзя начать преобразование.']);
             }
 
