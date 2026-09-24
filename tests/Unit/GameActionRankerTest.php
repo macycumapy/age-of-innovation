@@ -8,6 +8,7 @@ use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Data\GameStateData;
 use App\Domain\Game\Data\PendingInteractionData;
 use App\Domain\Game\Data\PlayerResourcesData;
+use App\Domain\Game\Data\PowerBowlsStateData;
 use App\Domain\Game\Data\RewardDistributionOptionData;
 use App\Domain\Game\Data\RoundStateData;
 use App\Domain\Game\Enums\Faction;
@@ -56,12 +57,67 @@ class GameActionRankerTest extends TestCase
         $this->assertGreaterThan($initialScore, $evaluator->execute($state, 1));
     }
 
+    public function test_state_evaluation_penalizes_the_strongest_opponents_progress(): void
+    {
+        $state = $this->state();
+        $state->players[] = new GamePlayerStateData(
+            playerId: 2,
+            userId: 20,
+            color: PlayerColor::Red,
+            faction: Faction::Inventors,
+            homeland: TerrainType::Wasteland,
+            roundBonus: RoundBonus::Coins,
+            resources: new PlayerResourcesData(),
+        );
+        $evaluator = app(GameStateEvaluator::class);
+        $initialScore = $evaluator->execute($state, 1);
+
+        $state->players[1]->victoryPoints++;
+
+        $this->assertLessThan($initialScore, $evaluator->execute($state, 1));
+    }
+
     public function test_it_returns_no_ranked_actions_when_none_are_legal(): void
     {
         $state = $this->state();
         $state->round->phase = GamePhase::Income;
 
         $this->assertSame([], app(GameActionRanker::class)->execute($state, 1));
+    }
+
+    public function test_it_searches_the_next_players_response(): void
+    {
+        $state = $this->state();
+        $state->turnOrder = [1, 2];
+        $state->players[] = new GamePlayerStateData(
+            playerId: 2,
+            userId: 20,
+            color: PlayerColor::Red,
+            faction: Faction::Inventors,
+            homeland: TerrainType::Wasteland,
+            roundBonus: RoundBonus::Coins,
+            resources: new PlayerResourcesData(
+                power: new PowerBowlsStateData(bowlOne: 1, bowlTwo: 1),
+            ),
+        );
+        $state->pendingInteraction = new PendingInteractionData(
+            PendingInteractionType::PowerOffer,
+            2,
+            context: [
+                'buildingPlayerId' => 1,
+                'builtHexId' => '0:0',
+                'powerAmount' => 1,
+                'remainingOffers' => [],
+            ],
+        );
+        $state->round->hasTakenMainAction = true;
+
+        $rankedActions = app(GameActionRanker::class)->execute($state, 2, depth: 2, branchLimit: 2);
+
+        $this->assertCount(2, $rankedActions);
+        $this->assertSame(10, $rankedActions[0]->simulation->nextActiveUserId);
+        $this->assertTrue($state->round->hasTakenMainAction);
+        $this->assertNotNull($state->pendingInteraction);
     }
 
     private function state(): GameStateData

@@ -57,6 +57,19 @@ final class GameStateEvaluator
             throw new InvalidArgumentException('Не найдено состояние игрока для оценки.');
         }
 
+        $playerScore = $this->playerScore($state, $player);
+        $strongestOpponentScore = collect($state->players)
+            ->reject(static fn (GamePlayerStateData $candidate): bool => $candidate->playerId === $playerId)
+            ->map(fn (GamePlayerStateData $candidate): int => $this->playerScore($state, $candidate))
+            ->max();
+
+        return is_int($strongestOpponentScore)
+            ? $playerScore - $strongestOpponentScore
+            : $playerScore;
+    }
+
+    private function playerScore(GameStateData $state, GamePlayerStateData $player): int
+    {
         $books = $player->resources->books;
         $power = $player->resources->power;
         $score = $player->victoryPoints * self::VICTORY_POINT_WEIGHT;
@@ -85,7 +98,7 @@ final class GameStateEvaluator
         $score += count($player->scholarDisciplineIds) * self::PLACED_SCHOLAR_WEIGHT;
 
         foreach ($state->board->hexes as $hex) {
-            if ($hex->building?->ownerPlayerId !== $playerId) {
+            if ($hex->building?->ownerPlayerId !== $player->playerId) {
                 continue;
             }
 

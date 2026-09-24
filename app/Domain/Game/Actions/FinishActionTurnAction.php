@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domain\Game\Actions;
 
+use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Enums\GameActionType;
 use App\Domain\Game\Enums\GameEventType;
 use App\Domain\Game\Enums\PendingInteractionType;
@@ -15,8 +16,10 @@ use Illuminate\Validation\ValidationException;
 
 final class FinishActionTurnAction
 {
-    public function __construct(private AppendGameHistoryAction $appendGameHistory)
-    {
+    public function __construct(
+        private AppendGameHistoryAction $appendGameHistory,
+        private ApplyFinishActionTurnAction $applyFinishActionTurn,
+    ) {
     }
 
     public function execute(Game $game, User $user): Game
@@ -37,35 +40,17 @@ final class FinishActionTurnAction
                 throw ValidationException::withMessages(['game' => 'Сейчас нельзя завершить ход.']);
             }
 
-            $currentIndex = array_search($player->id, $state->turnOrder, true);
-            $nextPlayerId = null;
-
-            if ($currentIndex !== false) {
-                foreach (range(1, count($state->turnOrder)) as $offset) {
-                    $candidateId = $state->turnOrder[($currentIndex + $offset) % count($state->turnOrder)];
-
-                    if (! in_array($candidateId, $state->passedPlayerIds, true)) {
-                        $nextPlayerId = $candidateId;
-                        break;
-                    }
-                }
-            }
-
-            $nextPlayer = $lockedGame->players()->whereKey($nextPlayerId)->first();
-
-            if (! $nextPlayer instanceof GamePlayer) {
-                throw ValidationException::withMessages(['game' => 'Не удалось определить следующего игрока.']);
-            }
-
             $stateVersionBefore = $lockedGame->version;
-            $state->pendingInteraction = null;
-            $state->turnStartSnapshot = null;
-            $state->townChoiceCheckpoint = null;
-            $state->round->turnStartVersion = null;
-            $state->round->hasTakenMainAction = false;
-            $state->round->isCurrentTurnIrrevocable = false;
+            $playerState = collect($state->players)->firstWhere('playerId', $player->id);
+
+            if (! $playerState instanceof GamePlayerStateData) {
+                throw ValidationException::withMessages(['game' => 'Не найдено состояние игрока.']);
+            }
+
+            $nextActiveUserId = $this->applyFinishActionTurn->execute($state, $playerState);
+            $nextPlayer = $lockedGame->players()->where('user_id', $nextActiveUserId)->firstOrFail();
             $lockedGame->update([
-                'active_player_id' => $nextPlayer->user_id,
+                'active_player_id' => $nextActiveUserId,
                 'state' => $state,
                 'version' => $lockedGame->version + 1,
             ]);
