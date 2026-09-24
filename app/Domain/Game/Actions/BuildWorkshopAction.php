@@ -57,7 +57,7 @@ final class BuildWorkshopAction
             ]);
             $this->appendGameHistory->execute(
                 $lockedGame,
-                $user,
+                $player,
                 GameActionType::BuildWorkshop,
                 [
                     'hex_id' => $hexId,

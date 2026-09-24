@@ -54,7 +54,7 @@ final class ResolveWorkshopAfterTerraformingAction
             ]);
             $this->appendGameHistory->execute(
                 $lockedGame,
-                $user,
+                $player,
                 GameActionType::TerraformAndBuild,
                 [
                     'built' => $build,

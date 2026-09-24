@@ -36,11 +36,15 @@ final class GameHistoryBroadcastTest extends TestCase
     {
         $user = User::factory()->create();
         $game = Game::factory()->create(['version' => 1]);
+        $player = GamePlayer::factory()->create([
+            'game_id' => $game->id,
+            'user_id' => $user->id,
+        ]);
         Event::fake([GameHistoryChanged::class]);
 
         app(AppendGameHistoryAction::class)->execute(
             lockedGame: $game,
-            user: $user,
+            player: $player,
             type: GameActionType::Pass,
             payload: [],
             events: [],

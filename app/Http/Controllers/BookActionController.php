@@ -19,9 +19,10 @@ final class BookActionController extends Controller
     ): Response {
         /** @var User $user */
         $user = $request->user();
+        $player = $game->players()->whereBelongsTo($user)->firstOrFail();
         $performBookAction->execute(
             $game,
-            $user,
+            $player,
             $request->action(),
             $request->bookCounts(),
             $request->discipline(),

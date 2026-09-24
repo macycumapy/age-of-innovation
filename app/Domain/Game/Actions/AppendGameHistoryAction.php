@@ -10,7 +10,6 @@ use App\Events\GameHistoryChanged;
 use App\Models\Game;
 use App\Models\GameAction;
 use App\Models\GamePlayer;
-use App\Models\User;
 
 final class AppendGameHistoryAction
 {
@@ -20,7 +19,7 @@ final class AppendGameHistoryAction
      */
     public function execute(
         Game $lockedGame,
-        User $user,
+        GamePlayer $player,
         GameActionType $type,
         array $payload,
         array $events,
@@ -48,8 +47,8 @@ final class AppendGameHistoryAction
 
         $action = $lockedGame->actions()->create([
             'sequence' => $nextSequence,
-            'player_id' => $user->id,
-            'game_player_id' => $lockedGame->players()->whereBelongsTo($user)->value('id'),
+            'player_id' => $player->user_id,
+            'game_player_id' => $player->id,
             'type' => $type,
             'payload' => $payload,
             'events' => $events,

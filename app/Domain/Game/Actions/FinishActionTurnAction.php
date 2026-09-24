@@ -10,7 +10,6 @@ use App\Domain\Game\Enums\GameEventType;
 use App\Domain\Game\Enums\PendingInteractionType;
 use App\Models\Game;
 use App\Models\GamePlayer;
-use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -22,21 +21,20 @@ final class FinishActionTurnAction
     ) {
     }
 
-    public function execute(Game $game, User $user): Game
+    public function execute(Game $game, GamePlayer $player): Game
     {
-        return DB::transaction(function () use ($game, $user): Game {
+        return DB::transaction(function () use ($game, $player): Game {
             $lockedGame = Game::query()->lockForUpdate()->findOrFail($game->id);
             $state = $lockedGame->state;
-            $player = $lockedGame->players()->whereBelongsTo($user)->first();
 
             if (! $lockedGame->phase->isActionPhase()
-                || $lockedGame->active_player_id !== $user->id
+                || $player->game_id !== $lockedGame->id
+                || ! $lockedGame->isActivePlayer($player)
                 || ($state->pendingInteraction !== null
                     && ($state->pendingInteraction->type !== PendingInteractionType::BuildWorkshopAfterTerraforming
-                        || $state->pendingInteraction->playerId !== $player?->id))
+                        || $state->pendingInteraction->playerId !== $player->id))
                 || $state->round->turnStartVersion === null
-                || ! $state->round->hasTakenMainAction
-                || ! $player instanceof GamePlayer) {
+                || ! $state->round->hasTakenMainAction) {
                 throw ValidationException::withMessages(['game' => 'Сейчас нельзя завершить ход.']);
             }
 
@@ -50,13 +48,13 @@ final class FinishActionTurnAction
             $nextPlayerId = $this->applyFinishActionTurn->execute($state, $playerState);
             $nextPlayer = $lockedGame->players()->findOrFail($nextPlayerId);
             $lockedGame->update([
-                'active_player_id' => $nextPlayer->user_id,
+                'active_game_player_id' => $nextPlayer->id,
                 'state' => $state,
                 'version' => $lockedGame->version + 1,
             ]);
             $this->appendGameHistory->execute(
                 $lockedGame,
-                $user,
+                $player,
                 GameActionType::FinishTurn,
                 ['next_player_id' => $nextPlayer->id],
                 [[

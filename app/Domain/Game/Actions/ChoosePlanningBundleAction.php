@@ -124,7 +124,7 @@ final class ChoosePlanningBundleAction
             ]);
             $this->appendGameHistory->execute(
                 $lockedGame,
-                $user,
+                $player,
                 GameActionType::ChoosePlanningBundle,
                 [
                     'homeland' => $homeland->value,

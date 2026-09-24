@@ -37,6 +37,7 @@ use App\Domain\Game\Enums\GameActionType;
 use App\Domain\Game\Enums\KnowledgeDiscipline;
 use App\Domain\Game\Enums\ResourceExchange;
 use App\Models\Game;
+use App\Models\GamePlayer;
 use App\Models\User;
 use DomainException;
 use Illuminate\Support\Facades\DB;
@@ -80,17 +81,26 @@ final class PerformGameActionOptionAction
     ) {
     }
 
-    public function execute(Game $game, User $user, GameActionOption $option): Game
+    public function execute(Game $game, GamePlayer $player, GameActionOption $option): Game
     {
-        return DB::transaction(fn (): Game => match (true) {
-            $option instanceof BookActionOptionData => $this->performBookAction->execute(
+        if ($option instanceof BookActionOptionData) {
+            return $this->performBookAction->execute(
                 $game,
-                $user,
+                $player,
                 $option->action,
                 $option->payment->counts(),
                 $option->discipline,
                 $option->hexId,
-            ),
+            );
+        }
+
+        if ($option instanceof PowerOfferOptionData) {
+            return $this->resolvePowerOffer->execute($game, $player, $option->accept);
+        }
+
+        $user = $player->user()->firstOrFail();
+
+        return DB::transaction(fn (): Game => match (true) {
             $option instanceof PowerActionOptionData => $this->performPowerAction->execute(
                 $game,
                 $user,
@@ -136,7 +146,6 @@ final class PerformGameActionOptionAction
             ),
             $option instanceof SacrificePowerOptionData => $this->sacrificePower->execute($game, $user, $option->amount),
             $option instanceof PlaceAnnexOptionData => $this->confirmAnnexPlacement->execute($game, $user, $option->hexId),
-            $option instanceof PowerOfferOptionData => $this->resolvePowerOffer->execute($game, $user, $option->accept),
             $option instanceof ChooseTownOptionData => $this->chooseTown->execute($game, $user, $option->townTile),
             $option instanceof WorkshopAfterTerraformingOptionData => $this->resolveWorkshopAfterTerraforming->execute(
                 $game,

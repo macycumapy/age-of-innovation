@@ -57,7 +57,7 @@ final class ChooseFelineTownBonusAction
             ]);
             $this->appendGameHistory->execute(
                 $lockedGame,
-                $user,
+                $player,
                 GameActionType::ChooseFelineTownBonus,
                 [
                     'book_counts' => $bookCounts,

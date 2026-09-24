@@ -52,7 +52,7 @@ final class ChoosePalaceAction
             ]);
             $this->appendGameHistory->execute(
                 $lockedGame,
-                $user,
+                $player,
                 GameActionType::ChoosePalace,
                 [
                     'palace_id' => $palace->value,

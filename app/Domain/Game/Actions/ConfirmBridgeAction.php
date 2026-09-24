@@ -84,7 +84,7 @@ final class ConfirmBridgeAction
                 ]);
             $this->appendGameHistory->execute(
                 $lockedGame,
-                $user,
+                $player,
                 $actionType,
                 $payload,
                 [[

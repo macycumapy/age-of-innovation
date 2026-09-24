@@ -2691,7 +2691,7 @@ class GameManagementTest extends TestCase
 
         app(PerformGameActionOptionAction::class)->execute(
             $game,
-            $user,
+            $game->players()->whereBelongsTo($user)->firstOrFail(),
             new PlaceBridgeOptionData('8:5', '7:7'),
         );
 

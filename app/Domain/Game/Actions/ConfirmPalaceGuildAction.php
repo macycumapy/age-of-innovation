@@ -58,7 +58,7 @@ final class ConfirmPalaceGuildAction
             ]);
             $this->appendGameHistory->execute(
                 $lockedGame,
-                $user,
+                $player,
                 GameActionType::PlacePalaceGuild,
                 [
                     'hex_id' => $selectedHexId,

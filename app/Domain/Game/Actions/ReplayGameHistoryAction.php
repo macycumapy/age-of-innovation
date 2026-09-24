@@ -1015,23 +1015,23 @@ final class ReplayGameHistoryAction
             $playerState->victoryPoints += (int) ($action->payload['victory_points'] ?? 0);
             $hex->building = new BuildingStateData(BuildingType::Workshop, $player->id);
             if ((bool) ($action->payload['feline_bonus_pending'] ?? false)) {
-                $game->active_player_id = $this->createPowerOffersAfterBuilding->execute(
+                $game->active_game_player_id = $this->createPowerOffersAfterBuilding->execute(
                     $state,
                     $player->id,
                     $hex->id,
                 );
 
-                if ($game->active_player_id !== null
+                if ($game->active_game_player_id !== null
                     && $state->pendingInteraction?->type === PendingInteractionType::PowerOffer) {
                     $state->pendingInteraction->context['felineBonusPending'] = true;
                 } else {
                     $this->startFelineTownBonus->execute($state, $playerState, [
                         'continueBuildingAfterPowerHexId' => $hex->id,
                     ]);
-                    $game->active_player_id = $player->user_id;
+                    $game->active_game_player_id = $player->id;
                 }
             } else {
-                $game->active_player_id = $this->createBuildingFollowUpInteraction->execute(
+                $game->active_game_player_id = $this->createBuildingFollowUpInteraction->execute(
                     $state,
                     $playerState,
                     $hex->id,
@@ -1054,7 +1054,9 @@ final class ReplayGameHistoryAction
     /** @param Collection<int, GamePlayer> $players */
     private function replayBuildWorkshop(Game $game, Collection $players, GameAction $action): void
     {
-        $player = $players->firstWhere('user_id', $action->player_id);
+        $player = $action->game_player_id !== null
+            ? $players->firstWhere('id', $action->game_player_id)
+            : $players->firstWhere('user_id', $action->player_id);
         $hex = collect($game->state->board->hexes)->firstWhere('id', $action->payload['hex_id'] ?? null);
 
         if (! $player instanceof GamePlayer || ! $hex instanceof BoardHexStateData || $hex->building !== null) {
@@ -1548,7 +1550,9 @@ final class ReplayGameHistoryAction
     /** @param Collection<int, GamePlayer> $players */
     private function replayPowerOfferDecision(Game $game, Collection $players, GameAction $action): void
     {
-        $player = $players->firstWhere('user_id', $action->player_id);
+        $player = $action->game_player_id !== null
+            ? $players->firstWhere('id', $action->game_player_id)
+            : $players->firstWhere('user_id', $action->player_id);
 
         if (! $player instanceof GamePlayer) {
             $this->invalidHistory();
@@ -1619,7 +1623,7 @@ final class ReplayGameHistoryAction
         $state->round->turnStartVersion = null;
         $state->round->hasTakenMainAction = false;
         $state->round->isCurrentTurnIrrevocable = false;
-        $game->active_player_id = $nextPlayer->user_id;
+        $game->active_game_player_id = $nextPlayer->id;
         $game->state = $state;
     }
 
@@ -1869,7 +1873,9 @@ final class ReplayGameHistoryAction
     /** @param Collection<int, GamePlayer> $players */
     private function replayBookAction(Game $game, Collection $players, GameAction $action): void
     {
-        $player = $players->firstWhere('user_id', $action->player_id);
+        $player = $action->game_player_id !== null
+            ? $players->firstWhere('id', $action->game_player_id)
+            : $players->firstWhere('user_id', $action->player_id);
 
         if (! $player instanceof GamePlayer) {
             $this->invalidHistory();
@@ -1892,7 +1898,7 @@ final class ReplayGameHistoryAction
             is_string($disciplineValue) ? KnowledgeDiscipline::from($disciplineValue) : null,
             is_string($hexId) ? $hexId : null,
         );
-        $game->active_game_player_id = $result['nextActivePlayerId'];
+        $game->active_game_player_id = $result->nextActivePlayerId;
         $game->state = $state;
     }
 

@@ -99,7 +99,7 @@ final class ChooseStartingResourcesAction
             ]);
             $this->appendGameHistory->execute(
                 $lockedGame,
-                $user,
+                $player,
                 $interactionPhase === GamePhase::Income
                     ? GameActionType::ChooseIncomeResources
                     : GameActionType::ChooseStartingResources,

@@ -58,7 +58,7 @@ final class PerformInnovationAction
             $lockedGame->update(['state' => $state, 'version' => $lockedGame->version + 1]);
             $this->appendGameHistory->execute(
                 $lockedGame,
-                $user,
+                $player,
                 GameActionType::SpecialAction,
                 ['innovation' => $innovation->value, 'reward' => $reward->toArray()],
                 [['type' => GameEventType::InnovationActionUsed->value, 'player_id' => $player->id, 'innovation' => $innovation->value]],

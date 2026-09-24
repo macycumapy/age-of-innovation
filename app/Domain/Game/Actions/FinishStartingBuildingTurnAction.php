@@ -107,7 +107,7 @@ final class FinishStartingBuildingTurnAction
             ]);
             $this->appendGameHistory->execute(
                 $lockedGame,
-                $user,
+                $player,
                 GameActionType::PlaceStartingBuilding,
                 [
                     'hex_id' => $confirmedHexId,

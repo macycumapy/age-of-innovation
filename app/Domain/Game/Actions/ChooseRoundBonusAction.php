@@ -68,7 +68,7 @@ final class ChooseRoundBonusAction
             $lockedGame->save();
             $this->appendGameHistory->execute(
                 $lockedGame,
-                $user,
+                $player,
                 GameActionType::ChooseRoundBonus,
                 [
                 'old_round_bonus' => $result->oldRoundBonus->value,

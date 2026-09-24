@@ -216,7 +216,6 @@ final class FinishStartingSpadeAction
             ]);
             $this->appendSpendSpadesHistory(
                 $lockedGame,
-                $user,
                 $player,
                 new SpendSpadesHistoryData(
                     hexId: $hexId,
@@ -283,7 +282,6 @@ final class FinishStartingSpadeAction
         ]);
         $this->appendSpendSpadesHistory(
             $game,
-            $user,
             $player,
             new SpendSpadesHistoryData(
                 hexId: $result->hexId,
@@ -320,7 +318,6 @@ final class FinishStartingSpadeAction
 
     private function appendSpendSpadesHistory(
         Game $game,
-        User $user,
         GamePlayer $player,
         SpendSpadesHistoryData $history,
         int $stateVersionBefore,
@@ -329,7 +326,7 @@ final class FinishStartingSpadeAction
     ): void {
         $this->appendGameHistory->execute(
             $game,
-            $user,
+            $player,
             GameActionType::SpendStartingSpade,
             [
                 'hex_id' => $history->hexId,

@@ -113,6 +113,14 @@ class Game extends Model
         return $this->hasMany(GameAction::class);
     }
 
+    public function isActivePlayer(GamePlayer $player): bool
+    {
+        return $this->active_game_player_id === $player->id
+            || ($this->active_game_player_id === null
+                && $player->user_id !== null
+                && $this->active_player_id === $player->user_id);
+    }
+
     /** @return array<string, string> */
     protected function casts(): array
     {

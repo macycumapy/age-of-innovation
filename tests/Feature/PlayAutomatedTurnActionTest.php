@@ -81,16 +81,14 @@ class PlayAutomatedTurnActionTest extends TestCase
 
     public function test_it_chooses_performs_and_confirms_a_complete_turn(): void
     {
-        $bot = User::factory()->create();
         $opponent = User::factory()->create();
         $game = Game::factory()->create([
             'status' => GameStatus::Active,
             'phase' => GamePhase::Actions,
-            'active_player_id' => $bot->id,
         ]);
         $botPlayer = GamePlayer::factory()->bot(GameBotDifficulty::Fast)->create([
             'game_id' => $game->id,
-            'user_id' => $bot->id,
+            'user_id' => null,
             'seat' => 1,
         ]);
         $opponentPlayer = GamePlayer::factory()->create([
@@ -124,20 +122,20 @@ class PlayAutomatedTurnActionTest extends TestCase
             [GameActionType::BookAction, GameActionType::FinishTurn],
             $game->actions()->orderBy('sequence')->pluck('type')->all(),
         );
+        $this->assertSame([$botPlayer->id, $botPlayer->id], $game->actions()->pluck('game_player_id')->all());
+        $this->assertSame([null, null], $game->actions()->pluck('player_id')->all());
     }
 
     public function test_it_resolves_its_pending_decision_and_stops_when_control_changes(): void
     {
-        $bot = User::factory()->create();
         $opponent = User::factory()->create();
         $game = Game::factory()->create([
             'status' => GameStatus::Active,
             'phase' => GamePhase::Actions,
-            'active_player_id' => $bot->id,
         ]);
-        $botPlayer = GamePlayer::factory()->create([
+        $botPlayer = GamePlayer::factory()->bot(GameBotDifficulty::Fast)->create([
             'game_id' => $game->id,
-            'user_id' => $bot->id,
+            'user_id' => null,
             'seat' => 1,
         ]);
         $opponentPlayer = GamePlayer::factory()->create([
@@ -161,9 +159,9 @@ class PlayAutomatedTurnActionTest extends TestCase
                     'remainingOffers' => [],
                 ],
             ),
-        )]);
+        ), 'active_game_player_id' => $botPlayer->id]);
 
-        app(PlayAutomatedTurnAction::class)->execute($game, $bot, GameBotDifficulty::Fast);
+        app(PlayAutomatedTurnAction::class)->execute($game, $botPlayer, GameBotDifficulty::Fast);
 
         $game->refresh();
         $this->assertSame($opponent->id, $game->active_player_id);
@@ -171,6 +169,8 @@ class PlayAutomatedTurnActionTest extends TestCase
         $this->assertSame(0, $game->state->players[0]->resources->power->bowlOne);
         $this->assertSame(1, $game->state->players[0]->resources->power->bowlTwo);
         $this->assertSame([GameActionType::AcceptPower], $game->actions()->pluck('type')->all());
+        $this->assertSame([$botPlayer->id], $game->actions()->pluck('game_player_id')->all());
+        $this->assertSame([null], $game->actions()->pluck('player_id')->all());
     }
 
     private function playerState(GamePlayer $player, ?BookSupplyData $books = null): GamePlayerStateData

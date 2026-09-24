@@ -43,11 +43,11 @@ final class PlayAutomatedTurnJob implements ShouldBeUnique, ShouldQueue
 
         $player = $game->players()->find($this->gamePlayerId);
 
-        if (! $player instanceof GamePlayer || $player->bot_difficulty === null || $player->user_id === null) {
+        if (! $player instanceof GamePlayer || $player->bot_difficulty === null) {
             return;
         }
 
-        $playAutomatedTurn->execute($game, $player->user()->firstOrFail(), $player->bot_difficulty);
+        $playAutomatedTurn->execute($game, $player, $player->bot_difficulty);
     }
 
     public function uniqueId(): string

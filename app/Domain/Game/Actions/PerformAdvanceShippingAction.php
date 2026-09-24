@@ -60,7 +60,7 @@ final class PerformAdvanceShippingAction
             $lockedGame->update(['state' => $state, 'version' => $lockedGame->version + 1]);
             $this->appendGameHistory->execute(
                 $lockedGame,
-                $user,
+                $player,
                 GameActionType::AdvanceShipping,
                 ['coins' => $option->coins, 'scholars' => $option->scholars, 'reward' => $reward->toArray()],
                 [['type' => GameEventType::ShippingAdvanced->value, 'player_id' => $player->id, 'level' => $playerState->shippingLevel]],

@@ -60,7 +60,7 @@ final class ChooseTownAction
             ]);
             $this->appendGameHistory->execute(
                 $lockedGame,
-                $user,
+                $player,
                 GameActionType::ChooseTown,
                 [
                     'town_tile' => $townTile->value,

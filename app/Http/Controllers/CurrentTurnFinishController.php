@@ -19,7 +19,8 @@ final class CurrentTurnFinishController extends Controller
     ): Response {
         /** @var User $user */
         $user = $request->user();
-        $finishActionTurn->execute($game, $user);
+        $player = $game->players()->whereBelongsTo($user)->firstOrFail();
+        $finishActionTurn->execute($game, $player);
 
         return $this->gameChanged($game);
     }

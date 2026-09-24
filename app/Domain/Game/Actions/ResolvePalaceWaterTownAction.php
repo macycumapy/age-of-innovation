@@ -48,7 +48,7 @@ final class ResolvePalaceWaterTownAction
             ]);
             $this->appendGameHistory->execute(
                 $lockedGame,
-                $user,
+                $player,
                 $accept ? GameActionType::AcceptPalaceWaterTown : GameActionType::DeclinePalaceWaterTown,
                 [
                     'water_hex_id' => $accept ? $waterHexId : null,

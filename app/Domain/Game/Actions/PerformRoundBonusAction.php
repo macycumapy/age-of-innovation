@@ -61,7 +61,7 @@ final class PerformRoundBonusAction
             if ($roundBonus !== RoundBonus::Bridge) {
                 $this->appendGameHistory->execute(
                     $lockedGame,
-                    $user,
+                    $player,
                     GameActionType::SpecialAction,
                     [
                         'round_bonus' => $roundBonus->value,

@@ -9,7 +9,6 @@ use App\Domain\Game\Enums\GameEventType;
 use App\Domain\Game\Enums\PendingInteractionType;
 use App\Models\Game;
 use App\Models\GamePlayer;
-use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -21,21 +20,18 @@ final class ResolvePowerOfferAction
     ) {
     }
 
-    public function execute(Game $game, User $user, bool $accept): Game
+    public function execute(Game $game, GamePlayer $player, bool $accept): Game
     {
-        return DB::transaction(function () use ($game, $user, $accept): Game {
+        return DB::transaction(function () use ($game, $player, $accept): Game {
             $lockedGame = Game::query()->lockForUpdate()->findOrFail($game->id);
             $state = $lockedGame->state;
             $interaction = $state->pendingInteraction;
-            $player = $lockedGame->players()
-                ->whereKey($interaction?->playerId)
-                ->whereBelongsTo($user)
-                ->first();
 
             if (! $lockedGame->phase->isActionPhase()
-                || $lockedGame->active_player_id !== $user->id
+                || $player->game_id !== $lockedGame->id
+                || ! $lockedGame->isActivePlayer($player)
                 || $interaction?->type !== PendingInteractionType::PowerOffer
-                || ! $player instanceof GamePlayer) {
+                || $interaction->playerId !== $player->id) {
                 throw ValidationException::withMessages(['game' => 'Сейчас нельзя ответить на предложение Силы.']);
             }
 
@@ -57,7 +53,7 @@ final class ResolvePowerOfferAction
             ]);
             $this->appendGameHistory->execute(
                 $lockedGame,
-                $user,
+                $player,
                 $accept ? GameActionType::AcceptPower : GameActionType::DeclinePower,
                 [
                     'offered_power' => $offeredPower,

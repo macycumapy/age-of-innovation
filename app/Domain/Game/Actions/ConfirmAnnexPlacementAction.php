@@ -52,7 +52,7 @@ final class ConfirmAnnexPlacementAction
 
             $this->appendGameHistory->execute(
                 $lockedGame,
-                $user,
+                $player,
                 GameActionType::PlaceAnnex,
                 ['hex_id' => $hexId],
                 [[

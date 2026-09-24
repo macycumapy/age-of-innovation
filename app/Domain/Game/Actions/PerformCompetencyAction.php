@@ -55,7 +55,7 @@ final class PerformCompetencyAction
             $lockedGame->update(['state' => $state, 'version' => $lockedGame->version + 1]);
             $this->appendGameHistory->execute(
                 $lockedGame,
-                $user,
+                $player,
                 GameActionType::SpecialAction,
                 ['competency' => Competency::Competency07->value],
                 [[

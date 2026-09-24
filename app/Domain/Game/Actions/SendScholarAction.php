@@ -64,7 +64,7 @@ final class SendScholarAction
             ]);
             $this->appendGameHistory->execute(
                 $lockedGame,
-                $user,
+                $player,
                 GameActionType::SendScholar,
                 [
                     'discipline' => $discipline->value,

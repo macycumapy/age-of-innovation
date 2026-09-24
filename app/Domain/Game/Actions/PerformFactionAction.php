@@ -60,7 +60,7 @@ final class PerformFactionAction
             if ($faction !== Faction::Moles) {
                 $this->appendGameHistory->execute(
                     $lockedGame,
-                    $user,
+                    $player,
                     GameActionType::SpecialAction,
                     ['faction' => $faction->value, 'discipline' => $discipline?->value],
                     [[

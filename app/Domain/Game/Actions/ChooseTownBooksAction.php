@@ -51,7 +51,7 @@ final class ChooseTownBooksAction
             ]);
             $this->appendGameHistory->execute(
                 $lockedGame,
-                $user,
+                $player,
                 GameActionType::ChooseTownBooks,
                 [
                     'disciplines' => array_keys(array_filter($bookCounts)),

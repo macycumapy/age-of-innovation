@@ -59,7 +59,7 @@ final class SacrificePowerAction
             ]);
             $this->appendGameHistory->execute(
                 $lockedGame,
-                $user,
+                $player,
                 GameActionType::SacrificePower,
                 ['amount' => $amount],
                 [[

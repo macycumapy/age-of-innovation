@@ -56,7 +56,7 @@ final class ExchangeResourcesAction
             $lockedGame->update(['state' => $state, 'version' => $lockedGame->version + 1]);
             $this->appendGameHistory->execute(
                 $lockedGame,
-                $user,
+                $player,
                 GameActionType::ExchangeResources,
                 ['exchanges' => $exchanges],
                 [['type' => GameEventType::ResourcesExchanged->value, 'player_id' => $player->id, 'exchanges' => $exchanges]],

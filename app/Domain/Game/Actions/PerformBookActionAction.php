@@ -11,7 +11,6 @@ use App\Domain\Game\Enums\GameEventType;
 use App\Domain\Game\Enums\KnowledgeDiscipline;
 use App\Models\Game;
 use App\Models\GamePlayer;
-use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -26,21 +25,21 @@ final class PerformBookActionAction
     /** @param array<string, int> $bookCounts */
     public function execute(
         Game $game,
-        User $user,
+        GamePlayer $player,
         BookAction $action,
         array $bookCounts,
         ?KnowledgeDiscipline $discipline,
         ?string $hexId,
     ): Game {
-        return DB::transaction(function () use ($game, $user, $action, $bookCounts, $discipline, $hexId): Game {
+        return DB::transaction(function () use ($game, $player, $action, $bookCounts, $discipline, $hexId): Game {
             $lockedGame = Game::query()->lockForUpdate()->findOrFail($game->id);
             $state = $lockedGame->state;
-            $player = $lockedGame->players()->whereBelongsTo($user)->first();
 
             if (! $lockedGame->phase->isActionPhase()
-                || $lockedGame->active_player_id !== $user->id
+                || $player->game_id !== $lockedGame->id
+                || ! $lockedGame->isActivePlayer($player)
                 || $state->pendingInteraction !== null
-                || ! $player instanceof GamePlayer) {
+            ) {
                 throw ValidationException::withMessages(['game' => 'Сейчас нельзя выполнять действие за книги.']);
             }
 
@@ -72,7 +71,7 @@ final class PerformBookActionAction
             ]);
             $this->appendGameHistory->execute(
                 $lockedGame,
-                $user,
+                $player,
                 GameActionType::BookAction,
                 [
                     'action' => $action->value,

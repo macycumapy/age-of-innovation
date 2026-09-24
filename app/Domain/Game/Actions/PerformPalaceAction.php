@@ -60,7 +60,7 @@ final class PerformPalaceAction
                 $hexId,
             );
             $lockedGame->update(['active_game_player_id' => $result['nextActivePlayerId'], 'state' => $state, 'version' => $before + 1]);
-            $this->appendGameHistory->execute($lockedGame, $user, GameActionType::SpecialAction, [
+            $this->appendGameHistory->execute($lockedGame, $player, GameActionType::SpecialAction, [
                 'palace' => $palaceId,
                 'discipline' => $discipline?->value,
                 'knowledge_disciplines' => array_map(

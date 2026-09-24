@@ -118,7 +118,7 @@ final class StartGameAction
             ]);
             $this->appendGameHistory->execute(
                 $lockedGame,
-                $user,
+                $owner,
                 GameActionType::StartGame,
                 [],
                 [[

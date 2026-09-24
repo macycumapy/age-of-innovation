@@ -58,7 +58,7 @@ final class PassAction
             $lockedGame->state = $state;
             $lockedGame->version++;
             $lockedGame->save();
-            $this->appendGameHistory->execute($lockedGame, $user, GameActionType::Pass, [
+            $this->appendGameHistory->execute($lockedGame, $player, GameActionType::Pass, [
                 'old_round_bonus' => $oldRoundBonus->value,
                 'knowledge_disciplines' => array_map(
                     static fn (KnowledgeDiscipline $discipline): string => $discipline->value,

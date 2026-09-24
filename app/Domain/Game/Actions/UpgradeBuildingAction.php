@@ -58,7 +58,7 @@ final class UpgradeBuildingAction
             ]);
             $this->appendGameHistory->execute(
                 $lockedGame,
-                $user,
+                $player,
                 GameActionType::UpgradeBuilding,
                 [
                     'hex_id' => $hexId,

@@ -85,7 +85,7 @@ final class ChooseCompetencyAction
                 ]);
                 $this->appendGameHistory->execute(
                     $lockedGame,
-                    $user,
+                    $player,
                     GameActionType::ChooseCompetency,
                     [
                         'competency_id' => $competency->value,
@@ -160,7 +160,7 @@ final class ChooseCompetencyAction
             ]);
             $this->appendGameHistory->execute(
                 $lockedGame,
-                $user,
+                $player,
                 GameActionType::ChooseCompetency,
                 [
                     'competency_id' => $competency->value,

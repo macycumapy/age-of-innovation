@@ -9,7 +9,6 @@ use App\Domain\Game\Enums\GameBotDifficulty;
 use App\Domain\Game\Services\GameActionSelector;
 use App\Models\Game;
 use App\Models\GamePlayer;
-use App\Models\User;
 use DomainException;
 
 final class PlayAutomatedTurnAction
@@ -25,19 +24,17 @@ final class PlayAutomatedTurnAction
 
     public function execute(
         Game $game,
-        User $user,
+        GamePlayer $player,
         GameBotDifficulty $difficulty = GameBotDifficulty::Balanced,
     ): Game {
-        $player = $game->players()->whereBelongsTo($user)->first();
-
-        if (! $player instanceof GamePlayer) {
-            throw new DomainException('Пользователь не участвует в этой партии.');
+        if ($player->game_id !== $game->id) {
+            throw new DomainException('Автоматический игрок не участвует в этой партии.');
         }
 
         for ($decision = 0; $decision < self::MAX_DECISIONS; $decision++) {
             $game->refresh();
 
-            if ($game->active_player_id !== $user->id) {
+            if ($game->active_game_player_id !== $player->id) {
                 return $game;
             }
 
@@ -49,7 +46,7 @@ final class PlayAutomatedTurnAction
             }
 
             if ($state->pendingInteraction === null && $state->round->hasTakenMainAction) {
-                return $this->finishActionTurn->execute($game, $user);
+                return $this->finishActionTurn->execute($game, $player);
             }
 
             $selection = $this->gameActionSelector->execute($state, $player->id, $difficulty);
@@ -58,7 +55,7 @@ final class PlayAutomatedTurnAction
                 throw new DomainException('Для автоматического игрока не найдено допустимое действие.');
             }
 
-            $game = $this->performGameActionOption->execute($game, $user, $selection->option);
+            $game = $this->performGameActionOption->execute($game, $player, $selection->option);
         }
 
         throw new DomainException('Автоматический игрок превысил лимит решений за ход.');

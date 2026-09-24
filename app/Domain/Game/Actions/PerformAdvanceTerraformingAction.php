@@ -59,7 +59,7 @@ final class PerformAdvanceTerraformingAction
             $lockedGame->update(['state' => $state, 'version' => $lockedGame->version + 1]);
             $this->appendGameHistory->execute(
                 $lockedGame,
-                $user,
+                $player,
                 GameActionType::AdvanceTerraforming,
                 [
                     'tools' => $option->tools,

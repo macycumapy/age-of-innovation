@@ -60,7 +60,7 @@ final class ChooseScienceBonusBooksAction
                 'state' => $state,
                 'version' => $lockedGame->version + 1,
             ]);
-            $this->appendGameHistory->execute($lockedGame, $user, GameActionType::ChooseScienceBonusBooks, [
+            $this->appendGameHistory->execute($lockedGame, $player, GameActionType::ChooseScienceBonusBooks, [
                 'disciplines' => $this->disciplines($bookCounts),
                 'next_phase' => $result->nextPhase->value,
                 'income_receipts' => $result->incomeReceipts,

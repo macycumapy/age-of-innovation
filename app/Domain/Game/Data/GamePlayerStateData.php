@@ -12,7 +12,7 @@ use Spatie\LaravelData\Data;
 
 /**
  * @property int $playerId Идентификатор записи участника партии.
- * @property int $userId Идентификатор пользователя, управляющего участником.
+ * @property int|null $userId Идентификатор пользователя, управляющего участником, или null для бота.
  * @property PlayerColor $color Цвет компонентов игрока.
  * @property Faction $faction Сообщество игрока.
  * @property TerrainType $homeland Родная местность игрока.
@@ -45,7 +45,7 @@ class GamePlayerStateData extends Data
      */
     public function __construct(
         public int $playerId,
-        public int $userId,
+        public ?int $userId,
         public PlayerColor $color,
         public Faction $faction,
         public TerrainType $homeland,

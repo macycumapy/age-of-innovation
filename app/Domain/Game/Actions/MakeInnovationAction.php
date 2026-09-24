@@ -56,7 +56,7 @@ final class MakeInnovationAction
             ]);
             $this->appendGameHistory->execute(
                 $lockedGame,
-                $user,
+                $player,
                 GameActionType::MakeInnovation,
                 [
                     'innovation' => $innovation->value,

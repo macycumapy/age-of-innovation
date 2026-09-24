@@ -19,7 +19,8 @@ final class PowerOfferController extends Controller
     ): Response {
         /** @var User $user */
         $user = $request->user();
-        $resolvePowerOffer->execute($game, $user, $request->boolean('accept'));
+        $player = $game->players()->whereBelongsTo($user)->firstOrFail();
+        $resolvePowerOffer->execute($game, $player, $request->boolean('accept'));
 
         return $this->gameChanged($game);
     }

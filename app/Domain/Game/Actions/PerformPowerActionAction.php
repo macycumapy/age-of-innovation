@@ -71,7 +71,7 @@ final class PerformPowerActionAction
             if ($action !== PowerAction::BuildBridge) {
                 $this->appendGameHistory->execute(
                     $lockedGame,
-                    $user,
+                    $player,
                     GameActionType::PowerAction,
                     [
                         'action' => $action->value,
