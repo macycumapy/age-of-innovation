@@ -30,9 +30,7 @@ final class ApplyFinishActionTurnAction
             }
         }
 
-        $nextPlayer = collect($state->players)->firstWhere('playerId', $nextPlayerId);
-
-        if (! $nextPlayer instanceof GamePlayerStateData) {
+        if ($nextPlayerId === null) {
             throw ValidationException::withMessages(['game' => 'Не удалось определить следующего игрока.']);
         }
 
@@ -43,6 +41,6 @@ final class ApplyFinishActionTurnAction
         $state->round->hasTakenMainAction = false;
         $state->round->isCurrentTurnIrrevocable = false;
 
-        return $nextPlayer->userId;
+        return $nextPlayerId;
     }
 }

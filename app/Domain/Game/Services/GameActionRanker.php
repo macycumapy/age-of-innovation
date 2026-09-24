@@ -84,7 +84,9 @@ final class GameActionRanker
                 return $this->gameStateEvaluator->execute($state, $rootPlayerId);
             }
 
-            $nextActiveUserId = $this->applyFinishActionTurn->execute($state, $currentPlayer);
+            $nextPlayerId = $this->applyFinishActionTurn->execute($state, $currentPlayer);
+            $nextPlayer = collect($state->players)->firstWhere('playerId', $nextPlayerId);
+            $nextActiveUserId = $nextPlayer instanceof GamePlayerStateData ? $nextPlayer->userId : null;
         }
 
         if ($remainingDepth === 0) {

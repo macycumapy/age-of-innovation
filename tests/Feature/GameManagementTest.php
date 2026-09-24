@@ -14,6 +14,8 @@ use App\Domain\Game\Actions\CreatePowerOffersAfterBuildingAction;
 use App\Domain\Game\Actions\DetermineStartingBuildingOrderAction;
 use App\Domain\Game\Actions\FindEligibleTerraformHexesAction;
 use App\Domain\Game\Actions\FindEligibleTownHexesAction;
+use App\Domain\Game\Actions\PerformGameActionOptionAction;
+use App\Domain\Game\Actions\PerformPowerActionAction;
 use App\Domain\Game\Actions\ReplayGameHistoryAction;
 use App\Domain\Game\Actions\ResolveCompletedStartingSetupAction;
 use App\Domain\Game\Actions\ResolveIncomePhaseAction;
@@ -26,6 +28,7 @@ use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Data\GameStateData;
 use App\Domain\Game\Data\KnowledgeStateData;
 use App\Domain\Game\Data\PendingInteractionData;
+use App\Domain\Game\Data\PlaceBridgeOptionData;
 use App\Domain\Game\Data\PlanningBundleData;
 use App\Domain\Game\Data\PlayerPlanningSelectionData;
 use App\Domain\Game\Data\PlayerResourcesData;
@@ -2658,6 +2661,39 @@ class GameManagementTest extends TestCase
         $this->post(route('games.bridge.store', $game), $bridge);
         $this->post(route('games.bridge.confirm', $game))
             ->assertNoContent();
+
+        $game->refresh();
+        $this->assertNull($game->state->pendingInteraction);
+        $this->assertCount(1, $game->state->board->bridges);
+        $this->assertSame('8:5', $game->state->board->bridges[0]->fromHexId);
+        $this->assertSame('7:7', $game->state->board->bridges[0]->toHexId);
+        $this->assertSame(
+            [GameActionType::PowerAction],
+            $game->actions()->orderBy('sequence')->pluck('type')->all(),
+        );
+    }
+
+    public function test_game_action_option_performer_stages_and_confirms_a_bridge_atomically(): void
+    {
+        [$game, $user] = $this->gameForBridgeAction();
+        $game = app(PerformPowerActionAction::class)->execute($game, $user, PowerAction::BuildBridge, 0);
+        $state = $game->state;
+        $interaction = $state->pendingInteraction;
+        $this->assertNotNull($interaction);
+        $interaction->context['pairs'] = [[
+            'fromHexId' => '8:5',
+            'toHexId' => '6:7',
+        ], [
+            'fromHexId' => '8:5',
+            'toHexId' => '8:7',
+        ]];
+        $game->update(['state' => $state]);
+
+        app(PerformGameActionOptionAction::class)->execute(
+            $game,
+            $user,
+            new PlaceBridgeOptionData('8:5', '7:7'),
+        );
 
         $game->refresh();
         $this->assertNull($game->state->pendingInteraction);

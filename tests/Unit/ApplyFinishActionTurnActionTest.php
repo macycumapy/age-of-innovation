@@ -38,9 +38,9 @@ class ApplyFinishActionTurnActionTest extends TestCase
             townChoiceCheckpoint: ['version' => 11],
         );
 
-        $nextActiveUserId = app(ApplyFinishActionTurnAction::class)->execute($state, $state->players[0]);
+        $nextPlayerId = app(ApplyFinishActionTurnAction::class)->execute($state, $state->players[0]);
 
-        $this->assertSame(30, $nextActiveUserId);
+        $this->assertSame(3, $nextPlayerId);
         $this->assertFalse($state->round->hasTakenMainAction);
         $this->assertFalse($state->round->isCurrentTurnIrrevocable);
         $this->assertNull($state->round->turnStartVersion);

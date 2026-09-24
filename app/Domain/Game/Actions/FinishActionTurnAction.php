@@ -47,10 +47,10 @@ final class FinishActionTurnAction
                 throw ValidationException::withMessages(['game' => 'Не найдено состояние игрока.']);
             }
 
-            $nextActiveUserId = $this->applyFinishActionTurn->execute($state, $playerState);
-            $nextPlayer = $lockedGame->players()->where('user_id', $nextActiveUserId)->firstOrFail();
+            $nextPlayerId = $this->applyFinishActionTurn->execute($state, $playerState);
+            $nextPlayer = $lockedGame->players()->findOrFail($nextPlayerId);
             $lockedGame->update([
-                'active_player_id' => $nextActiveUserId,
+                'active_player_id' => $nextPlayer->user_id,
                 'state' => $state,
                 'version' => $lockedGame->version + 1,
             ]);
