@@ -19,7 +19,8 @@ final class TerraformingAdvancementController extends Controller
     ): Response {
         /** @var User $user */
         $user = $request->user();
-        $action->execute($game, $user);
+        $player = $game->players()->whereBelongsTo($user)->firstOrFail();
+        $action->execute($game, $player);
 
         return $this->gameChanged($game);
     }

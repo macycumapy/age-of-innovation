@@ -136,10 +136,13 @@ final class PerformGameActionOptionAction
             return $this->performSpadeSpending($game, $player, $option);
         }
 
+        if ($option instanceof DevelopmentAdvancementOptionData) {
+            return $this->performDevelopmentAdvancement($game, $player, $option);
+        }
+
         $user = $player->user()->firstOrFail();
 
         return DB::transaction(fn (): Game => match (true) {
-            $option instanceof DevelopmentAdvancementOptionData => $this->performDevelopmentAdvancement($game, $user, $option),
             $option instanceof SendScholarOptionData => $this->sendScholar->execute(
                 $game,
                 $user,
@@ -198,12 +201,12 @@ final class PerformGameActionOptionAction
 
     private function performDevelopmentAdvancement(
         Game $game,
-        User $user,
+        GamePlayer $player,
         DevelopmentAdvancementOptionData $option,
     ): Game {
         return match ($option->action) {
-            GameActionType::AdvanceShipping => $this->performAdvanceShipping->execute($game, $user),
-            GameActionType::AdvanceTerraforming => $this->performAdvanceTerraforming->execute($game, $user),
+            GameActionType::AdvanceShipping => $this->performAdvanceShipping->execute($game, $player),
+            GameActionType::AdvanceTerraforming => $this->performAdvanceTerraforming->execute($game, $player),
             default => throw new DomainException("Исполнение действия {$option->action->value} ещё не поддерживается."),
         };
     }

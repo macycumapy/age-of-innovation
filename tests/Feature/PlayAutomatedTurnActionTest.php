@@ -13,6 +13,7 @@ use App\Domain\Game\Data\BuildingStateData;
 use App\Domain\Game\Data\BuildWorkshopOptionData;
 use App\Domain\Game\Data\ChoosePalaceOptionData;
 use App\Domain\Game\Data\ChooseTownOptionData;
+use App\Domain\Game\Data\DevelopmentAdvancementOptionData;
 use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Data\GameStateData;
 use App\Domain\Game\Data\PendingInteractionData;
@@ -36,6 +37,7 @@ use App\Domain\Game\Enums\RoundBonus;
 use App\Domain\Game\Enums\TerrainType;
 use App\Domain\Game\Enums\TownTile;
 use App\Domain\Game\Factories\GameSetupPoolFactory;
+use App\Domain\Game\Services\DevelopmentAdvancementOptionFinder;
 use App\Domain\Game\Services\PaidTerraformingOptionFinder;
 use App\Jobs\PlayAutomatedTurnJob;
 use App\Models\Game;
@@ -466,6 +468,48 @@ class PlayAutomatedTurnActionTest extends TestCase
         $this->assertTrue($game->state->round->hasTakenMainAction);
         $this->assertSame([$botPlayer->id], $game->actions()->pluck('game_player_id')->all());
         $this->assertSame([null], $game->actions()->pluck('player_id')->all());
+    }
+
+    public function test_bot_without_user_can_advance_development_tracks(): void
+    {
+        Queue::fake();
+
+        foreach ([GameActionType::AdvanceShipping, GameActionType::AdvanceTerraforming] as $actionType) {
+            $game = Game::factory()->create([
+                'status' => GameStatus::Active,
+                'phase' => GamePhase::Actions,
+            ]);
+            $botPlayer = GamePlayer::factory()->bot(GameBotDifficulty::Fast)->create([
+                'game_id' => $game->id,
+                'user_id' => null,
+            ]);
+            $botState = $this->playerState($botPlayer);
+            $botState->resources->tools = 10;
+            $botState->resources->coins = 10;
+            $botState->resources->scholars = 10;
+            $state = new GameStateData(
+                turnOrder: [$botPlayer->id],
+                players: [$botState],
+                round: new RoundStateData(phase: GamePhase::Actions),
+            );
+            $game->update([
+                'active_game_player_id' => $botPlayer->id,
+                'state' => $state,
+            ]);
+            $option = collect(app(DevelopmentAdvancementOptionFinder::class)->execute($state, $botState))
+                ->first(fn ($candidate): bool => $candidate->action === $actionType);
+            $this->assertInstanceOf(DevelopmentAdvancementOptionData::class, $option);
+
+            app(PerformGameActionOptionAction::class)->execute($game, $botPlayer, $option);
+
+            $game->refresh();
+            $this->assertSame(1, $actionType === GameActionType::AdvanceShipping
+                ? $game->state->players[0]->shippingLevel
+                : $game->state->players[0]->terraformingLevel);
+            $this->assertSame([$actionType], $game->actions()->pluck('type')->all());
+            $this->assertSame([$botPlayer->id], $game->actions()->pluck('game_player_id')->all());
+            $this->assertSame([null], $game->actions()->pluck('player_id')->all());
+        }
     }
 
     private function playerState(GamePlayer $player, ?BookSupplyData $books = null): GamePlayerStateData

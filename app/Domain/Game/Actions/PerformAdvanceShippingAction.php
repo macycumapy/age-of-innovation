@@ -11,7 +11,6 @@ use App\Domain\Game\Enums\GameEventType;
 use App\Domain\Game\Services\DevelopmentAdvancementOptionFinder;
 use App\Models\Game;
 use App\Models\GamePlayer;
-use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -24,18 +23,16 @@ final class PerformAdvanceShippingAction
     ) {
     }
 
-    public function execute(Game $game, User $user): Game
+    public function execute(Game $game, GamePlayer $player): Game
     {
-        return DB::transaction(function () use ($game, $user): Game {
+        return DB::transaction(function () use ($game, $player): Game {
             $lockedGame = Game::query()->lockForUpdate()->findOrFail($game->id);
             $state = $lockedGame->state;
-            $player = $lockedGame->players()->whereBelongsTo($user)->first();
-            $playerState = $player instanceof GamePlayer
-                ? collect($state->players)->firstWhere('playerId', $player->id)
-                : null;
+            $playerState = collect($state->players)->firstWhere('playerId', $player->id);
 
             if (! $lockedGame->phase->isActionPhase()
-                || $lockedGame->active_player_id !== $user->id
+                || $player->game_id !== $lockedGame->id
+                || ! $lockedGame->isActivePlayer($player)
                 || ! $playerState instanceof GamePlayerStateData) {
                 throw ValidationException::withMessages(['shipping' => 'Сейчас нельзя повысить уровень навигации.']);
             }
