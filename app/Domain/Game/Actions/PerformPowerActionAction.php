@@ -10,7 +10,6 @@ use App\Domain\Game\Enums\GameEventType;
 use App\Domain\Game\Enums\PowerAction;
 use App\Models\Game;
 use App\Models\GamePlayer;
-use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -22,12 +21,11 @@ final class PerformPowerActionAction
     ) {
     }
 
-    public function execute(Game $game, User $user, PowerAction $action, int $sacrificeAmount): Game
+    public function execute(Game $game, GamePlayer $player, PowerAction $action, int $sacrificeAmount): Game
     {
-        return DB::transaction(function () use ($game, $user, $action, $sacrificeAmount): Game {
+        return DB::transaction(function () use ($game, $player, $action, $sacrificeAmount): Game {
             $lockedGame = Game::query()->lockForUpdate()->findOrFail($game->id);
             $state = $lockedGame->state;
-            $player = $lockedGame->players()->whereBelongsTo($user)->first();
             $createsInteraction = in_array($action, [
                 PowerAction::BuildBridge,
                 PowerAction::TerraformOneSpade,
@@ -35,10 +33,10 @@ final class PerformPowerActionAction
             ], true);
 
             if (! $lockedGame->phase->isActionPhase()
-                || $lockedGame->active_player_id !== $user->id
+                || $player->game_id !== $lockedGame->id
+                || ! $lockedGame->isActivePlayer($player)
                 || ($state->pendingInteraction !== null && $createsInteraction)
-                || $state->round->hasTakenMainAction
-                || ! $player instanceof GamePlayer) {
+                || $state->round->hasTakenMainAction) {
                 throw ValidationException::withMessages(['action' => 'Сейчас нельзя выполнять действие Силы.']);
             }
 
@@ -58,7 +56,7 @@ final class PerformPowerActionAction
             $this->applyPowerAction->execute($state, $playerState, $action, $sacrificeAmount);
             $victoryPoints = $action->victoryPoints(
                 $playerState->faction,
-                $state->setupPool?->playerCount ?? count($state->players),
+                $state->setupPool->playerCount ?? count($state->players),
             );
 
             if ($action === PowerAction::BuildBridge && $state->pendingInteraction !== null) {

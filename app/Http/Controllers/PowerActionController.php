@@ -19,7 +19,8 @@ final class PowerActionController extends Controller
     ): Response {
         /** @var User $user */
         $user = $request->user();
-        $performPowerAction->execute($game, $user, $request->action(), $request->sacrificeAmount());
+        $player = $game->players()->whereBelongsTo($user)->firstOrFail();
+        $performPowerAction->execute($game, $player, $request->action(), $request->sacrificeAmount());
 
         return $this->gameChanged($game);
     }

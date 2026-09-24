@@ -102,15 +102,18 @@ final class PerformGameActionOptionAction
             return $this->choosePalace->execute($game, $player, $option->palace);
         }
 
+        if ($option instanceof PowerActionOptionData) {
+            return $this->performPowerAction->execute(
+                $game,
+                $player,
+                $option->action,
+                $option->sacrificeAmount,
+            );
+        }
+
         $user = $player->user()->firstOrFail();
 
         return DB::transaction(fn (): Game => match (true) {
-            $option instanceof PowerActionOptionData => $this->performPowerAction->execute(
-                $game,
-                $user,
-                $option->action,
-                $option->sacrificeAmount,
-            ),
             $option instanceof BuildWorkshopOptionData => $this->buildWorkshop->execute($game, $user, $option->hexId),
             $option instanceof UpgradeBuildingOptionData => $this->upgradeBuilding->execute(
                 $game,

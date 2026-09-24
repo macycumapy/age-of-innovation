@@ -2676,7 +2676,8 @@ class GameManagementTest extends TestCase
     public function test_game_action_option_performer_stages_and_confirms_a_bridge_atomically(): void
     {
         [$game, $user] = $this->gameForBridgeAction();
-        $game = app(PerformPowerActionAction::class)->execute($game, $user, PowerAction::BuildBridge, 0);
+        $player = $game->players()->whereBelongsTo($user)->firstOrFail();
+        $game = app(PerformPowerActionAction::class)->execute($game, $player, PowerAction::BuildBridge, 0);
         $state = $game->state;
         $interaction = $state->pendingInteraction;
         $this->assertNotNull($interaction);

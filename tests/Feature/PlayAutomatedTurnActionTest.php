@@ -12,6 +12,7 @@ use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Data\GameStateData;
 use App\Domain\Game\Data\PendingInteractionData;
 use App\Domain\Game\Data\PlayerResourcesData;
+use App\Domain\Game\Data\PowerActionOptionData;
 use App\Domain\Game\Data\PowerBowlsStateData;
 use App\Domain\Game\Data\RoundStateData;
 use App\Domain\Game\Enums\BookAction;
@@ -23,6 +24,7 @@ use App\Domain\Game\Enums\GameStatus;
 use App\Domain\Game\Enums\PalaceAbility;
 use App\Domain\Game\Enums\PendingInteractionType;
 use App\Domain\Game\Enums\PlayerColor;
+use App\Domain\Game\Enums\PowerAction;
 use App\Domain\Game\Enums\RoundBonus;
 use App\Domain\Game\Enums\TerrainType;
 use App\Domain\Game\Factories\GameSetupPoolFactory;
@@ -212,6 +214,42 @@ class PlayAutomatedTurnActionTest extends TestCase
 
         $game->refresh();
         $this->assertSame(PalaceAbility::Palace17->value, $game->state->players[0]->palaceId);
+        $this->assertSame([$botPlayer->id], $game->actions()->pluck('game_player_id')->all());
+        $this->assertSame([null], $game->actions()->pluck('player_id')->all());
+    }
+
+    public function test_bot_without_user_can_perform_a_power_action(): void
+    {
+        Queue::fake();
+
+        $game = Game::factory()->create([
+            'status' => GameStatus::Active,
+            'phase' => GamePhase::Actions,
+        ]);
+        $botPlayer = GamePlayer::factory()->bot(GameBotDifficulty::Fast)->create([
+            'game_id' => $game->id,
+            'user_id' => null,
+        ]);
+        $botState = $this->playerState($botPlayer);
+        $botState->resources->power = new PowerBowlsStateData(bowlThree: 12);
+        $game->update([
+            'active_game_player_id' => $botPlayer->id,
+            'state' => new GameStateData(
+                turnOrder: [$botPlayer->id],
+                players: [$botState],
+                round: new RoundStateData(phase: GamePhase::Actions),
+            ),
+        ]);
+
+        app(PerformGameActionOptionAction::class)->execute(
+            $game,
+            $botPlayer,
+            new PowerActionOptionData(PowerAction::GainCoins, 0),
+        );
+
+        $game->refresh();
+        $this->assertSame(7, $game->state->players[0]->resources->coins);
+        $this->assertContains(PowerAction::GainCoins->value, $game->state->round->usedSharedActionIds);
         $this->assertSame([$botPlayer->id], $game->actions()->pluck('game_player_id')->all());
         $this->assertSame([null], $game->actions()->pluck('player_id')->all());
     }
