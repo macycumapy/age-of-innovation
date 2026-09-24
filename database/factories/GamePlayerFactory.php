@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Database\Factories;
 
+use App\Domain\Game\Enums\GameBotDifficulty;
 use App\Models\Game;
 use App\Models\GamePlayer;
 use App\Models\User;
@@ -23,6 +24,7 @@ class GamePlayerFactory extends Factory
             'faction' => null,
             'homeland' => null,
             'is_ready' => false,
+            'bot_difficulty' => null,
             'result_place' => null,
             'final_score' => null,
         ];
@@ -32,6 +34,13 @@ class GamePlayerFactory extends Factory
     {
         return $this->state(fn (array $attributes): array => [
             'is_ready' => true,
+        ]);
+    }
+
+    public function bot(GameBotDifficulty $difficulty = GameBotDifficulty::Balanced): static
+    {
+        return $this->state(fn (array $attributes): array => [
+            'bot_difficulty' => $difficulty,
         ]);
     }
 }

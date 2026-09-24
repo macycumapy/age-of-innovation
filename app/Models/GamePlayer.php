@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Domain\Game\Enums\Faction;
+use App\Domain\Game\Enums\GameBotDifficulty;
 use App\Domain\Game\Enums\PlayerColor;
 use App\Domain\Game\Enums\TerrainType;
 use Database\Factories\GamePlayerFactory;
@@ -23,6 +24,7 @@ use Illuminate\Support\Carbon;
  * @property Faction|null $faction Выбранное сообщество.
  * @property TerrainType|null $homeland Выбранный тип родной местности.
  * @property bool $is_ready Подтвердил ли участник готовность в лобби.
+ * @property GameBotDifficulty|null $bot_difficulty Сложность бота или null для человека.
  * @property int|null $result_place Итоговое место после завершения партии.
  * @property int|null $final_score Итоговое количество победных очков.
  * @property Carbon|null $created_at Дата и время присоединения участника.
@@ -38,6 +40,7 @@ use Illuminate\Support\Carbon;
     'faction',
     'homeland',
     'is_ready',
+    'bot_difficulty',
     'result_place',
     'final_score',
 ])]
@@ -71,6 +74,7 @@ class GamePlayer extends Model
             'faction' => Faction::class,
             'homeland' => TerrainType::class,
             'is_ready' => 'boolean',
+            'bot_difficulty' => GameBotDifficulty::class,
         ];
     }
 }

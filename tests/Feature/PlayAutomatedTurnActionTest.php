@@ -23,15 +23,61 @@ use App\Domain\Game\Enums\PlayerColor;
 use App\Domain\Game\Enums\RoundBonus;
 use App\Domain\Game\Enums\TerrainType;
 use App\Domain\Game\Factories\GameSetupPoolFactory;
+use App\Jobs\PlayAutomatedTurnJob;
 use App\Models\Game;
 use App\Models\GamePlayer;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Queue;
 use Tests\TestCase;
 
 class PlayAutomatedTurnActionTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_changing_active_player_dispatches_automated_turn_for_bot(): void
+    {
+        Queue::fake();
+
+        $bot = User::factory()->create();
+        $game = Game::factory()->create([
+            'status' => GameStatus::Active,
+            'phase' => GamePhase::Actions,
+        ]);
+        GamePlayer::factory()->bot(GameBotDifficulty::Strong)->create([
+            'game_id' => $game->id,
+            'user_id' => $bot->id,
+            'seat' => 1,
+        ]);
+
+        $game->update(['active_player_id' => $bot->id]);
+
+        Queue::assertPushed(
+            PlayAutomatedTurnJob::class,
+            fn (PlayAutomatedTurnJob $job): bool => $job->gameId === $game->id
+                && $job->userId === $bot->id,
+        );
+    }
+
+    public function test_changing_active_player_does_not_dispatch_automated_turn_for_human(): void
+    {
+        Queue::fake();
+
+        $user = User::factory()->create();
+        $game = Game::factory()->create([
+            'status' => GameStatus::Active,
+            'phase' => GamePhase::Actions,
+        ]);
+        GamePlayer::factory()->create([
+            'game_id' => $game->id,
+            'user_id' => $user->id,
+            'seat' => 1,
+        ]);
+
+        $game->update(['active_player_id' => $user->id]);
+
+        Queue::assertNothingPushed();
+    }
 
     public function test_it_chooses_performs_and_confirms_a_complete_turn(): void
     {
@@ -42,7 +88,7 @@ class PlayAutomatedTurnActionTest extends TestCase
             'phase' => GamePhase::Actions,
             'active_player_id' => $bot->id,
         ]);
-        $botPlayer = GamePlayer::factory()->create([
+        $botPlayer = GamePlayer::factory()->bot(GameBotDifficulty::Fast)->create([
             'game_id' => $game->id,
             'user_id' => $bot->id,
             'seat' => 1,
@@ -64,7 +110,8 @@ class PlayAutomatedTurnActionTest extends TestCase
             setupPool: $setupPool,
         )]);
 
-        app(PlayAutomatedTurnAction::class)->execute($game, $bot, GameBotDifficulty::Fast);
+        (new PlayAutomatedTurnJob($game->id, $bot->id))
+            ->handle(app(PlayAutomatedTurnAction::class));
 
         $game->refresh();
         $this->assertSame($opponent->id, $game->active_player_id);
