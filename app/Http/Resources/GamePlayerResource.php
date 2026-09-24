@@ -18,12 +18,13 @@ class GamePlayerResource extends JsonResource
             'id' => $this->id,
             'seat' => $this->seat,
             'isReady' => $this->is_ready,
+            'botDifficulty' => $this->bot_difficulty?->value,
             'color' => $this->color?->value,
             'faction' => $this->faction?->value,
             'homeland' => $this->homeland?->value,
             'user' => $this->whenLoaded('user', fn (): array => [
-                'id' => $this->user->id,
-                'name' => $this->user->name,
+                'id' => $this->user_id,
+                'name' => $this->user_id === null ? "Бот {$this->seat}" : $this->user->name,
             ]),
         ];
     }

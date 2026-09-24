@@ -1,6 +1,7 @@
 export type MapVariant = 'one_to_three_players' | 'three_to_five_players';
 
 export type GameStatus = 'lobby' | 'active' | 'finished' | 'abandoned';
+export type GameBotDifficulty = 'fast' | 'balanced' | 'strong';
 
 export type GameSummary = {
     id: number;
@@ -116,7 +117,7 @@ export type GameHistoryEntry = {
     stateVersionBefore: number;
     stateVersionAfter: number;
     player: {
-        id: number;
+        id: number | null;
         name: string;
     } | null;
     createdAt: string | null;
@@ -202,6 +203,7 @@ export type GamePlayerSummary = {
     id: number;
     seat: number;
     isReady: boolean;
+    botDifficulty: GameBotDifficulty | null;
     color: PlayerColor | null;
     faction: Faction | null;
     homeland: TerrainType | null;

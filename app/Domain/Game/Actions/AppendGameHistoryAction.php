@@ -30,8 +30,14 @@ final class AppendGameHistoryAction
     ): GameAction {
         $nextSequence = ((int) $lockedGame->actions()->max('sequence')) + 1;
         $phaseCheckpointPayload = [];
-        $incomeReceipts = $payload['income_receipts'] ?? [];
-        $scienceBonusReceipts = $payload['science_bonus_receipts'] ?? [];
+        $incomeReceiptValues = $payload['income_receipts'] ?? [];
+        $scienceBonusReceiptValues = $payload['science_bonus_receipts'] ?? [];
+        $incomeReceipts = is_array($incomeReceiptValues)
+            ? array_values(array_filter($incomeReceiptValues, 'is_array'))
+            : [];
+        $scienceBonusReceipts = is_array($scienceBonusReceiptValues)
+            ? array_values(array_filter($scienceBonusReceiptValues, 'is_array'))
+            : [];
         unset($payload['income_receipts']);
         unset($payload['science_bonus_receipts']);
 
@@ -43,6 +49,7 @@ final class AppendGameHistoryAction
         $action = $lockedGame->actions()->create([
             'sequence' => $nextSequence,
             'player_id' => $user->id,
+            'game_player_id' => $lockedGame->players()->whereBelongsTo($user)->value('id'),
             'type' => $type,
             'payload' => $payload,
             'events' => $events,
@@ -50,11 +57,11 @@ final class AppendGameHistoryAction
             'state_version_after' => $stateVersionAfter,
         ]);
 
-        if (is_array($scienceBonusReceipts) && $scienceBonusReceipts !== []) {
+        if ($scienceBonusReceipts !== []) {
             $this->appendScienceBonusPhase($lockedGame, $scienceBonusReceipts);
         }
 
-        if (is_array($incomeReceipts) && $incomeReceipts !== []) {
+        if ($incomeReceipts !== []) {
             $this->appendIncomePhase($lockedGame, $incomeReceipts);
         }
 

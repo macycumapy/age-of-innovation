@@ -115,7 +115,7 @@ watch(pendingInteractionShownAboveBoard, (interaction, previousInteraction) => {
 });
 
 const activePlayer = computed(() =>
-    props.game.data.players.find((player) => player.user.id === props.game.data.activePlayerId),
+    props.game.data.players.find((player) => player.user?.id === props.game.data.activePlayerId),
 );
 
 const orderedPlayers = computed(() =>

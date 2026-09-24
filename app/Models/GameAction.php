@@ -17,6 +17,7 @@ use Illuminate\Support\Carbon;
  * @property int $game_id Партия, к которой относится действие.
  * @property int $sequence Постоянная хронологическая позиция в журнале действий партии.
  * @property int|null $player_id Пользователь, отправивший действие, или null для системного действия.
+ * @property int|null $game_player_id Участник, выполнивший действие, или null для системного действия.
  * @property GameActionType $type Команда, применённая к состоянию партии.
  * @property array<string, mixed> $payload Проверенные аргументы команды, переданные игроком.
  * @property array<int, array<string, mixed>>|null $events Доменные события, созданные командой.
@@ -26,11 +27,13 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $updated_at Дата и время последнего обновления записи действия.
  * @property-read Game $game Партия, к которой относится действие.
  * @property-read User|null $player Пользователь, отправивший действие.
+ * @property-read GamePlayer|null $gamePlayer Участник, выполнивший действие.
  */
 #[Fillable([
     'game_id',
     'sequence',
     'player_id',
+    'game_player_id',
     'type',
     'payload',
     'events',
@@ -53,6 +56,12 @@ class GameAction extends Model
     public function player(): BelongsTo
     {
         return $this->belongsTo(User::class, 'player_id');
+    }
+
+    /** @return BelongsTo<GamePlayer, $this> */
+    public function gamePlayer(): BelongsTo
+    {
+        return $this->belongsTo(GamePlayer::class);
     }
 
     /** @return array<string, string> */

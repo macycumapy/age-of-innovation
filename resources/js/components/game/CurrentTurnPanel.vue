@@ -46,7 +46,7 @@ const emit = defineEmits<{
     resetPalaceWaterSelection: [];
 }>();
 
-const isCurrentUsersTurn = computed(() => props.activePlayer?.user.id === props.currentUserId);
+const isCurrentUsersTurn = computed(() => props.activePlayer?.user?.id === props.currentUserId);
 const isChoosingStartingBundle = computed(
     () =>
         props.game.data.phase === 'setup' &&
@@ -55,11 +55,7 @@ const isChoosingStartingBundle = computed(
         props.game.data.pendingInteraction?.type !== 'choose_starting_resources',
 );
 const otherPlayerStatusMessage = computed(() => {
-    const playerName = props.activePlayer?.user.name;
-
-    if (playerName === undefined) {
-        return 'Ход игрока определяется.';
-    }
+    const playerName = props.activePlayer?.user.name ?? 'Бот';
 
     if (props.game.data.pendingInteraction?.type === 'power_offer') {
         return `${playerName} решает, получать ли Силу.`;

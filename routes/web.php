@@ -11,6 +11,7 @@ use App\Http\Controllers\CompetencyActionController;
 use App\Http\Controllers\CurrentTurnFinishController;
 use App\Http\Controllers\CurrentTurnRestartController;
 use App\Http\Controllers\FactionActionController;
+use App\Http\Controllers\GameBotController;
 use App\Http\Controllers\GameController;
 use App\Http\Controllers\GameHistoryController;
 use App\Http\Controllers\GameHistoryRollbackController;
@@ -60,6 +61,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->scopeBindings()
         ->name('games.history.destroy');
     Route::post('games/{game}/players', [GamePlayerController::class, 'store'])->name('games.players.store');
+    Route::post('games/{game}/bots', GameBotController::class)->name('games.bots.store');
     Route::delete('games/{game}/players/{gamePlayer}', GamePlayerRemovalController::class)
         ->name('games.players.destroy');
     Route::patch('games/{game}/players/{gamePlayer}/readiness', [GamePlayerReadinessController::class, 'update'])

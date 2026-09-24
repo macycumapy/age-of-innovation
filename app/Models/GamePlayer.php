@@ -18,7 +18,7 @@ use Illuminate\Support\Carbon;
 /**
  * @property int $id Уникальный идентификатор участника партии.
  * @property int $game_id Партия, в которой участвует пользователь.
- * @property int $user_id Пользователь, управляющий участником.
+ * @property int|null $user_id Пользователь, управляющий участником, или null для бота.
  * @property int $seat Постоянная позиция игрока в партии.
  * @property PlayerColor|null $color Выбранный цвет компонентов.
  * @property Faction|null $faction Выбранное сообщество.
@@ -30,7 +30,7 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $created_at Дата и время присоединения участника.
  * @property Carbon|null $updated_at Дата и время последнего обновления участника.
  * @property-read Game $game Партия, в которой участвует пользователь.
- * @property-read User $user Пользователь, управляющий участником.
+ * @property-read User|null $user Пользователь, управляющий участником.
  */
 #[Fillable([
     'game_id',

@@ -8,6 +8,7 @@ use App\Domain\Game\Data\GameStateData;
 use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\GameStatus;
 use App\Models\Builders\GameBuilder;
+use Carbon\CarbonInterface;
 use Database\Factories\GameFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\UseEloquentBuilder;
@@ -16,7 +17,6 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Support\Carbon;
 
 /**
  * @property int $id Уникальный идентификатор партии.
@@ -24,16 +24,18 @@ use Illuminate\Support\Carbon;
  * @property int $round Номер текущего раунда от 1 до 6.
  * @property GamePhase $phase Текущая фаза раунда.
  * @property int|null $active_player_id Пользователь, от которого ожидается следующее действие.
- * @property Carbon|null $current_turn_started_at Дата и время начала хода активного игрока.
+ * @property int|null $active_game_player_id Участник партии, от которого ожидается следующее действие.
+ * @property CarbonInterface|null $current_turn_started_at Дата и время начала хода активного игрока.
  * @property int $version Монотонно возрастающая версия состояния для контроля конкурентных изменений.
  * @property GameStateData $state Авторитетный снимок полного состояния партии.
  * @property string $rules_version Версия правил, по которой создана и проверяется партия.
  * @property string $random_seed Начальное значение для воспроизводимой случайной подготовки партии.
- * @property Carbon|null $started_at Дата и время выхода партии из лобби.
- * @property Carbon|null $finished_at Дата и время завершения партии.
- * @property Carbon|null $created_at Дата и время создания партии.
- * @property Carbon|null $updated_at Дата и время последнего обновления партии.
+ * @property CarbonInterface|null $started_at Дата и время выхода партии из лобби.
+ * @property CarbonInterface|null $finished_at Дата и время завершения партии.
+ * @property CarbonInterface|null $created_at Дата и время создания партии.
+ * @property CarbonInterface|null $updated_at Дата и время последнего обновления партии.
  * @property-read User|null $activePlayer Пользователь, от которого ожидается следующее действие.
+ * @property-read GamePlayer|null $activeGamePlayer Участник, от которого ожидается следующее действие.
  * @property-read Collection<int, GamePlayer> $players Участники партии.
  * @property-read Collection<int, GameAction> $actions Упорядоченная история действий партии.
  * @method static GameBuilder query()
@@ -43,6 +45,7 @@ use Illuminate\Support\Carbon;
     'round',
     'phase',
     'active_player_id',
+    'active_game_player_id',
     'version',
     'state',
     'rules_version',
@@ -71,6 +74,17 @@ class Game extends Model
         static::saving(function (Game $game): void {
             if ($game->isDirty('active_player_id')) {
                 $game->current_turn_started_at = $game->active_player_id === null ? null : now();
+
+                if ($game->exists) {
+                    $game->active_game_player_id = $game->active_player_id === null
+                        ? null
+                        : $game->players()->where('user_id', $game->active_player_id)->value('id');
+                }
+            } elseif ($game->isDirty('active_game_player_id')) {
+                $game->current_turn_started_at = $game->active_game_player_id === null ? null : now();
+                $game->active_player_id = $game->active_game_player_id === null
+                    ? null
+                    : GamePlayer::query()->find($game->active_game_player_id)?->user_id;
             }
         });
     }
@@ -79,6 +93,12 @@ class Game extends Model
     public function activePlayer(): BelongsTo
     {
         return $this->belongsTo(User::class, 'active_player_id');
+    }
+
+    /** @return BelongsTo<GamePlayer, $this> */
+    public function activeGamePlayer(): BelongsTo
+    {
+        return $this->belongsTo(GamePlayer::class, 'active_game_player_id');
     }
 
     /** @return HasMany<GamePlayer, $this> */

@@ -67,6 +67,21 @@ class GameModelsTest extends TestCase
         $this->assertSame([['type' => 'building_built']], $action->events);
     }
 
+    public function test_game_keeps_legacy_and_game_player_turn_references_in_sync(): void
+    {
+        $user = User::factory()->create();
+        $game = Game::factory()->create();
+        $human = GamePlayer::factory()->recycle($game)->recycle($user)->create(['seat' => 1]);
+        $bot = GamePlayer::factory()->bot()->recycle($game)->create(['user_id' => null, 'seat' => 2]);
+
+        $game->update(['active_player_id' => $user->id]);
+        $this->assertSame($human->id, $game->active_game_player_id);
+
+        $game->update(['active_game_player_id' => $bot->id]);
+        $this->assertSame($bot->id, $game->active_game_player_id);
+        $this->assertNull($game->active_player_id);
+    }
+
     public function test_pending_innovation_reward_type_migration_updates_saved_snapshots(): void
     {
         $game = Game::factory()->create();

@@ -179,7 +179,7 @@ function playerColor(entry: GameHistoryEntry): string {
         return '#a1a1aa';
     }
 
-    const color = props.players.find((player) => player.user.id === entry.player?.id)?.color;
+    const color = props.players.find((player) => player.id === entry.player?.id)?.color;
 
     return color === null || color === undefined ? '#a1a1aa' : playerColorValues[color];
 }
