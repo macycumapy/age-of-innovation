@@ -24,6 +24,7 @@ final class RewardDistributionOptionFinder
             PendingInteractionType::ChooseTerraformingBooks,
             PendingInteractionType::ChoosePalaceBooks,
             PendingInteractionType::ChooseInnovationReward,
+            PendingInteractionType::ChooseStartingResources,
         ], true)
             || $interaction->playerId !== $player->playerId) {
             return [];
@@ -37,6 +38,7 @@ final class RewardDistributionOptionFinder
             || (in_array($interaction->type, [
                 PendingInteractionType::ChooseFelineTownBonus,
                 PendingInteractionType::ChooseInnovationReward,
+                PendingInteractionType::ChooseStartingResources,
             ], true)
                 && $player->knowledge->unassignedSteps < $knowledgeStepCount)) {
             return [];

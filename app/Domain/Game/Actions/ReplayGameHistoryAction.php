@@ -117,7 +117,7 @@ final class ReplayGameHistoryAction
         private CompletePassTurnAction $completePassTurnAction,
         private ResolveScienceBonusPhaseAction $resolveScienceBonusPhase,
         private ApplyScienceBonusBookDistributionAction $applyScienceBonusBookDistribution,
-        private ResolveIncomePhaseAction $resolveIncomePhase,
+        private ApplyStartingResourcesAction $applyStartingResources,
         private GainPowerAction $gainPower,
     ) {
     }
@@ -506,19 +506,20 @@ final class ReplayGameHistoryAction
 
         $state = $game->state;
         $playerState = $this->playerState($state, $player->id);
+        $bookCounts = array_fill_keys(array_column(KnowledgeDiscipline::cases(), 'value'), 0);
+        $knowledgeCounts = array_fill_keys(array_column(KnowledgeDiscipline::cases(), 'value'), 0);
 
         foreach ($action->payload['book_disciplines'] ?? [] as $disciplineValue) {
             $discipline = KnowledgeDiscipline::from((string) $disciplineValue);
-            $playerState->resources->books->{$discipline->value}++;
+            $bookCounts[$discipline->value]++;
         }
 
         foreach ($action->payload['knowledge_disciplines'] ?? [] as $disciplineValue) {
             $discipline = KnowledgeDiscipline::from((string) $disciplineValue);
-            $this->advanceKnowledge->execute($state, $playerState, $discipline, 1);
+            $knowledgeCounts[$discipline->value]++;
         }
 
-        $playerState->resources->books->unassigned = 0;
-        $playerState->knowledge->unassignedSteps = 0;
+        $result = $this->applyStartingResources->execute($state, $playerState, $bookCounts, $knowledgeCounts);
         $competencyValue = $action->payload['competency'] ?? null;
 
         if (is_string($competencyValue)) {
@@ -530,13 +531,11 @@ final class ReplayGameHistoryAction
             );
         }
 
-        $state->pendingInteraction = null;
         $game->state = $state;
+        $game->phase = $result->nextPhase;
 
         if (($action->payload['phase'] ?? GamePhase::Setup->value) === GamePhase::Income->value) {
-            [$nextPlayer, $nextPhase] = $this->resolveIncomePhase->execute($state);
-            $game->phase = $nextPhase;
-            $game->active_player_id = $nextPlayer->userId;
+            $game->active_player_id = $result->nextActiveUserId;
 
             return;
         }

@@ -10,7 +10,7 @@ final class GameActionSimulationData extends Data
 {
     public function __construct(
         public GameStateData $state,
-        public int $nextActiveUserId,
+        public ?int $nextActiveUserId,
     ) {
     }
 }

@@ -9,6 +9,7 @@ use App\Domain\Game\Actions\ApplyChooseTownBooksAction;
 use App\Domain\Game\Actions\ApplyInnovationRewardDistributionAction;
 use App\Domain\Game\Actions\ApplyRewardBookDistributionAction;
 use App\Domain\Game\Actions\ApplyScienceBonusBookDistributionAction;
+use App\Domain\Game\Actions\ApplyStartingResourcesAction;
 use App\Domain\Game\Data\GameActionSimulationData;
 use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Data\GameStateData;
@@ -25,6 +26,7 @@ final class RewardDistributionSimulator
         private ApplyRewardBookDistributionAction $applyRewardBookDistribution,
         private ApplyInnovationRewardDistributionAction $applyInnovationRewardDistribution,
         private ApplyScienceBonusBookDistributionAction $applyScienceBonusBookDistribution,
+        private ApplyStartingResourcesAction $applyStartingResources,
     ) {
     }
 
@@ -70,6 +72,12 @@ final class RewardDistributionSimulator
                 $player,
                 $option->bookCounts,
             )->nextActiveUserId ?? $player->userId,
+            PendingInteractionType::ChooseStartingResources => $this->applyStartingResources->execute(
+                $simulatedState,
+                $player,
+                $option->bookCounts,
+                $option->knowledgeCounts,
+            )->nextActiveUserId,
             default => throw new DomainException('Это распределение наград сейчас недоступно.'),
         };
 

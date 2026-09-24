@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Domain\Game\Actions;
 
 use App\Domain\Game\Enums\Competency;
-use App\Domain\Game\Enums\KnowledgeDiscipline;
 use App\Domain\Game\Enums\PendingInteractionType;
 use App\Models\Game;
 use App\Models\User;
@@ -26,7 +25,10 @@ final class DistributeRewardsAction
     ) {
     }
 
-    /** @param array<string, int> $bookCounts */
+    /**
+     * @param array<string, int> $bookCounts
+     * @param array<string, int> $knowledgeCounts
+     */
     public function execute(
         Game $game,
         User $user,
@@ -38,8 +40,8 @@ final class DistributeRewardsAction
             PendingInteractionType::ChooseStartingResources => $this->chooseStartingResources->execute(
                 $game,
                 $user,
-                $this->disciplines($bookCounts),
-                $this->disciplines($knowledgeCounts),
+                $bookCounts,
+                $knowledgeCounts,
                 $competency,
             ),
             PendingInteractionType::ChooseCompetency => $competency instanceof Competency
@@ -56,20 +58,4 @@ final class DistributeRewardsAction
         };
     }
 
-    /**
-     * @param array<string, int> $bookCounts
-     * @return list<KnowledgeDiscipline>
-     */
-    private function disciplines(array $bookCounts): array
-    {
-        $disciplines = [];
-
-        foreach (KnowledgeDiscipline::cases() as $discipline) {
-            for ($count = $bookCounts[$discipline->value] ?? 0; $count > 0; $count--) {
-                $disciplines[] = $discipline;
-            }
-        }
-
-        return $disciplines;
-    }
 }

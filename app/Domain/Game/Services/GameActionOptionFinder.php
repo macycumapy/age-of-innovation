@@ -101,8 +101,8 @@ final class GameActionOptionFinder
             PendingInteractionType::ChooseShippingBooks,
             PendingInteractionType::ChooseTerraformingBooks,
             PendingInteractionType::ChoosePalaceBooks,
-            PendingInteractionType::ChooseInnovationReward => $this->rewardDistributionOptionFinder->execute($state, $player),
-            default => [],
+            PendingInteractionType::ChooseInnovationReward,
+            PendingInteractionType::ChooseStartingResources => $this->rewardDistributionOptionFinder->execute($state, $player),
         };
         $resourceOptions = $state->round->phase->isActionPhase()
             ? $this->resourceConversionOptionFinder->execute($player)

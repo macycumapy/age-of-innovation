@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Domain\Game\Actions;
 
 use App\Domain\Game\Data\GamePlayerStateData;
-use App\Domain\Game\Data\GameStateData;
 use App\Domain\Game\Enums\Competency;
 use App\Domain\Game\Enums\GameActionType;
 use App\Domain\Game\Enums\GameEventType;
@@ -24,23 +23,22 @@ final class ChooseStartingResourcesAction
     public function __construct(
         private DetermineNextPlanningPlayerAction $determineNextPlanningPlayer,
         private AppendGameHistoryAction $appendGameHistory,
-        private AdvanceKnowledgeAction $advanceKnowledge,
-        private ResolveIncomePhaseAction $resolveIncomePhase,
+        private ApplyStartingResourcesAction $applyStartingResources,
     ) {
     }
 
     /**
-     * @param list<KnowledgeDiscipline> $bookDisciplines
-     * @param list<KnowledgeDiscipline> $knowledgeDisciplines
+     * @param array<string, int> $bookCounts
+     * @param array<string, int> $knowledgeCounts
      */
     public function execute(
         Game $game,
         User $user,
-        array $bookDisciplines,
-        array $knowledgeDisciplines,
+        array $bookCounts,
+        array $knowledgeCounts,
         ?Competency $competency,
     ): Game {
-        return DB::transaction(function () use ($game, $user, $bookDisciplines, $knowledgeDisciplines, $competency): Game {
+        return DB::transaction(function () use ($game, $user, $bookCounts, $knowledgeCounts, $competency): Game {
             $lockedGame = Game::query()->lockForUpdate()->findOrFail($game->id);
             $stateVersionBefore = $lockedGame->version;
             $interaction = $lockedGame->state->pendingInteraction;
@@ -66,46 +64,36 @@ final class ChooseStartingResourcesAction
             }
 
             $state = $lockedGame->state;
-            $playerStateIndex = null;
+            $playerState = collect($state->players)->firstWhere('playerId', $player->id);
 
-            foreach ($state->players as $index => $candidatePlayerState) {
-                if ($candidatePlayerState->playerId === $player->id) {
-                    $playerStateIndex = $index;
-
-                    break;
-                }
-            }
-
-            if ($playerStateIndex === null) {
+            if (! $playerState instanceof GamePlayerStateData) {
                 throw ValidationException::withMessages([
                     'game' => 'Не найдено игровое состояние участника.',
                 ]);
             }
 
-            $playerState = $state->players[$playerStateIndex];
-            $this->assignBooks($playerState, $bookDisciplines);
-            $gainedPower = $this->assignKnowledge($state, $playerState, $knowledgeDisciplines);
             if ($interactionPhase === GamePhase::Setup && $competency instanceof Competency) {
                 throw ValidationException::withMessages([
                     'competency_id' => 'Стартовая компетенция выбирается после расстановки зданий.',
                 ]);
             }
 
-            $state->players[$playerStateIndex] = $playerState;
-            $state->pendingInteraction = null;
-            $nextPhase = $interactionPhase;
-            $incomeReceipts = [];
+            $result = $this->applyStartingResources->execute(
+                $state,
+                $playerState,
+                $bookCounts,
+                $knowledgeCounts,
+            );
 
             if ($interactionPhase === GamePhase::Income) {
-                [$nextPlayerState, $nextPhase, $incomeReceipts] = $this->resolveIncomePhase->execute($state);
-                $nextPlayer = $lockedGame->players()->findOrFail($nextPlayerState->playerId);
+                $nextActiveUserId = $result->nextActiveUserId;
             } else {
-                $nextPlayer = $this->determineNextPlanningPlayer->execute($lockedGame, $player);
+                $nextActiveUserId = $this->determineNextPlanningPlayer->execute($lockedGame, $player)->user_id;
             }
 
             $lockedGame->update([
-                'active_player_id' => $nextPlayer->user_id,
-                'phase' => $nextPhase,
+                'active_player_id' => $nextActiveUserId,
+                'phase' => $result->nextPhase,
                 'version' => $lockedGame->version + 1,
                 'state' => $state,
             ]);
@@ -116,18 +104,12 @@ final class ChooseStartingResourcesAction
                     ? GameActionType::ChooseIncomeResources
                     : GameActionType::ChooseStartingResources,
                 [
-                    'book_disciplines' => array_map(
-                        static fn (KnowledgeDiscipline $discipline): string => $discipline->value,
-                        $bookDisciplines,
-                    ),
-                    'knowledge_disciplines' => array_map(
-                        static fn (KnowledgeDiscipline $discipline): string => $discipline->value,
-                        $knowledgeDisciplines,
-                    ),
+                    'book_disciplines' => $this->disciplines($bookCounts),
+                    'knowledge_disciplines' => $this->disciplines($knowledgeCounts),
                     'competency' => $competency?->value,
                     'phase' => $interactionPhase->value,
-                    'income_receipts' => $incomeReceipts,
-                    'gained_power' => $gainedPower,
+                    'income_receipts' => $result->incomeReceipts,
+                    'gained_power' => $result->gainedPower,
                 ],
                 [[
                     'type' => $interactionPhase === GamePhase::Income
@@ -137,52 +119,27 @@ final class ChooseStartingResourcesAction
                 ]],
                 $stateVersionBefore,
                 $lockedGame->version,
-                $nextPhase !== $interactionPhase,
+                $result->nextPhase !== $interactionPhase,
             );
 
             return $lockedGame->refresh();
         });
     }
 
-    /** @param list<KnowledgeDiscipline> $disciplines */
-    private function assignBooks(GamePlayerStateData $playerState, array $disciplines): void
+    /**
+     * @param array<string, int> $counts
+     * @return list<string>
+     */
+    private function disciplines(array $counts): array
     {
-        $bookCount = $playerState->resources->books->unassigned;
+        $disciplines = [];
 
-        if (count($disciplines) !== $bookCount) {
-            throw ValidationException::withMessages([
-                'book_counts' => 'Распределите все стартовые книги.',
-            ]);
+        foreach (KnowledgeDiscipline::cases() as $discipline) {
+            for ($count = $counts[$discipline->value] ?? 0; $count > 0; $count--) {
+                $disciplines[] = $discipline->value;
+            }
         }
 
-        foreach ($disciplines as $discipline) {
-            $playerState->resources->books->{$discipline->value}++;
-        }
-
-        $playerState->resources->books->unassigned = 0;
+        return $disciplines;
     }
-
-    /** @param list<KnowledgeDiscipline> $disciplines */
-    private function assignKnowledge(
-        GameStateData $state,
-        GamePlayerStateData $playerState,
-        array $disciplines,
-    ): int {
-        if (count($disciplines) !== $playerState->knowledge->unassignedSteps) {
-            throw ValidationException::withMessages([
-                'knowledge_counts' => 'Распределите все стартовые шаги знаний.',
-            ]);
-        }
-
-        $gainedPower = 0;
-
-        foreach ($disciplines as $discipline) {
-            $gainedPower += $this->advanceKnowledge->execute($state, $playerState, $discipline, 1)->gainedPower;
-        }
-
-        $playerState->knowledge->unassignedSteps = 0;
-
-        return $gainedPower;
-    }
-
 }

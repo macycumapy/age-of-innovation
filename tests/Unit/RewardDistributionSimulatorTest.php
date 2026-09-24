@@ -271,4 +271,92 @@ class RewardDistributionSimulatorTest extends TestCase
         $this->assertSame(1, $simulation->state->pendingInteraction->context['bookCount']);
         $this->assertSame(1, $simulation->state->players[1]->resources->books->unassigned);
     }
+
+    public function test_it_enumerates_and_simulates_income_resource_distributions(): void
+    {
+        $state = new GameStateData(
+            schemaVersion: 4,
+            turnOrder: [1, 2],
+            players: [
+                new GamePlayerStateData(
+                    playerId: 1,
+                    userId: 10,
+                    color: PlayerColor::Green,
+                    faction: Faction::Blessed,
+                    homeland: TerrainType::Forest,
+                    roundBonus: RoundBonus::Coins,
+                    resources: new PlayerResourcesData(),
+                ),
+                new GamePlayerStateData(
+                    playerId: 2,
+                    userId: 20,
+                    color: PlayerColor::Red,
+                    faction: Faction::Inventors,
+                    homeland: TerrainType::Desert,
+                    roundBonus: RoundBonus::PowerCoins,
+                    resources: new PlayerResourcesData(),
+                ),
+            ],
+            round: new RoundStateData(
+                phase: GamePhase::Income,
+                incomeTurnIndex: 1,
+                incomeOrder: [1, 2],
+            ),
+            pendingInteraction: new PendingInteractionData(
+                PendingInteractionType::ChooseStartingResources,
+                1,
+                [],
+                ['bookCount' => 1, 'knowledgeStepCount' => 2],
+            ),
+        );
+        $state->players[0]->resources->books->unassigned = 1;
+        $state->players[0]->knowledge->unassignedSteps = 2;
+        $state->players[1]->resources->books->unassigned = 1;
+
+        $options = array_values(array_filter(
+            app(GameActionOptionFinder::class)->execute($state, 1),
+            static fn ($option): bool => $option instanceof RewardDistributionOptionData,
+        ));
+
+        $this->assertCount(40, $options);
+        $simulation = app(GameActionSimulator::class)->execute($state, 1, $options[0]);
+
+        $this->assertSame(1, $state->players[0]->resources->books->unassigned);
+        $this->assertSame(2, $state->players[0]->knowledge->unassignedSteps);
+        $this->assertSame(0, $simulation->state->players[0]->resources->books->unassigned);
+        $this->assertSame(0, $simulation->state->players[0]->knowledge->unassignedSteps);
+        $this->assertSame(20, $simulation->nextActiveUserId);
+        $this->assertSame(2, $simulation->state->pendingInteraction?->playerId);
+    }
+
+    public function test_setup_resource_simulation_has_no_next_user_until_the_next_player_is_created(): void
+    {
+        $state = new GameStateData(
+            schemaVersion: 4,
+            players: [new GamePlayerStateData(
+                playerId: 1,
+                userId: 10,
+                color: PlayerColor::Green,
+                faction: Faction::Blessed,
+                homeland: TerrainType::Forest,
+                roundBonus: RoundBonus::Coins,
+                resources: new PlayerResourcesData(),
+            )],
+            round: new RoundStateData(phase: GamePhase::Setup),
+            pendingInteraction: new PendingInteractionData(
+                PendingInteractionType::ChooseStartingResources,
+                1,
+                [],
+                ['bookCount' => 1, 'knowledgeStepCount' => 0],
+            ),
+        );
+        $state->players[0]->resources->books->unassigned = 1;
+
+        $options = app(GameActionOptionFinder::class)->execute($state, 1);
+        $simulation = app(GameActionSimulator::class)->execute($state, 1, $options[0]);
+
+        $this->assertCount(4, $options);
+        $this->assertNull($simulation->nextActiveUserId);
+        $this->assertNull($simulation->state->pendingInteraction);
+    }
 }
