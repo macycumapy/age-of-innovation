@@ -19,7 +19,8 @@ final class PalaceChoiceController extends Controller
     ): Response {
         /** @var User $user */
         $user = $request->user();
-        $choosePalace->execute($game, $user, $request->palace());
+        $player = $game->players()->whereBelongsTo($user)->firstOrFail();
+        $choosePalace->execute($game, $player, $request->palace());
 
         return $this->gameChanged($game);
     }

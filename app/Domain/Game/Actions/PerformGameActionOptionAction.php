@@ -98,6 +98,10 @@ final class PerformGameActionOptionAction
             return $this->resolvePowerOffer->execute($game, $player, $option->accept);
         }
 
+        if ($option instanceof ChoosePalaceOptionData) {
+            return $this->choosePalace->execute($game, $player, $option->palace);
+        }
+
         $user = $player->user()->firstOrFail();
 
         return DB::transaction(fn (): Game => match (true) {
@@ -159,7 +163,6 @@ final class PerformGameActionOptionAction
                 $option->accept,
                 $option->waterHexId,
             ),
-            $option instanceof ChoosePalaceOptionData => $this->choosePalace->execute($game, $user, $option->palace),
             $option instanceof ChooseCompetencyOptionData => $this->chooseCompetency->execute($game, $user, $option->competency),
             $option instanceof PlaceNeutralBuildingOptionData => $this->placeNeutralBuilding->execute($game, $user, $option->hexId),
             $option instanceof PlaceBridgeOptionData => $this->performBridgePlacement($game, $user, $option),

@@ -7,6 +7,8 @@ namespace App\Http\Requests;
 use App\Domain\Game\Enums\PalaceAbility;
 use App\Domain\Game\Enums\PendingInteractionType;
 use App\Models\Game;
+use App\Models\GamePlayer;
+use App\Models\User;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -15,9 +17,16 @@ final class ChoosePalaceRequest extends FormRequest
     public function authorize(): bool
     {
         $game = $this->route('game');
+        $user = $this->user();
 
-        return $game instanceof Game
-            && $game->active_player_id === $this->user()?->id
+        if (! $game instanceof Game || ! $user instanceof User) {
+            return false;
+        }
+
+        $player = $game->players()->whereBelongsTo($user)->first();
+
+        return $player instanceof GamePlayer
+            && $game->isActivePlayer($player)
             && $game->state->pendingInteraction?->type === PendingInteractionType::ChoosePalace;
     }
 
@@ -25,9 +34,8 @@ final class ChoosePalaceRequest extends FormRequest
     public function rules(): array
     {
         $game = $this->route('game');
-        $optionIds = $game instanceof Game
-            ? $game->state->pendingInteraction?->optionIds ?? []
-            : [];
+        $interaction = $game instanceof Game ? $game->state->pendingInteraction : null;
+        $optionIds = $interaction->optionIds ?? [];
 
         return [
             'palace_id' => ['required', Rule::enum(PalaceAbility::class), Rule::in($optionIds)],

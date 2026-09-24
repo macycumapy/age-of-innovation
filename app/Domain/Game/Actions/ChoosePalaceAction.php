@@ -11,7 +11,6 @@ use App\Domain\Game\Enums\PalaceAbility;
 use App\Domain\Game\Enums\PendingInteractionType;
 use App\Models\Game;
 use App\Models\GamePlayer;
-use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -23,18 +22,18 @@ final class ChoosePalaceAction
     ) {
     }
 
-    public function execute(Game $game, User $user, PalaceAbility $palace): Game
+    public function execute(Game $game, GamePlayer $player, PalaceAbility $palace): Game
     {
-        return DB::transaction(function () use ($game, $user, $palace): Game {
+        return DB::transaction(function () use ($game, $player, $palace): Game {
             $lockedGame = Game::query()->lockForUpdate()->findOrFail($game->id);
             $state = $lockedGame->state;
             $interaction = $state->pendingInteraction;
-            $player = $lockedGame->players()->whereKey($interaction?->playerId)->whereBelongsTo($user)->first();
 
             if (! $lockedGame->phase->isActionPhase()
-                || $lockedGame->active_player_id !== $user->id
+                || $player->game_id !== $lockedGame->id
+                || ! $lockedGame->isActivePlayer($player)
                 || $interaction?->type !== PendingInteractionType::ChoosePalace
-                || ! $player instanceof GamePlayer) {
+                || $interaction->playerId !== $player->id) {
                 throw ValidationException::withMessages(['palace_id' => 'Этот жетон Дворца недоступен.']);
             }
 

@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use App\Domain\Game\Actions\PerformGameActionOptionAction;
 use App\Domain\Game\Actions\PlayAutomatedTurnAction;
 use App\Domain\Game\Data\BookSupplyData;
+use App\Domain\Game\Data\ChoosePalaceOptionData;
 use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Data\GameStateData;
 use App\Domain\Game\Data\PendingInteractionData;
@@ -18,6 +20,7 @@ use App\Domain\Game\Enums\GameActionType;
 use App\Domain\Game\Enums\GameBotDifficulty;
 use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\GameStatus;
+use App\Domain\Game\Enums\PalaceAbility;
 use App\Domain\Game\Enums\PendingInteractionType;
 use App\Domain\Game\Enums\PlayerColor;
 use App\Domain\Game\Enums\RoundBonus;
@@ -169,6 +172,46 @@ class PlayAutomatedTurnActionTest extends TestCase
         $this->assertSame(0, $game->state->players[0]->resources->power->bowlOne);
         $this->assertSame(1, $game->state->players[0]->resources->power->bowlTwo);
         $this->assertSame([GameActionType::AcceptPower], $game->actions()->pluck('type')->all());
+        $this->assertSame([$botPlayer->id], $game->actions()->pluck('game_player_id')->all());
+        $this->assertSame([null], $game->actions()->pluck('player_id')->all());
+    }
+
+    public function test_bot_without_user_can_choose_a_palace(): void
+    {
+        Queue::fake();
+
+        $game = Game::factory()->create([
+            'status' => GameStatus::Active,
+            'phase' => GamePhase::Actions,
+        ]);
+        $botPlayer = GamePlayer::factory()->bot(GameBotDifficulty::Fast)->create([
+            'game_id' => $game->id,
+            'user_id' => null,
+        ]);
+        $game->update([
+            'active_game_player_id' => $botPlayer->id,
+            'state' => new GameStateData(
+                turnOrder: [$botPlayer->id],
+                players: [$this->playerState($botPlayer)],
+                round: new RoundStateData(phase: GamePhase::Actions),
+                availablePalaceIds: [PalaceAbility::Palace17->value],
+                pendingInteraction: new PendingInteractionData(
+                    PendingInteractionType::ChoosePalace,
+                    $botPlayer->id,
+                    [PalaceAbility::Palace17->value],
+                    ['builtHexId' => '0:0'],
+                ),
+            ),
+        ]);
+
+        app(PerformGameActionOptionAction::class)->execute(
+            $game,
+            $botPlayer,
+            new ChoosePalaceOptionData(PalaceAbility::Palace17),
+        );
+
+        $game->refresh();
+        $this->assertSame(PalaceAbility::Palace17->value, $game->state->players[0]->palaceId);
         $this->assertSame([$botPlayer->id], $game->actions()->pluck('game_player_id')->all());
         $this->assertSame([null], $game->actions()->pluck('player_id')->all());
     }
