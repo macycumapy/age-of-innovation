@@ -7,6 +7,8 @@ namespace App\Http\Requests;
 use App\Domain\Game\Enums\PendingInteractionType;
 use App\Domain\Game\Enums\TownTile;
 use App\Models\Game;
+use App\Models\GamePlayer;
+use App\Models\User;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -18,9 +20,16 @@ final class ChooseTownRequest extends FormRequest
     public function authorize(): bool
     {
         $game = $this->route('game');
+        $user = $this->user();
 
-        return $game instanceof Game
-            && $game->active_player_id === $this->user()?->id
+        if (! $game instanceof Game || ! $user instanceof User) {
+            return false;
+        }
+
+        $player = $game->players()->whereBelongsTo($user)->first();
+
+        return $player instanceof GamePlayer
+            && $game->isActivePlayer($player)
             && $game->state->pendingInteraction?->type === PendingInteractionType::ChooseTown;
     }
 

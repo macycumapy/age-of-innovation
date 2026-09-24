@@ -115,6 +115,10 @@ final class PerformGameActionOptionAction
             return $this->buildWorkshop->execute($game, $player, $option->hexId);
         }
 
+        if ($option instanceof ChooseTownOptionData) {
+            return $this->chooseTown->execute($game, $player, $option->townTile);
+        }
+
         $user = $player->user()->firstOrFail();
 
         return DB::transaction(fn (): Game => match (true) {
@@ -156,7 +160,6 @@ final class PerformGameActionOptionAction
             ),
             $option instanceof SacrificePowerOptionData => $this->sacrificePower->execute($game, $user, $option->amount),
             $option instanceof PlaceAnnexOptionData => $this->confirmAnnexPlacement->execute($game, $user, $option->hexId),
-            $option instanceof ChooseTownOptionData => $this->chooseTown->execute($game, $user, $option->townTile),
             $option instanceof WorkshopAfterTerraformingOptionData => $this->resolveWorkshopAfterTerraforming->execute(
                 $game,
                 $user,

@@ -11,7 +11,6 @@ use App\Domain\Game\Enums\PendingInteractionType;
 use App\Domain\Game\Enums\TownTile;
 use App\Models\Game;
 use App\Models\GamePlayer;
-use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -23,18 +22,18 @@ final class ChooseTownAction
     ) {
     }
 
-    public function execute(Game $game, User $user, TownTile $townTile): Game
+    public function execute(Game $game, GamePlayer $player, TownTile $townTile): Game
     {
-        return DB::transaction(function () use ($game, $user, $townTile): Game {
+        return DB::transaction(function () use ($game, $player, $townTile): Game {
             $lockedGame = Game::query()->lockForUpdate()->findOrFail($game->id);
             $state = $lockedGame->state;
             $interaction = $state->pendingInteraction;
-            $player = $lockedGame->players()->whereKey($interaction?->playerId)->whereBelongsTo($user)->first();
 
             if (! $lockedGame->phase->isActionPhase()
-                || $lockedGame->active_player_id !== $user->id
+                || $player->game_id !== $lockedGame->id
+                || ! $lockedGame->isActivePlayer($player)
                 || $interaction?->type !== PendingInteractionType::ChooseTown
-                || ! $player instanceof GamePlayer) {
+                || $interaction->playerId !== $player->id) {
                 throw ValidationException::withMessages(['town_tile' => 'Этот жетон города недоступен.']);
             }
 

@@ -16,7 +16,8 @@ final class TownController extends Controller
     {
         /** @var User $user */
         $user = $request->user();
-        $chooseTown->execute($game, $user, $request->townTile());
+        $player = $game->players()->whereBelongsTo($user)->firstOrFail();
+        $chooseTown->execute($game, $player, $request->townTile());
 
         return $this->gameChanged($game);
     }

@@ -12,6 +12,7 @@ use App\Domain\Game\Data\BookSupplyData;
 use App\Domain\Game\Data\BuildingStateData;
 use App\Domain\Game\Data\BuildWorkshopOptionData;
 use App\Domain\Game\Data\ChoosePalaceOptionData;
+use App\Domain\Game\Data\ChooseTownOptionData;
 use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Data\GameStateData;
 use App\Domain\Game\Data\PendingInteractionData;
@@ -32,6 +33,7 @@ use App\Domain\Game\Enums\PlayerColor;
 use App\Domain\Game\Enums\PowerAction;
 use App\Domain\Game\Enums\RoundBonus;
 use App\Domain\Game\Enums\TerrainType;
+use App\Domain\Game\Enums\TownTile;
 use App\Domain\Game\Factories\GameSetupPoolFactory;
 use App\Jobs\PlayAutomatedTurnJob;
 use App\Models\Game;
@@ -312,6 +314,48 @@ class PlayAutomatedTurnActionTest extends TestCase
         $this->assertSame(BuildingType::Workshop, $game->state->board->hexes[1]->building?->type);
         $this->assertSame(0, $game->state->players[0]->resources->tools);
         $this->assertSame(0, $game->state->players[0]->resources->coins);
+        $this->assertSame([$botPlayer->id], $game->actions()->pluck('game_player_id')->all());
+        $this->assertSame([null], $game->actions()->pluck('player_id')->all());
+    }
+
+    public function test_bot_without_user_can_choose_a_town_tile(): void
+    {
+        Queue::fake();
+
+        $game = Game::factory()->create([
+            'status' => GameStatus::Active,
+            'phase' => GamePhase::Actions,
+        ]);
+        $botPlayer = GamePlayer::factory()->bot(GameBotDifficulty::Fast)->create([
+            'game_id' => $game->id,
+            'user_id' => null,
+        ]);
+        $game->update([
+            'active_game_player_id' => $botPlayer->id,
+            'state' => new GameStateData(
+                turnOrder: [$botPlayer->id],
+                players: [$this->playerState($botPlayer)],
+                round: new RoundStateData(phase: GamePhase::Actions),
+                availableTownTileIds: [TownTile::Tools->value],
+                pendingInteraction: new PendingInteractionData(
+                    PendingInteractionType::ChooseTown,
+                    $botPlayer->id,
+                    [TownTile::Tools->value],
+                    ['freePalaceTownTile' => true],
+                ),
+            ),
+        ]);
+
+        app(PerformGameActionOptionAction::class)->execute(
+            $game,
+            $botPlayer,
+            new ChooseTownOptionData(TownTile::Tools),
+        );
+
+        $game->refresh();
+        $this->assertSame(3, $game->state->players[0]->resources->tools);
+        $this->assertSame([TownTile::Tools->value], $game->state->players[0]->townTileIds);
+        $this->assertNull($game->state->pendingInteraction);
         $this->assertSame([$botPlayer->id], $game->actions()->pluck('game_player_id')->all());
         $this->assertSame([null], $game->actions()->pluck('player_id')->all());
     }
