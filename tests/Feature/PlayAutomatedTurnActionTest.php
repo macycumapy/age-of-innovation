@@ -1,0 +1,141 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Tests\Feature;
+
+use App\Domain\Game\Actions\PlayAutomatedTurnAction;
+use App\Domain\Game\Data\BookSupplyData;
+use App\Domain\Game\Data\GamePlayerStateData;
+use App\Domain\Game\Data\GameStateData;
+use App\Domain\Game\Data\PendingInteractionData;
+use App\Domain\Game\Data\PlayerResourcesData;
+use App\Domain\Game\Data\PowerBowlsStateData;
+use App\Domain\Game\Data\RoundStateData;
+use App\Domain\Game\Enums\BookAction;
+use App\Domain\Game\Enums\Faction;
+use App\Domain\Game\Enums\GameActionType;
+use App\Domain\Game\Enums\GameBotDifficulty;
+use App\Domain\Game\Enums\GamePhase;
+use App\Domain\Game\Enums\GameStatus;
+use App\Domain\Game\Enums\PendingInteractionType;
+use App\Domain\Game\Enums\PlayerColor;
+use App\Domain\Game\Enums\RoundBonus;
+use App\Domain\Game\Enums\TerrainType;
+use App\Domain\Game\Factories\GameSetupPoolFactory;
+use App\Models\Game;
+use App\Models\GamePlayer;
+use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\TestCase;
+
+class PlayAutomatedTurnActionTest extends TestCase
+{
+    use RefreshDatabase;
+
+    public function test_it_chooses_performs_and_confirms_a_complete_turn(): void
+    {
+        $bot = User::factory()->create();
+        $opponent = User::factory()->create();
+        $game = Game::factory()->create([
+            'status' => GameStatus::Active,
+            'phase' => GamePhase::Actions,
+            'active_player_id' => $bot->id,
+        ]);
+        $botPlayer = GamePlayer::factory()->create([
+            'game_id' => $game->id,
+            'user_id' => $bot->id,
+            'seat' => 1,
+        ]);
+        $opponentPlayer = GamePlayer::factory()->create([
+            'game_id' => $game->id,
+            'user_id' => $opponent->id,
+            'seat' => 2,
+        ]);
+        $setupPool = app(GameSetupPoolFactory::class)->create(2);
+        $setupPool->bookActions = [BookAction::GainCoins];
+        $game->update(['state' => new GameStateData(
+            turnOrder: [$botPlayer->id, $opponentPlayer->id],
+            players: [
+                $this->playerState($botPlayer, books: new BookSupplyData(banking: 1, law: 1)),
+                $this->playerState($opponentPlayer),
+            ],
+            round: new RoundStateData(phase: GamePhase::Actions),
+            setupPool: $setupPool,
+        )]);
+
+        app(PlayAutomatedTurnAction::class)->execute($game, $bot, GameBotDifficulty::Fast);
+
+        $game->refresh();
+        $this->assertSame($opponent->id, $game->active_player_id);
+        $this->assertSame(6, $game->state->players[0]->resources->coins);
+        $this->assertSame(0, $game->state->players[0]->resources->books->banking);
+        $this->assertSame(0, $game->state->players[0]->resources->books->law);
+        $this->assertFalse($game->state->round->hasTakenMainAction);
+        $this->assertNull($game->state->round->turnStartVersion);
+        $this->assertSame(
+            [GameActionType::BookAction, GameActionType::FinishTurn],
+            $game->actions()->orderBy('sequence')->pluck('type')->all(),
+        );
+    }
+
+    public function test_it_resolves_its_pending_decision_and_stops_when_control_changes(): void
+    {
+        $bot = User::factory()->create();
+        $opponent = User::factory()->create();
+        $game = Game::factory()->create([
+            'status' => GameStatus::Active,
+            'phase' => GamePhase::Actions,
+            'active_player_id' => $bot->id,
+        ]);
+        $botPlayer = GamePlayer::factory()->create([
+            'game_id' => $game->id,
+            'user_id' => $bot->id,
+            'seat' => 1,
+        ]);
+        $opponentPlayer = GamePlayer::factory()->create([
+            'game_id' => $game->id,
+            'user_id' => $opponent->id,
+            'seat' => 2,
+        ]);
+        $botState = $this->playerState($botPlayer);
+        $botState->resources->power = new PowerBowlsStateData(bowlOne: 1);
+        $game->update(['state' => new GameStateData(
+            turnOrder: [$opponentPlayer->id, $botPlayer->id],
+            players: [$botState, $this->playerState($opponentPlayer)],
+            round: new RoundStateData(phase: GamePhase::Actions, hasTakenMainAction: true),
+            pendingInteraction: new PendingInteractionData(
+                PendingInteractionType::PowerOffer,
+                $botPlayer->id,
+                context: [
+                    'buildingPlayerId' => $opponentPlayer->id,
+                    'builtHexId' => '0:0',
+                    'powerAmount' => 1,
+                    'remainingOffers' => [],
+                ],
+            ),
+        )]);
+
+        app(PlayAutomatedTurnAction::class)->execute($game, $bot, GameBotDifficulty::Fast);
+
+        $game->refresh();
+        $this->assertSame($opponent->id, $game->active_player_id);
+        $this->assertNull($game->state->pendingInteraction);
+        $this->assertSame(0, $game->state->players[0]->resources->power->bowlOne);
+        $this->assertSame(1, $game->state->players[0]->resources->power->bowlTwo);
+        $this->assertSame([GameActionType::AcceptPower], $game->actions()->pluck('type')->all());
+    }
+
+    private function playerState(GamePlayer $player, ?BookSupplyData $books = null): GamePlayerStateData
+    {
+        return new GamePlayerStateData(
+            playerId: $player->id,
+            userId: $player->user_id,
+            color: PlayerColor::Green,
+            faction: Faction::Blessed,
+            homeland: TerrainType::Forest,
+            roundBonus: RoundBonus::Coins,
+            resources: new PlayerResourcesData(books: $books ?? new BookSupplyData()),
+        );
+    }
+}

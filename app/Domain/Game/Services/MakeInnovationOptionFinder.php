@@ -10,6 +10,7 @@ use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Data\GameStateData;
 use App\Domain\Game\Data\MakeInnovationOptionData;
 use App\Domain\Game\Enums\BuildingType;
+use App\Domain\Game\Enums\Innovation;
 use App\Domain\Game\Enums\TerrainType;
 
 final class MakeInnovationOptionFinder
@@ -30,7 +31,11 @@ final class MakeInnovationOptionFinder
         }
 
         $options = [];
-        foreach ($state->setupPool->innovations as $slotIndex => $innovation) {
+        foreach ($state->setupPool->innovations as $slotIndex => $innovationValue) {
+            $innovation = $innovationValue instanceof Innovation
+                ? $innovationValue
+                : Innovation::from((string) $innovationValue);
+
             if (! in_array($innovation->value, $state->availableInventionIds, true)) {
                 continue;
             }
