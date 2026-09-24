@@ -20,9 +20,10 @@ final class BuildingUpgradeController extends Controller
     ): Response {
         /** @var User $user */
         $user = $request->user();
+        $player = $game->players()->whereBelongsTo($user)->firstOrFail();
         $upgradeBuilding->execute(
             $game,
-            $user,
+            $player,
             $request->string('hex_id')->toString(),
             BuildingType::from($request->string('target')->toString()),
         );

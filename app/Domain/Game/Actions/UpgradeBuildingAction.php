@@ -10,7 +10,6 @@ use App\Domain\Game\Enums\GameActionType;
 use App\Domain\Game\Enums\GameEventType;
 use App\Models\Game;
 use App\Models\GamePlayer;
-use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -22,18 +21,17 @@ final class UpgradeBuildingAction
     ) {
     }
 
-    public function execute(Game $game, User $user, string $hexId, BuildingType $target): Game
+    public function execute(Game $game, GamePlayer $player, string $hexId, BuildingType $target): Game
     {
-        return DB::transaction(function () use ($game, $user, $hexId, $target): Game {
+        return DB::transaction(function () use ($game, $player, $hexId, $target): Game {
             $lockedGame = Game::query()->lockForUpdate()->findOrFail($game->id);
             $state = $lockedGame->state;
-            $player = $lockedGame->players()->whereBelongsTo($user)->first();
 
             if (! $lockedGame->phase->isActionPhase()
-                || $lockedGame->active_player_id !== $user->id
+                || $player->game_id !== $lockedGame->id
+                || ! $lockedGame->isActivePlayer($player)
                 || $state->pendingInteraction !== null
-                || $state->round->hasTakenMainAction
-                || ! $player instanceof GamePlayer) {
+                || $state->round->hasTakenMainAction) {
                 throw ValidationException::withMessages(['building' => 'Это здание нельзя улучшить выбранным способом.']);
             }
 

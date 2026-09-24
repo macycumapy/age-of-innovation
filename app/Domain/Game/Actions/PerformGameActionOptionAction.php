@@ -119,15 +119,18 @@ final class PerformGameActionOptionAction
             return $this->chooseTown->execute($game, $player, $option->townTile);
         }
 
+        if ($option instanceof UpgradeBuildingOptionData) {
+            return $this->upgradeBuilding->execute(
+                $game,
+                $player,
+                $option->hexId,
+                $option->target,
+            );
+        }
+
         $user = $player->user()->firstOrFail();
 
         return DB::transaction(fn (): Game => match (true) {
-            $option instanceof UpgradeBuildingOptionData => $this->upgradeBuilding->execute(
-                $game,
-                $user,
-                $option->hexId,
-                $option->target,
-            ),
             $option instanceof PaidTerraformingOptionData => $this->performPaidTerraforming($game, $user, $option),
             $option instanceof DevelopmentAdvancementOptionData => $this->performDevelopmentAdvancement($game, $user, $option),
             $option instanceof SendScholarOptionData => $this->sendScholar->execute(

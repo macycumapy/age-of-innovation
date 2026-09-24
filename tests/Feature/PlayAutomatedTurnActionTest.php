@@ -20,6 +20,7 @@ use App\Domain\Game\Data\PlayerResourcesData;
 use App\Domain\Game\Data\PowerActionOptionData;
 use App\Domain\Game\Data\PowerBowlsStateData;
 use App\Domain\Game\Data\RoundStateData;
+use App\Domain\Game\Data\UpgradeBuildingOptionData;
 use App\Domain\Game\Enums\BookAction;
 use App\Domain\Game\Enums\BuildingType;
 use App\Domain\Game\Enums\Faction;
@@ -356,6 +357,59 @@ class PlayAutomatedTurnActionTest extends TestCase
         $this->assertSame(3, $game->state->players[0]->resources->tools);
         $this->assertSame([TownTile::Tools->value], $game->state->players[0]->townTileIds);
         $this->assertNull($game->state->pendingInteraction);
+        $this->assertSame([$botPlayer->id], $game->actions()->pluck('game_player_id')->all());
+        $this->assertSame([null], $game->actions()->pluck('player_id')->all());
+    }
+
+    public function test_bot_without_user_can_upgrade_a_building(): void
+    {
+        Queue::fake();
+
+        $game = Game::factory()->create([
+            'status' => GameStatus::Active,
+            'phase' => GamePhase::Actions,
+        ]);
+        $botPlayer = GamePlayer::factory()->bot(GameBotDifficulty::Fast)->create([
+            'game_id' => $game->id,
+            'user_id' => null,
+        ]);
+        $botState = $this->playerState($botPlayer);
+        $botState->resources->tools = 10;
+        $botState->resources->coins = 10;
+        $game->update([
+            'active_game_player_id' => $botPlayer->id,
+            'state' => new GameStateData(
+                turnOrder: [$botPlayer->id],
+                board: new BoardStateData(hexes: [
+                    new BoardHexStateData(
+                        id: '0:0',
+                        q: 0,
+                        r: 0,
+                        initialTerrain: TerrainType::Forest,
+                        terrain: TerrainType::Forest,
+                        building: new BuildingStateData(BuildingType::Workshop, $botPlayer->id),
+                    ),
+                ]),
+                players: [$botState],
+                round: new RoundStateData(phase: GamePhase::Actions),
+            ),
+        ]);
+
+        app(PerformGameActionOptionAction::class)->execute(
+            $game,
+            $botPlayer,
+            new UpgradeBuildingOptionData(
+                '0:0',
+                BuildingType::Workshop,
+                BuildingType::Guild,
+                tools: 0,
+                coins: 0,
+            ),
+        );
+
+        $game->refresh();
+        $this->assertSame(BuildingType::Guild, $game->state->board->hexes[0]->building?->type);
+        $this->assertTrue($game->state->round->hasTakenMainAction);
         $this->assertSame([$botPlayer->id], $game->actions()->pluck('game_player_id')->all());
         $this->assertSame([null], $game->actions()->pluck('player_id')->all());
     }
