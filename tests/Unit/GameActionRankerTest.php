@@ -19,6 +19,7 @@ use App\Domain\Game\Enums\RoundBonus;
 use App\Domain\Game\Enums\TerrainType;
 use App\Domain\Game\Services\GameActionRanker;
 use App\Domain\Game\Services\GameStateEvaluator;
+use InvalidArgumentException;
 use Tests\TestCase;
 
 class GameActionRankerTest extends TestCase
@@ -112,12 +113,25 @@ class GameActionRankerTest extends TestCase
         );
         $state->round->hasTakenMainAction = true;
 
-        $rankedActions = app(GameActionRanker::class)->execute($state, 2, depth: 2, branchLimit: 2);
+        $rankedActions = app(GameActionRanker::class)->execute(
+            $state,
+            2,
+            depth: 3,
+            branchLimit: 2,
+            maxNodes: 1,
+        );
 
         $this->assertCount(2, $rankedActions);
         $this->assertSame(10, $rankedActions[0]->simulation->nextActiveUserId);
         $this->assertTrue($state->round->hasTakenMainAction);
         $this->assertNotNull($state->pendingInteraction);
+    }
+
+    public function test_it_rejects_an_invalid_search_budget(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+
+        app(GameActionRanker::class)->execute($this->state(), 1, maxNodes: 0);
     }
 
     private function state(): GameStateData

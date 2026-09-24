@@ -9,6 +9,7 @@ use App\Domain\Game\Data\EvaluatedGameActionData;
 use App\Domain\Game\Data\GameActionSimulationData;
 use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Data\GameStateData;
+use App\Domain\Game\Data\GameTreeSearchContext;
 use InvalidArgumentException;
 
 final class GameActionRanker
@@ -27,9 +28,10 @@ final class GameActionRanker
         int $playerId,
         int $depth = 1,
         int $branchLimit = 8,
+        int $maxNodes = 1000,
     ): array {
-        if ($depth < 1 || $branchLimit < 1) {
-            throw new InvalidArgumentException('Глубина и ширина поиска должны быть положительными.');
+        if ($depth < 1 || $branchLimit < 1 || $maxNodes < 1) {
+            throw new InvalidArgumentException('Глубина, ширина и бюджет поиска должны быть положительными.');
         }
 
         $rankedActions = [];
@@ -45,6 +47,7 @@ final class GameActionRanker
                         $playerId,
                         $depth - 1,
                         $branchLimit,
+                        new GameTreeSearchContext($maxNodes),
                         PHP_INT_MIN,
                         PHP_INT_MAX,
                     ),
@@ -67,6 +70,7 @@ final class GameActionRanker
         int $rootPlayerId,
         int $remainingDepth,
         int $branchLimit,
+        GameTreeSearchContext $context,
         int $alpha,
         int $beta,
     ): int {
@@ -87,13 +91,29 @@ final class GameActionRanker
             return $this->gameStateEvaluator->execute($state, $rootPlayerId);
         }
 
+        $cacheKey = $this->cacheKey($state, $nextActiveUserId, $rootPlayerId, $remainingDepth);
+        if (isset($context->cachedScores[$cacheKey])) {
+            return $context->cachedScores[$cacheKey];
+        }
+
+        if ($context->visitedNodes >= $context->maxNodes) {
+            return $this->gameStateEvaluator->execute($state, $rootPlayerId);
+        }
+
+        $context->visitedNodes++;
+
         $activePlayer = $this->playerByUserId($state, $nextActiveUserId);
         if ($activePlayer === null) {
             return $this->gameStateEvaluator->execute($state, $rootPlayerId);
         }
 
+        $options = array_slice(
+            $this->gameActionOptionFinder->execute($state, $activePlayer->playerId),
+            0,
+            $branchLimit,
+        );
         $simulations = [];
-        foreach ($this->gameActionOptionFinder->execute($state, $activePlayer->playerId) as $option) {
+        foreach ($options as $option) {
             $nextSimulation = $this->gameActionSimulator->execute($state, $activePlayer->playerId, $option);
             $simulations[] = [
                 'simulation' => $nextSimulation,
@@ -112,8 +132,8 @@ final class GameActionRanker
                 ? $right['score'] <=> $left['score']
                 : $left['score'] <=> $right['score'],
         );
-        $simulations = array_slice($simulations, 0, $branchLimit);
         $bestScore = $maximizing ? PHP_INT_MIN : PHP_INT_MAX;
+        $wasCutOff = false;
 
         foreach ($simulations as $candidate) {
             $score = $this->search(
@@ -121,6 +141,7 @@ final class GameActionRanker
                 $rootPlayerId,
                 $remainingDepth - 1,
                 $branchLimit,
+                $context,
                 $alpha,
                 $beta,
             );
@@ -134,11 +155,31 @@ final class GameActionRanker
             }
 
             if ($beta <= $alpha) {
+                $wasCutOff = true;
+
                 break;
             }
         }
 
+        if (! $wasCutOff) {
+            $context->cachedScores[$cacheKey] = $bestScore;
+        }
+
         return $bestScore;
+    }
+
+    private function cacheKey(
+        GameStateData $state,
+        ?int $nextActiveUserId,
+        int $rootPlayerId,
+        int $remainingDepth,
+    ): string {
+        return hash('xxh128', json_encode([
+            'state' => $state->toArray(),
+            'nextActiveUserId' => $nextActiveUserId,
+            'rootPlayerId' => $rootPlayerId,
+            'remainingDepth' => $remainingDepth,
+        ], JSON_THROW_ON_ERROR));
     }
 
     private function playerByUserId(GameStateData $state, ?int $userId): ?GamePlayerStateData
