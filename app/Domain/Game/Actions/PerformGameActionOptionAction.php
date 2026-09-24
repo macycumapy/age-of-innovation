@@ -111,10 +111,13 @@ final class PerformGameActionOptionAction
             );
         }
 
+        if ($option instanceof BuildWorkshopOptionData) {
+            return $this->buildWorkshop->execute($game, $player, $option->hexId);
+        }
+
         $user = $player->user()->firstOrFail();
 
         return DB::transaction(fn (): Game => match (true) {
-            $option instanceof BuildWorkshopOptionData => $this->buildWorkshop->execute($game, $user, $option->hexId),
             $option instanceof UpgradeBuildingOptionData => $this->upgradeBuilding->execute(
                 $game,
                 $user,

@@ -6,7 +6,11 @@ namespace Tests\Feature;
 
 use App\Domain\Game\Actions\PerformGameActionOptionAction;
 use App\Domain\Game\Actions\PlayAutomatedTurnAction;
+use App\Domain\Game\Data\BoardHexStateData;
+use App\Domain\Game\Data\BoardStateData;
 use App\Domain\Game\Data\BookSupplyData;
+use App\Domain\Game\Data\BuildingStateData;
+use App\Domain\Game\Data\BuildWorkshopOptionData;
 use App\Domain\Game\Data\ChoosePalaceOptionData;
 use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Data\GameStateData;
@@ -16,6 +20,7 @@ use App\Domain\Game\Data\PowerActionOptionData;
 use App\Domain\Game\Data\PowerBowlsStateData;
 use App\Domain\Game\Data\RoundStateData;
 use App\Domain\Game\Enums\BookAction;
+use App\Domain\Game\Enums\BuildingType;
 use App\Domain\Game\Enums\Faction;
 use App\Domain\Game\Enums\GameActionType;
 use App\Domain\Game\Enums\GameBotDifficulty;
@@ -250,6 +255,63 @@ class PlayAutomatedTurnActionTest extends TestCase
         $game->refresh();
         $this->assertSame(7, $game->state->players[0]->resources->coins);
         $this->assertContains(PowerAction::GainCoins->value, $game->state->round->usedSharedActionIds);
+        $this->assertSame([$botPlayer->id], $game->actions()->pluck('game_player_id')->all());
+        $this->assertSame([null], $game->actions()->pluck('player_id')->all());
+    }
+
+    public function test_bot_without_user_can_build_a_workshop(): void
+    {
+        Queue::fake();
+
+        $game = Game::factory()->create([
+            'status' => GameStatus::Active,
+            'phase' => GamePhase::Actions,
+        ]);
+        $botPlayer = GamePlayer::factory()->bot(GameBotDifficulty::Fast)->create([
+            'game_id' => $game->id,
+            'user_id' => null,
+        ]);
+        $botState = $this->playerState($botPlayer);
+        $botState->resources->tools = 1;
+        $botState->resources->coins = 2;
+        $game->update([
+            'active_game_player_id' => $botPlayer->id,
+            'state' => new GameStateData(
+                turnOrder: [$botPlayer->id],
+                board: new BoardStateData(hexes: [
+                    new BoardHexStateData(
+                        id: '0:0',
+                        q: 0,
+                        r: 0,
+                        initialTerrain: TerrainType::Forest,
+                        terrain: TerrainType::Forest,
+                        adjacentHexIds: ['1:0'],
+                        building: new BuildingStateData(BuildingType::Workshop, $botPlayer->id),
+                    ),
+                    new BoardHexStateData(
+                        id: '1:0',
+                        q: 1,
+                        r: 0,
+                        initialTerrain: TerrainType::Forest,
+                        terrain: TerrainType::Forest,
+                        adjacentHexIds: ['0:0'],
+                    ),
+                ]),
+                players: [$botState],
+                round: new RoundStateData(phase: GamePhase::Actions),
+            ),
+        ]);
+
+        app(PerformGameActionOptionAction::class)->execute(
+            $game,
+            $botPlayer,
+            new BuildWorkshopOptionData('1:0'),
+        );
+
+        $game->refresh();
+        $this->assertSame(BuildingType::Workshop, $game->state->board->hexes[1]->building?->type);
+        $this->assertSame(0, $game->state->players[0]->resources->tools);
+        $this->assertSame(0, $game->state->players[0]->resources->coins);
         $this->assertSame([$botPlayer->id], $game->actions()->pluck('game_player_id')->all());
         $this->assertSame([null], $game->actions()->pluck('player_id')->all());
     }

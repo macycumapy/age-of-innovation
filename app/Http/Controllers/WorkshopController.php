@@ -16,7 +16,8 @@ final class WorkshopController extends Controller
     {
         /** @var User $user */
         $user = $request->user();
-        $buildWorkshop->execute($game, $user, $request->hexId());
+        $player = $game->players()->whereBelongsTo($user)->firstOrFail();
+        $buildWorkshop->execute($game, $player, $request->hexId());
 
         return $this->gameChanged($game);
     }
