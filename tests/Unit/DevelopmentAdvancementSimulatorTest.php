@@ -42,7 +42,7 @@ class DevelopmentAdvancementSimulatorTest extends TestCase
         $this->assertSame(1, $simulation->state->players[0]->resources->scholars);
         $this->assertSame(22, $simulation->state->players[0]->victoryPoints);
         $this->assertTrue($simulation->state->round->hasTakenMainAction);
-        $this->assertSame(10, $simulation->nextActiveUserId);
+        $this->assertSame(1, $simulation->nextActivePlayerId);
     }
 
     public function test_it_simulates_terraforming_advancement_and_its_book_choice(): void

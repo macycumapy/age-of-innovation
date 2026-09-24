@@ -44,7 +44,7 @@ class PalaceWaterTownSimulatorTest extends TestCase
         $this->assertSame(['land', 'water'], $simulation->state->pendingInteraction->context['townHexIds']);
         $this->assertSame('water', $simulation->state->pendingInteraction->context['markerHexId']);
         $this->assertSame([TownTile::Coins->value], $simulation->state->pendingInteraction->optionIds);
-        $this->assertSame(10, $simulation->nextActiveUserId);
+        $this->assertSame(1, $simulation->nextActivePlayerId);
     }
 
     public function test_it_simulates_declining_a_water_town(): void
@@ -58,7 +58,7 @@ class PalaceWaterTownSimulatorTest extends TestCase
         $simulation = app(GameActionSimulator::class)->execute($state, 1, $option);
 
         $this->assertNull($simulation->state->pendingInteraction);
-        $this->assertSame(10, $simulation->nextActiveUserId);
+        $this->assertSame(1, $simulation->nextActivePlayerId);
     }
 
     private function state(): GameStateData

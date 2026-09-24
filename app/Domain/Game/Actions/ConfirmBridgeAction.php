@@ -58,7 +58,7 @@ final class ConfirmBridgeAction
                 $toHexId,
             );
             $source = $result->source;
-            $lockedGame->active_player_id = $result->nextActiveUserId;
+            $lockedGame->active_game_player_id = $result->nextActivePlayerId;
             $lockedGame->state = $state;
             $lockedGame->version++;
             $lockedGame->save();

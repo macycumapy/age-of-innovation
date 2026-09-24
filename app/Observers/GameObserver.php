@@ -13,19 +13,17 @@ final class GameObserver
 {
     public function updated(Game $game): void
     {
-        if (! $game->wasChanged('active_player_id')
-            || $game->active_player_id === null
+        if (! $game->wasChanged('active_game_player_id')
+            || $game->active_game_player_id === null
             || $game->status !== GameStatus::Active
             || ! $game->phase->isActionPhase()) {
             return;
         }
 
-        $player = $game->players()
-            ->where('user_id', $game->active_player_id)
-            ->first();
+        $player = $game->players()->find($game->active_game_player_id);
 
         if ($player instanceof GamePlayer && $player->bot_difficulty !== null) {
-            PlayAutomatedTurnJob::dispatch($game->id, $game->active_player_id);
+            PlayAutomatedTurnJob::dispatch($game->id, $player->id);
         }
     }
 }

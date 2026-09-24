@@ -60,7 +60,7 @@ class ChooseRoundBonusSimulatorTest extends TestCase
         $this->assertNull($simulation->state->pendingInteraction);
         $this->assertSame(RoundBonus::BuildGuild, $simulation->state->setupPool->availableRoundBonuses[0]->roundBonus);
         $this->assertSame(RoundBonus::Coins, $simulation->state->setupPool->availableRoundBonuses[1]->roundBonus);
-        $this->assertSame(20, $simulation->nextActiveUserId);
+        $this->assertSame(2, $simulation->nextActivePlayerId);
     }
 
     private function player(int $playerId, int $userId, PlayerColor $color, RoundBonus $roundBonus): GamePlayerStateData

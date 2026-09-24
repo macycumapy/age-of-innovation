@@ -10,7 +10,7 @@ final class ChooseTownResultData extends Data
 {
     /** @param list<string> $townHexIds */
     public function __construct(
-        public int $nextActiveUserId,
+        public int $nextActivePlayerId,
         public ?string $townId,
         public array $townHexIds,
         public string $markerHexId,

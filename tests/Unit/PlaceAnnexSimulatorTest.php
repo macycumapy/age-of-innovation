@@ -59,6 +59,6 @@ class PlaceAnnexSimulatorTest extends TestCase
         $this->assertTrue($simulation->state->board->hexes[0]->building?->hasAnnex);
         $this->assertSame(0, $simulation->state->players[0]->availableAnnexes);
         $this->assertTrue($simulation->state->round->hasTakenMainAction);
-        $this->assertSame(10, $simulation->nextActiveUserId);
+        $this->assertSame(1, $simulation->nextActivePlayerId);
     }
 }

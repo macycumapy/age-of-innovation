@@ -18,7 +18,7 @@ final class CompletePassTurnAction
 
     /**
      * @param Collection<int, GamePlayer> $players
-     * @return array{nextActiveUserId: int|null, phase: GamePhase, nextRoundStarted: bool, incomeReceipts: array, finalScoring: array, scienceBonusReceipts?: array}
+     * @return array{nextActivePlayerId: int|null, phase: GamePhase, nextRoundStarted: bool, incomeReceipts: array, finalScoring: array, scienceBonusReceipts?: array}
      */
     public function execute(GameStateData $state, int $currentPlayerId, Collection $players): array
     {
@@ -36,7 +36,7 @@ final class CompletePassTurnAction
 
                     if ($candidate instanceof GamePlayer) {
                         return [
-                            'nextActiveUserId' => $candidate->user_id,
+                            'nextActivePlayerId' => $candidate->id,
                             'phase' => GamePhase::Actions,
                             'nextRoundStarted' => false,
                             'incomeReceipts' => [],
@@ -56,7 +56,7 @@ final class CompletePassTurnAction
         [$nextPlayer, $phase, $incomeReceipts, $finalScoring, $scienceBonusReceipts] = $this->resolveScienceBonusPhase->execute($state);
 
         return [
-            'nextActiveUserId' => $nextPlayer?->userId,
+            'nextActivePlayerId' => $nextPlayer?->playerId,
             'phase' => $phase,
             'nextRoundStarted' => $phase !== GamePhase::ScienceBonus,
             'incomeReceipts' => $incomeReceipts,

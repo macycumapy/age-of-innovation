@@ -48,7 +48,7 @@ final class PlayerSpecialActionSimulator
             default => throw new InvalidArgumentException('Неизвестное особое действие игрока.'),
         };
 
-        return new GameActionSimulationData($simulatedState, $player->userId);
+        return new GameActionSimulationData($simulatedState, $player->playerId);
     }
 
     private function applyFaction(GameStateData $state, GamePlayerStateData $player, PlayerSpecialActionOptionData $option): void

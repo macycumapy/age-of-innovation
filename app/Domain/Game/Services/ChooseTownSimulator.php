@@ -31,6 +31,6 @@ final class ChooseTownSimulator
 
         $result = $this->applyChooseTown->execute($simulatedState, $simulatedPlayer, $option->townTile);
 
-        return new GameActionSimulationData($simulatedState, $result->nextActiveUserId);
+        return new GameActionSimulationData($simulatedState, $result->nextActivePlayerId);
     }
 }

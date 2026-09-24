@@ -114,7 +114,7 @@ final class ApplyChooseTownAction
         }
 
         return new ChooseTownResultData(
-            $player->userId,
+            $player->playerId,
             $townId,
             $townHexIds,
             $markerHexId,

@@ -48,7 +48,7 @@ final class ResolveWorkshopAfterTerraformingAction
             $result = $this->applyWorkshopAfterTerraforming->execute($state, $playerState, $build, $hexId);
 
             $lockedGame->update([
-                'active_player_id' => $result->nextActiveUserId,
+                'active_game_player_id' => $result->nextActivePlayerId,
                 'state' => $state,
                 'version' => $lockedGame->version + 1,
             ]);

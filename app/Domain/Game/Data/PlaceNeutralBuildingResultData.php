@@ -10,7 +10,7 @@ final class PlaceNeutralBuildingResultData extends Data
 {
     /** @param list<array{source: string, id: string, points: int}> $scoringSources */
     public function __construct(
-        public int $nextActiveUserId,
+        public int $nextActivePlayerId,
         public int $toolCost,
         public int $victoryPoints,
         public int $bonusCoins,

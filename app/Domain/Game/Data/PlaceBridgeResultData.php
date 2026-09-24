@@ -9,7 +9,7 @@ use Spatie\LaravelData\Data;
 final class PlaceBridgeResultData extends Data
 {
     public function __construct(
-        public int $nextActiveUserId,
+        public int $nextActivePlayerId,
         public string $source,
     ) {
     }

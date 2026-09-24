@@ -60,10 +60,10 @@ final class ApplyChooseFelineTownBonusAction
             $knowledgeStepCount,
         );
         $state->pendingInteraction = null;
-        $nextActiveUserId = $player->userId;
+        $nextActivePlayerId = $player->playerId;
 
         if (is_string($continueBuildingHexId)) {
-            $nextActiveUserId = $this->createTownChoiceAfterBuilding->execute(
+            $nextActivePlayerId = $this->createTownChoiceAfterBuilding->execute(
                 $state,
                 $player,
                 $continueBuildingHexId,
@@ -72,7 +72,7 @@ final class ApplyChooseFelineTownBonusAction
         }
 
         return new ChooseFelineTownBonusResultData(
-            $nextActiveUserId,
+            $nextActivePlayerId,
             $knowledgeResult->victoryPoints,
             $knowledgeResult->gainedPower,
             is_string($continueBuildingHexId) ? $continueBuildingHexId : null,

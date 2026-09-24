@@ -27,7 +27,7 @@ final class ApplyPalaceAction
 
     /**
      * @param list<KnowledgeDiscipline> $knowledgeDisciplines
-     * @return array{nextActiveUserId: int, victoryPoints: int, bonusCoins: int, gainedPower: int}
+     * @return array{nextActivePlayerId: int, victoryPoints: int, bonusCoins: int, gainedPower: int}
      */
     public function execute(
         GameStateData $state,
@@ -42,7 +42,7 @@ final class ApplyPalaceAction
             throw ValidationException::withMessages(['palace' => 'Действие этого жетона Дворца недоступно.']);
         }
 
-        $result = ['nextActiveUserId' => $player->userId, 'victoryPoints' => 0, 'bonusCoins' => 0, 'gainedPower' => 0];
+        $result = ['nextActivePlayerId' => $player->playerId, 'victoryPoints' => 0, 'bonusCoins' => 0, 'gainedPower' => 0];
 
         match ($palace) {
             PalaceAbility::Palace01 => $player->resources->tools += 2,
@@ -113,7 +113,7 @@ final class ApplyPalaceAction
         $player->resources->books->{$discipline->value}++;
     }
 
-    /** @return array{nextActiveUserId: int, victoryPoints: int, bonusCoins: int, gainedPower: int} */
+    /** @return array{nextActivePlayerId: int, victoryPoints: int, bonusCoins: int, gainedPower: int} */
     private function upgradeToGuild(GameStateData $state, GamePlayerStateData $player, PalaceAbility $palace, ?string $hexId): array
     {
         $hex = collect($state->board->hexes)->firstWhere('id', $hexId);
@@ -139,7 +139,7 @@ final class ApplyPalaceAction
         }
 
         return [
-            'nextActiveUserId' => $this->createBuildingFollowUpInteraction->execute($state, $player, $hex->id, BuildingType::Guild),
+            'nextActivePlayerId' => $this->createBuildingFollowUpInteraction->execute($state, $player, $hex->id, BuildingType::Guild),
             'victoryPoints' => $bonuses['victoryPoints'] + ($palace === PalaceAbility::Palace03 ? 3 : 0),
             'bonusCoins' => $bonuses['coins'],
             'gainedPower' => 0,

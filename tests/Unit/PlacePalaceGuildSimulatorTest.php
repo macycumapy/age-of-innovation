@@ -82,6 +82,6 @@ class PlacePalaceGuildSimulatorTest extends TestCase
         $this->assertSame(BuildingType::Guild, $simulation->state->board->hexes[1]->building?->type);
         $this->assertSame(1, $simulation->state->board->hexes[1]->building->ownerPlayerId);
         $this->assertNull($simulation->state->pendingInteraction);
-        $this->assertSame(10, $simulation->nextActiveUserId);
+        $this->assertSame(1, $simulation->nextActivePlayerId);
     }
 }

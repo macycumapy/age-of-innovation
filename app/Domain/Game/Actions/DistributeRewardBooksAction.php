@@ -56,7 +56,7 @@ final class DistributeRewardBooksAction
                 ]);
             }
 
-            $nextActiveUserId = $this->applyRewardBookDistribution->execute(
+            $nextActivePlayerId = $this->applyRewardBookDistribution->execute(
                 $state,
                 $playerState,
                 $bookCounts,
@@ -64,7 +64,7 @@ final class DistributeRewardBooksAction
             );
 
             $lockedGame->update([
-                'active_player_id' => $nextActiveUserId,
+                'active_game_player_id' => $nextActivePlayerId,
                 'state' => $state,
                 'version' => $lockedGame->version + 1,
             ]);

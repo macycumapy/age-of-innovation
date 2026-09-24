@@ -35,6 +35,6 @@ final class PlaceNeutralBuildingSimulator
             $option->buildingType,
         );
 
-        return new GameActionSimulationData($simulatedState, $result->nextActiveUserId);
+        return new GameActionSimulationData($simulatedState, $result->nextActivePlayerId);
     }
 }

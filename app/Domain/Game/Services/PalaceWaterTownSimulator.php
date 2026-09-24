@@ -28,6 +28,6 @@ final class PalaceWaterTownSimulator
             $option->waterHexId,
         );
 
-        return new GameActionSimulationData($simulatedState, $result->nextActiveUserId);
+        return new GameActionSimulationData($simulatedState, $result->nextActivePlayerId);
     }
 }

@@ -52,7 +52,7 @@ final class ApplyChooseRoundBonusAction
             $oldRoundBonus,
             $offer->roundBonus,
             $offer->coins,
-            $completion['nextActiveUserId'],
+            $completion['nextActivePlayerId'],
             $completion['phase'],
             $completion['nextRoundStarted'],
             $completion['incomeReceipts'],

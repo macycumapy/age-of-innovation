@@ -60,10 +60,10 @@ final class ApplyUpgradeBuildingAction
         $hex->building->type = $target;
         $state->round->hasTakenMainAction = true;
         $bonuses = $this->applyBuildingBonuses->execute($state, $player, $hex, $target);
-        $nextActiveUserId = $this->createBuildingFollowUpInteraction->execute($state, $player, $hexId, $target);
+        $nextActivePlayerId = $this->createBuildingFollowUpInteraction->execute($state, $player, $hexId, $target);
 
         return new BuildingActionResultData(
-            $nextActiveUserId,
+            $nextActivePlayerId,
             $source,
             $target,
             $cost['tools'],

@@ -43,7 +43,7 @@ final class CreateBuildingFollowUpInteractionAction
                 ],
             );
 
-            return $playerState->userId;
+            return $playerState->playerId;
         }
 
         if (! $isNeutralUniversity
@@ -66,7 +66,7 @@ final class CreateBuildingFollowUpInteractionAction
                 ],
             );
 
-            return $playerState->userId;
+            return $playerState->playerId;
         }
 
         return $this->createTownChoiceAfterBuilding->execute(

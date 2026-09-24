@@ -50,7 +50,7 @@ class WorkshopAfterTerraformingSimulatorTest extends TestCase
         $this->assertSame(2, $simulation->state->players[0]->resources->coins);
         $this->assertNull($simulation->state->pendingInteraction);
         $this->assertTrue($simulation->state->round->hasTakenMainAction);
-        $this->assertSame(10, $simulation->nextActiveUserId);
+        $this->assertSame(1, $simulation->nextActivePlayerId);
     }
 
     public function test_it_simulates_declining_the_workshop(): void

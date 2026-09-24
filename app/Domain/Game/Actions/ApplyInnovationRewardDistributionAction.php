@@ -57,7 +57,7 @@ final class ApplyInnovationRewardDistributionAction
         $state->pendingInteraction = null;
 
         return new InnovationRewardDistributionResultData(
-            $player->userId,
+            $player->playerId,
             $knowledgeResult->victoryPoints,
             $knowledgeResult->gainedPower,
         );

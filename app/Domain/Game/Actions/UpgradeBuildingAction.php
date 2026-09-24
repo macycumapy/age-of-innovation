@@ -52,7 +52,7 @@ final class UpgradeBuildingAction
 
             $result = $this->applyUpgradeBuilding->execute($state, $playerState, $hexId, $target);
             $lockedGame->update([
-                'active_player_id' => $result->nextActiveUserId,
+                'active_game_player_id' => $result->nextActivePlayerId,
                 'state' => $state,
                 'version' => $lockedGame->version + 1,
             ]);

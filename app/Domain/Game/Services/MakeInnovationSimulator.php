@@ -36,6 +36,6 @@ final class MakeInnovationSimulator
             $option->payment->counts(),
         );
 
-        return new GameActionSimulationData($simulatedState, $simulatedPlayer->userId);
+        return new GameActionSimulationData($simulatedState, $simulatedPlayer->playerId);
     }
 }

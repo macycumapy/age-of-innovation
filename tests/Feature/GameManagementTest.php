@@ -247,9 +247,9 @@ class GameManagementTest extends TestCase
             players: [$builder, $neighbor],
         );
 
-        $nextActiveUserId = app(CreatePowerOffersAfterBuildingAction::class)->execute($state, 1, '8:4');
+        $nextActivePlayerId = app(CreatePowerOffersAfterBuildingAction::class)->execute($state, 1, '8:4');
 
-        $this->assertSame(22, $nextActiveUserId);
+        $this->assertSame(2, $nextActivePlayerId);
         $this->assertSame(PendingInteractionType::PowerOffer, $state->pendingInteraction?->type);
         $this->assertSame(7, $state->pendingInteraction?->context['powerAmount']);
     }
@@ -301,9 +301,9 @@ class GameManagementTest extends TestCase
             players: [$builder, $finishedNeighbor],
         );
 
-        $nextActiveUserId = app(CreatePowerOffersAfterBuildingAction::class)->execute($state, 1, '8:4');
+        $nextActivePlayerId = app(CreatePowerOffersAfterBuildingAction::class)->execute($state, 1, '8:4');
 
-        $this->assertNull($nextActiveUserId);
+        $this->assertNull($nextActivePlayerId);
         $this->assertNull($state->pendingInteraction);
     }
 
@@ -5263,7 +5263,7 @@ class GameManagementTest extends TestCase
             availableCompetencyIds: [Competency::Competency04->value],
         );
 
-        $nextActiveUserId = app(CreateBuildingFollowUpInteractionAction::class)->execute(
+        $nextActivePlayerId = app(CreateBuildingFollowUpInteractionAction::class)->execute(
             $state,
             $playerState,
             '0:0',
@@ -5271,7 +5271,7 @@ class GameManagementTest extends TestCase
         );
 
         $this->assertNull($state->pendingInteraction);
-        $this->assertSame($playerState->userId, $nextActiveUserId);
+        $this->assertSame($playerState->playerId, $nextActivePlayerId);
         $this->assertSame([], $playerState->competencyIds);
     }
 

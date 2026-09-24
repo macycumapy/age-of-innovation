@@ -39,7 +39,7 @@ class PowerActionSimulatorTest extends TestCase
         $this->assertSame(7, $simulation->state->players[0]->resources->coins);
         $this->assertSame(2, $simulation->state->players[0]->resources->power->bowlThree);
         $this->assertSame([PowerAction::GainCoins->value], $simulation->state->round->usedSharedActionIds);
-        $this->assertSame(10, $simulation->nextActiveUserId);
+        $this->assertSame(1, $simulation->nextActivePlayerId);
     }
 
     public function test_every_generated_power_action_can_be_simulated(): void

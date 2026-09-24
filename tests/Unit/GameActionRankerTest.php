@@ -122,7 +122,7 @@ class GameActionRankerTest extends TestCase
         );
 
         $this->assertCount(2, $rankedActions);
-        $this->assertSame(10, $rankedActions[0]->simulation->nextActiveUserId);
+        $this->assertSame(1, $rankedActions[0]->simulation->nextActivePlayerId);
         $this->assertTrue($state->round->hasTakenMainAction);
         $this->assertNotNull($state->pendingInteraction);
     }

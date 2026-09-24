@@ -47,6 +47,6 @@ class InnovationSpecialActionSimulatorTest extends TestCase
         $this->assertSame(23, $simulation->state->players[0]->victoryPoints);
         $this->assertSame([Innovation::Professor->specialActionId()], $simulation->state->players[0]->usedSpecialActionIds);
         $this->assertTrue($simulation->state->round->hasTakenMainAction);
-        $this->assertSame(10, $simulation->nextActiveUserId);
+        $this->assertSame(1, $simulation->nextActivePlayerId);
     }
 }

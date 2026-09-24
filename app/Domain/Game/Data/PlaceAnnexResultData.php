@@ -8,7 +8,7 @@ use Spatie\LaravelData\Data;
 
 final class PlaceAnnexResultData extends Data
 {
-    public function __construct(public int $nextActiveUserId)
+    public function __construct(public int $nextActivePlayerId)
     {
     }
 }

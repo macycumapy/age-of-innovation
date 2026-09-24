@@ -42,6 +42,6 @@ final class PalaceActionSimulator
             $matchingOption->hexId,
         );
 
-        return new GameActionSimulationData($simulatedState, $result['nextActiveUserId']);
+        return new GameActionSimulationData($simulatedState, $result['nextActivePlayerId']);
     }
 }

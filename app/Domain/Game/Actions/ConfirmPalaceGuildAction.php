@@ -52,7 +52,7 @@ final class ConfirmPalaceGuildAction
                 $selectedHexId,
             );
             $lockedGame->update([
-                'active_player_id' => $result->nextActiveUserId,
+                'active_game_player_id' => $result->nextActivePlayerId,
                 'state' => $state,
                 'version' => $lockedGame->version + 1,
             ]);

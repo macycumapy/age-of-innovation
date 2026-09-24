@@ -52,7 +52,7 @@ final class ApplyBuildWorkshopAction
         $hex->building = new BuildingStateData(BuildingType::Workshop, $player->playerId);
         $state->round->hasTakenMainAction = true;
         $bonuses = $this->applyBuildingBonuses->execute($state, $player, $hex, BuildingType::Workshop);
-        $nextActiveUserId = $this->createBuildingFollowUpInteraction->execute(
+        $nextActivePlayerId = $this->createBuildingFollowUpInteraction->execute(
             $state,
             $player,
             $hexId,
@@ -60,7 +60,7 @@ final class ApplyBuildWorkshopAction
         );
 
         return new BuildingActionResultData(
-            $nextActiveUserId,
+            $nextActivePlayerId,
             null,
             BuildingType::Workshop,
             1,

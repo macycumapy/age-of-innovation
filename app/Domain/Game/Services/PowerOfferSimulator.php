@@ -28,6 +28,6 @@ final class PowerOfferSimulator
             $simulatedState->turnStartSnapshot = null;
         }
 
-        return new GameActionSimulationData($simulatedState, $result['nextActiveUserId']);
+        return new GameActionSimulationData($simulatedState, $result['nextActivePlayerId']);
     }
 }

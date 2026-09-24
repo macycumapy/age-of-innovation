@@ -28,7 +28,7 @@ final class PlayAutomatedTurnJob implements ShouldBeUnique, ShouldQueue
 
     public function __construct(
         public readonly int $gameId,
-        public readonly int $userId,
+        public readonly int $gamePlayerId,
     ) {
         $this->afterCommit();
     }
@@ -37,15 +37,13 @@ final class PlayAutomatedTurnJob implements ShouldBeUnique, ShouldQueue
     {
         $game = Game::query()->find($this->gameId);
 
-        if (! $game instanceof Game || $game->active_player_id !== $this->userId) {
+        if (! $game instanceof Game || $game->active_game_player_id !== $this->gamePlayerId) {
             return;
         }
 
-        $player = $game->players()
-            ->where('user_id', $this->userId)
-            ->first();
+        $player = $game->players()->find($this->gamePlayerId);
 
-        if (! $player instanceof GamePlayer || $player->bot_difficulty === null) {
+        if (! $player instanceof GamePlayer || $player->bot_difficulty === null || $player->user_id === null) {
             return;
         }
 
@@ -54,14 +52,14 @@ final class PlayAutomatedTurnJob implements ShouldBeUnique, ShouldQueue
 
     public function uniqueId(): string
     {
-        return "{$this->gameId}:{$this->userId}";
+        return "{$this->gameId}:{$this->gamePlayerId}";
     }
 
     public function failed(?Throwable $exception): void
     {
         Log::error('Не удалось выполнить ход автоматического игрока.', [
             'game_id' => $this->gameId,
-            'user_id' => $this->userId,
+            'game_player_id' => $this->gamePlayerId,
             'error' => $exception?->getMessage(),
         ]);
     }

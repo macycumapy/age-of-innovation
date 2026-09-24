@@ -86,13 +86,13 @@ final class ChooseStartingResourcesAction
             );
 
             if ($interactionPhase === GamePhase::Income) {
-                $nextActiveUserId = $result->nextActiveUserId;
+                $nextActivePlayerId = $result->nextActivePlayerId;
             } else {
-                $nextActiveUserId = $this->determineNextPlanningPlayer->execute($lockedGame, $player)->user_id;
+                $nextActivePlayerId = $this->determineNextPlanningPlayer->execute($lockedGame, $player)->id;
             }
 
             $lockedGame->update([
-                'active_player_id' => $nextActiveUserId,
+                'active_game_player_id' => $nextActivePlayerId,
                 'phase' => $result->nextPhase,
                 'version' => $lockedGame->version + 1,
                 'state' => $state,

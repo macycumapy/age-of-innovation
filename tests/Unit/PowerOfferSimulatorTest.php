@@ -42,7 +42,7 @@ class PowerOfferSimulatorTest extends TestCase
         $this->assertSame(2, $simulation->state->players[1]->resources->power->bowlTwo);
         $this->assertSame(19, $simulation->state->players[1]->victoryPoints);
         $this->assertNull($simulation->state->pendingInteraction);
-        $this->assertSame(10, $simulation->nextActiveUserId);
+        $this->assertSame(1, $simulation->nextActivePlayerId);
     }
 
     public function test_it_simulates_declining_a_power_offer(): void
@@ -56,7 +56,7 @@ class PowerOfferSimulatorTest extends TestCase
         $this->assertSame(0, $simulation->state->players[1]->resources->power->bowlTwo);
         $this->assertSame(20, $simulation->state->players[1]->victoryPoints);
         $this->assertNull($simulation->state->pendingInteraction);
-        $this->assertSame(10, $simulation->nextActiveUserId);
+        $this->assertSame(1, $simulation->nextActivePlayerId);
     }
 
     private function state(): GameStateData

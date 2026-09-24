@@ -96,6 +96,6 @@ class PlaceBridgeSimulatorTest extends TestCase
         $this->assertSame('0:0', $simulation->state->board->bridges[0]->fromHexId);
         $this->assertSame('1:1', $simulation->state->board->bridges[0]->toHexId);
         $this->assertNull($simulation->state->pendingInteraction);
-        $this->assertSame(10, $simulation->nextActiveUserId);
+        $this->assertSame(1, $simulation->nextActivePlayerId);
     }
 }

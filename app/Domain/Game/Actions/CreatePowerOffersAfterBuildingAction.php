@@ -65,10 +65,9 @@ final class CreatePowerOffersAfterBuildingAction
                 : 0;
             $powerAmount = $powerByPlayerId[$playerId] ?? 0;
 
-            if ($powerAmount > 0 && $availablePower > 0 && $playerState instanceof GamePlayerStateData) {
+            if ($powerAmount > 0 && $availablePower > 0) {
                 $offers[] = [
                     'playerId' => $playerId,
-                    'userId' => $playerState->userId,
                     'powerAmount' => $powerAmount,
                 ];
             }
@@ -100,6 +99,6 @@ final class CreatePowerOffersAfterBuildingAction
             ],
         );
 
-        return $currentOffer['userId'];
+        return $currentOffer['playerId'];
     }
 }

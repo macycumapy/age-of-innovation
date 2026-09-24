@@ -36,6 +36,6 @@ final class WorkshopAfterTerraformingSimulator
             $option->hexId,
         );
 
-        return new GameActionSimulationData($simulatedState, $result->nextActiveUserId);
+        return new GameActionSimulationData($simulatedState, $result->nextActivePlayerId);
     }
 }

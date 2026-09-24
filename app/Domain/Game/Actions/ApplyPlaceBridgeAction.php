@@ -42,14 +42,14 @@ final class ApplyPlaceBridgeAction
         }
 
         $state->board->bridges[] = new BridgeStateData($fromHexId, $toHexId, $player->playerId);
-        $nextActiveUserId = $this->createTownChoiceAfterBuilding->execute(
+        $nextActivePlayerId = $this->createTownChoiceAfterBuilding->execute(
             $state,
             $player,
             $fromHexId,
             powerOffersResolved: true,
         );
 
-        return new PlaceBridgeResultData($nextActiveUserId, $source);
+        return new PlaceBridgeResultData($nextActivePlayerId, $source);
     }
 
     /** @param list<array{fromHexId: string, toHexId: string}> $pairs */

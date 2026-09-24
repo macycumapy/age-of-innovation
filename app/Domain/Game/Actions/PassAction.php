@@ -53,7 +53,7 @@ final class PassAction
             $result = $this->beginPass->execute($state, $playerState, $lockedGame->players, $knowledgeDisciplines);
             $completion = $result['completion'];
             $lockedGame->phase = $completion['phase'] ?? GamePhase::Actions;
-            $lockedGame->active_player_id = $completion['nextActiveUserId'] ?? $user->id;
+            $lockedGame->active_game_player_id = $completion['nextActivePlayerId'] ?? $player->id;
             $lockedGame->status = $lockedGame->phase === GamePhase::Finished ? GameStatus::Finished : GameStatus::Active;
             $lockedGame->state = $state;
             $lockedGame->version++;

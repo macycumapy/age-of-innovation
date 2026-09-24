@@ -27,17 +27,17 @@ final class CreateTownChoiceAfterBuildingAction
         bool $powerOffersResolved = false,
     ): int {
         if (! $powerOffersResolved) {
-            $nextActiveUserId = $this->createPowerOffersAfterBuilding->execute(
+            $nextActivePlayerId = $this->createPowerOffersAfterBuilding->execute(
                 $state,
                 $player->playerId,
                 $builtHexId,
                 $queuedBuiltHexIds,
             );
 
-            if ($nextActiveUserId !== null && $state->pendingInteraction?->type === PendingInteractionType::PowerOffer) {
+            if ($nextActivePlayerId !== null && $state->pendingInteraction?->type === PendingInteractionType::PowerOffer) {
                 $state->pendingInteraction->context['townBuiltHexId'] = $builtHexId;
 
-                return $nextActiveUserId;
+                return $nextActivePlayerId;
             }
         }
 
@@ -55,7 +55,7 @@ final class CreateTownChoiceAfterBuildingAction
                 ],
             );
 
-            return $player->userId;
+            return $player->playerId;
         }
 
         $waterTownOptions = $this->findPalaceWaterTownOptions->execute($state, $player, $builtHexId);
@@ -72,11 +72,11 @@ final class CreateTownChoiceAfterBuildingAction
                 ],
             );
 
-            return $player->userId;
+            return $player->playerId;
         }
 
         $state->pendingInteraction = null;
 
-        return $player->userId;
+        return $player->playerId;
     }
 }

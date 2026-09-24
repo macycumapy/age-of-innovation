@@ -19,7 +19,7 @@ final class ChooseRoundBonusResultData extends Data
         public RoundBonus $oldRoundBonus,
         public RoundBonus $roundBonus,
         public int $bonusCoins,
-        public ?int $nextActiveUserId,
+        public ?int $nextActivePlayerId,
         public GamePhase $phase,
         public bool $nextRoundStarted,
         public array $incomeReceipts,

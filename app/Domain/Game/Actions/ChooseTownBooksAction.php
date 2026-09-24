@@ -43,9 +43,9 @@ final class ChooseTownBooksAction
             }
 
             $stateVersionBefore = $lockedGame->version;
-            $nextActiveUserId = $this->applyChooseTownBooks->execute($state, $playerState, $bookCounts);
+            $nextActivePlayerId = $this->applyChooseTownBooks->execute($state, $playerState, $bookCounts);
             $lockedGame->update([
-                'active_player_id' => $nextActiveUserId,
+                'active_game_player_id' => $nextActivePlayerId,
                 'state' => $state,
                 'version' => $lockedGame->version + 1,
             ]);

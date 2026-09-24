@@ -75,10 +75,10 @@ final class GameActionRanker
         int $beta,
     ): int {
         $state = $simulation->state;
-        $nextActiveUserId = $simulation->nextActiveUserId;
+        $nextActivePlayerId = $simulation->nextActivePlayerId;
 
         if ($state->pendingInteraction === null && $state->round->hasTakenMainAction) {
-            $currentPlayer = $this->playerByUserId($state, $nextActiveUserId);
+            $currentPlayer = $this->playerById($state, $nextActivePlayerId);
 
             if ($currentPlayer === null) {
                 return $this->gameStateEvaluator->execute($state, $rootPlayerId);
@@ -86,14 +86,14 @@ final class GameActionRanker
 
             $nextPlayerId = $this->applyFinishActionTurn->execute($state, $currentPlayer);
             $nextPlayer = collect($state->players)->firstWhere('playerId', $nextPlayerId);
-            $nextActiveUserId = $nextPlayer instanceof GamePlayerStateData ? $nextPlayer->userId : null;
+            $nextActivePlayerId = $nextPlayer instanceof GamePlayerStateData ? $nextPlayer->playerId : null;
         }
 
         if ($remainingDepth === 0) {
             return $this->gameStateEvaluator->execute($state, $rootPlayerId);
         }
 
-        $cacheKey = $this->cacheKey($state, $nextActiveUserId, $rootPlayerId, $remainingDepth);
+        $cacheKey = $this->cacheKey($state, $nextActivePlayerId, $rootPlayerId, $remainingDepth);
         if (isset($context->cachedScores[$cacheKey])) {
             return $context->cachedScores[$cacheKey];
         }
@@ -104,7 +104,7 @@ final class GameActionRanker
 
         $context->visitedNodes++;
 
-        $activePlayer = $this->playerByUserId($state, $nextActiveUserId);
+        $activePlayer = $this->playerById($state, $nextActivePlayerId);
         if ($activePlayer === null) {
             return $this->gameStateEvaluator->execute($state, $rootPlayerId);
         }
@@ -172,25 +172,25 @@ final class GameActionRanker
 
     private function cacheKey(
         GameStateData $state,
-        ?int $nextActiveUserId,
+        ?int $nextActivePlayerId,
         int $rootPlayerId,
         int $remainingDepth,
     ): string {
         return hash('xxh128', json_encode([
             'state' => $state->toArray(),
-            'nextActiveUserId' => $nextActiveUserId,
+            'nextActivePlayerId' => $nextActivePlayerId,
             'rootPlayerId' => $rootPlayerId,
             'remainingDepth' => $remainingDepth,
         ], JSON_THROW_ON_ERROR));
     }
 
-    private function playerByUserId(GameStateData $state, ?int $userId): ?GamePlayerStateData
+    private function playerById(GameStateData $state, ?int $playerId): ?GamePlayerStateData
     {
-        if ($userId === null) {
+        if ($playerId === null) {
             return null;
         }
 
-        $player = collect($state->players)->firstWhere('userId', $userId);
+        $player = collect($state->players)->firstWhere('playerId', $playerId);
 
         return $player instanceof GamePlayerStateData ? $player : null;
     }

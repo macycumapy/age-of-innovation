@@ -36,6 +36,6 @@ final class PowerActionSimulator
             $option->sacrificeAmount,
         );
 
-        return new GameActionSimulationData($simulatedState, $simulatedPlayer->userId);
+        return new GameActionSimulationData($simulatedState, $simulatedPlayer->playerId);
     }
 }

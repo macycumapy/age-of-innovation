@@ -9,7 +9,7 @@ use Spatie\LaravelData\Data;
 final class BookActionResultData extends Data
 {
     public function __construct(
-        public int $nextActiveUserId,
+        public int $nextActivePlayerId,
         public int $victoryPoints = 0,
         public int $buildingBonusPoints = 0,
         public int $buildingBonusCoins = 0,

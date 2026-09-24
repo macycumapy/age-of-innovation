@@ -46,8 +46,8 @@ final class PassSimulator
             $this->gamePlayerFactory->create($simulatedState),
             $matchingOption->knowledgeDisciplines,
         );
-        $nextActiveUserId = $result['completion']['nextActiveUserId'] ?? $simulatedPlayer->userId;
+        $nextActivePlayerId = $result['completion']['nextActivePlayerId'] ?? $simulatedPlayer->playerId;
 
-        return new GameActionSimulationData($simulatedState, $nextActiveUserId);
+        return new GameActionSimulationData($simulatedState, $nextActivePlayerId);
     }
 }

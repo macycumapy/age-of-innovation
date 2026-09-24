@@ -40,7 +40,7 @@ final class ChooseRoundBonusSimulator
 
         return new GameActionSimulationData(
             $simulatedState,
-            $result->nextActiveUserId ?? $simulatedPlayer->userId,
+            $result->nextActivePlayerId ?? $simulatedPlayer->playerId,
         );
     }
 }

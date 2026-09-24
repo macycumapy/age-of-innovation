@@ -46,6 +46,6 @@ class PlayerSpecialActionSimulatorTest extends TestCase
         $this->assertSame(1, $simulation->state->players[0]->resources->books->law);
         $this->assertSame([Faction::Philosophers->specialActionId()], $simulation->state->players[0]->usedSpecialActionIds);
         $this->assertTrue($simulation->state->round->hasTakenMainAction);
-        $this->assertSame(10, $simulation->nextActiveUserId);
+        $this->assertSame(1, $simulation->nextActivePlayerId);
     }
 }

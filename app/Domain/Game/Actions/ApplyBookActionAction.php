@@ -53,7 +53,7 @@ final class ApplyBookActionAction
         $buildingBonusPoints = 0;
         $buildingBonusCoins = 0;
         $gainedPower = 0;
-        $nextActiveUserId = $playerState->userId;
+        $nextActivePlayerId = $playerState->playerId;
 
         if ($action === BookAction::GainPower) {
             $this->gainPower->execute($playerState, 5);
@@ -89,7 +89,7 @@ final class ApplyBookActionAction
             $bonuses = $this->applyBuildingBonuses->execute($state, $playerState, $hex, BuildingType::Guild);
             $buildingBonusPoints = $bonuses['victoryPoints'];
             $buildingBonusCoins = $bonuses['coins'];
-            $nextActiveUserId = $this->createBuildingFollowUpInteraction->execute(
+            $nextActivePlayerId = $this->createBuildingFollowUpInteraction->execute(
                 $state,
                 $playerState,
                 $hex->id,
@@ -130,7 +130,7 @@ final class ApplyBookActionAction
         $state->round->hasTakenMainAction = true;
 
         return new BookActionResultData(
-            $nextActiveUserId,
+            $nextActivePlayerId,
             $victoryPoints,
             $buildingBonusPoints,
             $buildingBonusCoins,

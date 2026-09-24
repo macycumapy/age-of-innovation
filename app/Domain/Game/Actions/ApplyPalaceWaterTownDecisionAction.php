@@ -56,7 +56,7 @@ final class ApplyPalaceWaterTownDecisionAction
         }
 
         return new PalaceWaterTownResultData(
-            $player->userId,
+            $player->playerId,
             $builtHexId,
             $townHexIds,
             $queuedBuiltHexIds,

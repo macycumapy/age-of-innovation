@@ -30,6 +30,6 @@ final class PlacePalaceGuildSimulator
 
         $result = $this->applyPlacePalaceGuild->execute($simulatedState, $player, $option->hexId);
 
-        return new GameActionSimulationData($simulatedState, $result->nextActiveUserId);
+        return new GameActionSimulationData($simulatedState, $result->nextActivePlayerId);
     }
 }

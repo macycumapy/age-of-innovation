@@ -46,7 +46,7 @@ class ResourceConversionSimulatorTest extends TestCase
         $this->assertSame(5, $simulation->state->players[0]->resources->power->bowlOne);
         $this->assertSame(1, $simulation->state->players[0]->resources->books->law);
         $this->assertFalse($simulation->state->round->hasTakenMainAction);
-        $this->assertSame(10, $simulation->nextActiveUserId);
+        $this->assertSame(1, $simulation->nextActivePlayerId);
     }
 
     public function test_it_enumerates_and_simulates_one_power_sacrifice(): void

@@ -35,7 +35,7 @@ class GameActionSimulatorTest extends TestCase
         $simulation = app(GameActionSimulator::class)->execute($state, 1, $option);
 
         $this->assertSame(6, $simulation->state->players[0]->resources->coins);
-        $this->assertSame(10, $simulation->nextActiveUserId);
+        $this->assertSame(1, $simulation->nextActivePlayerId);
         $this->assertSame(0, $state->players[0]->resources->coins);
         $this->assertSame([], $state->round->usedBookActionIds);
     }

@@ -19,7 +19,7 @@ final class SimulationGamePlayerFactory
                 $player = new GamePlayer();
                 $player->forceFill([
                     'id' => $playerState->playerId,
-                    'user_id' => $playerState->userId,
+                    'user_id' => $playerState->playerId,
                 ]);
 
                 return $player;

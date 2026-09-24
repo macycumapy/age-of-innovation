@@ -10,7 +10,7 @@ final class ChoosePalaceResultData extends Data
 {
     /** @param array{steps: int, books: int, victoryPoints: int} $shippingReward */
     public function __construct(
-        public int $nextActiveUserId,
+        public int $nextActivePlayerId,
         public string $builtHexId,
         public int $victoryPoints,
         public int $gainedPower,

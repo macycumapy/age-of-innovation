@@ -42,7 +42,7 @@ class BuildWorkshopSimulatorTest extends TestCase
         $this->assertSame(2, $simulation->state->players[0]->resources->tools);
         $this->assertSame(3, $simulation->state->players[0]->resources->coins);
         $this->assertTrue($simulation->state->round->hasTakenMainAction);
-        $this->assertSame(10, $simulation->nextActiveUserId);
+        $this->assertSame(1, $simulation->nextActivePlayerId);
     }
 
     private function state(): GameStateData

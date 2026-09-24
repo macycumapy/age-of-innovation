@@ -40,7 +40,7 @@ final class ApplyScienceBonusBookDistributionAction
             = $this->resolveScienceBonusPhase->execute($state);
 
         return new ScienceBonusBookDistributionResultData(
-            $nextPlayer?->userId,
+            $nextPlayer?->playerId,
             $nextPhase,
             $incomeReceipts,
             $finalScoring,

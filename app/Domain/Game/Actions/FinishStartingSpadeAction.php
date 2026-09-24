@@ -277,7 +277,7 @@ final class FinishStartingSpadeAction
         );
 
         $game->update([
-            'active_player_id' => $result->nextActiveUserId,
+            'active_game_player_id' => $result->nextActivePlayerId,
             'state' => $game->state,
             'version' => $game->version + 1,
         ]);

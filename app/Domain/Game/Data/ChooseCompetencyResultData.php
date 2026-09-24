@@ -9,7 +9,7 @@ use Spatie\LaravelData\Data;
 final class ChooseCompetencyResultData extends Data
 {
     public function __construct(
-        public int $nextActiveUserId,
+        public int $nextActivePlayerId,
         public string $reason,
         public string $builtHexId,
         public int $gainedPower,

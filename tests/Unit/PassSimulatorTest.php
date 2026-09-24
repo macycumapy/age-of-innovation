@@ -53,7 +53,7 @@ class PassSimulatorTest extends TestCase
             [RoundBonus::RiverWorkshop->value, RoundBonus::BuildGuild->value],
             $simulation->state->pendingInteraction->optionIds,
         );
-        $this->assertSame(10, $simulation->nextActiveUserId);
+        $this->assertSame(1, $simulation->nextActivePlayerId);
     }
 
     private function player(int $playerId, int $userId, PlayerColor $color, RoundBonus $roundBonus): GamePlayerStateData

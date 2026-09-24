@@ -70,6 +70,6 @@ class MakeInnovationSimulatorTest extends TestCase
         $this->assertSame(30, $simulation->state->players[0]->victoryPoints);
         $this->assertSame([], $simulation->state->availableInventionIds);
         $this->assertTrue($simulation->state->round->hasTakenMainAction);
-        $this->assertSame(10, $simulation->nextActiveUserId);
+        $this->assertSame(1, $simulation->nextActivePlayerId);
     }
 }

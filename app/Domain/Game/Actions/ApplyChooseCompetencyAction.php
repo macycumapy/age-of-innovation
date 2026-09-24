@@ -57,14 +57,14 @@ final class ApplyChooseCompetencyAction
                     'queuedBuiltHexIds' => $reason === 'building' ? [$builtHexId] : [],
                 ],
             );
-        $nextActiveUserId = $awaitsTerraforming || $awaitsTowerPlacement
-            ? $player->userId
+        $nextActivePlayerId = $awaitsTerraforming || $awaitsTowerPlacement
+            ? $player->playerId
             : ($reason === 'building'
                 ? $this->createTownChoiceAfterBuilding->execute($state, $player, $builtHexId)
-                : $player->userId);
+                : $player->playerId);
 
         return new ChooseCompetencyResultData(
-            $nextActiveUserId,
+            $nextActivePlayerId,
             $reason,
             $builtHexId,
             $knowledgeAdvance->gainedPower,

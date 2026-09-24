@@ -9,7 +9,7 @@ use Spatie\LaravelData\Data;
 final class InnovationRewardDistributionResultData extends Data
 {
     public function __construct(
-        public int $nextActiveUserId,
+        public int $nextActivePlayerId,
         public int $victoryPoints,
         public int $gainedPower,
     ) {

@@ -30,6 +30,6 @@ final class SpendSpadesSimulator
 
         $result = $this->applySpendSpades->execute($simulatedState, $player, $option);
 
-        return new GameActionSimulationData($simulatedState, $result->nextActiveUserId);
+        return new GameActionSimulationData($simulatedState, $result->nextActivePlayerId);
     }
 }

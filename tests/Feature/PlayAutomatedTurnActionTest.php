@@ -55,7 +55,7 @@ class PlayAutomatedTurnActionTest extends TestCase
         Queue::assertPushed(
             PlayAutomatedTurnJob::class,
             fn (PlayAutomatedTurnJob $job): bool => $job->gameId === $game->id
-                && $job->userId === $bot->id,
+                && $job->gamePlayerId === $game->players()->whereBelongsTo($bot)->value('id'),
         );
     }
 
@@ -108,9 +108,9 @@ class PlayAutomatedTurnActionTest extends TestCase
             ],
             round: new RoundStateData(phase: GamePhase::Actions),
             setupPool: $setupPool,
-        )]);
+        ), 'active_game_player_id' => $botPlayer->id]);
 
-        (new PlayAutomatedTurnJob($game->id, $bot->id))
+        (new PlayAutomatedTurnJob($game->id, $botPlayer->id))
             ->handle(app(PlayAutomatedTurnAction::class));
 
         $game->refresh();

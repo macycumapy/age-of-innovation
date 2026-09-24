@@ -58,7 +58,7 @@ final class PlaceNeutralInnovationBuildingAction
             if (! $isStartingCompetency) {
                 $result = $this->applyPlaceNeutralBuilding->execute($state, $playerState, $hexId, $buildingType);
                 $lockedGame->update([
-                    'active_player_id' => $result->nextActiveUserId,
+                    'active_game_player_id' => $result->nextActivePlayerId,
                     'state' => $state,
                     'version' => $lockedGame->version + 1,
                 ]);
@@ -101,10 +101,10 @@ final class PlaceNeutralInnovationBuildingAction
                     ->firstOrFail();
             }
 
-            $nextActiveUserId = $nextPlayer->user_id;
+            $nextActivePlayerId = $nextPlayer->id;
             $lockedGame->update([
                 'phase' => $nextPhase,
-                'active_player_id' => $nextActiveUserId,
+                'active_game_player_id' => $nextActivePlayerId,
                 'state' => $state,
                 'version' => $lockedGame->version + 1,
             ]);

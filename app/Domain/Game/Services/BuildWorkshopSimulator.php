@@ -31,6 +31,6 @@ final class BuildWorkshopSimulator
 
         $result = $this->applyBuildWorkshop->execute($simulatedState, $simulatedPlayer, $option->hexId);
 
-        return new GameActionSimulationData($simulatedState, $result->nextActiveUserId);
+        return new GameActionSimulationData($simulatedState, $result->nextActivePlayerId);
     }
 }

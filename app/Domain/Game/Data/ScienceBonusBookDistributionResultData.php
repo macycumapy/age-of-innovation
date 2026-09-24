@@ -15,7 +15,7 @@ final class ScienceBonusBookDistributionResultData extends Data
      * @param list<array<string, int|string>> $scienceBonusReceipts
      */
     public function __construct(
-        public ?int $nextActiveUserId,
+        public ?int $nextActivePlayerId,
         public GamePhase $nextPhase,
         public array $incomeReceipts,
         public array $finalScoring,

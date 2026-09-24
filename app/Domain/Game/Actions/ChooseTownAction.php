@@ -54,7 +54,7 @@ final class ChooseTownAction
             $result = $this->applyChooseTown->execute($state, $playerState, $townTile);
 
             $lockedGame->update([
-                'active_player_id' => $result->nextActiveUserId,
+                'active_game_player_id' => $result->nextActivePlayerId,
                 'state' => $state,
                 'version' => $lockedGame->version + 1,
             ]);

@@ -10,7 +10,7 @@ final class SpendSpadesResultData extends Data
 {
     /** @param list<string> $buildableHexIds */
     public function __construct(
-        public int $nextActiveUserId,
+        public int $nextActivePlayerId,
         public string $hexId,
         public string $terrainBefore,
         public string $terrainAfter,

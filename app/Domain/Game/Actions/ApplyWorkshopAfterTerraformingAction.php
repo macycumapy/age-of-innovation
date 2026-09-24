@@ -71,21 +71,21 @@ final class ApplyWorkshopAfterTerraformingAction
         $state->round->hasTakenMainAction = true;
 
         if ($felineBonusPending) {
-            $nextActiveUserId = $build
+            $nextActivePlayerId = $build
                 ? $this->createPowerOffersAfterBuilding->execute($state, $player->playerId, (string) $hexId)
                 : null;
             $powerOffer = $this->powerOffer($state);
 
-            if ($nextActiveUserId !== null && $powerOffer !== null) {
+            if ($nextActivePlayerId !== null && $powerOffer !== null) {
                 $powerOffer->context['felineBonusPending'] = true;
             } else {
                 $this->startFelineTownBonus->execute($state, $player, [
                     ...($build ? ['continueBuildingAfterPowerHexId' => (string) $hexId] : []),
                 ]);
-                $nextActiveUserId = $player->userId;
+                $nextActivePlayerId = $player->playerId;
             }
         } else {
-            $nextActiveUserId = $build
+            $nextActivePlayerId = $build
                 ? $this->createBuildingFollowUpInteraction->execute(
                     $state,
                     $player,
@@ -96,7 +96,7 @@ final class ApplyWorkshopAfterTerraformingAction
         }
 
         return new WorkshopAfterTerraformingResultData(
-            $nextActiveUserId ?? $player->userId,
+            $nextActivePlayerId ?? $player->playerId,
             $bonuses['victoryPoints'],
             $bonuses['coins'],
             $bonuses['sources'],

@@ -41,7 +41,7 @@ final class RewardDistributionSimulator
             throw new InvalidArgumentException('Не найдено состояние игрока для симуляции.');
         }
 
-        $nextActiveUserId = match ($simulatedState->pendingInteraction?->type) {
+        $nextActivePlayerId = match ($simulatedState->pendingInteraction?->type) {
             PendingInteractionType::ChooseTownBooks => $this->applyChooseTownBooks->execute(
                 $simulatedState,
                 $player,
@@ -52,7 +52,7 @@ final class RewardDistributionSimulator
                 $player,
                 $option->bookCounts,
                 $option->knowledgeCounts,
-            )->nextActiveUserId,
+            )->nextActivePlayerId,
             PendingInteractionType::ChooseShippingBooks,
             PendingInteractionType::ChooseTerraformingBooks,
             PendingInteractionType::ChoosePalaceBooks => $this->applyRewardBookDistribution->execute(
@@ -66,21 +66,21 @@ final class RewardDistributionSimulator
                 $player,
                 $option->bookCounts,
                 $option->knowledgeCounts,
-            )->nextActiveUserId,
+            )->nextActivePlayerId,
             PendingInteractionType::ChooseScienceBonusBooks => $this->applyScienceBonusBookDistribution->execute(
                 $simulatedState,
                 $player,
                 $option->bookCounts,
-            )->nextActiveUserId ?? $player->userId,
+            )->nextActivePlayerId ?? $player->playerId,
             PendingInteractionType::ChooseStartingResources => $this->applyStartingResources->execute(
                 $simulatedState,
                 $player,
                 $option->bookCounts,
                 $option->knowledgeCounts,
-            )->nextActiveUserId,
+            )->nextActivePlayerId,
             default => throw new DomainException('Это распределение наград сейчас недоступно.'),
         };
 
-        return new GameActionSimulationData($simulatedState, $nextActiveUserId);
+        return new GameActionSimulationData($simulatedState, $nextActivePlayerId);
     }
 }

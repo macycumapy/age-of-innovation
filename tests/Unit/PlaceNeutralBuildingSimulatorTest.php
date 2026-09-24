@@ -87,6 +87,6 @@ class PlaceNeutralBuildingSimulatorTest extends TestCase
         $this->assertTrue($simulation->state->board->hexes[1]->building->isNeutral);
         $this->assertSame(TerrainType::Forest, $simulation->state->board->hexes[1]->terrain);
         $this->assertSame(0, $simulation->state->players[0]->resources->tools);
-        $this->assertSame(10, $simulation->nextActiveUserId);
+        $this->assertSame(1, $simulation->nextActivePlayerId);
     }
 }

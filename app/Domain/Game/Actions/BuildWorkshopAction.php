@@ -51,7 +51,7 @@ final class BuildWorkshopAction
 
             $result = $this->applyBuildWorkshop->execute($state, $playerState, $hexId);
             $lockedGame->update([
-                'active_player_id' => $result->nextActiveUserId,
+                'active_game_player_id' => $result->nextActivePlayerId,
                 'state' => $state,
                 'version' => $lockedGame->version + 1,
             ]);

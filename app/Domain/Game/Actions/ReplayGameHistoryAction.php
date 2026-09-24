@@ -355,7 +355,7 @@ final class ReplayGameHistoryAction
                 $knowledgeDisciplines,
                 is_string($action->payload['hex_id'] ?? null) ? $action->payload['hex_id'] : null,
             );
-            $game->active_player_id = $result['nextActiveUserId'];
+            $game->active_game_player_id = $result['nextActivePlayerId'];
         } elseif (isset($action->payload['innovation'])) {
             $innovation = Innovation::from((string) $action->payload['innovation']);
 
@@ -387,10 +387,10 @@ final class ReplayGameHistoryAction
             $this->applyRoundBonusAction->execute($state, $playerState, $discipline);
         }
 
-        $nextActiveUserId = $this->applyReplayedBridge($state, $player->id, $action);
+        $nextActivePlayerId = $this->applyReplayedBridge($state, $player->id, $action);
 
-        if ($nextActiveUserId !== null) {
-            $game->active_player_id = $nextActiveUserId;
+        if ($nextActivePlayerId !== null) {
+            $game->active_game_player_id = $nextActivePlayerId;
         }
 
         $game->state = $state;
@@ -535,7 +535,7 @@ final class ReplayGameHistoryAction
         $game->phase = $result->nextPhase;
 
         if (($action->payload['phase'] ?? GamePhase::Setup->value) === GamePhase::Income->value) {
-            $game->active_player_id = $result->nextActiveUserId;
+            $game->active_game_player_id = $result->nextActivePlayerId;
 
             return;
         }
@@ -919,7 +919,7 @@ final class ReplayGameHistoryAction
                 $state->pendingInteraction = null;
                 [$nextPlayer, $nextPhase] = $this->resolveScienceBonusPhase->execute($state);
                 $game->phase = $nextPhase;
-                $game->active_player_id = $nextPlayer?->userId;
+                $game->active_player_id = $nextPlayer?->playerId;
             } else {
                 $this->completeStartingInteraction($game, $state, $players);
             }
@@ -954,7 +954,7 @@ final class ReplayGameHistoryAction
             $state->pendingInteraction = null;
             [$nextPlayer, $nextPhase] = $this->resolveScienceBonusPhase->execute($state);
             $game->phase = $nextPhase;
-            $game->active_player_id = $nextPlayer?->userId;
+            $game->active_player_id = $nextPlayer?->playerId;
         } else {
             if (($action->payload['choose_starting_competency_after_spade'] ?? false) === true) {
                 $playerState = $this->playerState($state, $player->id);
@@ -1416,13 +1416,13 @@ final class ReplayGameHistoryAction
         $playerState->resources->coins += (int) ($action->payload['bonus_coins'] ?? 0);
         $playerState->victoryPoints += (int) ($action->payload['victory_points'] ?? 0);
         $state->pendingInteraction = null;
-        $nextActiveUserId = $this->createTownChoiceAfterBuilding->execute(
+        $nextActivePlayerId = $this->createTownChoiceAfterBuilding->execute(
             $state,
             $playerState,
             $hex->id,
             [(string) ($action->payload['palace_built_hex_id'] ?? '')],
         );
-        $game->active_player_id = $nextActiveUserId;
+        $game->active_game_player_id = $nextActivePlayerId;
         $game->state = $state;
     }
 
@@ -1567,7 +1567,7 @@ final class ReplayGameHistoryAction
             $state->round->turnStartVersion = $action->state_version_after;
         }
 
-        $game->active_player_id = $result['nextActiveUserId'];
+        $game->active_game_player_id = $result['nextActivePlayerId'];
         $game->state = $state;
     }
 
@@ -1595,13 +1595,13 @@ final class ReplayGameHistoryAction
         $playerState->victoryPoints += (int) ($action->payload['victory_points'] ?? 0);
         $hex->building->type = BuildingType::from((string) $action->payload['target']);
         $state->round->hasTakenMainAction = true;
-        $nextActiveUserId = $this->createBuildingFollowUpInteraction->execute(
+        $nextActivePlayerId = $this->createBuildingFollowUpInteraction->execute(
             $state,
             $playerState,
             $hex->id,
             $hex->building->type,
         );
-        $game->active_player_id = $nextActiveUserId;
+        $game->active_game_player_id = $nextActivePlayerId;
         $game->state = $state;
     }
 
@@ -1647,7 +1647,7 @@ final class ReplayGameHistoryAction
             $completion = $result['completion'];
             $game->phase = $completion['phase'] ?? GamePhase::Actions;
             $game->status = $game->phase === GamePhase::Finished ? GameStatus::Finished : GameStatus::Active;
-            $game->active_player_id = $completion['nextActiveUserId'] ?? $player->user_id;
+            $game->active_game_player_id = $completion['nextActivePlayerId'] ?? $player->id;
             $game->state = $state;
 
             return;
@@ -1669,7 +1669,7 @@ final class ReplayGameHistoryAction
         );
         $game->phase = $result['phase'];
         $game->status = $result['phase'] === GamePhase::Finished ? GameStatus::Finished : GameStatus::Active;
-        $game->active_player_id = $result['nextActiveUserId'];
+        $game->active_game_player_id = $result['nextActivePlayerId'];
         $game->state = $state;
     }
 
@@ -1699,7 +1699,7 @@ final class ReplayGameHistoryAction
         $completion = $this->completePassTurnAction->execute($state, $player->id, $players);
         $game->phase = $completion['phase'];
         $game->status = $game->phase === GamePhase::Finished ? GameStatus::Finished : GameStatus::Active;
-        $game->active_player_id = $completion['nextActiveUserId'];
+        $game->active_game_player_id = $completion['nextActivePlayerId'];
         $game->state = $state;
     }
 
@@ -1725,7 +1725,7 @@ final class ReplayGameHistoryAction
 
         $result = $this->applyScienceBonusBookDistribution->execute($state, $playerState, $bookCounts);
         $game->phase = $result->nextPhase;
-        $game->active_player_id = $result->nextActiveUserId;
+        $game->active_game_player_id = $result->nextActivePlayerId;
         $game->state = $state;
     }
 
@@ -1801,10 +1801,10 @@ final class ReplayGameHistoryAction
             PowerAction::from((string) $action->payload['action']),
             (int) ($action->payload['sacrifice_amount'] ?? 0),
         );
-        $nextActiveUserId = $this->applyReplayedBridge($state, $player->id, $action);
+        $nextActivePlayerId = $this->applyReplayedBridge($state, $player->id, $action);
 
-        if ($nextActiveUserId !== null) {
-            $game->active_player_id = $nextActiveUserId;
+        if ($nextActivePlayerId !== null) {
+            $game->active_game_player_id = $nextActivePlayerId;
         }
         $game->state = $state;
     }
@@ -1892,7 +1892,7 @@ final class ReplayGameHistoryAction
             is_string($disciplineValue) ? KnowledgeDiscipline::from($disciplineValue) : null,
             is_string($hexId) ? $hexId : null,
         );
-        $game->active_player_id = $result['nextActiveUserId'];
+        $game->active_game_player_id = $result['nextActivePlayerId'];
         $game->state = $state;
     }
 

@@ -36,6 +36,6 @@ final class UpgradeBuildingSimulator
             $option->target,
         );
 
-        return new GameActionSimulationData($simulatedState, $result->nextActiveUserId);
+        return new GameActionSimulationData($simulatedState, $result->nextActivePlayerId);
     }
 }

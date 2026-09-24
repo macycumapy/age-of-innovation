@@ -50,12 +50,12 @@ final class ApplyPlaceNeutralBuildingAction
             (array) ($interaction->context['queuedBuiltHexIds'] ?? []),
             'is_string',
         ));
-        $nextActiveUserId = $buildingType === BuildingType::Tower
+        $nextActivePlayerId = $buildingType === BuildingType::Tower
             ? $this->createTownChoiceAfterBuilding->execute($state, $player, $hexId, $queuedBuiltHexIds)
             : $this->createBuildingFollowUpInteraction->execute($state, $player, $hexId, $buildingType);
 
         return new PlaceNeutralBuildingResultData(
-            $nextActiveUserId,
+            $nextActivePlayerId,
             $toolCost,
             $bonuses['victoryPoints'],
             $bonuses['coins'],

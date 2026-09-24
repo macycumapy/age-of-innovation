@@ -46,7 +46,7 @@ final class ChoosePalaceAction
             $stateVersionBefore = $lockedGame->version;
             $result = $this->applyChoosePalace->execute($state, $playerState, $palace);
             $lockedGame->update([
-                'active_player_id' => $result->nextActiveUserId,
+                'active_game_player_id' => $result->nextActivePlayerId,
                 'state' => $state,
                 'version' => $lockedGame->version + 1,
             ]);

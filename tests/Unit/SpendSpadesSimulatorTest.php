@@ -85,6 +85,6 @@ class SpendSpadesSimulatorTest extends TestCase
         $this->assertSame(0, $simulation->state->players[0]->unassignedSpades);
         $this->assertSame(PendingInteractionType::BuildWorkshopAfterTerraforming, $simulation->state->pendingInteraction?->type);
         $this->assertSame(['1:0'], $simulation->state->pendingInteraction->optionIds);
-        $this->assertSame(10, $simulation->nextActiveUserId);
+        $this->assertSame(1, $simulation->nextActivePlayerId);
     }
 }

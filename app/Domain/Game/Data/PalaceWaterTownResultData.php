@@ -13,7 +13,7 @@ final class PalaceWaterTownResultData extends Data
      * @param list<string> $queuedBuiltHexIds
      */
     public function __construct(
-        public int $nextActiveUserId,
+        public int $nextActivePlayerId,
         public string $builtHexId,
         public array $townHexIds,
         public array $queuedBuiltHexIds,

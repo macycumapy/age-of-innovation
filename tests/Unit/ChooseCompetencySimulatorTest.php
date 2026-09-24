@@ -59,6 +59,6 @@ class ChooseCompetencySimulatorTest extends TestCase
         $this->assertSame(2, $simulation->state->players[0]->resources->coins);
         $this->assertSame(25, $simulation->state->players[0]->victoryPoints);
         $this->assertNull($simulation->state->pendingInteraction);
-        $this->assertSame(10, $simulation->nextActiveUserId);
+        $this->assertSame(1, $simulation->nextActivePlayerId);
     }
 }

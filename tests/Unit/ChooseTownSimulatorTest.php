@@ -47,7 +47,7 @@ class ChooseTownSimulatorTest extends TestCase
         $this->assertSame(TownTile::Coins->value, $simulation->state->board->hexes[0]->townTileId);
         $this->assertSame([TownTile::Books->value], $simulation->state->availableTownTileIds);
         $this->assertNull($simulation->state->pendingInteraction);
-        $this->assertSame(10, $simulation->nextActiveUserId);
+        $this->assertSame(1, $simulation->nextActivePlayerId);
     }
 
     public function test_books_tile_creates_the_follow_up_distribution(): void

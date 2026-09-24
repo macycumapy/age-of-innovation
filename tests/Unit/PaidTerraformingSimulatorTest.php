@@ -46,7 +46,7 @@ class PaidTerraformingSimulatorTest extends TestCase
         $this->assertTrue($simulation->state->round->hasTakenMainAction);
         $this->assertSame(PendingInteractionType::SpendSpades, $simulation->state->pendingInteraction->type);
         $this->assertSame(['1:0'], $simulation->state->pendingInteraction->optionIds);
-        $this->assertSame(10, $simulation->nextActiveUserId);
+        $this->assertSame(1, $simulation->nextActivePlayerId);
     }
 
     public function test_it_can_simulate_spending_only_available_spades_during_an_existing_interaction(): void

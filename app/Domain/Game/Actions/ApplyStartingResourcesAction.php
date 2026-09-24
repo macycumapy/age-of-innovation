@@ -60,7 +60,7 @@ final class ApplyStartingResourcesAction
             [$nextPlayer, $nextPhase, $incomeReceipts] = $this->resolveIncomePhase->execute($state);
 
             return new StartingResourcesResultData(
-                $nextPlayer->userId,
+                $nextPlayer->playerId,
                 $nextPhase,
                 $knowledgeResult->gainedPower,
                 $knowledgeResult->victoryPoints,

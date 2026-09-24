@@ -31,6 +31,6 @@ final class SendScholarSimulator
 
         $this->applySendScholar->execute($simulatedState, $simulatedPlayer, $option);
 
-        return new GameActionSimulationData($simulatedState, $simulatedPlayer->userId);
+        return new GameActionSimulationData($simulatedState, $simulatedPlayer->playerId);
     }
 }

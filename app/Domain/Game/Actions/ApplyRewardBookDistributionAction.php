@@ -44,7 +44,7 @@ final class ApplyRewardBookDistributionAction
             );
         }
 
-        return $player->userId;
+        return $player->playerId;
     }
 
     /** @return list<PendingInteractionType> */

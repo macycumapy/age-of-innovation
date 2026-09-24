@@ -46,6 +46,6 @@ final class ApplyChooseTownBooksAction
             $this->startLizardTownBonus->execute($state, $player);
         }
 
-        return $player->userId;
+        return $player->playerId;
     }
 }

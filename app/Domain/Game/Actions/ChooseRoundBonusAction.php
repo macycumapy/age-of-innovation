@@ -61,7 +61,7 @@ final class ChooseRoundBonusAction
             $phaseBefore = $lockedGame->phase;
             $result = $this->applyChooseRoundBonus->execute($state, $playerState, $option, $lockedGame->players);
             $lockedGame->phase = $result->phase;
-            $lockedGame->active_player_id = $result->nextActiveUserId;
+            $lockedGame->active_game_player_id = $result->nextActivePlayerId;
             $lockedGame->status = $result->phase === GamePhase::Finished ? GameStatus::Finished : GameStatus::Active;
             $lockedGame->state = $state;
             $lockedGame->version++;

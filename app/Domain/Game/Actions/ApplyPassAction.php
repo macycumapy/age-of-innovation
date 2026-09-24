@@ -28,7 +28,7 @@ final class ApplyPassAction
     /**
      * @param Collection<int, GamePlayer> $players
      * @param list<KnowledgeDiscipline>|null $knowledgeDisciplines Null only replays legacy history without this effect.
-     * @return array{nextActiveUserId: int|null, phase: GamePhase, bonusCoins: int, victoryPoints: int, scoringSources: list<array{source: string, id: string, points: int}>, passOrder: int, nextRoundStarted: bool, incomeReceipts: list<array{player_id: int, tools: int, coins: int, scholars: int, power: int, books: int, knowledge_steps: int}>, finalScoring: list<array{playerId: int, victoryPoints: int, sources: list<array{source: string, id: string, value: int, rank: int, points: int}>}>, finalResourceConversion: array{bowlTwoSpent: int, movedToBowlThree: int, convertedToCoins: int, totalCoins: int, victoryPoints: int, remainingCoins: int}|null}
+     * @return array{nextActivePlayerId: int|null, phase: GamePhase, bonusCoins: int, victoryPoints: int, scoringSources: list<array{source: string, id: string, points: int}>, passOrder: int, nextRoundStarted: bool, incomeReceipts: list<array{player_id: int, tools: int, coins: int, scholars: int, power: int, books: int, knowledge_steps: int}>, finalScoring: list<array{playerId: int, victoryPoints: int, sources: list<array{source: string, id: string, value: int, rank: int, points: int}>}>, finalResourceConversion: array{bowlTwoSpent: int, movedToBowlThree: int, convertedToCoins: int, totalCoins: int, victoryPoints: int, remainingCoins: int}|null}
      */
     public function execute(
         GameStateData $state,
@@ -102,7 +102,7 @@ final class ApplyPassAction
             $nextPlayer = $this->nextUnpassedPlayer($state, $players, $player->playerId);
 
             return [
-                'nextActiveUserId' => $nextPlayer->user_id,
+                'nextActivePlayerId' => $nextPlayer->id,
                 'phase' => GamePhase::Actions,
                 'bonusCoins' => $bonusCoins,
                 'victoryPoints' => $bonuses['victoryPoints'],
@@ -123,7 +123,7 @@ final class ApplyPassAction
         [$nextPlayer, $phase, $incomeReceipts, $finalScoring] = $this->resolveScienceBonusPhase->execute($state);
 
         return [
-            'nextActiveUserId' => $nextPlayer?->userId,
+            'nextActivePlayerId' => $nextPlayer?->playerId,
             'phase' => $phase,
             'bonusCoins' => $bonusCoins,
             'victoryPoints' => $bonuses['victoryPoints'],

@@ -85,7 +85,7 @@ final class ApplySpendSpadesAction
         }
 
         return new SpendSpadesResultData(
-            $player->userId,
+            $player->playerId,
             $matchingOption->hexId,
             $terrainBefore->value,
             $terrainAfter->value,

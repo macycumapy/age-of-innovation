@@ -27,6 +27,6 @@ final class ChoosePalaceSimulator
 
         $result = $this->applyChoosePalace->execute($simulatedState, $player, $option->palace);
 
-        return new GameActionSimulationData($simulatedState, $result->nextActiveUserId);
+        return new GameActionSimulationData($simulatedState, $result->nextActivePlayerId);
     }
 }

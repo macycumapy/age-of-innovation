@@ -48,7 +48,7 @@ final class ResourceConversionSimulator
             $this->applyResourceExchange->execute($player, $this->exchangePayload($option));
         }
 
-        return new GameActionSimulationData($simulatedState, $player->userId);
+        return new GameActionSimulationData($simulatedState, $player->playerId);
     }
 
     /** @return array<string, int|array<string, int>> */

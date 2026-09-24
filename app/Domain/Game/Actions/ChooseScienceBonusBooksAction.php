@@ -56,7 +56,7 @@ final class ChooseScienceBonusBooksAction
             $lockedGame->update([
                 'status' => $result->nextPhase === GamePhase::Finished ? GameStatus::Finished : GameStatus::Active,
                 'phase' => $result->nextPhase,
-                'active_player_id' => $result->nextActiveUserId,
+                'active_game_player_id' => $result->nextActivePlayerId,
                 'state' => $state,
                 'version' => $lockedGame->version + 1,
             ]);

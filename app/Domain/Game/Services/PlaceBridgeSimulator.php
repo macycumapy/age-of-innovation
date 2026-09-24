@@ -35,6 +35,6 @@ final class PlaceBridgeSimulator
             $option->toHexId,
         );
 
-        return new GameActionSimulationData($simulatedState, $result->nextActiveUserId);
+        return new GameActionSimulationData($simulatedState, $result->nextActivePlayerId);
     }
 }

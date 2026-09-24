@@ -74,7 +74,7 @@ final class ApplyChoosePalaceAction
                 $player->playerId,
                 context: ['bookCount' => $gainedBooks, 'source' => 'palace', 'builtHexId' => $builtHexId],
             );
-            $nextActiveUserId = $player->userId;
+            $nextActivePlayerId = $player->playerId;
         } elseif ($palace === PalaceAbility::Palace11) {
             $state->pendingInteraction = new PendingInteractionData(
                 PendingInteractionType::ChooseTown,
@@ -82,7 +82,7 @@ final class ApplyChoosePalaceAction
                 array_values(array_unique($state->availableTownTileIds)),
                 ['townHexIds' => [], 'builtHexId' => $builtHexId, 'freePalaceTownTile' => true],
             );
-            $nextActiveUserId = $player->userId;
+            $nextActivePlayerId = $player->playerId;
         } elseif ($palace === PalaceAbility::Palace16) {
             $eligibleHexIds = array_values(array_map(
                 static fn (BoardHexStateData $hex): string => $hex->id,
@@ -97,13 +97,13 @@ final class ApplyChoosePalaceAction
                 $eligibleHexIds,
                 ['palaceBuiltHexId' => $builtHexId, 'selectedHexId' => null],
             );
-            $nextActiveUserId = $player->userId;
+            $nextActivePlayerId = $player->playerId;
         } else {
-            $nextActiveUserId = $this->createTownChoiceAfterBuilding->execute($state, $player, $builtHexId);
+            $nextActivePlayerId = $this->createTownChoiceAfterBuilding->execute($state, $player, $builtHexId);
         }
 
         return new ChoosePalaceResultData(
-            $nextActiveUserId,
+            $nextActivePlayerId,
             $builtHexId,
             $victoryPoints,
             $gainedPower,

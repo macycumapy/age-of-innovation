@@ -20,7 +20,7 @@ final class ApplyPowerOfferDecisionAction
     ) {
     }
 
-    /** @return array{receivedPower: int, victoryPointsSpent: int, nextActiveUserId: int, advanceTurnCheckpoint: bool} */
+    /** @return array{receivedPower: int, victoryPointsSpent: int, nextActivePlayerId: int, advanceTurnCheckpoint: bool} */
     public function execute(GameStateData $state, int $playerId, bool $accept): array
     {
         $interaction = $state->pendingInteraction;
@@ -65,7 +65,7 @@ final class ApplyPowerOfferDecisionAction
                     ...($powerAcceptedDuringOfferChain ? ['powerAcceptedDuringOfferChain' => true] : []),
                 ],
             );
-            $nextActiveUserId = (int) $nextOffer['userId'];
+            $nextActivePlayerId = (int) $nextOffer['playerId'];
         } else {
             $buildingPlayer = collect($state->players)->firstWhere(
                 'playerId',
@@ -81,7 +81,7 @@ final class ApplyPowerOfferDecisionAction
                 ? array_values(array_filter($queuedBuiltHexIdsContext, is_string(...)))
                 : [];
             $nextBuiltHexId = array_shift($queuedBuiltHexIds);
-            $nextActiveUserId = is_string($nextBuiltHexId)
+            $nextActivePlayerId = is_string($nextBuiltHexId)
                 ? $this->createPowerOffersAfterBuilding->execute(
                     $state,
                     $buildingPlayer->playerId,
@@ -90,28 +90,28 @@ final class ApplyPowerOfferDecisionAction
                 )
                 : null;
 
-            if ($nextActiveUserId !== null
+            if ($nextActivePlayerId !== null
                 && $state->pendingInteraction->type === PendingInteractionType::PowerOffer
                 && isset($interaction->context['townBuiltHexId'])) {
                 $state->pendingInteraction->context['townBuiltHexId'] = $interaction->context['townBuiltHexId'];
             }
 
-            if ($nextActiveUserId !== null
+            if ($nextActivePlayerId !== null
                 && $state->pendingInteraction->type === PendingInteractionType::PowerOffer
                 && $powerAcceptedDuringOfferChain) {
                 $state->pendingInteraction->context['powerAcceptedDuringOfferChain'] = true;
             }
 
-            if ($nextActiveUserId === null) {
+            if ($nextActivePlayerId === null) {
                 if (($interaction->context['felineBonusPending'] ?? false) === true) {
                     $this->startFelineTownBonus->execute($state, $buildingPlayer, [
                         'continueBuildingAfterPowerHexId' => (string) $interaction->context['builtHexId'],
                     ]);
-                    $nextActiveUserId = $buildingPlayer->userId;
+                    $nextActivePlayerId = $buildingPlayer->playerId;
                 } else {
                     $townBuiltHexId = $interaction->context['townBuiltHexId'] ?? null;
                     if (is_string($townBuiltHexId)) {
-                        $nextActiveUserId = $this->createTownChoiceAfterBuilding->execute(
+                        $nextActivePlayerId = $this->createTownChoiceAfterBuilding->execute(
                             $state,
                             $buildingPlayer,
                             $townBuiltHexId,
@@ -119,7 +119,7 @@ final class ApplyPowerOfferDecisionAction
                         );
                     } else {
                         $state->pendingInteraction = null;
-                        $nextActiveUserId = $buildingPlayer->userId;
+                        $nextActivePlayerId = $buildingPlayer->playerId;
                     }
                 }
             }
@@ -128,7 +128,7 @@ final class ApplyPowerOfferDecisionAction
         return [
             'receivedPower' => $receivedPower,
             'victoryPointsSpent' => $victoryPointsSpent,
-            'nextActiveUserId' => $nextActiveUserId,
+            'nextActivePlayerId' => $nextActivePlayerId,
             'advanceTurnCheckpoint' => $powerAcceptedDuringOfferChain
                 && $state->pendingInteraction?->type !== PendingInteractionType::PowerOffer,
         ];

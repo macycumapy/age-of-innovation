@@ -31,6 +31,6 @@ final class PlaceAnnexSimulator
 
         $result = $this->applyPlaceAnnex->execute($simulatedState, $simulatedPlayer, $option->hexId);
 
-        return new GameActionSimulationData($simulatedState, $result->nextActiveUserId);
+        return new GameActionSimulationData($simulatedState, $result->nextActivePlayerId);
     }
 }

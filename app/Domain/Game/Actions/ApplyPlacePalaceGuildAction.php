@@ -54,7 +54,7 @@ final class ApplyPlacePalaceGuildAction
         $state->pendingInteraction = null;
 
         return new PlacePalaceGuildResultData(
-            nextActiveUserId: $this->createTownChoiceAfterBuilding->execute(
+            nextActivePlayerId: $this->createTownChoiceAfterBuilding->execute(
                 $state,
                 $player,
                 $hexId,

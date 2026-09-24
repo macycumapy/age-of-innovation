@@ -59,7 +59,7 @@ final class PerformPalaceAction
                 $knowledgeDisciplines,
                 $hexId,
             );
-            $lockedGame->update(['active_player_id' => $result['nextActiveUserId'], 'state' => $state, 'version' => $before + 1]);
+            $lockedGame->update(['active_game_player_id' => $result['nextActivePlayerId'], 'state' => $state, 'version' => $before + 1]);
             $this->appendGameHistory->execute($lockedGame, $user, GameActionType::SpecialAction, [
                 'palace' => $palaceId,
                 'discipline' => $discipline?->value,

@@ -69,7 +69,7 @@ class RewardDistributionSimulatorTest extends TestCase
         $this->assertSame(0, $simulation->state->players[0]->resources->books->unassigned);
         $this->assertSame(2, $simulation->state->players[0]->resources->books->medicine);
         $this->assertNull($simulation->state->pendingInteraction);
-        $this->assertSame(10, $simulation->nextActiveUserId);
+        $this->assertSame(1, $simulation->nextActivePlayerId);
     }
 
     public function test_it_enumerates_and_simulates_feline_town_bonus_distributions(): void
@@ -115,7 +115,7 @@ class RewardDistributionSimulatorTest extends TestCase
         $this->assertSame(3, $simulation->state->players[0]->knowledge->medicine);
         $this->assertNotNull($simulation->state->turnStartSnapshot);
         $this->assertNull($simulation->state->pendingInteraction);
-        $this->assertSame(10, $simulation->nextActiveUserId);
+        $this->assertSame(1, $simulation->nextActivePlayerId);
     }
 
     #[DataProvider('developmentRewardInteractionTypes')]
@@ -155,7 +155,7 @@ class RewardDistributionSimulatorTest extends TestCase
         $this->assertSame(0, $simulation->state->players[0]->resources->books->unassigned);
         $this->assertSame(2, $simulation->state->players[0]->resources->books->medicine);
         $this->assertNull($simulation->state->pendingInteraction);
-        $this->assertSame(10, $simulation->nextActiveUserId);
+        $this->assertSame(1, $simulation->nextActivePlayerId);
     }
 
     /** @return array<string, array{PendingInteractionType}> */
@@ -206,7 +206,7 @@ class RewardDistributionSimulatorTest extends TestCase
         $this->assertSame(3, $simulation->state->players[0]->knowledge->medicine);
         $this->assertSame(0, $simulation->state->players[0]->knowledge->unassignedSteps);
         $this->assertNull($simulation->state->pendingInteraction);
-        $this->assertSame(10, $simulation->nextActiveUserId);
+        $this->assertSame(1, $simulation->nextActivePlayerId);
     }
 
     public function test_it_enumerates_and_simulates_science_bonus_book_distributions(): void
@@ -261,7 +261,7 @@ class RewardDistributionSimulatorTest extends TestCase
         $this->assertSame(3, $state->players[0]->resources->books->unassigned);
         $this->assertSame(3, $simulation->state->players[0]->resources->books->medicine);
         $this->assertSame(0, $simulation->state->players[0]->resources->books->unassigned);
-        $this->assertSame(20, $simulation->nextActiveUserId);
+        $this->assertSame(2, $simulation->nextActivePlayerId);
         $this->assertNotNull($simulation->state->pendingInteraction);
         $this->assertSame(
             PendingInteractionType::ChooseScienceBonusBooks,
@@ -325,7 +325,7 @@ class RewardDistributionSimulatorTest extends TestCase
         $this->assertSame(2, $state->players[0]->knowledge->unassignedSteps);
         $this->assertSame(0, $simulation->state->players[0]->resources->books->unassigned);
         $this->assertSame(0, $simulation->state->players[0]->knowledge->unassignedSteps);
-        $this->assertSame(20, $simulation->nextActiveUserId);
+        $this->assertSame(2, $simulation->nextActivePlayerId);
         $this->assertSame(2, $simulation->state->pendingInteraction?->playerId);
     }
 
@@ -356,7 +356,7 @@ class RewardDistributionSimulatorTest extends TestCase
         $simulation = app(GameActionSimulator::class)->execute($state, 1, $options[0]);
 
         $this->assertCount(4, $options);
-        $this->assertNull($simulation->nextActiveUserId);
+        $this->assertNull($simulation->nextActivePlayerId);
         $this->assertNull($simulation->state->pendingInteraction);
     }
 }

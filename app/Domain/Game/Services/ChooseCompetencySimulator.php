@@ -27,6 +27,6 @@ final class ChooseCompetencySimulator
 
         $result = $this->applyChooseCompetency->execute($simulatedState, $player, $option->competency);
 
-        return new GameActionSimulationData($simulatedState, $result->nextActiveUserId);
+        return new GameActionSimulationData($simulatedState, $result->nextActivePlayerId);
     }
 }

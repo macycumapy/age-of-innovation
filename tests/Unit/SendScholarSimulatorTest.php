@@ -47,7 +47,7 @@ class SendScholarSimulatorTest extends TestCase
         $this->assertSame(1, $simulation->state->players[0]->resources->scholars);
         $this->assertSame(24, $simulation->state->players[0]->victoryPoints);
         $this->assertTrue($simulation->state->round->hasTakenMainAction);
-        $this->assertSame(10, $simulation->nextActiveUserId);
+        $this->assertSame(1, $simulation->nextActivePlayerId);
     }
 
     private function state(): GameStateData

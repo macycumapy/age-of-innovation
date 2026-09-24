@@ -46,7 +46,7 @@ class ChoosePalaceSimulatorTest extends TestCase
         $this->assertSame(0, $simulation->state->players[0]->resources->power->bowlOne);
         $this->assertSame(4, $simulation->state->players[0]->resources->power->bowlThree);
         $this->assertSame(PendingInteractionType::ChoosePalaceBooks, $simulation->state->pendingInteraction?->type);
-        $this->assertSame(10, $simulation->nextActiveUserId);
+        $this->assertSame(1, $simulation->nextActivePlayerId);
     }
 
     public function test_free_town_palace_creates_a_town_choice(): void
