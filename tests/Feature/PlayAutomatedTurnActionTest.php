@@ -12,13 +12,16 @@ use App\Domain\Game\Data\BoardStateData;
 use App\Domain\Game\Data\BookSupplyData;
 use App\Domain\Game\Data\BuildingStateData;
 use App\Domain\Game\Data\BuildWorkshopOptionData;
+use App\Domain\Game\Data\ChooseCompetencyOptionData;
 use App\Domain\Game\Data\ChoosePalaceOptionData;
 use App\Domain\Game\Data\ChooseTownOptionData;
 use App\Domain\Game\Data\DevelopmentAdvancementOptionData;
 use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Data\GameStateData;
+use App\Domain\Game\Data\PalaceWaterTownOptionData;
 use App\Domain\Game\Data\PendingInteractionData;
 use App\Domain\Game\Data\PlaceBridgeOptionData;
+use App\Domain\Game\Data\PlaceNeutralBuildingOptionData;
 use App\Domain\Game\Data\PlacePalaceGuildOptionData;
 use App\Domain\Game\Data\PlayerResourcesData;
 use App\Domain\Game\Data\PowerActionOptionData;
@@ -29,8 +32,10 @@ use App\Domain\Game\Data\RoundStateData;
 use App\Domain\Game\Data\SacrificePowerOptionData;
 use App\Domain\Game\Data\SendScholarOptionData;
 use App\Domain\Game\Data\UpgradeBuildingOptionData;
+use App\Domain\Game\Data\WorkshopAfterTerraformingOptionData;
 use App\Domain\Game\Enums\BookAction;
 use App\Domain\Game\Enums\BuildingType;
+use App\Domain\Game\Enums\Competency;
 use App\Domain\Game\Enums\Faction;
 use App\Domain\Game\Enums\GameActionType;
 use App\Domain\Game\Enums\GameBotDifficulty;
@@ -59,6 +64,7 @@ use App\Domain\Game\Services\PlayerSpecialActionOptionFinder;
 use App\Domain\Game\Services\ResourceConversionOptionFinder;
 use App\Jobs\PlayAutomatedTurnJob;
 use App\Models\Game;
+use App\Models\GameAction;
 use App\Models\GamePlayer;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -869,6 +875,201 @@ class PlayAutomatedTurnActionTest extends TestCase
 
         $this->assertInstanceOf(PlacePalaceGuildOptionData::class, $option);
         $this->assertSimulationMatchesExecution($game, $botPlayer, $option);
+    }
+
+    public function test_neutral_building_simulation_matches_execution_for_bot_without_user(): void
+    {
+        Queue::fake();
+
+        $game = Game::factory()->create([
+            'status' => GameStatus::Active,
+            'phase' => GamePhase::Actions,
+        ]);
+        $botPlayer = GamePlayer::factory()->bot(GameBotDifficulty::Fast)->create([
+            'game_id' => $game->id,
+            'user_id' => null,
+        ]);
+        $botState = $this->playerState($botPlayer);
+        $botState->resources->tools = 3;
+        $state = new GameStateData(
+            schemaVersion: 4,
+            turnOrder: [$botPlayer->id],
+            board: new BoardStateData(hexes: [
+                new BoardHexStateData(
+                    id: '0:0',
+                    q: 0,
+                    r: 0,
+                    initialTerrain: TerrainType::Forest,
+                    terrain: TerrainType::Forest,
+                    adjacentHexIds: ['1:0'],
+                    building: new BuildingStateData(BuildingType::School, $botPlayer->id),
+                ),
+                new BoardHexStateData(
+                    id: '1:0',
+                    q: 1,
+                    r: 0,
+                    initialTerrain: TerrainType::Mountain,
+                    terrain: TerrainType::Mountain,
+                    adjacentHexIds: ['0:0'],
+                ),
+            ]),
+            players: [$botState],
+            round: new RoundStateData(phase: GamePhase::Actions),
+            pendingInteraction: new PendingInteractionData(
+                PendingInteractionType::PlaceNeutralBuilding,
+                $botPlayer->id,
+                ['1:0'],
+                [
+                    'buildingType' => BuildingType::Tower->value,
+                    'source' => 'competency',
+                    'queuedBuiltHexIds' => ['0:0'],
+                ],
+            ),
+        );
+        $game->update([
+            'active_game_player_id' => $botPlayer->id,
+            'state' => $state,
+        ]);
+        GameAction::factory()->create([
+            'game_id' => $game->id,
+            'game_player_id' => $botPlayer->id,
+            'player_id' => null,
+            'sequence' => 1,
+            'type' => GameActionType::ChooseCompetency,
+            'state_version_before' => 0,
+            'state_version_after' => 0,
+        ]);
+        $option = collect(app(GameActionOptionFinder::class)->execute($state, $botPlayer->id))
+            ->first(static fn (GameActionOption $candidate): bool => $candidate instanceof PlaceNeutralBuildingOptionData);
+
+        $this->assertInstanceOf(PlaceNeutralBuildingOptionData::class, $option);
+        $this->assertSimulationMatchesExecution($game, $botPlayer, $option);
+    }
+
+    public function test_competency_simulation_matches_execution_for_bot_without_user(): void
+    {
+        Queue::fake();
+
+        $game = Game::factory()->create([
+            'status' => GameStatus::Active,
+            'phase' => GamePhase::Actions,
+        ]);
+        $botPlayer = GamePlayer::factory()->bot(GameBotDifficulty::Fast)->create([
+            'game_id' => $game->id,
+            'user_id' => null,
+        ]);
+        $state = new GameStateData(
+            schemaVersion: 4,
+            turnOrder: [$botPlayer->id],
+            players: [$this->playerState($botPlayer)],
+            round: new RoundStateData(phase: GamePhase::Actions),
+            availableCompetencyIds: [Competency::Competency04->value],
+            pendingInteraction: new PendingInteractionData(
+                PendingInteractionType::ChooseCompetency,
+                $botPlayer->id,
+                [Competency::Competency04->value],
+                ['reason' => 'innovation'],
+            ),
+        );
+        $game->update([
+            'active_game_player_id' => $botPlayer->id,
+            'state' => $state,
+        ]);
+        $option = collect(app(GameActionOptionFinder::class)->execute($state, $botPlayer->id))
+            ->first(static fn (GameActionOption $candidate): bool => $candidate instanceof ChooseCompetencyOptionData);
+
+        $this->assertInstanceOf(ChooseCompetencyOptionData::class, $option);
+        $this->assertSimulationMatchesExecution($game, $botPlayer, $option);
+    }
+
+    public function test_workshop_after_terraforming_simulations_match_execution_for_bot_without_user(): void
+    {
+        Queue::fake();
+
+        foreach ([true, false] as $build) {
+            $game = Game::factory()->create([
+                'status' => GameStatus::Active,
+                'phase' => GamePhase::Actions,
+            ]);
+            $botPlayer = GamePlayer::factory()->bot(GameBotDifficulty::Fast)->create([
+                'game_id' => $game->id,
+                'user_id' => null,
+            ]);
+            $botState = $this->playerState($botPlayer);
+            $botState->resources->coins = 4;
+            $botState->resources->tools = 2;
+            $state = new GameStateData(
+                turnOrder: [$botPlayer->id],
+                board: new BoardStateData(hexes: [new BoardHexStateData(
+                    id: '0:0',
+                    q: 0,
+                    r: 0,
+                    initialTerrain: TerrainType::Forest,
+                    terrain: TerrainType::Forest,
+                )]),
+                players: [$botState],
+                round: new RoundStateData(phase: GamePhase::Actions, hasTakenMainAction: true),
+                pendingInteraction: new PendingInteractionData(
+                    PendingInteractionType::BuildWorkshopAfterTerraforming,
+                    $botPlayer->id,
+                    ['0:0'],
+                    ['toolCost' => 1, 'coinCost' => 2],
+                ),
+            );
+            $game->update([
+                'active_game_player_id' => $botPlayer->id,
+                'state' => $state,
+            ]);
+            $option = collect(app(GameActionOptionFinder::class)->execute($state, $botPlayer->id))->first(
+                static fn (GameActionOption $candidate): bool => $candidate instanceof WorkshopAfterTerraformingOptionData
+                    && $candidate->build === $build,
+            );
+
+            $this->assertInstanceOf(WorkshopAfterTerraformingOptionData::class, $option);
+            $this->assertSimulationMatchesExecution($game, $botPlayer, $option);
+        }
+    }
+
+    public function test_palace_water_town_simulations_match_execution_for_bot_without_user(): void
+    {
+        Queue::fake();
+
+        foreach ([true, false] as $accept) {
+            $game = Game::factory()->create([
+                'status' => GameStatus::Active,
+                'phase' => GamePhase::Actions,
+            ]);
+            $botPlayer = GamePlayer::factory()->bot(GameBotDifficulty::Fast)->create([
+                'game_id' => $game->id,
+                'user_id' => null,
+            ]);
+            $state = new GameStateData(
+                turnOrder: [$botPlayer->id],
+                players: [$this->playerState($botPlayer)],
+                round: new RoundStateData(phase: GamePhase::Actions),
+                availableTownTileIds: [TownTile::Coins->value],
+                pendingInteraction: new PendingInteractionData(
+                    PendingInteractionType::OfferPalaceWaterTown,
+                    $botPlayer->id,
+                    context: [
+                        'townsByWaterHexId' => ['water' => ['land']],
+                        'builtHexId' => 'land',
+                        'queuedBuiltHexIds' => [],
+                    ],
+                ),
+            );
+            $game->update([
+                'active_game_player_id' => $botPlayer->id,
+                'state' => $state,
+            ]);
+            $option = collect(app(GameActionOptionFinder::class)->execute($state, $botPlayer->id))->first(
+                static fn (GameActionOption $candidate): bool => $candidate instanceof PalaceWaterTownOptionData
+                    && $candidate->accept === $accept,
+            );
+
+            $this->assertInstanceOf(PalaceWaterTownOptionData::class, $option);
+            $this->assertSimulationMatchesExecution($game, $botPlayer, $option);
+        }
     }
 
     private function playerState(GamePlayer $player, ?BookSupplyData $books = null): GamePlayerStateData
