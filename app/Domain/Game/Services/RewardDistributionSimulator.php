@@ -14,6 +14,7 @@ use App\Domain\Game\Data\GameActionSimulationData;
 use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Data\GameStateData;
 use App\Domain\Game\Data\RewardDistributionOptionData;
+use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\PendingInteractionType;
 use DomainException;
 use InvalidArgumentException;
@@ -41,7 +42,8 @@ final class RewardDistributionSimulator
             throw new InvalidArgumentException('Не найдено состояние игрока для симуляции.');
         }
 
-        $nextActivePlayerId = match ($simulatedState->pendingInteraction?->type) {
+        $interactionType = $simulatedState->pendingInteraction?->type;
+        $nextActivePlayerId = match ($interactionType) {
             PendingInteractionType::ChooseTownBooks => $this->applyChooseTownBooks->execute(
                 $simulatedState,
                 $player,
@@ -72,15 +74,47 @@ final class RewardDistributionSimulator
                 $player,
                 $option->bookCounts,
             )->nextActivePlayerId ?? $player->playerId,
-            PendingInteractionType::ChooseStartingResources => $this->applyStartingResources->execute(
+            PendingInteractionType::ChooseStartingResources => $this->simulateStartingResources(
                 $simulatedState,
                 $player,
-                $option->bookCounts,
-                $option->knowledgeCounts,
-            )->nextActivePlayerId,
+                $option,
+            ),
             default => throw new DomainException('Это распределение наград сейчас недоступно.'),
         };
 
         return new GameActionSimulationData($simulatedState, $nextActivePlayerId);
+    }
+
+    private function simulateStartingResources(
+        GameStateData $state,
+        GamePlayerStateData $player,
+        RewardDistributionOptionData $option,
+    ): ?int {
+        $phase = $state->round->phase;
+        $result = $this->applyStartingResources->execute(
+            $state,
+            $player,
+            $option->bookCounts,
+            $option->knowledgeCounts,
+        );
+
+        if ($phase !== GamePhase::Setup || $result->nextActivePlayerId !== null) {
+            return $result->nextActivePlayerId;
+        }
+
+        $currentIndex = array_search($player->playerId, $state->turnOrder, true);
+        if ($currentIndex === false) {
+            return null;
+        }
+
+        $createdPlayerIds = array_column($state->players, 'playerId');
+        foreach (range(1, count($state->turnOrder)) as $offset) {
+            $candidateId = $state->turnOrder[($currentIndex + $offset) % count($state->turnOrder)];
+            if (! in_array($candidateId, $createdPlayerIds, true)) {
+                return $candidateId;
+            }
+        }
+
+        return $state->turnOrder[0];
     }
 }

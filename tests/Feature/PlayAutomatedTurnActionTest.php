@@ -27,6 +27,7 @@ use App\Domain\Game\Data\PlayerResourcesData;
 use App\Domain\Game\Data\PowerActionOptionData;
 use App\Domain\Game\Data\PowerBowlsStateData;
 use App\Domain\Game\Data\ResourceExchangeOptionData;
+use App\Domain\Game\Data\RewardDistributionOptionData;
 use App\Domain\Game\Data\RoundBonusOfferData;
 use App\Domain\Game\Data\RoundStateData;
 use App\Domain\Game\Data\SacrificePowerOptionData;
@@ -49,6 +50,7 @@ use App\Domain\Game\Enums\PlayerColor;
 use App\Domain\Game\Enums\PowerAction;
 use App\Domain\Game\Enums\ResourceExchange;
 use App\Domain\Game\Enums\RoundBonus;
+use App\Domain\Game\Enums\RoundScoringTile;
 use App\Domain\Game\Enums\TerrainType;
 use App\Domain\Game\Enums\TownTile;
 use App\Domain\Game\Factories\GameSetupPoolFactory;
@@ -1070,6 +1072,218 @@ class PlayAutomatedTurnActionTest extends TestCase
             $this->assertInstanceOf(PalaceWaterTownOptionData::class, $option);
             $this->assertSimulationMatchesExecution($game, $botPlayer, $option);
         }
+    }
+
+    public function test_action_phase_reward_distribution_simulations_match_execution_for_bot_without_user(): void
+    {
+        Queue::fake();
+
+        $scenarios = [
+            [PendingInteractionType::ChooseTownBooks, 2, 0, null],
+            [PendingInteractionType::ChooseFelineTownBonus, 1, 3, null],
+            [PendingInteractionType::ChooseInnovationReward, 1, 3, GameActionType::MakeInnovation],
+            [PendingInteractionType::ChooseShippingBooks, 2, 0, GameActionType::AdvanceShipping],
+            [PendingInteractionType::ChooseTerraformingBooks, 2, 0, GameActionType::AdvanceTerraforming],
+            [PendingInteractionType::ChoosePalaceBooks, 2, 0, GameActionType::ChoosePalace],
+        ];
+
+        foreach ($scenarios as [$interactionType, $bookCount, $knowledgeStepCount, $sourceActionType]) {
+            $game = Game::factory()->create([
+                'status' => GameStatus::Active,
+                'phase' => GamePhase::Actions,
+            ]);
+            $botPlayer = GamePlayer::factory()->bot(GameBotDifficulty::Fast)->create([
+                'game_id' => $game->id,
+                'user_id' => null,
+            ]);
+            $botState = $this->playerState($botPlayer);
+            if ($interactionType === PendingInteractionType::ChooseFelineTownBonus) {
+                $botState->faction = Faction::Felines;
+                $botState->color = PlayerColor::Red;
+                $botState->homeland = TerrainType::Desert;
+            }
+            $botState->resources->books->unassigned = $bookCount;
+            $botState->knowledge->unassignedSteps = $knowledgeStepCount;
+            $state = new GameStateData(
+                schemaVersion: 4,
+                turnOrder: [$botPlayer->id],
+                players: [$botState],
+                round: new RoundStateData(phase: GamePhase::Actions),
+                pendingInteraction: new PendingInteractionData(
+                    $interactionType,
+                    $botPlayer->id,
+                    context: [
+                        'bookCount' => $bookCount,
+                        'knowledgeStepCount' => $knowledgeStepCount,
+                        'builtHexId' => '0:0',
+                    ],
+                ),
+            );
+            $game->update([
+                'active_game_player_id' => $botPlayer->id,
+                'state' => $state,
+            ]);
+
+            if ($sourceActionType instanceof GameActionType) {
+                GameAction::factory()->create([
+                    'game_id' => $game->id,
+                    'game_player_id' => $botPlayer->id,
+                    'player_id' => null,
+                    'sequence' => 1,
+                    'type' => $sourceActionType,
+                    'state_version_before' => 0,
+                    'state_version_after' => 0,
+                ]);
+            }
+
+            $option = collect(app(GameActionOptionFinder::class)->execute($state, $botPlayer->id))
+                ->first(static fn (GameActionOption $candidate): bool => $candidate instanceof RewardDistributionOptionData);
+
+            $this->assertInstanceOf(RewardDistributionOptionData::class, $option);
+            $this->assertSimulationMatchesExecution($game, $botPlayer, $option);
+        }
+    }
+
+    public function test_science_bonus_reward_distribution_simulation_matches_execution_for_bot_without_user(): void
+    {
+        Queue::fake();
+
+        $game = Game::factory()->create([
+            'status' => GameStatus::Active,
+            'phase' => GamePhase::ScienceBonus,
+        ]);
+        $botPlayer = GamePlayer::factory()->bot(GameBotDifficulty::Fast)->create([
+            'game_id' => $game->id,
+            'user_id' => null,
+            'seat' => 1,
+        ]);
+        $opponent = GamePlayer::factory()->create([
+            'game_id' => $game->id,
+            'seat' => 2,
+            'faction' => Faction::Inventors,
+        ]);
+        $botState = $this->playerState($botPlayer);
+        $botState->resources->books->unassigned = 3;
+        $opponentState = $this->playerState($opponent);
+        $opponentState->faction = Faction::Inventors;
+        $opponentState->color = PlayerColor::Red;
+        $opponentState->homeland = TerrainType::Desert;
+        $opponentState->knowledge->law = 3;
+        $state = new GameStateData(
+            schemaVersion: 4,
+            turnOrder: [$botPlayer->id, $opponent->id],
+            players: [$botState, $opponentState],
+            round: new RoundStateData(
+                phase: GamePhase::ScienceBonus,
+                scoringTileId: RoundScoringTile::GuildLaw->value,
+                scienceBonusTurnIndex: 1,
+            ),
+            pendingInteraction: new PendingInteractionData(
+                PendingInteractionType::ChooseScienceBonusBooks,
+                $botPlayer->id,
+                context: ['bookCount' => 3],
+            ),
+        );
+        $game->update([
+            'active_game_player_id' => $botPlayer->id,
+            'state' => $state,
+        ]);
+        $option = collect(app(GameActionOptionFinder::class)->execute($state, $botPlayer->id))
+            ->first(static fn (GameActionOption $candidate): bool => $candidate instanceof RewardDistributionOptionData);
+
+        $this->assertInstanceOf(RewardDistributionOptionData::class, $option);
+        $this->assertSimulationMatchesExecution($game, $botPlayer, $option);
+    }
+
+    public function test_income_reward_distribution_simulation_matches_execution_for_bot_without_user(): void
+    {
+        Queue::fake();
+
+        $game = Game::factory()->create([
+            'status' => GameStatus::Active,
+            'phase' => GamePhase::Income,
+        ]);
+        $botPlayer = GamePlayer::factory()->bot(GameBotDifficulty::Fast)->create([
+            'game_id' => $game->id,
+            'user_id' => null,
+            'seat' => 1,
+        ]);
+        $opponent = GamePlayer::factory()->create([
+            'game_id' => $game->id,
+            'seat' => 2,
+        ]);
+        $botState = $this->playerState($botPlayer);
+        $botState->resources->books->unassigned = 1;
+        $botState->knowledge->unassignedSteps = 2;
+        $opponentState = $this->playerState($opponent);
+        $opponentState->resources->books->unassigned = 1;
+        $state = new GameStateData(
+            schemaVersion: 4,
+            turnOrder: [$botPlayer->id, $opponent->id],
+            players: [$botState, $opponentState],
+            round: new RoundStateData(
+                phase: GamePhase::Income,
+                incomeTurnIndex: 1,
+                incomeOrder: [$botPlayer->id, $opponent->id],
+            ),
+            pendingInteraction: new PendingInteractionData(
+                PendingInteractionType::ChooseStartingResources,
+                $botPlayer->id,
+                context: ['bookCount' => 1, 'knowledgeStepCount' => 2],
+            ),
+        );
+        $game->update([
+            'active_game_player_id' => $botPlayer->id,
+            'state' => $state,
+        ]);
+        $option = collect(app(GameActionOptionFinder::class)->execute($state, $botPlayer->id))
+            ->first(static fn (GameActionOption $candidate): bool => $candidate instanceof RewardDistributionOptionData);
+
+        $this->assertInstanceOf(RewardDistributionOptionData::class, $option);
+        $this->assertSimulationMatchesExecution($game, $botPlayer, $option);
+    }
+
+    public function test_setup_reward_distribution_simulation_matches_execution_for_bot_without_user(): void
+    {
+        Queue::fake();
+
+        $game = Game::factory()->create([
+            'status' => GameStatus::Active,
+            'phase' => GamePhase::Setup,
+        ]);
+        $botPlayer = GamePlayer::factory()->bot(GameBotDifficulty::Fast)->create([
+            'game_id' => $game->id,
+            'user_id' => null,
+            'seat' => 1,
+            'faction' => Faction::Blessed,
+        ]);
+        $nextPlayer = GamePlayer::factory()->create([
+            'game_id' => $game->id,
+            'seat' => 2,
+            'faction' => null,
+        ]);
+        $botState = $this->playerState($botPlayer);
+        $botState->resources->books->unassigned = 1;
+        $state = new GameStateData(
+            schemaVersion: 4,
+            turnOrder: [$botPlayer->id, $nextPlayer->id],
+            players: [$botState],
+            round: new RoundStateData(phase: GamePhase::Setup),
+            pendingInteraction: new PendingInteractionData(
+                PendingInteractionType::ChooseStartingResources,
+                $botPlayer->id,
+                context: ['bookCount' => 1, 'knowledgeStepCount' => 0],
+            ),
+        );
+        $game->update([
+            'active_game_player_id' => $botPlayer->id,
+            'state' => $state,
+        ]);
+        $option = collect(app(GameActionOptionFinder::class)->execute($state, $botPlayer->id))
+            ->first(static fn (GameActionOption $candidate): bool => $candidate instanceof RewardDistributionOptionData);
+
+        $this->assertInstanceOf(RewardDistributionOptionData::class, $option);
+        $this->assertSimulationMatchesExecution($game, $botPlayer, $option);
     }
 
     private function playerState(GamePlayer $player, ?BookSupplyData $books = null): GamePlayerStateData
