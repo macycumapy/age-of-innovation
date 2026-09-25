@@ -10,6 +10,7 @@ use App\Domain\Game\Data\GameStateData;
 use App\Domain\Game\Data\PendingInteractionData;
 use App\Domain\Game\Enums\BuildingType;
 use App\Domain\Game\Enums\Competency;
+use App\Domain\Game\Enums\Faction;
 use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\PendingInteractionType;
 use App\Domain\Game\Services\StartingBuildingOrderFinder;
@@ -34,6 +35,7 @@ final class ApplyChooseCompetencyAction
         $isStartingCompetency = $state->round->phase === GamePhase::Setup
             && $interaction?->type === PendingInteractionType::ChooseCompetency
             && $interaction->playerId === $player->playerId
+            && in_array($player->faction, [Faction::Monks, Faction::Inventors], true)
             && $reason === null;
         if ($interaction?->type !== PendingInteractionType::ChooseCompetency
             || $interaction->playerId !== $player->playerId
@@ -77,6 +79,7 @@ final class ApplyChooseCompetencyAction
 
         return new ChooseCompetencyResultData(
             $nextActivePlayerId,
+            $state->round->phase,
             $reason,
             $builtHexId,
             $knowledgeAdvance->gainedPower,
@@ -93,6 +96,8 @@ final class ApplyChooseCompetencyAction
     ): ChooseCompetencyResultData {
         $placementOrder = $this->startingBuildingOrderFinder->execute($state);
         $hasRemainingPlacements = $state->startingBuildingTurnIndex < count($placementOrder);
+        $nextPhase = GamePhase::Setup;
+        $incomeReceipts = [];
 
         if ($competency === Competency::Competency05
             && $this->createStartingTerraformingInteraction($state, $player, $hasRemainingPlacements)) {
@@ -112,15 +117,20 @@ final class ApplyChooseCompetencyAction
         } elseif ($hasRemainingPlacements) {
             $nextActivePlayerId = $placementOrder[$state->startingBuildingTurnIndex];
         } else {
-            $nextActivePlayerId = $this->resolveCompletedStartingSetup->execute($state)->nextActivePlayerId;
+            $resolution = $this->resolveCompletedStartingSetup->execute($state);
+            $nextActivePlayerId = $resolution->nextActivePlayerId;
+            $nextPhase = $resolution->phase;
+            $incomeReceipts = $resolution->incomeReceipts;
         }
 
         return new ChooseCompetencyResultData(
             $nextActivePlayerId,
+            $nextPhase,
             'starting',
             '',
             $gainedPower,
             $victoryPoints,
+            $incomeReceipts,
         );
     }
 

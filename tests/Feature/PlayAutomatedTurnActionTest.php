@@ -432,6 +432,153 @@ class PlayAutomatedTurnActionTest extends TestCase
         );
     }
 
+    public function test_starting_neutral_tower_competency_simulation_matches_execution(): void
+    {
+        Queue::fake();
+
+        $game = Game::factory()->create([
+            'status' => GameStatus::Active,
+            'phase' => GamePhase::Setup,
+        ]);
+        $botPlayer = GamePlayer::factory()->bot(GameBotDifficulty::Fast)->create([
+            'game_id' => $game->id,
+            'user_id' => null,
+            'seat' => 1,
+            'faction' => Faction::Monks,
+            'homeland' => TerrainType::Mountain,
+        ]);
+        $humanPlayer = GamePlayer::factory()->create([
+            'game_id' => $game->id,
+            'seat' => 2,
+            'faction' => Faction::Blessed,
+            'homeland' => TerrainType::Forest,
+        ]);
+        $botState = new GamePlayerStateData(
+            $botPlayer->id,
+            null,
+            PlayerColor::Yellow,
+            Faction::Monks,
+            TerrainType::Mountain,
+            RoundBonus::Coins,
+        );
+        $game->update([
+            'active_game_player_id' => $botPlayer->id,
+            'state' => new GameStateData(
+                turnOrder: [$botPlayer->id, $humanPlayer->id],
+                board: new BoardStateData(hexes: [
+                    new BoardHexStateData(
+                        id: 'mountain-built',
+                        q: 0,
+                        r: 0,
+                        initialTerrain: TerrainType::Mountain,
+                        terrain: TerrainType::Mountain,
+                        adjacentHexIds: ['mountain-free'],
+                        building: new BuildingStateData(BuildingType::University, $botPlayer->id),
+                    ),
+                    new BoardHexStateData(
+                        id: 'mountain-free',
+                        q: 1,
+                        r: 0,
+                        initialTerrain: TerrainType::Mountain,
+                        terrain: TerrainType::Mountain,
+                        adjacentHexIds: ['mountain-built'],
+                    ),
+                ]),
+                players: [$botState, $this->playerState($humanPlayer)],
+                round: new RoundStateData(phase: GamePhase::Setup),
+                availableCompetencyIds: [Competency::Competency10->value],
+                planningSelections: [
+                    new PlayerPlanningSelectionData(
+                        $botPlayer->id,
+                        new PlanningBundleData(TerrainType::Mountain, Faction::Monks, RoundBonus::Coins),
+                    ),
+                    new PlayerPlanningSelectionData(
+                        $humanPlayer->id,
+                        new PlanningBundleData(TerrainType::Forest, Faction::Blessed, RoundBonus::PowerCoins),
+                    ),
+                ],
+                startingBuildingTurnIndex: 3,
+                pendingInteraction: new PendingInteractionData(
+                    PendingInteractionType::ChooseCompetency,
+                    $botPlayer->id,
+                    [Competency::Competency10->value],
+                ),
+            ),
+        ]);
+
+        $this->assertSimulationMatchesExecution(
+            $game,
+            $botPlayer,
+            new ChooseCompetencyOptionData(Competency::Competency10),
+        );
+    }
+
+    public function test_final_starting_competency_simulation_matches_income_transition(): void
+    {
+        Queue::fake();
+
+        $game = Game::factory()->create([
+            'status' => GameStatus::Active,
+            'phase' => GamePhase::Setup,
+        ]);
+        $botPlayer = GamePlayer::factory()->bot(GameBotDifficulty::Fast)->create([
+            'game_id' => $game->id,
+            'user_id' => null,
+            'seat' => 1,
+            'faction' => Faction::Monks,
+            'homeland' => TerrainType::Mountain,
+        ]);
+        $humanPlayer = GamePlayer::factory()->create([
+            'game_id' => $game->id,
+            'seat' => 2,
+            'faction' => Faction::Blessed,
+            'homeland' => TerrainType::Forest,
+        ]);
+        $setupPool = app(GameSetupPoolFactory::class)->createFromSeed(2, 'final-starting-competency');
+        $setupPool->competencies = Competency::cases();
+        $botState = new GamePlayerStateData(
+            $botPlayer->id,
+            null,
+            PlayerColor::Yellow,
+            Faction::Monks,
+            TerrainType::Mountain,
+            RoundBonus::Coins,
+        );
+        $game->update([
+            'active_game_player_id' => $botPlayer->id,
+            'state' => new GameStateData(
+                schemaVersion: 3,
+                turnOrder: [$botPlayer->id, $humanPlayer->id],
+                players: [$botState, $this->playerState($humanPlayer)],
+                round: new RoundStateData(phase: GamePhase::Setup),
+                availableCompetencyIds: [Competency::Competency04->value],
+                setupPool: $setupPool,
+                planningSelections: [
+                    new PlayerPlanningSelectionData(
+                        $botPlayer->id,
+                        new PlanningBundleData(TerrainType::Mountain, Faction::Monks, RoundBonus::Coins),
+                    ),
+                    new PlayerPlanningSelectionData(
+                        $humanPlayer->id,
+                        new PlanningBundleData(TerrainType::Forest, Faction::Blessed, RoundBonus::PowerCoins),
+                    ),
+                ],
+                startingBuildingTurnIndex: 3,
+                pendingInteraction: new PendingInteractionData(
+                    PendingInteractionType::ChooseCompetency,
+                    $botPlayer->id,
+                    [Competency::Competency04->value],
+                ),
+            ),
+        ]);
+
+        $this->assertSimulationMatchesExecution(
+            $game,
+            $botPlayer,
+            new ChooseCompetencyOptionData(Competency::Competency04),
+        );
+    }
+
     public function test_bots_complete_starting_building_setup_without_users(): void
     {
         Queue::fake();
