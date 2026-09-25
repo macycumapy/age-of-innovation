@@ -11,6 +11,7 @@ use App\Domain\Game\Data\PlayerResourcesData;
 use App\Domain\Game\Data\PowerBowlsStateData;
 use App\Domain\Game\Data\RewardDistributionOptionData;
 use App\Domain\Game\Data\RoundStateData;
+use App\Domain\Game\Enums\Competency;
 use App\Domain\Game\Enums\Faction;
 use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\PendingInteractionType;
@@ -76,6 +77,47 @@ class GameActionRankerTest extends TestCase
         $state->players[1]->victoryPoints++;
 
         $this->assertLessThan($initialScore, $evaluator->execute($state, 1));
+    }
+
+    public function test_state_evaluation_values_recurring_income_by_remaining_rounds(): void
+    {
+        $earlyIncomeState = $this->state();
+        $earlyIncomeState->round->number = 1;
+        $earlyIncomeState->players[0]->competencyIds = [Competency::Competency01->value];
+        $earlyNoIncomeState = $this->state();
+        $earlyNoIncomeState->round->number = 1;
+        $earlyNoIncomeState->players[0]->competencyIds = [Competency::Competency04->value];
+
+        $finalIncomeState = $this->state();
+        $finalIncomeState->round->number = 6;
+        $finalIncomeState->players[0]->competencyIds = [Competency::Competency01->value];
+        $finalNoIncomeState = $this->state();
+        $finalNoIncomeState->round->number = 6;
+        $finalNoIncomeState->players[0]->competencyIds = [Competency::Competency04->value];
+
+        $evaluator = app(GameStateEvaluator::class);
+        $earlyIncomeAdvantage = $evaluator->execute($earlyIncomeState, 1)
+            - $evaluator->execute($earlyNoIncomeState, 1);
+        $finalIncomeAdvantage = $evaluator->execute($finalIncomeState, 1)
+            - $evaluator->execute($finalNoIncomeState, 1);
+
+        $this->assertGreaterThan($finalIncomeAdvantage, $earlyIncomeAdvantage);
+        $this->assertSame(0, $finalIncomeAdvantage);
+    }
+
+    public function test_state_evaluation_does_not_treat_round_bonus_income_as_recurring(): void
+    {
+        $coinsState = $this->state();
+        $coinsState->players[0]->roundBonus = RoundBonus::Coins;
+        $noIncomeState = $this->state();
+        $noIncomeState->players[0]->roundBonus = RoundBonus::RiverWorkshop;
+
+        $evaluator = app(GameStateEvaluator::class);
+
+        $this->assertSame(
+            $evaluator->execute($noIncomeState, 1),
+            $evaluator->execute($coinsState, 1),
+        );
     }
 
     public function test_it_returns_no_ranked_actions_when_none_are_legal(): void

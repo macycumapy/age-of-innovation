@@ -6,7 +6,10 @@ namespace App\Domain\Game\Services;
 
 use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Data\GameStateData;
+use App\Domain\Game\Data\IncomeReceiptData;
+use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\KnowledgeDiscipline;
+use App\Domain\Game\Enums\RoundBonus;
 use InvalidArgumentException;
 
 final class GameStateEvaluator
@@ -106,6 +109,36 @@ final class GameStateEvaluator
             $score += $hex->building->hasAnnex ? self::PLACED_ANNEX_WEIGHT : 0;
         }
 
+        $score += $this->futureIncomeScore($state, $player);
+
         return $score;
+    }
+
+    private function futureIncomeScore(GameStateData $state, GamePlayerStateData $player): int
+    {
+        $remainingIncomePhases = $state->round->phase === GamePhase::Setup
+            ? 6
+            : max(0, 6 - $state->round->number);
+
+        if ($remainingIncomePhases === 0) {
+            return 0;
+        }
+
+        $incomePlayer = clone $player;
+        $incomePlayer->roundBonus = RoundBonus::RiverWorkshop;
+        $income = PlayerIncomeCalculator::calculate($incomePlayer, $state->board);
+
+        return $this->incomeScore($income) * $remainingIncomePhases;
+    }
+
+    private function incomeScore(IncomeReceiptData $income): int
+    {
+        return ($income->victoryPoints * self::VICTORY_POINT_WEIGHT)
+            + ($income->coins * self::COIN_WEIGHT)
+            + ($income->tools * self::TOOL_WEIGHT)
+            + ($income->scholars * self::SCHOLAR_WEIGHT)
+            + ($income->books * self::BOOK_WEIGHT)
+            + ($income->power * self::BOWL_TWO_POWER_WEIGHT)
+            + ($income->knowledgeSteps * self::KNOWLEDGE_STEP_WEIGHT);
     }
 }
