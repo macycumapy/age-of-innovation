@@ -5,16 +5,20 @@ declare(strict_types=1);
 namespace App\Domain\Game\Services;
 
 use App\Domain\Game\Actions\ApplyPaidTerraformingAction;
+use App\Domain\Game\Actions\ApplySpendSpadesAction;
 use App\Domain\Game\Data\GameActionSimulationData;
 use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Data\GameStateData;
 use App\Domain\Game\Data\PaidTerraformingOptionData;
+use App\Domain\Game\Data\SpendSpadesOptionData;
 use InvalidArgumentException;
 
 final class PaidTerraformingSimulator
 {
-    public function __construct(private ApplyPaidTerraformingAction $applyPaidTerraforming)
-    {
+    public function __construct(
+        private ApplyPaidTerraformingAction $applyPaidTerraforming,
+        private ApplySpendSpadesAction $applySpendSpades,
+    ) {
     }
 
     public function execute(
@@ -30,7 +34,15 @@ final class PaidTerraformingSimulator
         }
 
         $this->applyPaidTerraforming->execute($simulatedState, $simulatedPlayer, $option);
+        $spadesToSpend = (int) ($simulatedState->pendingInteraction?->context['spadesToSpend'] ?? 0);
 
-        return new GameActionSimulationData($simulatedState, $simulatedPlayer->playerId);
+        $result = $this->applySpendSpades->execute(
+            $simulatedState,
+            $simulatedPlayer,
+            new SpendSpadesOptionData($option->hexId, $spadesToSpend),
+            requireActionPhase: false,
+        );
+
+        return new GameActionSimulationData($simulatedState, $result->nextActivePlayerId);
     }
 }

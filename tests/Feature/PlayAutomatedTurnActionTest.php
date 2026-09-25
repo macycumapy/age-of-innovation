@@ -6,6 +6,7 @@ namespace Tests\Feature;
 
 use App\Domain\Game\Actions\PerformGameActionOptionAction;
 use App\Domain\Game\Actions\PlayAutomatedTurnAction;
+use App\Domain\Game\Contracts\GameActionOption;
 use App\Domain\Game\Data\BoardHexStateData;
 use App\Domain\Game\Data\BoardStateData;
 use App\Domain\Game\Data\BookSupplyData;
@@ -40,6 +41,7 @@ use App\Domain\Game\Enums\TerrainType;
 use App\Domain\Game\Enums\TownTile;
 use App\Domain\Game\Factories\GameSetupPoolFactory;
 use App\Domain\Game\Services\DevelopmentAdvancementOptionFinder;
+use App\Domain\Game\Services\GameActionSimulator;
 use App\Domain\Game\Services\PaidTerraformingOptionFinder;
 use App\Jobs\PlayAutomatedTurnJob;
 use App\Models\Game;
@@ -219,7 +221,7 @@ class PlayAutomatedTurnActionTest extends TestCase
             ),
         ]);
 
-        app(PerformGameActionOptionAction::class)->execute(
+        $this->assertSimulationMatchesExecution(
             $game,
             $botPlayer,
             new ChoosePalaceOptionData(PalaceAbility::Palace17),
@@ -254,7 +256,7 @@ class PlayAutomatedTurnActionTest extends TestCase
             ),
         ]);
 
-        app(PerformGameActionOptionAction::class)->execute(
+        $this->assertSimulationMatchesExecution(
             $game,
             $botPlayer,
             new PowerActionOptionData(PowerAction::GainCoins, 0),
@@ -310,7 +312,7 @@ class PlayAutomatedTurnActionTest extends TestCase
             ),
         ]);
 
-        app(PerformGameActionOptionAction::class)->execute(
+        $this->assertSimulationMatchesExecution(
             $game,
             $botPlayer,
             new BuildWorkshopOptionData('1:0'),
@@ -352,7 +354,7 @@ class PlayAutomatedTurnActionTest extends TestCase
             ),
         ]);
 
-        app(PerformGameActionOptionAction::class)->execute(
+        $this->assertSimulationMatchesExecution(
             $game,
             $botPlayer,
             new ChooseTownOptionData(TownTile::Tools),
@@ -400,7 +402,7 @@ class PlayAutomatedTurnActionTest extends TestCase
             ),
         ]);
 
-        app(PerformGameActionOptionAction::class)->execute(
+        $this->assertSimulationMatchesExecution(
             $game,
             $botPlayer,
             new UpgradeBuildingOptionData(
@@ -463,7 +465,7 @@ class PlayAutomatedTurnActionTest extends TestCase
         ]);
         $option = app(PaidTerraformingOptionFinder::class)->execute($state, $botState)[0];
 
-        app(PerformGameActionOptionAction::class)->execute($game, $botPlayer, $option);
+        $this->assertSimulationMatchesExecution($game, $botPlayer, $option);
 
         $game->refresh();
         $this->assertSame(TerrainType::Forest, $game->state->board->hexes[1]->terrain);
@@ -502,7 +504,7 @@ class PlayAutomatedTurnActionTest extends TestCase
                 ->first(fn ($candidate): bool => $candidate->action === $actionType);
             $this->assertInstanceOf(DevelopmentAdvancementOptionData::class, $option);
 
-            app(PerformGameActionOptionAction::class)->execute($game, $botPlayer, $option);
+            $this->assertSimulationMatchesExecution($game, $botPlayer, $option);
 
             $game->refresh();
             $this->assertSame(1, $actionType === GameActionType::AdvanceShipping
@@ -537,7 +539,7 @@ class PlayAutomatedTurnActionTest extends TestCase
             ),
         ]);
 
-        app(PerformGameActionOptionAction::class)->execute(
+        $this->assertSimulationMatchesExecution(
             $game,
             $botPlayer,
             new SendScholarOptionData(KnowledgeDiscipline::Banking, false, 1, null),
@@ -562,5 +564,34 @@ class PlayAutomatedTurnActionTest extends TestCase
             roundBonus: RoundBonus::Coins,
             resources: new PlayerResourcesData(books: $books ?? new BookSupplyData()),
         );
+    }
+
+    private function assertSimulationMatchesExecution(
+        Game $game,
+        GamePlayer $player,
+        GameActionOption $option,
+    ): void {
+        $simulation = app(GameActionSimulator::class)->execute($game->state, $player->id, $option);
+
+        app(PerformGameActionOptionAction::class)->execute($game, $player, $option);
+
+        $game->refresh();
+
+        $this->assertEquals(
+            $this->comparableState($simulation->state),
+            $this->comparableState($game->state),
+        );
+        $this->assertSame($simulation->nextActivePlayerId, $game->active_game_player_id);
+    }
+
+    /** @return array<string, mixed> */
+    private function comparableState(GameStateData $state): array
+    {
+        $comparableState = GameStateData::from($state->toArray());
+        $comparableState->turnStartSnapshot = null;
+        $comparableState->round->turnStartVersion = null;
+        $comparableState->townChoiceCheckpoint = null;
+
+        return $comparableState->toArray();
     }
 }

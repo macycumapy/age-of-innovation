@@ -42,9 +42,10 @@ class PaidTerraformingSimulatorTest extends TestCase
         $this->assertNull($state->pendingInteraction);
         $this->assertFalse($state->round->hasTakenMainAction);
         $this->assertSame(0, $simulation->state->players[0]->resources->tools);
-        $this->assertSame(1, $simulation->state->players[0]->unassignedSpades);
+        $this->assertSame(0, $simulation->state->players[0]->unassignedSpades);
         $this->assertTrue($simulation->state->round->hasTakenMainAction);
-        $this->assertSame(PendingInteractionType::SpendSpades, $simulation->state->pendingInteraction->type);
+        $this->assertSame(TerrainType::Forest, $simulation->state->board->hexes[1]->terrain);
+        $this->assertSame(PendingInteractionType::BuildWorkshopAfterTerraforming, $simulation->state->pendingInteraction->type);
         $this->assertSame(['1:0'], $simulation->state->pendingInteraction->optionIds);
         $this->assertSame(1, $simulation->nextActivePlayerId);
     }
@@ -56,7 +57,11 @@ class PaidTerraformingSimulatorTest extends TestCase
             PendingInteractionType::SpendSpades,
             1,
             ['1:0'],
-            ['phase' => GamePhase::Actions->value, 'remainingSpades' => 1],
+            [
+                'phase' => GamePhase::Actions->value,
+                'remainingSpades' => 1,
+                'targetTerrain' => TerrainType::Forest->value,
+            ],
         );
         $options = app(PaidTerraformingOptionFinder::class)->execute($state, $state->players[0]);
 
@@ -69,8 +74,9 @@ class PaidTerraformingSimulatorTest extends TestCase
 
         $this->assertSame(['1:0'], $state->pendingInteraction->optionIds);
         $this->assertArrayNotHasKey('spadesToSpend', $state->pendingInteraction->context);
-        $this->assertSame(1, $simulation->state->pendingInteraction->context['spadesToSpend']);
-        $this->assertSame(1, $simulation->state->players[0]->unassignedSpades);
+        $this->assertNull($simulation->state->pendingInteraction);
+        $this->assertSame(0, $simulation->state->players[0]->unassignedSpades);
+        $this->assertNotSame(TerrainType::Desert, $simulation->state->board->hexes[1]->terrain);
         $this->assertSame(0, $simulation->state->players[0]->resources->tools);
     }
 
