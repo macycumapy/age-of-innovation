@@ -73,110 +73,35 @@ final class GameActionSimulator
         int $playerId,
         GameActionOption $option,
     ): GameActionSimulationData {
-        if ($option instanceof BookActionOptionData) {
-            return $this->bookActionSimulator->execute($state, $playerId, $option);
-        }
-
-        if ($option instanceof PowerActionOptionData) {
-            return $this->powerActionSimulator->execute($state, $playerId, $option);
-        }
-
-        if ($option instanceof BuildWorkshopOptionData) {
-            return $this->buildWorkshopSimulator->execute($state, $playerId, $option);
-        }
-
-        if ($option instanceof UpgradeBuildingOptionData) {
-            return $this->upgradeBuildingSimulator->execute($state, $playerId, $option);
-        }
-
-        if ($option instanceof PaidTerraformingOptionData) {
-            return $this->paidTerraformingSimulator->execute($state, $playerId, $option);
-        }
-
-        if ($option instanceof DevelopmentAdvancementOptionData) {
-            return $this->developmentAdvancementSimulator->execute($state, $playerId, $option);
-        }
-
-        if ($option instanceof SendScholarOptionData) {
-            return $this->sendScholarSimulator->execute($state, $playerId, $option);
-        }
-
-        if ($option instanceof MakeInnovationOptionData) {
-            return $this->makeInnovationSimulator->execute($state, $playerId, $option);
-        }
-
-        if ($option instanceof PassOptionData) {
-            return $this->passSimulator->execute($state, $playerId, $option);
-        }
-
-        if ($option instanceof ChooseRoundBonusOptionData) {
-            return $this->chooseRoundBonusSimulator->execute($state, $playerId, $option);
-        }
-
-        if ($option instanceof InnovationSpecialActionOptionData) {
-            return $this->innovationSpecialActionSimulator->execute($state, $playerId, $option);
-        }
-
-        if ($option instanceof PalaceActionOptionData) {
-            return $this->palaceActionSimulator->execute($state, $playerId, $option);
-        }
-
-        if ($option instanceof PlayerSpecialActionOptionData) {
-            return $this->playerSpecialActionSimulator->execute($state, $playerId, $option);
-        }
-
-        if ($option instanceof ResourceExchangeOptionData || $option instanceof SacrificePowerOptionData) {
-            return $this->resourceConversionSimulator->execute($state, $playerId, $option);
-        }
-
-        if ($option instanceof PlaceAnnexOptionData) {
-            return $this->placeAnnexSimulator->execute($state, $playerId, $option);
-        }
-
-        if ($option instanceof PowerOfferOptionData) {
-            return $this->powerOfferSimulator->execute($state, $playerId, $option);
-        }
-
-        if ($option instanceof ChooseTownOptionData) {
-            return $this->chooseTownSimulator->execute($state, $playerId, $option);
-        }
-
-        if ($option instanceof WorkshopAfterTerraformingOptionData) {
-            return $this->workshopAfterTerraformingSimulator->execute($state, $playerId, $option);
-        }
-
-        if ($option instanceof PalaceWaterTownOptionData) {
-            return $this->palaceWaterTownSimulator->execute($state, $playerId, $option);
-        }
-
-        if ($option instanceof ChoosePalaceOptionData) {
-            return $this->choosePalaceSimulator->execute($state, $playerId, $option);
-        }
-
-        if ($option instanceof ChooseCompetencyOptionData) {
-            return $this->chooseCompetencySimulator->execute($state, $playerId, $option);
-        }
-
-        if ($option instanceof PlaceNeutralBuildingOptionData) {
-            return $this->placeNeutralBuildingSimulator->execute($state, $playerId, $option);
-        }
-
-        if ($option instanceof PlaceBridgeOptionData) {
-            return $this->placeBridgeSimulator->execute($state, $playerId, $option);
-        }
-
-        if ($option instanceof SpendSpadesOptionData) {
-            return $this->spendSpadesSimulator->execute($state, $playerId, $option);
-        }
-
-        if ($option instanceof PlacePalaceGuildOptionData) {
-            return $this->placePalaceGuildSimulator->execute($state, $playerId, $option);
-        }
-
-        if ($option instanceof RewardDistributionOptionData) {
-            return $this->rewardDistributionSimulator->execute($state, $playerId, $option);
-        }
-
-        throw new DomainException("Симуляция действия {$option->type()->value} ещё не поддерживается.");
+        return match (true) {
+            $option instanceof BookActionOptionData => $this->bookActionSimulator->execute($state, $playerId, $option),
+            $option instanceof PowerActionOptionData => $this->powerActionSimulator->execute($state, $playerId, $option),
+            $option instanceof BuildWorkshopOptionData => $this->buildWorkshopSimulator->execute($state, $playerId, $option),
+            $option instanceof UpgradeBuildingOptionData => $this->upgradeBuildingSimulator->execute($state, $playerId, $option),
+            $option instanceof PaidTerraformingOptionData => $this->paidTerraformingSimulator->execute($state, $playerId, $option),
+            $option instanceof DevelopmentAdvancementOptionData => $this->developmentAdvancementSimulator->execute($state, $playerId, $option),
+            $option instanceof SendScholarOptionData => $this->sendScholarSimulator->execute($state, $playerId, $option),
+            $option instanceof MakeInnovationOptionData => $this->makeInnovationSimulator->execute($state, $playerId, $option),
+            $option instanceof PassOptionData => $this->passSimulator->execute($state, $playerId, $option),
+            $option instanceof ChooseRoundBonusOptionData => $this->chooseRoundBonusSimulator->execute($state, $playerId, $option),
+            $option instanceof InnovationSpecialActionOptionData => $this->innovationSpecialActionSimulator->execute($state, $playerId, $option),
+            $option instanceof PalaceActionOptionData => $this->palaceActionSimulator->execute($state, $playerId, $option),
+            $option instanceof PlayerSpecialActionOptionData => $this->playerSpecialActionSimulator->execute($state, $playerId, $option),
+            $option instanceof ResourceExchangeOptionData,
+            $option instanceof SacrificePowerOptionData => $this->resourceConversionSimulator->execute($state, $playerId, $option),
+            $option instanceof PlaceAnnexOptionData => $this->placeAnnexSimulator->execute($state, $playerId, $option),
+            $option instanceof PowerOfferOptionData => $this->powerOfferSimulator->execute($state, $playerId, $option),
+            $option instanceof ChooseTownOptionData => $this->chooseTownSimulator->execute($state, $playerId, $option),
+            $option instanceof WorkshopAfterTerraformingOptionData => $this->workshopAfterTerraformingSimulator->execute($state, $playerId, $option),
+            $option instanceof PalaceWaterTownOptionData => $this->palaceWaterTownSimulator->execute($state, $playerId, $option),
+            $option instanceof ChoosePalaceOptionData => $this->choosePalaceSimulator->execute($state, $playerId, $option),
+            $option instanceof ChooseCompetencyOptionData => $this->chooseCompetencySimulator->execute($state, $playerId, $option),
+            $option instanceof PlaceNeutralBuildingOptionData => $this->placeNeutralBuildingSimulator->execute($state, $playerId, $option),
+            $option instanceof PlaceBridgeOptionData => $this->placeBridgeSimulator->execute($state, $playerId, $option),
+            $option instanceof SpendSpadesOptionData => $this->spendSpadesSimulator->execute($state, $playerId, $option),
+            $option instanceof PlacePalaceGuildOptionData => $this->placePalaceGuildSimulator->execute($state, $playerId, $option),
+            $option instanceof RewardDistributionOptionData => $this->rewardDistributionSimulator->execute($state, $playerId, $option),
+            default => throw new DomainException("Симуляция действия {$option->type()->value} ещё не поддерживается."),
+        };
     }
 }
