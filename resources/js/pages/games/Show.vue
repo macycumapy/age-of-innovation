@@ -67,7 +67,7 @@ useEcho(`games.${props.game.data.id}`, '.game.changed', () => {
 });
 
 const currentPlayer = computed(() =>
-    props.game.data.players.find((player) => player.user.id === page.props.auth.user.id),
+    props.game.data.players.find((player) => player.user_id === page.props.auth.user.id),
 );
 
 const interactionsShownAboveBoard = new Set([
@@ -115,7 +115,7 @@ watch(pendingInteractionShownAboveBoard, (interaction, previousInteraction) => {
 });
 
 const activePlayer = computed(() =>
-    props.game.data.players.find((player) => player.user?.id === props.game.data.activePlayerId),
+    props.game.data.players.find((player) => player.user_id === props.game.data.activePlayerId),
 );
 
 const orderedPlayers = computed(() =>
@@ -1088,7 +1088,7 @@ defineOptions({
                     v-if="
                         game.data.pendingInteraction?.type === 'choose_town' &&
                         game.data.pendingInteraction.playerId === currentPlayer?.id &&
-                        activePlayer?.user.id === page.props.auth.user.id
+                        activePlayer?.user_id === page.props.auth.user.id
                     "
                     :game="game"
                 />

@@ -222,7 +222,7 @@ function levelCounters(state: GamePlayerBoardState): StatCounter[] {
                         :key="entry.player.id"
                         class="grid w-full justify-items-center gap-2 rounded-md border border-sidebar-border py-2"
                         :style="{ backgroundColor: playerBackgroundColor(entry.player) }"
-                        :title="`${entry.player.user.name}: ${entry.state.passOrder === null ? `порядок хода ${entry.turnOrder}` : `порядок паса ${entry.state.passOrder}`}, ${entry.state.victoryPoints} победных очков`"
+                        :title="`${entry.player.name}: ${entry.state.passOrder === null ? `порядок хода ${entry.turnOrder}` : `порядок паса ${entry.state.passOrder}`}, ${entry.state.victoryPoints} победных очков`"
                     >
                         <span
                             v-if="entry.state.passOrder === null"
@@ -328,8 +328,8 @@ function levelCounters(state: GamePlayerBoardState): StatCounter[] {
                                         {{ entry.state.passOrder }}
                                     </span>
                                 </span>
-                                <span class="min-w-0 flex-1 truncate" :title="entry.player.user.name">
-                                    {{ entry.player.user.name }}
+                                <span class="min-w-0 flex-1 truncate" :title="entry.player.name">
+                                    {{ entry.player.name }}
                                 </span>
                                 <span
                                     class="relative grid size-8 shrink-0 place-items-center"

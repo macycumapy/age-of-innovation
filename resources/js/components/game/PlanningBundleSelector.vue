@@ -171,7 +171,7 @@ function selectedCompetency(homeland: TerrainType): Competency | undefined {
                 v-if="selectedPlayer(bundle.homeland)"
                 class="mt-auto flex min-h-10 items-center justify-center gap-3 rounded-md bg-background/75 px-4 py-2 text-center text-sm font-medium shadow-xs"
             >
-                {{ selectedPlayer(bundle.homeland)?.user.name }}
+                {{ selectedPlayer(bundle.homeland)?.name }}
             </div>
             <Dialog v-else>
                 <DialogTrigger as-child>

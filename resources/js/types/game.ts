@@ -117,7 +117,8 @@ export type GameHistoryEntry = {
     stateVersionBefore: number;
     stateVersionAfter: number;
     player: {
-        id: number | null;
+        id: number;
+        user_id: number | null;
         name: string;
     } | null;
     createdAt: string | null;
@@ -207,10 +208,8 @@ export type GamePlayerSummary = {
     color: PlayerColor | null;
     faction: Faction | null;
     homeland: TerrainType | null;
-    user: {
-        id: number;
-        name: string;
-    };
+    user_id: number;
+    name: string;
 };
 
 export type PlayerColor = 'yellow' | 'red' | 'black' | 'blue' | 'green' | 'brown' | 'grey';

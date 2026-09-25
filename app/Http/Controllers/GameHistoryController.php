@@ -16,7 +16,7 @@ final class GameHistoryController extends Controller
     public function __invoke(GameHistoryRequest $request, Game $game): JsonResponse
     {
         $actions = $game->actions()
-            ->with('player:id,name')
+            ->with('gamePlayer.user')
             ->when(
                 $request->beforeSequence(),
                 fn (Builder $query, int $sequence): Builder => $query->where('sequence', '<', $sequence),

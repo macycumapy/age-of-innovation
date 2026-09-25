@@ -39,7 +39,7 @@ class GameController extends Controller
         $game->setRelation(
             'actions',
             $game->actions()
-                ->with('player:id,name')
+                ->with('gamePlayer.user')
                 ->orderByDesc('sequence')
                 ->limit(GameAction::HISTORY_PAGE_SIZE + 1)
                 ->get(),

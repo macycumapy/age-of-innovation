@@ -22,10 +22,18 @@ class GamePlayerResource extends JsonResource
             'color' => $this->color?->value,
             'faction' => $this->faction?->value,
             'homeland' => $this->homeland?->value,
-            'user' => $this->whenLoaded('user', fn (): array => [
-                'id' => $this->user_id,
-                'name' => $this->user_id === null ? "Бот {$this->seat}" : $this->user->name,
-            ]),
+            'user_id' => $this->user_id,
+            'name' => $this->whenLoaded('user', fn () => $this->user->name) ?? $this->botName(),
         ];
+    }
+
+    private function botName(): ?string
+    {
+        $botDifficulty = $this->bot_difficulty?->title();
+        if ($botDifficulty) {
+            return "Бот ($botDifficulty)";
+        }
+
+        return null;
     }
 }

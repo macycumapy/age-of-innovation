@@ -19,4 +19,13 @@ enum GameBotDifficulty: string
             self::Strong => ['depth' => 3, 'branchLimit' => 12, 'maxNodes' => 5000],
         };
     }
+
+    public function title(): string
+    {
+        return match ($this) {
+            self::Fast => 'Слабый',
+            self::Balanced => 'Обычный',
+            self::Strong => 'Сильный'
+        };
+    }
 }

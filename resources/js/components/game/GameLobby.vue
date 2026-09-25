@@ -36,7 +36,7 @@ defineProps<{
             >
                 <div>
                     <p class="flex items-center gap-2 font-medium">
-                        {{ player.user?.name ?? 'Бот' }}
+                        {{ player.name }}
                         <span
                             v-if="player.botDifficulty"
                             class="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary"
@@ -54,7 +54,7 @@ defineProps<{
                         v-if="game.data.isOwner && player.id !== currentPlayer?.id"
                         :game-id="game.data.id"
                         :player-id="player.id"
-                        :player-name="player.user?.name ?? 'Бот'"
+                        :player-name="player.name"
                     />
                 </div>
             </div>
@@ -97,7 +97,7 @@ defineProps<{
                     v-if="currentPlayer"
                     :game-id="game.data.id"
                     :player-id="currentPlayer.id"
-                    :player-name="currentPlayer.user.name"
+                    :player-name="currentPlayer.name"
                     is-leaving
                 />
 

@@ -21,10 +21,7 @@ final class GameHistoryEntryResource extends JsonResource
             'payload' => $this->payload,
             'stateVersionBefore' => $this->state_version_before,
             'stateVersionAfter' => $this->state_version_after,
-            'player' => $this->player === null ? null : [
-                'id' => $this->player->id,
-                'name' => $this->player->name,
-            ],
+            'player' => GamePlayerResource::make($this->whenLoaded('gamePlayer')),
             'createdAt' => $this->created_at?->toISOString(),
         ];
     }

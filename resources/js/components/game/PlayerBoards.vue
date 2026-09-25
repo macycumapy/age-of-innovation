@@ -189,7 +189,7 @@ const playersWithBoards = computed(() => {
     const players = props.players.filter(
         (player): player is GamePlayerSummary & { color: PlayerColor } => player.color !== null,
     );
-    const currentPlayerIndex = players.findIndex((player) => player.user.id === props.currentUserId);
+    const currentPlayerIndex = players.findIndex((player) => player.user_id === props.currentUserId);
 
     if (currentPlayerIndex <= 0) {
         return players;
@@ -262,7 +262,7 @@ function factionCardStyle(): CSSProperties {
 function isFactionActionAvailable(player: GamePlayerSummary): boolean {
     return (
         props.canUseFactionAction &&
-        player.user.id === props.currentUserId &&
+        player.user_id === props.currentUserId &&
         (playerState(player.id)?.canUseFactionAction ?? false)
     );
 }
@@ -279,7 +279,7 @@ function isCompetencyActionAvailable(player: GamePlayerSummary, competency: Comp
     return (
         competency === 'competency_07' &&
         props.canUseCompetencyAction &&
-        player.user.id === props.currentUserId &&
+        player.user_id === props.currentUserId &&
         (playerState(player.id)?.canUseCompetencyAction ?? false)
     );
 }
@@ -367,7 +367,7 @@ function palaceTileStyle(): CSSProperties {
 function isPalaceActionAvailable(player: GamePlayerSummary): boolean {
     return (
         props.canUsePalaceAction &&
-        player.user.id === props.currentUserId &&
+        player.user_id === props.currentUserId &&
         (playerState(player.id)?.canUsePalaceAction ?? false)
     );
 }
@@ -428,7 +428,7 @@ function innovationsForPlayer(playerId: number): Innovation[] {
 function isInnovationActionAvailable(player: GamePlayerSummary, innovation: Innovation): boolean {
     return (
         props.canUseInnovationAction &&
-        player.user.id === props.currentUserId &&
+        player.user_id === props.currentUserId &&
         (playerState(player.id)?.availableInnovationActionIds.includes(innovation) ?? false)
     );
 }
@@ -446,7 +446,7 @@ function roundBonusForPlayer(playerId: number): RoundBonus | undefined {
 function isRoundBonusActionAvailable(player: GamePlayerSummary): boolean {
     return (
         props.canUseRoundBonusAction &&
-        player.user.id === props.currentUserId &&
+        player.user_id === props.currentUserId &&
         (playerState(player.id)?.canUseRoundBonusAction ?? false)
     );
 }
@@ -516,7 +516,7 @@ function powerInBowl(state: GamePlayerBoardState | undefined, bowl: PowerBowl): 
 function canSacrificeFromBowl(player: GamePlayerSummary, bowl: PowerBowl): boolean {
     return (
         props.canSacrificePower &&
-        player.user.id === props.currentUserId &&
+        player.user_id === props.currentUserId &&
         bowl.key === 'bowlTwo' &&
         powerInBowl(playerState(player.id), bowl) > 1
     );
@@ -536,21 +536,21 @@ function canSacrificeFromBowl(player: GamePlayerSummary, bowl: PowerBowl): boole
                 >
                     <img
                         :src="boardImage(player.color)"
-                        :alt="`Планшет игрока ${player.user.name}`"
+                        :alt="`Планшет игрока ${player.name}`"
                         class="block h-auto w-full"
                     />
 
                     <span
                         class="absolute top-[3%] left-1/2 z-30 max-w-[25%] -translate-x-1/2 truncate text-[2cqw] leading-tight font-semibold text-amber-800"
-                        :title="player.user.name"
+                        :title="player.name"
                     >
-                        {{ player.user.name }}
+                        {{ player.name }}
                     </span>
 
                     <img
                         v-if="player.faction"
                         :src="factionImage(player.faction)"
-                        :alt="`Раса игрока ${player.user.name}: ${factionNames[player.faction]}`"
+                        :alt="`Раса игрока ${player.name}: ${factionNames[player.faction]}`"
                         :style="factionCardStyle()"
                         class="absolute z-0 rounded-sm shadow-md"
                         :class="isFactionActionAvailable(player) ? 'cursor-pointer' : ''"
@@ -593,7 +593,7 @@ function canSacrificeFromBowl(player: GamePlayerSummary, bowl: PowerBowl): boole
                     </div>
 
                     <button
-                        v-if="canExchangeResources && player.user.id === currentUserId"
+                        v-if="canExchangeResources && player.user_id === currentUserId"
                         type="button"
                         class="absolute z-20 w-4 cursor-pointer rounded-md border border-amber-400/70 px-3 py-1.5 shadow-md"
                         :style="{ left: '72.5%', top: '44.5%', width: '7%', height: '15%' }"
@@ -602,7 +602,7 @@ function canSacrificeFromBowl(player: GamePlayerSummary, bowl: PowerBowl): boole
                     ></button>
 
                     <button
-                        v-if="canAdvanceShipping && player.user.id === currentUserId"
+                        v-if="canAdvanceShipping && player.user_id === currentUserId"
                         type="button"
                         class="absolute z-20 cursor-pointer rounded-md border border-amber-400/70 shadow-md"
                         :style="{ left: '2%', top: '37%', width: '10%', height: '11%' }"
@@ -612,7 +612,7 @@ function canSacrificeFromBowl(player: GamePlayerSummary, bowl: PowerBowl): boole
                     ></button>
 
                     <button
-                        v-if="canAdvanceTerraforming && player.user.id === currentUserId"
+                        v-if="canAdvanceTerraforming && player.user_id === currentUserId"
                         type="button"
                         class="absolute z-20 cursor-pointer rounded-md border border-amber-400/70 shadow-md"
                         :style="{ left: '35%', top: '36%', width: '12%', height: '11%' }"
@@ -650,7 +650,7 @@ function canSacrificeFromBowl(player: GamePlayerSummary, bowl: PowerBowl): boole
                                 >
                                     <img
                                         :src="palaceImage(playerState(player.id)?.palaceId)"
-                                        :alt="`Жетон Дворца игрока ${player.user.name}`"
+                                        :alt="`Жетон Дворца игрока ${player.name}`"
                                         class="block h-auto w-full rounded-sm"
                                     />
                                     <img
@@ -757,7 +757,7 @@ function canSacrificeFromBowl(player: GamePlayerSummary, bowl: PowerBowl): boole
                                 >
                                     <img
                                         :src="roundBonusImage(roundBonusForPlayer(player.id))"
-                                        :alt="`Выбранный бонус раунда игрока ${player.user.name}`"
+                                        :alt="`Выбранный бонус раунда игрока ${player.name}`"
                                         class="block h-auto w-full rounded-md drop-shadow-[-2px_2px_2px_rgba(0,0,0,0.45)]"
                                     />
                                     <img

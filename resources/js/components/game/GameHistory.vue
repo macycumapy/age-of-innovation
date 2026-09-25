@@ -208,7 +208,7 @@ function incomeDetails(entry: GameHistoryEntry): string[] {
 
         const incomeReceipt = receipt as Record<string, unknown>;
         const playerId = Number(incomeReceipt.player_id);
-        const playerName = props.players.find((player) => player.id === playerId)?.user.name ?? `Игрок ${playerId}`;
+        const playerName = props.players.find((player) => player.id === playerId)?.name ?? `Игрок ${playerId}`;
         const resources = [
             ['tools', 'инстр.'],
             ['coins', 'золота'],
@@ -243,7 +243,7 @@ function scienceBonusDetails(entry: GameHistoryEntry): string[] {
 
         const result = receipt as Record<string, unknown>;
         const playerId = Number(result.player_id);
-        const playerName = props.players.find((player) => player.id === playerId)?.user.name ?? `Игрок ${playerId}`;
+        const playerName = props.players.find((player) => player.id === playerId)?.name ?? `Игрок ${playerId}`;
         const discipline = String(result.discipline ?? '');
         const level = Number(result.knowledge_level ?? 0);
         const resources = [
@@ -333,7 +333,7 @@ function finalScoringDetails(entry: GameHistoryEntry): string[] {
             return [];
         }
 
-        const playerName = props.players.find((player) => player.id === playerId)?.user.name ?? `Игрок ${playerId}`;
+        const playerName = props.players.find((player) => player.id === playerId)?.name ?? `Игрок ${playerId}`;
         const sources = Array.isArray(result.sources)
             ? result.sources.flatMap((source) => {
                   if (typeof source !== 'object' || source === null) {
@@ -767,7 +767,7 @@ function actionTime(createdAt: string | null): string {
                             </span>
                         </template>
                         <template v-else>
-                            <span class="font-bold">{{ entry.player?.name ?? 'Система' }}</span>
+                            <span class="font-bold">{{ entry.player?.name ?? entry.player }}</span>
                             {{ actionDescription(entry) }}
                         </template>
                         <span v-if="actionDetails(entry)" class="text-muted-foreground">
