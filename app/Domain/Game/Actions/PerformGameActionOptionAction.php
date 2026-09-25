@@ -140,15 +140,18 @@ final class PerformGameActionOptionAction
             return $this->performDevelopmentAdvancement($game, $player, $option);
         }
 
+        if ($option instanceof SendScholarOptionData) {
+            return $this->sendScholar->execute(
+                $game,
+                $player,
+                $option->discipline,
+                $option->place,
+            );
+        }
+
         $user = $player->user()->firstOrFail();
 
         return DB::transaction(fn (): Game => match (true) {
-            $option instanceof SendScholarOptionData => $this->sendScholar->execute(
-                $game,
-                $user,
-                $option->discipline,
-                $option->place,
-            ),
             $option instanceof MakeInnovationOptionData => $this->makeInnovation->execute(
                 $game,
                 $user,

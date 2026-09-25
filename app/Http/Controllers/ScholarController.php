@@ -16,7 +16,8 @@ final class ScholarController extends Controller
     {
         /** @var User $user */
         $user = $request->user();
-        $sendScholar->execute($game, $user, $request->discipline(), $request->boolean('place'));
+        $player = $game->players()->whereBelongsTo($user)->firstOrFail();
+        $sendScholar->execute($game, $player, $request->discipline(), $request->boolean('place'));
 
         return $this->gameChanged($game);
     }

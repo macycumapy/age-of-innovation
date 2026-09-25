@@ -12,7 +12,6 @@ use App\Domain\Game\Enums\KnowledgeDiscipline;
 use App\Domain\Game\Services\SendScholarOptionFinder;
 use App\Models\Game;
 use App\Models\GamePlayer;
-use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -25,18 +24,15 @@ final class SendScholarAction
     ) {
     }
 
-    public function execute(Game $game, User $user, KnowledgeDiscipline $discipline, bool $place): Game
+    public function execute(Game $game, GamePlayer $player, KnowledgeDiscipline $discipline, bool $place): Game
     {
-        return DB::transaction(function () use ($game, $user, $discipline, $place): Game {
+        return DB::transaction(function () use ($game, $player, $discipline, $place): Game {
             $lockedGame = Game::query()->lockForUpdate()->findOrFail($game->id);
             $state = $lockedGame->state;
-            $player = $lockedGame->players()->whereBelongsTo($user)->first();
-            $playerState = $player instanceof GamePlayer
-                ? collect($state->players)->firstWhere('playerId', $player->id)
-                : null;
+            $playerState = collect($state->players)->firstWhere('playerId', $player->id);
             if (! $lockedGame->phase->isActionPhase()
-                || $lockedGame->active_player_id !== $user->id
-                || ! $player instanceof GamePlayer
+                || $player->game_id !== $lockedGame->id
+                || ! $lockedGame->isActivePlayer($player)
                 || ! $playerState instanceof GamePlayerStateData) {
                 throw ValidationException::withMessages(['scholar' => 'Сейчас нельзя отправить учёного в эту дисциплину.']);
             }

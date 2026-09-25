@@ -6,6 +6,8 @@ namespace App\Http\Requests;
 
 use App\Domain\Game\Enums\KnowledgeDiscipline;
 use App\Models\Game;
+use App\Models\GamePlayer;
+use App\Models\User;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -14,10 +16,17 @@ final class SendScholarRequest extends FormRequest
     public function authorize(): bool
     {
         $game = $this->route('game');
+        $user = $this->user();
 
-        return $game instanceof Game
+        if (! $game instanceof Game || ! $user instanceof User) {
+            return false;
+        }
+
+        $player = $game->players()->whereBelongsTo($user)->first();
+
+        return $player instanceof GamePlayer
             && $game->phase->isActionPhase()
-            && $game->active_player_id === $this->user()?->id
+            && $game->isActivePlayer($player)
             && $game->state->pendingInteraction === null;
     }
 
