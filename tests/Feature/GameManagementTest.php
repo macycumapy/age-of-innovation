@@ -6866,7 +6866,7 @@ class GameManagementTest extends TestCase
                     ->has('game.data.board.hexes')
                     ->where('game.data.isJoined', false)
                 ->where('game.data.playersCount', 1)
-                ->where('game.data.players.0.user.name', $owner->name)
+                ->where('game.data.players.0.name', $owner->name)
             );
 
         $this->post(route('games.players.store', $game))
