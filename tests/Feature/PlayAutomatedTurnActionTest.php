@@ -18,6 +18,8 @@ use App\Domain\Game\Data\DevelopmentAdvancementOptionData;
 use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Data\GameStateData;
 use App\Domain\Game\Data\PendingInteractionData;
+use App\Domain\Game\Data\PlaceBridgeOptionData;
+use App\Domain\Game\Data\PlacePalaceGuildOptionData;
 use App\Domain\Game\Data\PlayerResourcesData;
 use App\Domain\Game\Data\PowerActionOptionData;
 use App\Domain\Game\Data\PowerBowlsStateData;
@@ -46,11 +48,13 @@ use App\Domain\Game\Enums\TerrainType;
 use App\Domain\Game\Enums\TownTile;
 use App\Domain\Game\Factories\GameSetupPoolFactory;
 use App\Domain\Game\Services\DevelopmentAdvancementOptionFinder;
+use App\Domain\Game\Services\GameActionOptionFinder;
 use App\Domain\Game\Services\GameActionSimulator;
 use App\Domain\Game\Services\InnovationSpecialActionOptionFinder;
 use App\Domain\Game\Services\MakeInnovationOptionFinder;
 use App\Domain\Game\Services\PaidTerraformingOptionFinder;
 use App\Domain\Game\Services\PassOptionFinder;
+use App\Domain\Game\Services\PlaceAnnexOptionFinder;
 use App\Domain\Game\Services\PlayerSpecialActionOptionFinder;
 use App\Domain\Game\Services\ResourceConversionOptionFinder;
 use App\Jobs\PlayAutomatedTurnJob;
@@ -708,6 +712,162 @@ class PlayAutomatedTurnActionTest extends TestCase
         ]);
         $option = app(PassOptionFinder::class)->execute($state, $botState)[0];
 
+        $this->assertSimulationMatchesExecution($game, $botPlayer, $option);
+    }
+
+    public function test_annex_simulation_matches_execution_for_bot_without_user(): void
+    {
+        Queue::fake();
+
+        $game = Game::factory()->create([
+            'status' => GameStatus::Active,
+            'phase' => GamePhase::Actions,
+        ]);
+        $botPlayer = GamePlayer::factory()->bot(GameBotDifficulty::Fast)->create([
+            'game_id' => $game->id,
+            'user_id' => null,
+        ]);
+        $botState = $this->playerState($botPlayer);
+        $botState->availableAnnexes = 1;
+        $state = new GameStateData(
+            turnOrder: [$botPlayer->id],
+            board: new BoardStateData(hexes: [new BoardHexStateData(
+                id: '0:0',
+                q: 0,
+                r: 0,
+                initialTerrain: TerrainType::Forest,
+                terrain: TerrainType::Forest,
+                building: new BuildingStateData(BuildingType::Workshop, $botPlayer->id),
+            )]),
+            players: [$botState],
+            round: new RoundStateData(phase: GamePhase::Actions),
+        );
+        $game->update([
+            'active_game_player_id' => $botPlayer->id,
+            'state' => $state,
+        ]);
+        $option = app(PlaceAnnexOptionFinder::class)->execute($state, $botState)[0];
+
+        $this->assertSimulationMatchesExecution($game, $botPlayer, $option);
+    }
+
+    public function test_bridge_simulation_matches_staged_and_confirmed_execution_for_bot_without_user(): void
+    {
+        Queue::fake();
+
+        $game = Game::factory()->create([
+            'status' => GameStatus::Active,
+            'phase' => GamePhase::Actions,
+        ]);
+        $botPlayer = GamePlayer::factory()->bot(GameBotDifficulty::Fast)->create([
+            'game_id' => $game->id,
+            'user_id' => null,
+        ]);
+        $state = new GameStateData(
+            schemaVersion: 4,
+            turnOrder: [$botPlayer->id],
+            board: new BoardStateData(
+                hexes: [
+                    new BoardHexStateData(
+                        id: '0:0',
+                        q: 0,
+                        r: 0,
+                        initialTerrain: TerrainType::Forest,
+                        terrain: TerrainType::Forest,
+                        building: new BuildingStateData(BuildingType::Workshop, $botPlayer->id),
+                    ),
+                    new BoardHexStateData(
+                        id: '1:1',
+                        q: 1,
+                        r: 1,
+                        initialTerrain: TerrainType::Mountain,
+                        terrain: TerrainType::Mountain,
+                    ),
+                    new BoardHexStateData(
+                        id: '1:0',
+                        q: 1,
+                        r: 0,
+                        initialTerrain: TerrainType::Water,
+                        terrain: TerrainType::Water,
+                    ),
+                    new BoardHexStateData(
+                        id: '0:1',
+                        q: 0,
+                        r: 1,
+                        initialTerrain: TerrainType::Water,
+                        terrain: TerrainType::Water,
+                    ),
+                ],
+                riverBankHexIds: ['0:0', '1:1'],
+            ),
+            players: [$this->playerState($botPlayer)],
+            round: new RoundStateData(phase: GamePhase::Actions),
+            pendingInteraction: new PendingInteractionData(
+                PendingInteractionType::PlaceBridge,
+                $botPlayer->id,
+                context: ['source' => 'power'],
+            ),
+        );
+        $game->update([
+            'active_game_player_id' => $botPlayer->id,
+            'state' => $state,
+        ]);
+        $option = collect(app(GameActionOptionFinder::class)->execute($state, $botPlayer->id))
+            ->first(static fn (GameActionOption $candidate): bool => $candidate instanceof PlaceBridgeOptionData);
+
+        $this->assertInstanceOf(PlaceBridgeOptionData::class, $option);
+        $this->assertSimulationMatchesExecution($game, $botPlayer, $option);
+    }
+
+    public function test_palace_guild_simulation_matches_staged_and_confirmed_execution_for_bot_without_user(): void
+    {
+        Queue::fake();
+
+        $game = Game::factory()->create([
+            'status' => GameStatus::Active,
+            'phase' => GamePhase::Actions,
+        ]);
+        $botPlayer = GamePlayer::factory()->bot(GameBotDifficulty::Fast)->create([
+            'game_id' => $game->id,
+            'user_id' => null,
+        ]);
+        $state = new GameStateData(
+            schemaVersion: 4,
+            turnOrder: [$botPlayer->id],
+            board: new BoardStateData(hexes: [
+                new BoardHexStateData(
+                    id: '0:0',
+                    q: 0,
+                    r: 0,
+                    initialTerrain: TerrainType::Forest,
+                    terrain: TerrainType::Forest,
+                    building: new BuildingStateData(BuildingType::Palace, $botPlayer->id),
+                ),
+                new BoardHexStateData(
+                    id: '5:5',
+                    q: 5,
+                    r: 5,
+                    initialTerrain: TerrainType::Forest,
+                    terrain: TerrainType::Forest,
+                ),
+            ]),
+            players: [$this->playerState($botPlayer)],
+            round: new RoundStateData(phase: GamePhase::Actions),
+            pendingInteraction: new PendingInteractionData(
+                PendingInteractionType::PlacePalaceGuild,
+                $botPlayer->id,
+                ['5:5'],
+                ['palaceBuiltHexId' => '0:0', 'selectedHexId' => null],
+            ),
+        );
+        $game->update([
+            'active_game_player_id' => $botPlayer->id,
+            'state' => $state,
+        ]);
+        $option = collect(app(GameActionOptionFinder::class)->execute($state, $botPlayer->id))
+            ->first(static fn (GameActionOption $candidate): bool => $candidate instanceof PlacePalaceGuildOptionData);
+
+        $this->assertInstanceOf(PlacePalaceGuildOptionData::class, $option);
         $this->assertSimulationMatchesExecution($game, $botPlayer, $option);
     }
 
