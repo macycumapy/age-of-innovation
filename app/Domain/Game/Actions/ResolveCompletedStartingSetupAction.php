@@ -6,11 +6,10 @@ namespace App\Domain\Game\Actions;
 
 use App\Domain\Game\Data\GameStateData;
 use App\Domain\Game\Data\PendingInteractionData;
+use App\Domain\Game\Data\StartingSetupResolutionData;
 use App\Domain\Game\Enums\Competency;
 use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\PendingInteractionType;
-use App\Models\GamePlayer;
-use Illuminate\Database\Eloquent\Collection;
 
 final class ResolveCompletedStartingSetupAction
 {
@@ -21,46 +20,37 @@ final class ResolveCompletedStartingSetupAction
     ) {
     }
 
-    /**
-     * @param Collection<int, GamePlayer> $players
-     * @return array{GamePlayer, GamePhase, list<array{player_id: int, tools: int, coins: int, scholars: int, power: int, books: int, knowledge_steps: int}>}
-     */
-    public function execute(GameStateData $state, Collection $players): array
+    public function execute(GameStateData $state): StartingSetupResolutionData
     {
-        foreach ($players as $competencyPlayer) {
-            $competencyPlayerState = collect($state->players)->firstWhere('playerId', $competencyPlayer->id);
-
-            if ($competencyPlayerState?->unassignedSpades >= 2
-                && in_array(Competency::Competency05->value, $competencyPlayerState->competencyIds, true)) {
+        foreach ($state->players as $competencyPlayer) {
+            if ($competencyPlayer->unassignedSpades >= 2
+                && in_array(Competency::Competency05->value, $competencyPlayer->competencyIds, true)) {
                 $eligibleHexIds = $this->findEligibleTerraformHexes->execute(
                     $state,
-                    $competencyPlayerState,
-                    $competencyPlayerState->homeland,
+                    $competencyPlayer,
+                    $competencyPlayer->homeland,
                 );
 
                 if ($eligibleHexIds !== []) {
                     $state->pendingInteraction = new PendingInteractionData(
                         PendingInteractionType::SpendSpades,
-                        $competencyPlayer->id,
+                        $competencyPlayer->playerId,
                         $eligibleHexIds,
                         [
                             'spadeCount' => 2,
                             'remainingSpades' => 2,
-                            'targetTerrain' => $competencyPlayerState->homeland->value,
+                            'targetTerrain' => $competencyPlayer->homeland->value,
                         ],
                     );
 
-                    return [$competencyPlayer, GamePhase::Setup, []];
+                    return new StartingSetupResolutionData($competencyPlayer->playerId, GamePhase::Setup, []);
                 }
             }
         }
 
-        foreach ($players as $desertPlayer) {
-            $desertPlayerState = collect($state->players)->firstWhere('playerId', $desertPlayer->id);
-
-            if ($desertPlayerState !== null
-                && $this->createDesertStartingSpadeInteraction->execute($state, $desertPlayerState)) {
-                return [$desertPlayer, GamePhase::Setup, []];
+        foreach ($state->players as $desertPlayer) {
+            if ($this->createDesertStartingSpadeInteraction->execute($state, $desertPlayer)) {
+                return new StartingSetupResolutionData($desertPlayer->playerId, GamePhase::Setup, []);
             }
         }
 
@@ -70,12 +60,6 @@ final class ResolveCompletedStartingSetupAction
         $state->round->incomeReceipts = [];
 
         [$nextPlayerState, $phase, $incomeReceipts] = $this->resolveIncomePhase->execute($state);
-        $nextPlayer = $players->firstWhere('id', $nextPlayerState->playerId);
-
-        if (! $nextPlayer instanceof GamePlayer) {
-            throw new \DomainException('Не найден следующий игрок после фазы дохода.');
-        }
-
-        return [$nextPlayer, $phase, $incomeReceipts];
+        return new StartingSetupResolutionData($nextPlayerState->playerId, $phase, $incomeReceipts);
     }
 }

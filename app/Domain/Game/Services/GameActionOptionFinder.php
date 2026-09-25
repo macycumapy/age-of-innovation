@@ -13,6 +13,7 @@ final class GameActionOptionFinder
 {
     public function __construct(
         private PlanningBundleOptionFinder $planningBundleOptionFinder,
+        private StartingBuildingOptionFinder $startingBuildingOptionFinder,
         private BookActionOptionFinder $bookActionOptionFinder,
         private PowerActionOptionFinder $powerActionOptionFinder,
         private BuildWorkshopOptionFinder $buildWorkshopOptionFinder,
@@ -54,6 +55,11 @@ final class GameActionOptionFinder
 
         if (! $player instanceof GamePlayerStateData) {
             return [];
+        }
+
+        $startingBuildingOptions = $this->startingBuildingOptionFinder->execute($state, $player);
+        if ($startingBuildingOptions !== []) {
+            return $startingBuildingOptions;
         }
 
         if ($state->pendingInteraction !== null) {

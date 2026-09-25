@@ -37,6 +37,10 @@ final class GameObserver
         $hasPlayerState = collect($game->state->players)
             ->contains('playerId', $game->active_game_player_id);
 
-        return ! $hasPlayerState || $game->state->pendingInteraction !== null;
+        $planningIsComplete = count($game->state->planningSelections) === count($game->state->turnOrder);
+
+        return ! $hasPlayerState
+            || $game->state->pendingInteraction !== null
+            || ($planningIsComplete && $game->state->pendingStartingBuildingHexId === null);
     }
 }

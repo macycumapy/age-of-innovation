@@ -139,10 +139,10 @@ final class ChooseCompetencyAction
                 $nextPlayer = $player;
                 $nextPhase = GamePhase::Setup;
             } elseif ($state->startingBuildingTurnIndex >= count($placementOrder)) {
-                [$nextPlayer, $nextPhase, $incomeReceipts] = $this->resolveCompletedStartingSetup->execute(
-                    $state,
-                    $lockedGame->players()->get(),
-                );
+                $resolution = $this->resolveCompletedStartingSetup->execute($state);
+                $nextPlayer = $lockedGame->players()->findOrFail($resolution->nextActivePlayerId);
+                $nextPhase = $resolution->phase;
+                $incomeReceipts = $resolution->incomeReceipts;
             } else {
                 $nextPlayer = $lockedGame->players()->whereKey($placementOrder[$state->startingBuildingTurnIndex])->firstOrFail();
                 $nextPhase = GamePhase::Setup;

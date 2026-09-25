@@ -8600,7 +8600,7 @@ class GameManagementTest extends TestCase
             players: [$playerState],
         );
 
-        [, $phase] = app(ResolveCompletedStartingSetupAction::class)->execute($state, $game->players()->get());
+        $phase = app(ResolveCompletedStartingSetupAction::class)->execute($state)->phase;
         $game->update(['state' => $state]);
 
         $this->assertSame(GamePhase::Setup, $phase);

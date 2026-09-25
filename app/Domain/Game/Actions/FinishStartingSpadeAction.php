@@ -151,10 +151,10 @@ final class FinishStartingSpadeAction
                         : $lockedGame->players()->findOrFail($nextPlayerState->playerId);
                 } else {
                     $state->pendingInteraction = null;
-                    [$nextPlayer, $nextPhase, $incomeReceipts] = $this->resolveCompletedStartingSetup->execute(
-                        $state,
-                        $lockedGame->players()->get(),
-                    );
+                    $resolution = $this->resolveCompletedStartingSetup->execute($state);
+                    $nextPlayer = $lockedGame->players()->findOrFail($resolution->nextActivePlayerId);
+                    $nextPhase = $resolution->phase;
+                    $incomeReceipts = $resolution->incomeReceipts;
                 }
             } elseif ($interactionPhase === GamePhase::ScienceBonus) {
                 $state->pendingInteraction = null;
@@ -196,10 +196,10 @@ final class FinishStartingSpadeAction
 
                     $nextPhase = GamePhase::Setup;
                 } else {
-                    [$nextPlayer, $nextPhase, $incomeReceipts] = $this->resolveCompletedStartingSetup->execute(
-                        $state,
-                        $lockedGame->players()->get(),
-                    );
+                    $resolution = $this->resolveCompletedStartingSetup->execute($state);
+                    $nextPlayer = $lockedGame->players()->findOrFail($resolution->nextActivePlayerId);
+                    $nextPhase = $resolution->phase;
+                    $incomeReceipts = $resolution->incomeReceipts;
                 }
             }
 

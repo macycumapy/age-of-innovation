@@ -19,7 +19,8 @@ final class StartingBuildingTurnController extends Controller
     ): Response {
         /** @var User $user */
         $user = $request->user();
-        $finishStartingBuildingTurn->execute($game, $user);
+        $player = $game->players()->whereBelongsTo($user)->sole();
+        $finishStartingBuildingTurn->execute($game, $player);
 
         return $this->gameChanged($game);
     }

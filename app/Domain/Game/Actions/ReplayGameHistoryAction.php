@@ -647,9 +647,9 @@ final class ReplayGameHistoryAction
             );
             $game->active_player_id = $player->user_id;
         } elseif ($state->startingBuildingTurnIndex >= count($placementOrder)) {
-            [$nextPlayer, $nextPhase] = $this->resolveCompletedStartingSetup->execute($state, $players);
-            $game->phase = $nextPhase;
-            $game->active_player_id = $nextPlayer->user_id;
+            $resolution = $this->resolveCompletedStartingSetup->execute($state);
+            $game->phase = $resolution->phase;
+            $game->active_player_id = $this->replayPlayer($players, $resolution->nextActivePlayerId)->user_id;
         } else {
             $game->active_player_id = $players->firstWhere(
                 'id',
@@ -773,9 +773,9 @@ final class ReplayGameHistoryAction
             $state->pendingInteraction = null;
 
             if ($state->startingBuildingTurnIndex >= count($placementOrder)) {
-                [$nextPlayer, $nextPhase] = $this->resolveCompletedStartingSetup->execute($state, $players);
-                $game->phase = $nextPhase;
-                $game->active_player_id = $nextPlayer->user_id;
+                $resolution = $this->resolveCompletedStartingSetup->execute($state);
+                $game->phase = $resolution->phase;
+                $game->active_player_id = $this->replayPlayer($players, $resolution->nextActivePlayerId)->user_id;
             } else {
                 $game->phase = GamePhase::Setup;
                 $game->active_player_id = $players->firstWhere(
@@ -790,9 +790,9 @@ final class ReplayGameHistoryAction
         }
 
         if ($state->startingBuildingTurnIndex >= count($placementOrder)) {
-            [$nextPlayer, $nextPhase] = $this->resolveCompletedStartingSetup->execute($state, $players);
-            $game->phase = $nextPhase;
-            $game->active_player_id = $nextPlayer->user_id;
+            $resolution = $this->resolveCompletedStartingSetup->execute($state);
+            $game->phase = $resolution->phase;
+            $game->active_player_id = $this->replayPlayer($players, $resolution->nextActivePlayerId)->user_id;
         } else {
             $game->active_player_id = $players->firstWhere(
                 'id',
@@ -1937,9 +1937,21 @@ final class ReplayGameHistoryAction
     private function completeStartingInteraction(Game $game, GameStateData $state, Collection $players): void
     {
         $state->pendingInteraction = null;
-        [$nextPlayer, $nextPhase] = $this->resolveCompletedStartingSetup->execute($state, $players);
-        $game->phase = $nextPhase;
-        $game->active_player_id = $nextPlayer->user_id;
+        $resolution = $this->resolveCompletedStartingSetup->execute($state);
+        $game->phase = $resolution->phase;
+        $game->active_player_id = $this->replayPlayer($players, $resolution->nextActivePlayerId)->user_id;
+    }
+
+    /** @param Collection<int, GamePlayer> $players */
+    private function replayPlayer(Collection $players, int $playerId): GamePlayer
+    {
+        $player = $players->firstWhere('id', $playerId);
+
+        if (! $player instanceof GamePlayer) {
+            $this->invalidHistory();
+        }
+
+        return $player;
     }
 
     /** @param Collection<int, GamePlayer> $players */

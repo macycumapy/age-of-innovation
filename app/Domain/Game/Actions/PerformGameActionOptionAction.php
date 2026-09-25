@@ -31,6 +31,7 @@ use App\Domain\Game\Data\RewardDistributionOptionData;
 use App\Domain\Game\Data\SacrificePowerOptionData;
 use App\Domain\Game\Data\SendScholarOptionData;
 use App\Domain\Game\Data\SpendSpadesOptionData;
+use App\Domain\Game\Data\StartingBuildingOptionData;
 use App\Domain\Game\Data\UpgradeBuildingOptionData;
 use App\Domain\Game\Data\WorkshopAfterTerraformingOptionData;
 use App\Domain\Game\Enums\GameActionOptionType;
@@ -45,6 +46,7 @@ final class PerformGameActionOptionAction
 {
     public function __construct(
         private ChoosePlanningBundleAction $choosePlanningBundle,
+        private FinishStartingBuildingTurnAction $finishStartingBuildingTurn,
         private PerformBookActionAction $performBookAction,
         private PerformPowerActionAction $performPowerAction,
         private BuildWorkshopAction $buildWorkshop,
@@ -88,6 +90,11 @@ final class PerformGameActionOptionAction
                 $game,
                 $player,
                 $option->homeland,
+            ),
+            $option instanceof StartingBuildingOptionData => $this->finishStartingBuildingTurn->execute(
+                $game,
+                $player,
+                $option->hexId,
             ),
             $option instanceof BookActionOptionData => $this->performBookAction->execute(
                 $game,

@@ -4,16 +4,12 @@ declare(strict_types=1);
 
 namespace App\Domain\Game\Actions;
 
-use App\Domain\Game\Data\PendingInteractionData;
-use App\Domain\Game\Enums\Competency;
-use App\Domain\Game\Enums\Faction;
+use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Enums\GameActionType;
 use App\Domain\Game\Enums\GameEventType;
 use App\Domain\Game\Enums\GamePhase;
-use App\Domain\Game\Enums\PendingInteractionType;
 use App\Models\Game;
 use App\Models\GamePlayer;
-use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -21,87 +17,34 @@ final class FinishStartingBuildingTurnAction
 {
     public function __construct(
         private AppendGameHistoryAction $appendGameHistory,
-        private DetermineStartingBuildingOrderAction $determineStartingBuildingOrder,
-        private ResolveCompletedStartingSetupAction $resolveCompletedStartingSetup,
+        private ApplyStartingBuildingAction $applyStartingBuilding,
     ) {
     }
 
-    public function execute(Game $game, User $user): Game
+    public function execute(Game $game, GamePlayer $player, ?string $hexId = null): Game
     {
-        return DB::transaction(function () use ($game, $user): Game {
+        return DB::transaction(function () use ($game, $player, $hexId): Game {
             $lockedGame = Game::query()->lockForUpdate()->findOrFail($game->id);
             $state = $lockedGame->state;
             $stateVersionBefore = $lockedGame->version;
-            $player = $lockedGame->players()->whereBelongsTo($user)->first();
+            $confirmedHexId = $hexId ?? $state->pendingStartingBuildingHexId;
 
-            if ($lockedGame->phase !== GamePhase::Setup || $lockedGame->active_player_id !== $user->id
-                || $state->pendingStartingBuildingHexId === null
-                || ! $player instanceof GamePlayer) {
+            if ($lockedGame->phase !== GamePhase::Setup
+                || $player->game_id !== $lockedGame->id
+                || ! $lockedGame->isActivePlayer($player)
+                || ! is_string($confirmedHexId)) {
                 throw ValidationException::withMessages(['game' => 'Сначала установите стартовый дом.']);
             }
 
-            $confirmedHexId = $state->pendingStartingBuildingHexId;
-            $confirmedBuilding = collect($state->board->hexes)
-                ->firstWhere('id', $confirmedHexId)?->building;
-
-            if ($confirmedBuilding === null) {
-                throw ValidationException::withMessages(['game' => 'Стартовое здание не найдено.']);
-            }
-
-            $state->pendingStartingBuildingHexId = null;
-            $state->startingBuildingTurnIndex++;
-            $placementOrder = $this->determineStartingBuildingOrder->execute($lockedGame);
-            $incomeReceipts = [];
-
             $playerState = collect($state->players)->firstWhere('playerId', $player->id);
-            if ($playerState === null) {
+            if (! $playerState instanceof GamePlayerStateData) {
                 throw ValidationException::withMessages(['game' => 'Не найдено состояние игрока.']);
             }
-
-            $hasFinishedOwnStartingBuildings = ! in_array(
-                $player->id,
-                array_slice($placementOrder, $state->startingBuildingTurnIndex),
-                true,
-            );
-
-            if (in_array($player->faction, [Faction::Inventors, Faction::Monks], true) && $hasFinishedOwnStartingBuildings) {
-                $availableCompetencyIds = array_values(array_unique(array_filter(
-                    array_map(
-                        static fn (Competency|string $competency): string => $competency instanceof Competency
-                            ? $competency->value
-                            : $competency,
-                        $state->availableCompetencyIds,
-                    ),
-                    static fn (string $competencyId): bool => ! in_array(
-                        $competencyId,
-                        $playerState->competencyIds,
-                        true,
-                    ),
-                )));
-                $state->pendingInteraction = new PendingInteractionData(
-                    PendingInteractionType::ChooseCompetency,
-                    $player->id,
-                    $availableCompetencyIds,
-                );
-                $nextPlayer = $player;
-                $nextPhase = GamePhase::Setup;
-            } elseif ($state->startingBuildingTurnIndex >= count($placementOrder)) {
-                [$nextPlayer, $nextPhase, $incomeReceipts] = $this->resolveCompletedStartingSetup->execute(
-                    $state,
-                    $lockedGame->players()->get(),
-                );
-            } else {
-                $nextPlayer = $lockedGame->players()->whereKey($placementOrder[$state->startingBuildingTurnIndex])->first();
-                $nextPhase = GamePhase::Setup;
-
-                if (! $nextPlayer instanceof GamePlayer) {
-                    throw ValidationException::withMessages(['game' => 'Нарушен порядок стартового выставления.']);
-                }
-            }
+            $result = $this->applyStartingBuilding->execute($state, $playerState, $confirmedHexId);
 
             $lockedGame->update([
-                'phase' => $nextPhase,
-                'active_player_id' => $nextPlayer->user_id,
+                'phase' => $result->nextPhase,
+                'active_game_player_id' => $result->nextActivePlayerId,
                 'state' => $state,
                 'version' => $lockedGame->version + 1,
             ]);
@@ -111,27 +54,27 @@ final class FinishStartingBuildingTurnAction
                 GameActionType::PlaceStartingBuilding,
                 [
                     'hex_id' => $confirmedHexId,
-                    'building_type' => $confirmedBuilding->type->value,
+                    'building_type' => $result->buildingType->value,
                     'confirmed' => true,
-                    'income_started' => $nextPhase !== GamePhase::Setup,
+                    'income_started' => $result->nextPhase !== GamePhase::Setup,
                     'round' => $state->round->number,
-                    'income_receipts' => $incomeReceipts,
+                    'income_receipts' => $result->incomeReceipts,
                 ],
                 [
                     [
                         'type' => GameEventType::StartingBuildingPlaced->value,
                         'player_id' => $player->id,
                         'hex_id' => $confirmedHexId,
-                        'building_type' => $confirmedBuilding->type->value,
+                        'building_type' => $result->buildingType->value,
                     ],
-                    ...($nextPhase !== GamePhase::Setup ? [[
+                    ...($result->nextPhase !== GamePhase::Setup ? [[
                         'type' => GameEventType::IncomePhaseStarted->value,
                         'round' => $state->round->number,
                     ]] : []),
                 ],
                 $stateVersionBefore,
                 $lockedGame->version,
-                $nextPhase !== GamePhase::Setup,
+                $result->nextPhase !== GamePhase::Setup,
             );
 
             return $lockedGame->refresh();

@@ -26,7 +26,9 @@ use App\Domain\Game\Data\PendingInteractionData;
 use App\Domain\Game\Data\PlaceBridgeOptionData;
 use App\Domain\Game\Data\PlaceNeutralBuildingOptionData;
 use App\Domain\Game\Data\PlacePalaceGuildOptionData;
+use App\Domain\Game\Data\PlanningBundleData;
 use App\Domain\Game\Data\PlanningBundleOptionData;
+use App\Domain\Game\Data\PlayerPlanningSelectionData;
 use App\Domain\Game\Data\PlayerResourcesData;
 use App\Domain\Game\Data\PlayerSpecialActionOptionData;
 use App\Domain\Game\Data\PowerActionOptionData;
@@ -39,6 +41,7 @@ use App\Domain\Game\Data\RoundStateData;
 use App\Domain\Game\Data\SacrificePowerOptionData;
 use App\Domain\Game\Data\SendScholarOptionData;
 use App\Domain\Game\Data\SpendSpadesOptionData;
+use App\Domain\Game\Data\StartingBuildingOptionData;
 use App\Domain\Game\Data\UpgradeBuildingOptionData;
 use App\Domain\Game\Data\WorkshopAfterTerraformingOptionData;
 use App\Domain\Game\Enums\BookAction;
@@ -217,6 +220,291 @@ class PlayAutomatedTurnActionTest extends TestCase
             $botPlayer,
             new PlanningBundleOptionData($setupPool->planningBundles[0]->homeland),
         );
+    }
+
+    public function test_bot_places_and_confirms_a_starting_building_before_handing_control_to_human(): void
+    {
+        Queue::fake();
+
+        $game = Game::factory()->create([
+            'status' => GameStatus::Active,
+            'phase' => GamePhase::Setup,
+        ]);
+        $botPlayer = GamePlayer::factory()->bot(GameBotDifficulty::Fast)->create([
+            'game_id' => $game->id,
+            'user_id' => null,
+            'seat' => 1,
+            'faction' => Faction::Blessed,
+            'homeland' => TerrainType::Forest,
+        ]);
+        $human = User::factory()->create();
+        $humanPlayer = GamePlayer::factory()->create([
+            'game_id' => $game->id,
+            'user_id' => $human->id,
+            'seat' => 2,
+            'faction' => Faction::Felines,
+            'homeland' => TerrainType::Mountain,
+        ]);
+        $botState = $this->playerState($botPlayer);
+        $humanState = new GamePlayerStateData(
+            playerId: $humanPlayer->id,
+            userId: $human->id,
+            color: PlayerColor::Red,
+            faction: Faction::Felines,
+            homeland: TerrainType::Mountain,
+            roundBonus: RoundBonus::PowerCoins,
+        );
+        $game->update([
+            'active_game_player_id' => $botPlayer->id,
+            'state' => new GameStateData(
+                turnOrder: [$botPlayer->id, $humanPlayer->id],
+                board: new BoardStateData(hexes: [
+                    new BoardHexStateData(
+                        id: '0:0',
+                        q: 0,
+                        r: 0,
+                        initialTerrain: TerrainType::Forest,
+                        terrain: TerrainType::Forest,
+                    ),
+                    new BoardHexStateData(
+                        id: '1:0',
+                        q: 1,
+                        r: 0,
+                        initialTerrain: TerrainType::Mountain,
+                        terrain: TerrainType::Mountain,
+                    ),
+                ]),
+                players: [$botState, $humanState],
+                round: new RoundStateData(phase: GamePhase::Setup),
+                planningSelections: [
+                    new PlayerPlanningSelectionData(
+                        $botPlayer->id,
+                        new PlanningBundleData(TerrainType::Forest, Faction::Blessed, RoundBonus::Coins),
+                    ),
+                    new PlayerPlanningSelectionData(
+                        $humanPlayer->id,
+                        new PlanningBundleData(TerrainType::Mountain, Faction::Felines, RoundBonus::PowerCoins),
+                    ),
+                ],
+            ),
+        ]);
+
+        app(PlayAutomatedTurnAction::class)->execute($game, $botPlayer, GameBotDifficulty::Fast);
+
+        $game->refresh();
+        $this->assertSame($humanPlayer->id, $game->active_game_player_id);
+        $this->assertSame(1, $game->state->startingBuildingTurnIndex);
+        $this->assertNull($game->state->pendingStartingBuildingHexId);
+        $this->assertSame(
+            $botPlayer->id,
+            collect($game->state->board->hexes)->firstWhere('id', '0:0')?->building?->ownerPlayerId,
+        );
+        $this->assertSame(
+            [GameActionType::PlaceStartingBuilding],
+            $game->actions()->pluck('type')->all(),
+        );
+    }
+
+    public function test_starting_building_simulation_matches_execution_for_bot_without_user(): void
+    {
+        Queue::fake();
+
+        $game = Game::factory()->create([
+            'status' => GameStatus::Active,
+            'phase' => GamePhase::Setup,
+        ]);
+        $botPlayer = GamePlayer::factory()->bot(GameBotDifficulty::Fast)->create([
+            'game_id' => $game->id,
+            'user_id' => null,
+            'seat' => 1,
+            'faction' => Faction::Blessed,
+            'homeland' => TerrainType::Forest,
+        ]);
+        $humanPlayer = GamePlayer::factory()->create([
+            'game_id' => $game->id,
+            'seat' => 2,
+            'faction' => Faction::Felines,
+            'homeland' => TerrainType::Mountain,
+        ]);
+        $game->update([
+            'active_game_player_id' => $botPlayer->id,
+            'state' => new GameStateData(
+                turnOrder: [$botPlayer->id, $humanPlayer->id],
+                board: new BoardStateData(hexes: [
+                    new BoardHexStateData('forest', 0, 0, TerrainType::Forest, TerrainType::Forest),
+                ]),
+                players: [
+                    $this->playerState($botPlayer),
+                    new GamePlayerStateData(
+                        $humanPlayer->id,
+                        $humanPlayer->user_id,
+                        PlayerColor::Red,
+                        Faction::Felines,
+                        TerrainType::Mountain,
+                        RoundBonus::PowerCoins,
+                    ),
+                ],
+                round: new RoundStateData(phase: GamePhase::Setup),
+                planningSelections: [
+                    new PlayerPlanningSelectionData(
+                        $botPlayer->id,
+                        new PlanningBundleData(TerrainType::Forest, Faction::Blessed, RoundBonus::Coins),
+                    ),
+                    new PlayerPlanningSelectionData(
+                        $humanPlayer->id,
+                        new PlanningBundleData(TerrainType::Mountain, Faction::Felines, RoundBonus::PowerCoins),
+                    ),
+                ],
+            ),
+        ]);
+
+        $this->assertSimulationMatchesExecution(
+            $game,
+            $botPlayer,
+            new StartingBuildingOptionData('forest'),
+        );
+    }
+
+    public function test_starting_competency_simulation_matches_execution_for_bot_without_user(): void
+    {
+        Queue::fake();
+
+        $game = Game::factory()->create([
+            'status' => GameStatus::Active,
+            'phase' => GamePhase::Setup,
+        ]);
+        $botPlayer = GamePlayer::factory()->bot(GameBotDifficulty::Fast)->create([
+            'game_id' => $game->id,
+            'user_id' => null,
+            'seat' => 1,
+            'faction' => Faction::Monks,
+            'homeland' => TerrainType::Mountain,
+        ]);
+        $humanPlayer = GamePlayer::factory()->create([
+            'game_id' => $game->id,
+            'seat' => 2,
+            'faction' => Faction::Blessed,
+            'homeland' => TerrainType::Forest,
+        ]);
+        $botState = new GamePlayerStateData(
+            $botPlayer->id,
+            null,
+            PlayerColor::Yellow,
+            Faction::Monks,
+            TerrainType::Mountain,
+            RoundBonus::Coins,
+        );
+        $humanState = $this->playerState($humanPlayer);
+        $game->update([
+            'active_game_player_id' => $botPlayer->id,
+            'state' => new GameStateData(
+                turnOrder: [$botPlayer->id, $humanPlayer->id],
+                board: new BoardStateData(hexes: [
+                    new BoardHexStateData('mountain', 0, 0, TerrainType::Mountain, TerrainType::Mountain),
+                    new BoardHexStateData('wasteland', 1, 0, TerrainType::Wasteland, TerrainType::Wasteland),
+                ]),
+                players: [$botState, $humanState],
+                round: new RoundStateData(phase: GamePhase::Setup),
+                availableCompetencyIds: [Competency::Competency05->value],
+                planningSelections: [
+                    new PlayerPlanningSelectionData(
+                        $botPlayer->id,
+                        new PlanningBundleData(TerrainType::Mountain, Faction::Monks, RoundBonus::Coins),
+                    ),
+                    new PlayerPlanningSelectionData(
+                        $humanPlayer->id,
+                        new PlanningBundleData(TerrainType::Forest, Faction::Blessed, RoundBonus::PowerCoins),
+                    ),
+                ],
+                startingBuildingTurnIndex: 3,
+                pendingInteraction: new PendingInteractionData(
+                    PendingInteractionType::ChooseCompetency,
+                    $botPlayer->id,
+                    [Competency::Competency05->value],
+                ),
+            ),
+        ]);
+
+        $this->assertSimulationMatchesExecution(
+            $game,
+            $botPlayer,
+            new ChooseCompetencyOptionData(Competency::Competency05),
+        );
+    }
+
+    public function test_bots_complete_starting_building_setup_without_users(): void
+    {
+        Queue::fake();
+
+        $game = Game::factory()->create([
+            'status' => GameStatus::Active,
+            'phase' => GamePhase::Setup,
+        ]);
+        $firstBot = GamePlayer::factory()->bot(GameBotDifficulty::Fast)->create([
+            'game_id' => $game->id,
+            'user_id' => null,
+            'seat' => 1,
+            'faction' => Faction::Blessed,
+            'homeland' => TerrainType::Forest,
+        ]);
+        $secondBot = GamePlayer::factory()->bot(GameBotDifficulty::Fast)->create([
+            'game_id' => $game->id,
+            'user_id' => null,
+            'seat' => 2,
+            'faction' => Faction::Felines,
+            'homeland' => TerrainType::Mountain,
+        ]);
+        $firstState = $this->playerState($firstBot);
+        $secondState = new GamePlayerStateData(
+            $secondBot->id,
+            null,
+            PlayerColor::Red,
+            Faction::Felines,
+            TerrainType::Mountain,
+            RoundBonus::PowerCoins,
+        );
+        $setupPool = app(GameSetupPoolFactory::class)->createFromSeed(2, 'automated-starting-buildings');
+        $game->update([
+            'active_game_player_id' => $firstBot->id,
+            'state' => new GameStateData(
+                turnOrder: [$firstBot->id, $secondBot->id],
+                board: new BoardStateData(hexes: [
+                    new BoardHexStateData('forest-1', 0, 0, TerrainType::Forest, TerrainType::Forest),
+                    new BoardHexStateData('forest-2', 1, 0, TerrainType::Forest, TerrainType::Forest),
+                    new BoardHexStateData('mountain-1', 2, 0, TerrainType::Mountain, TerrainType::Mountain),
+                    new BoardHexStateData('mountain-2', 3, 0, TerrainType::Mountain, TerrainType::Mountain),
+                ]),
+                players: [$firstState, $secondState],
+                round: new RoundStateData(phase: GamePhase::Setup),
+                setupPool: $setupPool,
+                planningSelections: [
+                    new PlayerPlanningSelectionData(
+                        $firstBot->id,
+                        new PlanningBundleData(TerrainType::Forest, Faction::Blessed, RoundBonus::Coins),
+                    ),
+                    new PlayerPlanningSelectionData(
+                        $secondBot->id,
+                        new PlanningBundleData(TerrainType::Mountain, Faction::Felines, RoundBonus::PowerCoins),
+                    ),
+                ],
+            ),
+        ]);
+
+        for ($turn = 0; $turn < 4 && $game->refresh()->phase === GamePhase::Setup; $turn++) {
+            $activeBot = $game->active_game_player_id === $firstBot->id ? $firstBot : $secondBot;
+            app(PlayAutomatedTurnAction::class)->execute($game, $activeBot, GameBotDifficulty::Fast);
+        }
+
+        $game->refresh();
+        $this->assertNotSame(GamePhase::Setup, $game->phase);
+        $this->assertSame(4, $game->state->startingBuildingTurnIndex);
+        $this->assertCount(
+            4,
+            collect($game->state->board->hexes)->filter(
+                static fn (BoardHexStateData $hex): bool => $hex->building !== null,
+            ),
+        );
+        $this->assertCount(4, $game->actions()->where('type', GameActionType::PlaceStartingBuilding)->get());
     }
 
     public function test_changing_active_player_does_not_dispatch_automated_turn_for_human(): void

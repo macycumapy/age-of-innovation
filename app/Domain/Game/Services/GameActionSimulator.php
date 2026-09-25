@@ -33,6 +33,7 @@ use App\Domain\Game\Data\RewardDistributionOptionData;
 use App\Domain\Game\Data\SacrificePowerOptionData;
 use App\Domain\Game\Data\SendScholarOptionData;
 use App\Domain\Game\Data\SpendSpadesOptionData;
+use App\Domain\Game\Data\StartingBuildingOptionData;
 use App\Domain\Game\Data\UpgradeBuildingOptionData;
 use App\Domain\Game\Data\WorkshopAfterTerraformingOptionData;
 use DomainException;
@@ -41,6 +42,7 @@ final class GameActionSimulator
 {
     public function __construct(
         private PlanningBundleSimulator $planningBundleSimulator,
+        private StartingBuildingSimulator $startingBuildingSimulator,
         private BookActionSimulator $bookActionSimulator,
         private PowerActionSimulator $powerActionSimulator,
         private BuildWorkshopSimulator $buildWorkshopSimulator,
@@ -77,6 +79,7 @@ final class GameActionSimulator
     ): GameActionSimulationData {
         return match (true) {
             $option instanceof PlanningBundleOptionData => $this->planningBundleSimulator->execute($state, $playerId, $option),
+            $option instanceof StartingBuildingOptionData => $this->startingBuildingSimulator->execute($state, $playerId, $option),
             $option instanceof BookActionOptionData => $this->bookActionSimulator->execute($state, $playerId, $option),
             $option instanceof PowerActionOptionData => $this->powerActionSimulator->execute($state, $playerId, $option),
             $option instanceof BuildWorkshopOptionData => $this->buildWorkshopSimulator->execute($state, $playerId, $option),
