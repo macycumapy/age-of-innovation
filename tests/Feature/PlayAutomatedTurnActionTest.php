@@ -21,7 +21,10 @@ use App\Domain\Game\Data\PendingInteractionData;
 use App\Domain\Game\Data\PlayerResourcesData;
 use App\Domain\Game\Data\PowerActionOptionData;
 use App\Domain\Game\Data\PowerBowlsStateData;
+use App\Domain\Game\Data\ResourceExchangeOptionData;
+use App\Domain\Game\Data\RoundBonusOfferData;
 use App\Domain\Game\Data\RoundStateData;
+use App\Domain\Game\Data\SacrificePowerOptionData;
 use App\Domain\Game\Data\SendScholarOptionData;
 use App\Domain\Game\Data\UpgradeBuildingOptionData;
 use App\Domain\Game\Enums\BookAction;
@@ -31,18 +34,25 @@ use App\Domain\Game\Enums\GameActionType;
 use App\Domain\Game\Enums\GameBotDifficulty;
 use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\GameStatus;
+use App\Domain\Game\Enums\Innovation;
 use App\Domain\Game\Enums\KnowledgeDiscipline;
 use App\Domain\Game\Enums\PalaceAbility;
 use App\Domain\Game\Enums\PendingInteractionType;
 use App\Domain\Game\Enums\PlayerColor;
 use App\Domain\Game\Enums\PowerAction;
+use App\Domain\Game\Enums\ResourceExchange;
 use App\Domain\Game\Enums\RoundBonus;
 use App\Domain\Game\Enums\TerrainType;
 use App\Domain\Game\Enums\TownTile;
 use App\Domain\Game\Factories\GameSetupPoolFactory;
 use App\Domain\Game\Services\DevelopmentAdvancementOptionFinder;
 use App\Domain\Game\Services\GameActionSimulator;
+use App\Domain\Game\Services\InnovationSpecialActionOptionFinder;
+use App\Domain\Game\Services\MakeInnovationOptionFinder;
 use App\Domain\Game\Services\PaidTerraformingOptionFinder;
+use App\Domain\Game\Services\PassOptionFinder;
+use App\Domain\Game\Services\PlayerSpecialActionOptionFinder;
+use App\Domain\Game\Services\ResourceConversionOptionFinder;
 use App\Jobs\PlayAutomatedTurnJob;
 use App\Models\Game;
 use App\Models\GamePlayer;
@@ -553,6 +563,154 @@ class PlayAutomatedTurnActionTest extends TestCase
         $this->assertSame([null], $game->actions()->pluck('player_id')->all());
     }
 
+    public function test_resource_conversion_simulations_match_execution_for_bot_without_user(): void
+    {
+        Queue::fake();
+
+        foreach ([ResourceExchangeOptionData::class, SacrificePowerOptionData::class] as $optionClass) {
+            $game = Game::factory()->create([
+                'status' => GameStatus::Active,
+                'phase' => GamePhase::Actions,
+            ]);
+            $botPlayer = GamePlayer::factory()->bot(GameBotDifficulty::Fast)->create([
+                'game_id' => $game->id,
+                'user_id' => null,
+            ]);
+            $botState = $this->playerState($botPlayer);
+            $botState->resources->power = new PowerBowlsStateData(bowlTwo: 4, bowlThree: 5);
+            $state = new GameStateData(
+                turnOrder: [$botPlayer->id],
+                players: [$botState],
+                round: new RoundStateData(phase: GamePhase::Actions),
+            );
+            $game->update([
+                'active_game_player_id' => $botPlayer->id,
+                'state' => $state,
+            ]);
+            $options = collect(app(ResourceConversionOptionFinder::class)->execute($botState));
+            $option = $optionClass === ResourceExchangeOptionData::class
+                ? $options->first(
+                    static fn (GameActionOption $candidate): bool => $candidate instanceof ResourceExchangeOptionData
+                        && $candidate->exchange === ResourceExchange::PowerToBook
+                        && $candidate->discipline === KnowledgeDiscipline::Law,
+                )
+                : $options->first(
+                    static fn (GameActionOption $candidate): bool => $candidate instanceof SacrificePowerOptionData,
+                );
+
+            $this->assertInstanceOf($optionClass, $option);
+            $this->assertSimulationMatchesExecution($game, $botPlayer, $option);
+        }
+    }
+
+    public function test_innovation_simulations_match_execution_for_bot_without_user(): void
+    {
+        Queue::fake();
+
+        $game = Game::factory()->create([
+            'status' => GameStatus::Active,
+            'phase' => GamePhase::Actions,
+        ]);
+        $botPlayer = GamePlayer::factory()->bot(GameBotDifficulty::Fast)->create([
+            'game_id' => $game->id,
+            'user_id' => null,
+        ]);
+        $setupPool = app(GameSetupPoolFactory::class)->createFromSeed(2, 'innovation-execution-parity');
+        $setupPool->innovations[0] = Innovation::LeagueOfCities;
+        $botState = $this->playerState(
+            $botPlayer,
+            new BookSupplyData(banking: 2, law: 2, medicine: 1),
+        );
+        $botState->resources->coins = 10;
+        $botState->townTileIds = [TownTile::Tools->value, TownTile::Coins->value];
+        $state = new GameStateData(
+            turnOrder: [$botPlayer->id],
+            players: [$botState],
+            round: new RoundStateData(phase: GamePhase::Actions),
+            availableInventionIds: [Innovation::LeagueOfCities->value],
+            setupPool: $setupPool,
+        );
+        $game->update([
+            'active_game_player_id' => $botPlayer->id,
+            'state' => $state,
+        ]);
+        $option = app(MakeInnovationOptionFinder::class)->execute($state, $botState)[0];
+
+        $this->assertSimulationMatchesExecution($game, $botPlayer, $option);
+    }
+
+    public function test_special_action_simulations_match_execution_for_bot_without_user(): void
+    {
+        Queue::fake();
+
+        foreach ([Innovation::Professor, null] as $innovation) {
+            $game = Game::factory()->create([
+                'status' => GameStatus::Active,
+                'phase' => GamePhase::Actions,
+            ]);
+            $botPlayer = GamePlayer::factory()->bot(GameBotDifficulty::Fast)->create([
+                'game_id' => $game->id,
+                'user_id' => null,
+            ]);
+            $botState = $this->playerState($botPlayer);
+            $botState->faction = $innovation instanceof Innovation ? Faction::Blessed : Faction::Philosophers;
+            $botState->inventionIds = $innovation instanceof Innovation ? [$innovation->value] : [];
+            $state = new GameStateData(
+                turnOrder: [$botPlayer->id],
+                players: [$botState],
+                round: new RoundStateData(phase: GamePhase::Actions),
+            );
+            $game->update([
+                'active_game_player_id' => $botPlayer->id,
+                'state' => $state,
+            ]);
+            $options = $innovation instanceof Innovation
+                ? app(InnovationSpecialActionOptionFinder::class)->execute($state, $botState)
+                : app(PlayerSpecialActionOptionFinder::class)->execute($state, $botState);
+            $option = $options[0];
+
+            $this->assertSimulationMatchesExecution($game, $botPlayer, $option);
+        }
+    }
+
+    public function test_pass_simulation_matches_execution_for_bot_without_user(): void
+    {
+        Queue::fake();
+
+        $game = Game::factory()->create([
+            'status' => GameStatus::Active,
+            'phase' => GamePhase::Actions,
+        ]);
+        $botPlayer = GamePlayer::factory()->bot(GameBotDifficulty::Fast)->create([
+            'game_id' => $game->id,
+            'user_id' => null,
+            'seat' => 1,
+        ]);
+        $opponent = GamePlayer::factory()->create([
+            'game_id' => $game->id,
+            'seat' => 2,
+        ]);
+        $setupPool = app(GameSetupPoolFactory::class)->createFromSeed(2, 'pass-execution-parity');
+        $setupPool->availableRoundBonuses = [
+            new RoundBonusOfferData(RoundBonus::RiverWorkshop, 2),
+            new RoundBonusOfferData(RoundBonus::BuildGuild, 1),
+        ];
+        $botState = $this->playerState($botPlayer);
+        $state = new GameStateData(
+            turnOrder: [$botPlayer->id, $opponent->id],
+            players: [$botState, $this->playerState($opponent)],
+            round: new RoundStateData(phase: GamePhase::Actions),
+            setupPool: $setupPool,
+        );
+        $game->update([
+            'active_game_player_id' => $botPlayer->id,
+            'state' => $state,
+        ]);
+        $option = app(PassOptionFinder::class)->execute($state, $botState)[0];
+
+        $this->assertSimulationMatchesExecution($game, $botPlayer, $option);
+    }
+
     private function playerState(GamePlayer $player, ?BookSupplyData $books = null): GamePlayerStateData
     {
         return new GamePlayerStateData(
@@ -592,6 +750,10 @@ class PlayAutomatedTurnActionTest extends TestCase
         $comparableState->round->turnStartVersion = null;
         $comparableState->townChoiceCheckpoint = null;
 
-        return $comparableState->toArray();
+        return json_decode(
+            json_encode($comparableState->toArray(), JSON_THROW_ON_ERROR),
+            true,
+            flags: JSON_THROW_ON_ERROR,
+        );
     }
 }
