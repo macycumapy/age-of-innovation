@@ -4,12 +4,16 @@ declare(strict_types=1);
 
 namespace Tests\Unit;
 
+use App\Domain\Game\Data\ChooseCompetencyOptionData;
 use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Data\GameStateData;
 use App\Domain\Game\Data\PendingInteractionData;
+use App\Domain\Game\Data\PlanningBundleData;
+use App\Domain\Game\Data\PlayerPlanningSelectionData;
 use App\Domain\Game\Data\PlayerResourcesData;
 use App\Domain\Game\Data\RewardDistributionOptionData;
 use App\Domain\Game\Data\RoundStateData;
+use App\Domain\Game\Enums\Competency;
 use App\Domain\Game\Enums\Faction;
 use App\Domain\Game\Enums\GameBotDifficulty;
 use App\Domain\Game\Enums\GamePhase;
@@ -47,6 +51,29 @@ class GameActionSelectorTest extends TestCase
         $state->round->phase = GamePhase::Income;
 
         $this->assertNull(app(GameActionSelector::class)->execute($state, 1));
+    }
+
+    public function test_it_selects_a_starting_competency_for_monks_without_an_interaction_reason(): void
+    {
+        $state = $this->state();
+        $state->players[0]->faction = Faction::Monks;
+        $state->availableCompetencyIds = [Competency::Competency04->value];
+        $state->turnOrder = [1];
+        $state->planningSelections = [new PlayerPlanningSelectionData(
+            1,
+            new PlanningBundleData(TerrainType::Forest, Faction::Monks, RoundBonus::Coins),
+        )];
+        $state->pendingInteraction = new PendingInteractionData(
+            PendingInteractionType::ChooseCompetency,
+            1,
+            [Competency::Competency04->value],
+        );
+
+        $selection = app(GameActionSelector::class)->execute($state, 1, GameBotDifficulty::Fast);
+
+        $this->assertNotNull($selection);
+        $this->assertInstanceOf(ChooseCompetencyOptionData::class, $selection->option);
+        $this->assertSame(Competency::Competency04, $selection->option->competency);
     }
 
     public function test_difficulty_profiles_increase_search_limits(): void

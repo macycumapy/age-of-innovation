@@ -8,6 +8,8 @@ use App\Domain\Game\Data\ChooseCompetencyOptionData;
 use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Data\GameStateData;
 use App\Domain\Game\Enums\Competency;
+use App\Domain\Game\Enums\Faction;
+use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\PendingInteractionType;
 
 final class ChooseCompetencyOptionFinder
@@ -17,9 +19,14 @@ final class ChooseCompetencyOptionFinder
     {
         $interaction = $state->pendingInteraction;
         $reason = $interaction?->context['reason'] ?? null;
+        $isStartingCompetency = $state->round->phase === GamePhase::Setup
+            && $interaction?->playerId === $player->playerId
+            && in_array($player->faction, [Faction::Monks, Faction::Inventors], true)
+            && $reason === null;
+
         if ($interaction?->type !== PendingInteractionType::ChooseCompetency
             || $interaction->playerId !== $player->playerId
-            || ! in_array($reason, ['building', 'innovation'], true)) {
+            || (! $isStartingCompetency && ! in_array($reason, ['building', 'innovation'], true))) {
             return [];
         }
 
