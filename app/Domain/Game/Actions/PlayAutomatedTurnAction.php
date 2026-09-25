@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Domain\Game\Actions;
 
-use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Enums\GameBotDifficulty;
 use App\Domain\Game\Services\GameActionSelector;
 use App\Models\Game;
@@ -39,11 +38,6 @@ final class PlayAutomatedTurnAction
             }
 
             $state = $game->state;
-            $playerState = collect($state->players)->firstWhere('playerId', $player->id);
-
-            if (! $playerState instanceof GamePlayerStateData) {
-                throw new DomainException('Не найдено состояние автоматического игрока.');
-            }
 
             if ($state->pendingInteraction === null && $state->round->hasTakenMainAction) {
                 return $this->finishActionTurn->execute($game, $player);

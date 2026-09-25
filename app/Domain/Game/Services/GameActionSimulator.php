@@ -24,6 +24,7 @@ use App\Domain\Game\Data\PlaceAnnexOptionData;
 use App\Domain\Game\Data\PlaceBridgeOptionData;
 use App\Domain\Game\Data\PlaceNeutralBuildingOptionData;
 use App\Domain\Game\Data\PlacePalaceGuildOptionData;
+use App\Domain\Game\Data\PlanningBundleOptionData;
 use App\Domain\Game\Data\PlayerSpecialActionOptionData;
 use App\Domain\Game\Data\PowerActionOptionData;
 use App\Domain\Game\Data\PowerOfferOptionData;
@@ -39,6 +40,7 @@ use DomainException;
 final class GameActionSimulator
 {
     public function __construct(
+        private PlanningBundleSimulator $planningBundleSimulator,
         private BookActionSimulator $bookActionSimulator,
         private PowerActionSimulator $powerActionSimulator,
         private BuildWorkshopSimulator $buildWorkshopSimulator,
@@ -74,6 +76,7 @@ final class GameActionSimulator
         GameActionOption $option,
     ): GameActionSimulationData {
         return match (true) {
+            $option instanceof PlanningBundleOptionData => $this->planningBundleSimulator->execute($state, $playerId, $option),
             $option instanceof BookActionOptionData => $this->bookActionSimulator->execute($state, $playerId, $option),
             $option instanceof PowerActionOptionData => $this->powerActionSimulator->execute($state, $playerId, $option),
             $option instanceof BuildWorkshopOptionData => $this->buildWorkshopSimulator->execute($state, $playerId, $option),

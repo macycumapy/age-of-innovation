@@ -4,121 +4,54 @@ declare(strict_types=1);
 
 namespace App\Domain\Game\Actions;
 
-use App\Domain\Game\Data\PendingInteractionData;
-use App\Domain\Game\Data\PlanningBundleData;
-use App\Domain\Game\Data\PlayerPlanningSelectionData;
-use App\Domain\Game\Data\PowerBowlsStateData;
 use App\Domain\Game\Enums\GameActionType;
 use App\Domain\Game\Enums\GameEventType;
 use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\GameStatus;
-use App\Domain\Game\Enums\KnowledgeDiscipline;
-use App\Domain\Game\Enums\PendingInteractionType;
 use App\Domain\Game\Enums\TerrainType;
-use App\Domain\Game\Factories\GamePlayerStateFactory;
 use App\Models\Game;
-use App\Models\User;
+use App\Models\GamePlayer;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 final class ChoosePlanningBundleAction
 {
     public function __construct(
-        private GamePlayerStateFactory $playerStateFactory,
-        private DetermineNextPlanningPlayerAction $determineNextPlanningPlayer,
-        private InitializeNeutralKnowledgeFactionAction $initializeNeutralKnowledgeFaction,
+        private ApplyPlanningBundleAction $applyPlanningBundle,
         private AppendGameHistoryAction $appendGameHistory,
     ) {
     }
 
-    public function execute(Game $game, User $user, TerrainType $homeland): Game
+    public function execute(Game $game, GamePlayer $player, TerrainType $homeland): Game
     {
-        return DB::transaction(function () use ($game, $user, $homeland): Game {
+        return DB::transaction(function () use ($game, $player, $homeland): Game {
             $lockedGame = Game::query()->lockForUpdate()->findOrFail($game->id);
             $stateVersionBefore = $lockedGame->version;
 
             if ($lockedGame->status !== GameStatus::Active
                 || $lockedGame->phase !== GamePhase::Setup
-                || $lockedGame->state->setupPool === null) {
+                || $player->game_id !== $lockedGame->id
+                || ! $lockedGame->isActivePlayer($player)
+                || $player->faction !== null) {
                 throw ValidationException::withMessages([
                     'game' => 'Выбор стартового комплекта сейчас недоступен.',
                 ]);
             }
 
-            if ($lockedGame->active_player_id !== $user->id) {
-                throw ValidationException::withMessages([
-                    'game' => 'Сейчас стартовый комплект выбирает другой игрок.',
-                ]);
-            }
-
-            $player = $lockedGame->players()->whereBelongsTo($user)->firstOrFail();
-
-            if ($player->faction !== null) {
-                throw ValidationException::withMessages([
-                    'game' => 'Стартовый комплект уже выбран.',
-                ]);
-            }
-
-            $setupPool = $lockedGame->state->setupPool;
-            $bundle = collect($setupPool->planningBundles)
-                ->first(
-                    static fn (PlanningBundleData $bundle): bool => $bundle->homeland === $homeland,
-                );
-
-            if ($bundle === null) {
-                throw ValidationException::withMessages([
-                    'homeland' => 'Стартовый комплект не найден.',
-                ]);
-            }
-
             $state = $lockedGame->state;
-            $isBundleSelected = collect($state->planningSelections)->contains(
-                static fn (PlayerPlanningSelectionData $selection): bool => $selection->bundle->homeland === $bundle->homeland,
+            $result = $this->applyPlanningBundle->execute(
+                $state,
+                $player->id,
+                $player->user_id,
+                $homeland,
             );
-
-            if ($isBundleSelected) {
-                throw ValidationException::withMessages([
-                    'homeland' => 'Этот стартовый комплект уже недоступен.',
-                ]);
-            }
-
-            $playerState = $this->playerStateFactory->create($player, $bundle, $state);
-            $gainedPower = $this->startingKnowledgePower($bundle, $playerState->resources->power);
-
             $player->update([
-                'color' => $playerState->color,
-                'faction' => $bundle->faction,
-                'homeland' => $bundle->homeland,
+                'color' => $result->player->color,
+                'faction' => $result->bundle->faction,
+                'homeland' => $result->bundle->homeland,
             ]);
-
-            $state->planningSelections = [
-                ...$state->planningSelections,
-                new PlayerPlanningSelectionData($player->id, $bundle),
-            ];
-            $state->players = [...$state->players, $playerState];
-            $this->initializeNeutralKnowledgeFaction->execute($state);
-            $requiresStartingChoice = $playerState->resources->books->unassigned > 0
-                || $playerState->knowledge->unassignedSteps > 0;
-
-            if ($requiresStartingChoice) {
-                $state->pendingInteraction = new PendingInteractionData(
-                    type: PendingInteractionType::ChooseStartingResources,
-                    playerId: $player->id,
-                    optionIds: array_column(KnowledgeDiscipline::cases(), 'value'),
-                    context: [
-                        'bookCount' => $playerState->resources->books->unassigned,
-                        'knowledgeStepCount' => $playerState->knowledge->unassignedSteps,
-                        'competencyIds' => [],
-                    ],
-                );
-            }
-
-            $nextPlayerId = $requiresStartingChoice
-                ? $player->user_id
-                : $this->determineNextPlanningPlayer->execute($lockedGame, $player)->user_id;
-
             $lockedGame->update([
-                'active_player_id' => $nextPlayerId,
+                'active_game_player_id' => $result->nextActivePlayerId,
                 'version' => $lockedGame->version + 1,
                 'state' => $state,
             ]);
@@ -128,14 +61,14 @@ final class ChoosePlanningBundleAction
                 GameActionType::ChoosePlanningBundle,
                 [
                     'homeland' => $homeland->value,
-                    'gained_power' => $gainedPower,
+                    'gained_power' => $result->gainedPower,
                 ],
                 [[
                     'type' => GameEventType::PlanningBundleChosen->value,
                     'player_id' => $player->id,
-                    'homeland' => $bundle->homeland->value,
-                    'faction' => $bundle->faction->value,
-                    'round_bonus' => $bundle->roundBonus->value,
+                    'homeland' => $result->bundle->homeland->value,
+                    'faction' => $result->bundle->faction->value,
+                    'round_bonus' => $result->bundle->roundBonus->value,
                 ]],
                 $stateVersionBefore,
                 $lockedGame->version,
@@ -143,18 +76,5 @@ final class ChoosePlanningBundleAction
 
             return $lockedGame->refresh();
         });
-    }
-
-    private function startingKnowledgePower(
-        PlanningBundleData $bundle,
-        PowerBowlsStateData $power,
-    ): int {
-        $startingBowlTwo = match ($bundle->homeland) {
-            TerrainType::Swamp => 9,
-            TerrainType::Forest => 8,
-            default => 7,
-        };
-
-        return max(0, $power->bowlTwo + (2 * $power->bowlThree) - $startingBowlTwo);
     }
 }

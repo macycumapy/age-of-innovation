@@ -79,6 +79,7 @@ final class StartGameAction
                 'status' => GameStatus::Active,
                 'phase' => GamePhase::Setup,
                 'active_player_id' => $activePlayer->user_id,
+                'active_game_player_id' => $activePlayer->id,
                 'version' => $lockedGame->version + 1,
                 'state' => new GameStateData(
                     schemaVersion: CompetencySupply::CURRENT_SCHEMA_VERSION,

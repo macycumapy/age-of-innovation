@@ -29,6 +29,15 @@ final class GamePlayerStateFactory
         PlanningBundleData $bundle,
         ?GameStateData $state = null,
     ): GamePlayerStateData {
+        return $this->createForPlayer($player->id, $player->user_id, $bundle, $state);
+    }
+
+    public function createForPlayer(
+        int $playerId,
+        ?int $userId,
+        PlanningBundleData $bundle,
+        ?GameStateData $state = null,
+    ): GamePlayerStateData {
         $resources = new PlayerResourcesData(
             coins: 15,
             tools: 3,
@@ -53,8 +62,8 @@ final class GamePlayerStateFactory
         }
 
         $playerState = new GamePlayerStateData(
-            playerId: $player->id,
-            userId: $player->user_id,
+            playerId: $playerId,
+            userId: $userId,
             color: $this->colorFor($bundle->homeland),
             faction: $bundle->faction,
             homeland: $bundle->homeland,

@@ -21,7 +21,8 @@ final class PlanningBundleController extends Controller
         /** @var User $user */
         $user = $request->user();
 
-        $choosePlanningBundle->execute($game, $user, $request->homeland());
+        $player = $game->players()->whereBelongsTo($user)->sole();
+        $choosePlanningBundle->execute($game, $player, $request->homeland());
 
         Inertia::flash('toast', [
             'type' => 'success',

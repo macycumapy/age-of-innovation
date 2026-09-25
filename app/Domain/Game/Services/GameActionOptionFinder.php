@@ -12,6 +12,7 @@ use App\Domain\Game\Enums\PendingInteractionType;
 final class GameActionOptionFinder
 {
     public function __construct(
+        private PlanningBundleOptionFinder $planningBundleOptionFinder,
         private BookActionOptionFinder $bookActionOptionFinder,
         private PowerActionOptionFinder $powerActionOptionFinder,
         private BuildWorkshopOptionFinder $buildWorkshopOptionFinder,
@@ -44,6 +45,11 @@ final class GameActionOptionFinder
     /** @return list<GameActionOption> */
     public function execute(GameStateData $state, int $playerId): array
     {
+        $planningBundleOptions = $this->planningBundleOptionFinder->execute($state, $playerId);
+        if ($planningBundleOptions !== []) {
+            return $planningBundleOptions;
+        }
+
         $player = collect($state->players)->firstWhere('playerId', $playerId);
 
         if (! $player instanceof GamePlayerStateData) {

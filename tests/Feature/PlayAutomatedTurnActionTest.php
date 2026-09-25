@@ -26,6 +26,7 @@ use App\Domain\Game\Data\PendingInteractionData;
 use App\Domain\Game\Data\PlaceBridgeOptionData;
 use App\Domain\Game\Data\PlaceNeutralBuildingOptionData;
 use App\Domain\Game\Data\PlacePalaceGuildOptionData;
+use App\Domain\Game\Data\PlanningBundleOptionData;
 use App\Domain\Game\Data\PlayerResourcesData;
 use App\Domain\Game\Data\PlayerSpecialActionOptionData;
 use App\Domain\Game\Data\PowerActionOptionData;
@@ -106,6 +107,115 @@ class PlayAutomatedTurnActionTest extends TestCase
             PlayAutomatedTurnJob::class,
             fn (PlayAutomatedTurnJob $job): bool => $job->gameId === $game->id
                 && $job->gamePlayerId === $game->players()->whereBelongsTo($bot)->value('id'),
+        );
+    }
+
+    public function test_changing_active_player_dispatches_automated_turn_for_bot_during_planning(): void
+    {
+        Queue::fake();
+
+        $game = Game::factory()->create([
+            'status' => GameStatus::Active,
+            'phase' => GamePhase::Setup,
+        ]);
+        $botPlayer = GamePlayer::factory()->bot(GameBotDifficulty::Balanced)->create([
+            'game_id' => $game->id,
+            'user_id' => null,
+            'seat' => 1,
+        ]);
+        $setupPool = app(GameSetupPoolFactory::class)->createFromSeed(2, 'bot-planning-dispatch');
+        $game->update(['state' => new GameStateData(
+            turnOrder: [$botPlayer->id],
+            round: new RoundStateData(phase: GamePhase::Setup),
+            setupPool: $setupPool,
+        )]);
+
+        $game->update(['active_game_player_id' => $botPlayer->id]);
+
+        Queue::assertPushed(
+            PlayAutomatedTurnJob::class,
+            fn (PlayAutomatedTurnJob $job): bool => $job->gameId === $game->id
+                && $job->gamePlayerId === $botPlayer->id,
+        );
+    }
+
+    public function test_bot_without_user_selects_a_planning_bundle_and_hands_control_to_human(): void
+    {
+        Queue::fake();
+
+        $human = User::factory()->create();
+        $game = Game::factory()->create([
+            'status' => GameStatus::Active,
+            'phase' => GamePhase::Setup,
+        ]);
+        $botPlayer = GamePlayer::factory()->bot(GameBotDifficulty::Fast)->create([
+            'game_id' => $game->id,
+            'user_id' => null,
+            'seat' => 1,
+        ]);
+        $humanPlayer = GamePlayer::factory()->create([
+            'game_id' => $game->id,
+            'user_id' => $human->id,
+            'seat' => 2,
+        ]);
+        $setupPool = app(GameSetupPoolFactory::class)->createFromSeed(2, 'bot-planning-selection');
+        $game->update([
+            'active_game_player_id' => $botPlayer->id,
+            'state' => new GameStateData(
+                turnOrder: [$botPlayer->id, $humanPlayer->id],
+                round: new RoundStateData(phase: GamePhase::Setup),
+                setupPool: $setupPool,
+            ),
+        ]);
+
+        app(PlayAutomatedTurnAction::class)->execute($game, $botPlayer, GameBotDifficulty::Fast);
+
+        $game->refresh();
+        $botPlayer->refresh();
+        $this->assertNotNull($botPlayer->faction);
+        $this->assertNotNull($botPlayer->homeland);
+        $this->assertSame($humanPlayer->id, $game->active_game_player_id);
+        $this->assertSame($human->id, $game->active_player_id);
+        $this->assertCount(1, $game->state->planningSelections);
+        $this->assertSame($botPlayer->id, $game->state->players[0]->playerId);
+        $this->assertNull($game->state->pendingInteraction);
+        $this->assertSame(
+            [GameActionType::ChoosePlanningBundle],
+            $game->actions()->pluck('type')->all(),
+        );
+    }
+
+    public function test_planning_bundle_simulation_matches_execution_for_bot_without_user(): void
+    {
+        Queue::fake();
+
+        $game = Game::factory()->create([
+            'status' => GameStatus::Active,
+            'phase' => GamePhase::Setup,
+        ]);
+        $botPlayer = GamePlayer::factory()->bot(GameBotDifficulty::Fast)->create([
+            'game_id' => $game->id,
+            'user_id' => null,
+            'seat' => 1,
+        ]);
+        $nextPlayer = GamePlayer::factory()->create([
+            'game_id' => $game->id,
+            'seat' => 2,
+        ]);
+        $setupPool = app(GameSetupPoolFactory::class)->createFromSeed(2, 'planning-simulation');
+        $game->update([
+            'active_game_player_id' => $botPlayer->id,
+            'state' => new GameStateData(
+                turnOrder: [$botPlayer->id, $nextPlayer->id],
+                round: new RoundStateData(phase: GamePhase::Setup),
+                setupPool: $setupPool,
+            ),
+        ]);
+
+        $this->assertSimulationMatchesExecution(
+            $game,
+            $botPlayer,
+            new PlanningBundleOptionData($setupPool->planningBundles[0]->homeland),
         );
     }
 
