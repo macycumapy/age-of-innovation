@@ -19,7 +19,8 @@ final class RoundBonusActionController extends Controller
     ): Response {
         /** @var User $user */
         $user = $request->user();
-        $performRoundBonusAction->execute($game, $user, $request->discipline());
+        $player = $game->players()->whereBelongsTo($user)->firstOrFail();
+        $performRoundBonusAction->execute($game, $player, $request->discipline());
 
         return $this->gameChanged($game);
     }

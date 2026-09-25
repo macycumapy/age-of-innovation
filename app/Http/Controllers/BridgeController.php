@@ -18,7 +18,8 @@ final class BridgeController extends Controller
     {
         /** @var User $user */
         $user = $request->user();
-        $stageBridge->execute($game, $user, $request->fromHexId(), $request->toHexId());
+        $player = $game->players()->whereBelongsTo($user)->firstOrFail();
+        $stageBridge->execute($game, $player, $request->fromHexId(), $request->toHexId());
 
         return $this->gameChanged($game);
     }

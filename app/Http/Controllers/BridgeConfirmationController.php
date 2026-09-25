@@ -16,7 +16,8 @@ final class BridgeConfirmationController extends Controller
     {
         /** @var User $user */
         $user = $request->user();
-        $confirmBridge->execute($game, $user);
+        $player = $game->players()->whereBelongsTo($user)->firstOrFail();
+        $confirmBridge->execute($game, $player);
 
         return $this->gameChanged($game);
     }

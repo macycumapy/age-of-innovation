@@ -19,7 +19,8 @@ final class ResourceExchangeController extends Controller
     ): Response {
         /** @var User $user */
         $user = $request->user();
-        $exchangeResources->execute($game, $user, $request->exchanges());
+        $player = $game->players()->whereBelongsTo($user)->firstOrFail();
+        $exchangeResources->execute($game, $player, $request->exchanges());
 
         return $this->gameChanged($game);
     }

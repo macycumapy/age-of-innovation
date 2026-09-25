@@ -10,7 +10,6 @@ use App\Domain\Game\Enums\GameEventType;
 use App\Domain\Game\Enums\PendingInteractionType;
 use App\Models\Game;
 use App\Models\GamePlayer;
-use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -22,20 +21,19 @@ final class ConfirmPalaceGuildAction
     ) {
     }
 
-    public function execute(Game $game, User $user): Game
+    public function execute(Game $game, GamePlayer $player): Game
     {
-        return DB::transaction(function () use ($game, $user): Game {
+        return DB::transaction(function () use ($game, $player): Game {
             $lockedGame = Game::query()->lockForUpdate()->findOrFail($game->id);
             $state = $lockedGame->state;
             $interaction = $state->pendingInteraction;
             $selectedHexId = $interaction?->context['selectedHexId'] ?? null;
-            $player = $lockedGame->players()->whereBelongsTo($user)->first();
 
             if (! $lockedGame->phase->isActionPhase()
-                || $lockedGame->active_player_id !== $user->id
+                || ! $lockedGame->isActivePlayer($player)
                 || $interaction?->type !== PendingInteractionType::PlacePalaceGuild
                 || ! is_string($selectedHexId)
-                || ! $player instanceof GamePlayer) {
+            ) {
                 throw ValidationException::withMessages(['game' => 'Сначала разместите бесплатный рынок.']);
             }
 

@@ -19,7 +19,8 @@ final class CompetencyActionController extends Controller
     ): Response {
         /** @var User $user */
         $user = $request->user();
-        $performCompetencyAction->execute($game, $user);
+        $player = $game->players()->whereBelongsTo($user)->firstOrFail();
+        $performCompetencyAction->execute($game, $player);
 
         return $this->gameChanged($game);
     }

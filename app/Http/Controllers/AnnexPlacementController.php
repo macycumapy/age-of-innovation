@@ -16,7 +16,8 @@ final class AnnexPlacementController extends Controller
     {
         /** @var User $user */
         $user = $request->user();
-        $placeAnnex->execute($game, $user, $request->hexId());
+        $player = $game->players()->whereBelongsTo($user)->firstOrFail();
+        $placeAnnex->execute($game, $player, $request->hexId());
 
         return $this->gameChanged($game);
     }

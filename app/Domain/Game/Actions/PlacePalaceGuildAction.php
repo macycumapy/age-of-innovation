@@ -11,24 +11,21 @@ use App\Domain\Game\Enums\BuildingType;
 use App\Domain\Game\Enums\PendingInteractionType;
 use App\Models\Game;
 use App\Models\GamePlayer;
-use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 final class PlacePalaceGuildAction
 {
-    public function execute(Game $game, User $user, string $hexId): Game
+    public function execute(Game $game, GamePlayer $player, string $hexId): Game
     {
-        return DB::transaction(function () use ($game, $user, $hexId): Game {
+        return DB::transaction(function () use ($game, $player, $hexId): Game {
             $lockedGame = Game::query()->lockForUpdate()->findOrFail($game->id);
             $state = $lockedGame->state;
             $interaction = $state->pendingInteraction;
-            $player = $lockedGame->players()->whereBelongsTo($user)->first();
 
             if (! $lockedGame->phase->isActionPhase()
-                || $lockedGame->active_player_id !== $user->id
+                || ! $lockedGame->isActivePlayer($player)
                 || $interaction?->type !== PendingInteractionType::PlacePalaceGuild
-                || ! $player instanceof GamePlayer
                 || $interaction->playerId !== $player->id
                 || ($interaction->context['selectedHexId'] ?? null) !== null
                 || ! in_array($hexId, $interaction->optionIds, true)) {

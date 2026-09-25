@@ -19,7 +19,8 @@ final class PowerSacrificeController extends Controller
     ): Response {
         /** @var User $user */
         $user = $request->user();
-        $sacrificePower->execute($game, $user, $request->amount());
+        $player = $game->players()->whereBelongsTo($user)->firstOrFail();
+        $sacrificePower->execute($game, $player, $request->amount());
 
         return $this->gameChanged($game);
     }

@@ -16,9 +16,10 @@ final class PalaceActionController extends Controller
     {
         /** @var User $user */
         $user = $request->user();
+        $player = $game->players()->whereBelongsTo($user)->firstOrFail();
         $action->execute(
             $game,
-            $user,
+            $player,
             $request->discipline(),
             $request->knowledgeDisciplines(),
             $request->hexId(),

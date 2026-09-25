@@ -22,9 +22,9 @@ final class NeutralInnovationBuildingController extends Controller
     ): Response {
         /** @var User $user */
         $user = $request->user();
-        $placeNeutralBuilding->execute($game, $user, $request->string('hex_id')->toString());
+        $player = $game->players()->whereBelongsTo($user)->firstOrFail();
+        $placeNeutralBuilding->execute($game, $player, $request->string('hex_id')->toString());
 
         return $this->gameChanged($game);
     }
-
 }

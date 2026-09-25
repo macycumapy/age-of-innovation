@@ -19,7 +19,8 @@ final class InnovationController extends Controller
     ): Response {
         /** @var User $user */
         $user = $request->user();
-        $makeInnovation->execute($game, $user, $request->innovation(), $request->bookCounts());
+        $player = $game->players()->whereBelongsTo($user)->firstOrFail();
+        $makeInnovation->execute($game, $player, $request->innovation(), $request->bookCounts());
 
         return $this->gameChanged($game);
     }

@@ -21,7 +21,8 @@ final class PalaceGuildController extends Controller
     ): Response {
         /** @var User $user */
         $user = $request->user();
-        $placePalaceGuild->execute($game, $user, (string) $request->validated('hex_id'));
+        $player = $game->players()->whereBelongsTo($user)->firstOrFail();
+        $placePalaceGuild->execute($game, $player, (string) $request->validated('hex_id'));
 
         return $this->gameChanged($game);
     }

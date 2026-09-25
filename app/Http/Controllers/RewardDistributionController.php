@@ -19,9 +19,10 @@ final class RewardDistributionController extends Controller
     ): Response {
         /** @var User $user */
         $user = $request->user();
+        $player = $game->players()->whereBelongsTo($user)->firstOrFail();
         $distributeRewards->execute(
             $game,
-            $user,
+            $player,
             $request->bookCounts(),
             $request->knowledgeCounts(),
             $request->competency(),

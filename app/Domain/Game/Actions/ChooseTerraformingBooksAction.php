@@ -8,7 +8,7 @@ use App\Domain\Game\Enums\GameActionType;
 use App\Domain\Game\Enums\GameEventType;
 use App\Domain\Game\Enums\PendingInteractionType;
 use App\Models\Game;
-use App\Models\User;
+use App\Models\GamePlayer;
 
 final class ChooseTerraformingBooksAction
 {
@@ -17,11 +17,11 @@ final class ChooseTerraformingBooksAction
     }
 
     /** @param array<string, int> $bookCounts */
-    public function execute(Game $game, User $user, array $bookCounts): Game
+    public function execute(Game $game, GamePlayer $player, array $bookCounts): Game
     {
         return $this->distributeRewardBooks->execute(
             $game,
-            $user,
+            $player,
             $bookCounts,
             PendingInteractionType::ChooseTerraformingBooks,
             GameActionType::AdvanceTerraforming,

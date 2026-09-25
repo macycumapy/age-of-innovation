@@ -14,7 +14,6 @@ use App\Domain\Game\Enums\KnowledgeDiscipline;
 use App\Domain\Game\Enums\PendingInteractionType;
 use App\Models\Game;
 use App\Models\GamePlayer;
-use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -33,12 +32,12 @@ final class ChooseStartingResourcesAction
      */
     public function execute(
         Game $game,
-        User $user,
+        GamePlayer $player,
         array $bookCounts,
         array $knowledgeCounts,
         ?Competency $competency,
     ): Game {
-        return DB::transaction(function () use ($game, $user, $bookCounts, $knowledgeCounts, $competency): Game {
+        return DB::transaction(function () use ($game, $player, $bookCounts, $knowledgeCounts, $competency): Game {
             $lockedGame = Game::query()->lockForUpdate()->findOrFail($game->id);
             $stateVersionBefore = $lockedGame->version;
             $interaction = $lockedGame->state->pendingInteraction;
@@ -46,18 +45,14 @@ final class ChooseStartingResourcesAction
 
             if ($lockedGame->status !== GameStatus::Active
                 || ! in_array($interactionPhase, [GamePhase::Setup, GamePhase::Income], true)
-                || $interaction?->type !== PendingInteractionType::ChooseStartingResources) {
+                || $interaction?->type !== PendingInteractionType::ChooseStartingResources
+                || $interaction->playerId !== $player->id) {
                 throw ValidationException::withMessages([
                     'game' => 'Выбор стартовых ресурсов сейчас недоступен.',
                 ]);
             }
 
-            $player = $lockedGame->players()
-                ->whereKey($interaction->playerId)
-                ->whereBelongsTo($user)
-                ->first();
-
-            if (! $player instanceof GamePlayer || $lockedGame->active_player_id !== $user->id) {
+            if ($player->game_id !== $lockedGame->id || ! $lockedGame->isActivePlayer($player)) {
                 throw ValidationException::withMessages([
                     'game' => 'Стартовые ресурсы должен выбрать текущий игрок.',
                 ]);

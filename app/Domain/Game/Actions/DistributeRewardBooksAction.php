@@ -10,7 +10,6 @@ use App\Domain\Game\Enums\GameEventType;
 use App\Domain\Game\Enums\PendingInteractionType;
 use App\Models\Game;
 use App\Models\GamePlayer;
-use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -23,7 +22,7 @@ final class DistributeRewardBooksAction
     /** @param array<string, int> $bookCounts */
     public function execute(
         Game $game,
-        User $user,
+        GamePlayer $player,
         array $bookCounts,
         PendingInteractionType $interactionType,
         GameActionType $sourceActionType,
@@ -32,7 +31,7 @@ final class DistributeRewardBooksAction
     ): Game {
         return DB::transaction(function () use (
             $game,
-            $user,
+            $player,
             $bookCounts,
             $interactionType,
             $sourceActionType,
@@ -42,14 +41,13 @@ final class DistributeRewardBooksAction
             $lockedGame = Game::query()->lockForUpdate()->findOrFail($game->id);
             $state = $lockedGame->state;
             $interaction = $state->pendingInteraction;
-            $player = $lockedGame->players()->whereKey($interaction?->playerId)->whereBelongsTo($user)->first();
-            $playerState = $player instanceof GamePlayer
-                ? collect($state->players)->firstWhere('playerId', $player->id)
-                : null;
+            $playerState = collect($state->players)->firstWhere('playerId', $player->id);
 
             if (! $lockedGame->phase->isActionPhase()
-                || $lockedGame->active_player_id !== $user->id
+                || $player->game_id !== $lockedGame->id
+                || ! $lockedGame->isActivePlayer($player)
                 || $interaction?->type !== $interactionType
+                || $interaction->playerId !== $player->id
                 || ! $playerState instanceof GamePlayerStateData) {
                 throw ValidationException::withMessages([
                     'book_counts' => "Сейчас нельзя распределить книги {$rewardName}.",
@@ -70,7 +68,7 @@ final class DistributeRewardBooksAction
             ]);
             $sourceAction = $lockedGame->actions()
                 ->where('type', $sourceActionType)
-                ->where('player_id', $user->id)
+                ->where('game_player_id', $player->id)
                 ->latest('sequence')
                 ->first();
 

@@ -38,9 +38,7 @@ use App\Domain\Game\Enums\KnowledgeDiscipline;
 use App\Domain\Game\Enums\ResourceExchange;
 use App\Models\Game;
 use App\Models\GamePlayer;
-use App\Models\User;
 use DomainException;
-use Illuminate\Support\Facades\DB;
 
 final class PerformGameActionOptionAction
 {
@@ -83,123 +81,104 @@ final class PerformGameActionOptionAction
 
     public function execute(Game $game, GamePlayer $player, GameActionOption $option): Game
     {
-        if ($option instanceof BookActionOptionData) {
-            return $this->performBookAction->execute(
+        return match (true) {
+            $option instanceof BookActionOptionData => $this->performBookAction->execute(
                 $game,
                 $player,
                 $option->action,
                 $option->payment->counts(),
                 $option->discipline,
                 $option->hexId,
-            );
-        }
-
-        if ($option instanceof PowerOfferOptionData) {
-            return $this->resolvePowerOffer->execute($game, $player, $option->accept);
-        }
-
-        if ($option instanceof ChoosePalaceOptionData) {
-            return $this->choosePalace->execute($game, $player, $option->palace);
-        }
-
-        if ($option instanceof PowerActionOptionData) {
-            return $this->performPowerAction->execute(
+            ),
+            $option instanceof PowerOfferOptionData => $this->resolvePowerOffer->execute(
+                $game,
+                $player,
+                $option->accept,
+            ),
+            $option instanceof ChoosePalaceOptionData => $this->choosePalace->execute(
+                $game,
+                $player,
+                $option->palace,
+            ),
+            $option instanceof PowerActionOptionData => $this->performPowerAction->execute(
                 $game,
                 $player,
                 $option->action,
                 $option->sacrificeAmount,
-            );
-        }
-
-        if ($option instanceof BuildWorkshopOptionData) {
-            return $this->buildWorkshop->execute($game, $player, $option->hexId);
-        }
-
-        if ($option instanceof ChooseTownOptionData) {
-            return $this->chooseTown->execute($game, $player, $option->townTile);
-        }
-
-        if ($option instanceof UpgradeBuildingOptionData) {
-            return $this->upgradeBuilding->execute(
+            ),
+            $option instanceof BuildWorkshopOptionData => $this->buildWorkshop->execute(
+                $game,
+                $player,
+                $option->hexId,
+            ),
+            $option instanceof ChooseTownOptionData => $this->chooseTown->execute(
+                $game,
+                $player,
+                $option->townTile,
+            ),
+            $option instanceof UpgradeBuildingOptionData => $this->upgradeBuilding->execute(
                 $game,
                 $player,
                 $option->hexId,
                 $option->target,
-            );
-        }
-
-        if ($option instanceof PaidTerraformingOptionData) {
-            return $this->performPaidTerraforming($game, $player, $option);
-        }
-
-        if ($option instanceof SpendSpadesOptionData) {
-            return $this->performSpadeSpending($game, $player, $option);
-        }
-
-        if ($option instanceof DevelopmentAdvancementOptionData) {
-            return $this->performDevelopmentAdvancement($game, $player, $option);
-        }
-
-        if ($option instanceof SendScholarOptionData) {
-            return $this->sendScholar->execute(
+            ),
+            $option instanceof PaidTerraformingOptionData => $this->performPaidTerraforming($game, $player, $option),
+            $option instanceof SpendSpadesOptionData => $this->performSpadeSpending($game, $player, $option),
+            $option instanceof DevelopmentAdvancementOptionData => $this->performDevelopmentAdvancement($game, $player, $option),
+            $option instanceof SendScholarOptionData => $this->sendScholar->execute(
                 $game,
                 $player,
                 $option->discipline,
                 $option->place,
-            );
-        }
-
-        $user = $player->user()->firstOrFail();
-
-        return DB::transaction(fn (): Game => match (true) {
+            ),
             $option instanceof MakeInnovationOptionData => $this->makeInnovation->execute(
                 $game,
-                $user,
+                $player,
                 $option->innovation,
                 $option->payment->counts(),
             ),
-            $option instanceof PassOptionData => $this->pass->execute($game, $user, $option->knowledgeDisciplines),
-            $option instanceof ChooseRoundBonusOptionData => $this->chooseRoundBonus->execute($game, $user, $option->roundBonus),
-            $option instanceof InnovationSpecialActionOptionData => $this->performInnovation->execute($game, $user, $option->innovation),
+            $option instanceof PassOptionData => $this->pass->execute($game, $player, $option->knowledgeDisciplines),
+            $option instanceof ChooseRoundBonusOptionData => $this->chooseRoundBonus->execute($game, $player, $option->roundBonus),
+            $option instanceof InnovationSpecialActionOptionData => $this->performInnovation->execute($game, $player, $option->innovation),
             $option instanceof PalaceActionOptionData => $this->performPalace->execute(
                 $game,
-                $user,
+                $player,
                 $option->discipline,
                 $option->knowledgeDisciplines,
                 $option->hexId,
             ),
-            $option instanceof PlayerSpecialActionOptionData => $this->performPlayerSpecialAction($game, $user, $option),
+            $option instanceof PlayerSpecialActionOptionData => $this->performPlayerSpecialAction($game, $player, $option),
             $option instanceof ResourceExchangeOptionData => $this->exchangeResources->execute(
                 $game,
-                $user,
+                $player,
                 $this->resourceExchanges($option),
             ),
-            $option instanceof SacrificePowerOptionData => $this->sacrificePower->execute($game, $user, $option->amount),
-            $option instanceof PlaceAnnexOptionData => $this->confirmAnnexPlacement->execute($game, $user, $option->hexId),
+            $option instanceof SacrificePowerOptionData => $this->sacrificePower->execute($game, $player, $option->amount),
+            $option instanceof PlaceAnnexOptionData => $this->confirmAnnexPlacement->execute($game, $player, $option->hexId),
             $option instanceof WorkshopAfterTerraformingOptionData => $this->resolveWorkshopAfterTerraforming->execute(
                 $game,
-                $user,
+                $player,
                 $option->build,
                 $option->hexId,
             ),
             $option instanceof PalaceWaterTownOptionData => $this->resolvePalaceWaterTown->execute(
                 $game,
-                $user,
+                $player,
                 $option->accept,
                 $option->waterHexId,
             ),
-            $option instanceof ChooseCompetencyOptionData => $this->chooseCompetency->execute($game, $user, $option->competency),
-            $option instanceof PlaceNeutralBuildingOptionData => $this->placeNeutralBuilding->execute($game, $user, $option->hexId),
-            $option instanceof PlaceBridgeOptionData => $this->performBridgePlacement($game, $user, $option),
-            $option instanceof PlacePalaceGuildOptionData => $this->performPalaceGuildPlacement($game, $user, $option),
+            $option instanceof ChooseCompetencyOptionData => $this->chooseCompetency->execute($game, $player, $option->competency),
+            $option instanceof PlaceNeutralBuildingOptionData => $this->placeNeutralBuilding->execute($game, $player, $option->hexId),
+            $option instanceof PlaceBridgeOptionData => $this->performBridgePlacement($game, $player, $option),
+            $option instanceof PlacePalaceGuildOptionData => $this->performPalaceGuildPlacement($game, $player, $option),
             $option instanceof RewardDistributionOptionData => $this->distributeRewards->execute(
                 $game,
-                $user,
+                $player,
                 $option->bookCounts,
                 $option->knowledgeCounts,
             ),
             default => throw new DomainException("Исполнение действия {$option->type()->value} ещё не поддерживается."),
-        });
+        };
     }
 
     private function performDevelopmentAdvancement(
@@ -216,13 +195,13 @@ final class PerformGameActionOptionAction
 
     private function performPlayerSpecialAction(
         Game $game,
-        User $user,
+        GamePlayer $player,
         PlayerSpecialActionOptionData $option,
     ): Game {
         return match ($option->actionType) {
-            GameActionOptionType::UseFactionAction => $this->performFaction->execute($game, $user, $option->discipline),
-            GameActionOptionType::UseCompetencyAction => $this->performCompetency->execute($game, $user),
-            GameActionOptionType::UseRoundBonusAction => $this->performRoundBonus->execute($game, $user, $option->discipline),
+            GameActionOptionType::UseFactionAction => $this->performFaction->execute($game, $player, $option->discipline),
+            GameActionOptionType::UseCompetencyAction => $this->performCompetency->execute($game, $player),
+            GameActionOptionType::UseRoundBonusAction => $this->performRoundBonus->execute($game, $player, $option->discipline),
             default => throw new DomainException("Исполнение действия {$option->actionType->value} ещё не поддерживается."),
         };
     }
@@ -245,17 +224,17 @@ final class PerformGameActionOptionAction
         );
     }
 
-    private function performBridgePlacement(Game $game, User $user, PlaceBridgeOptionData $option): Game
+    private function performBridgePlacement(Game $game, GamePlayer $player, PlaceBridgeOptionData $option): Game
     {
         $interaction = $game->state->pendingInteraction;
         $isStaged = ($interaction?->context['selectedFromHexId'] ?? null) === $option->fromHexId
             && ($interaction?->context['selectedToHexId'] ?? null) === $option->toHexId;
 
         if (! $isStaged) {
-            $game = $this->stageBridge->execute($game, $user, $option->fromHexId, $option->toHexId);
+            $game = $this->stageBridge->execute($game, $player, $option->fromHexId, $option->toHexId);
         }
 
-        return $this->confirmBridge->execute($game, $user);
+        return $this->confirmBridge->execute($game, $player);
     }
 
     private function performSpadeSpending(Game $game, GamePlayer $player, SpendSpadesOptionData $option): Game
@@ -271,16 +250,16 @@ final class PerformGameActionOptionAction
 
     private function performPalaceGuildPlacement(
         Game $game,
-        User $user,
+        GamePlayer $player,
         PlacePalaceGuildOptionData $option,
     ): Game {
         $selectedHexId = $game->state->pendingInteraction?->context['selectedHexId'] ?? null;
 
         if ($selectedHexId !== $option->hexId) {
-            $game = $this->placePalaceGuild->execute($game, $user, $option->hexId);
+            $game = $this->placePalaceGuild->execute($game, $player, $option->hexId);
         }
 
-        return $this->confirmPalaceGuild->execute($game, $user);
+        return $this->confirmPalaceGuild->execute($game, $player);
     }
 
     /** @return array<string, int|array<string, int>> */

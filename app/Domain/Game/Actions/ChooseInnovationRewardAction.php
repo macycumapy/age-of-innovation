@@ -10,7 +10,6 @@ use App\Domain\Game\Enums\GameEventType;
 use App\Domain\Game\Enums\PendingInteractionType;
 use App\Models\Game;
 use App\Models\GamePlayer;
-use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -24,17 +23,18 @@ final class ChooseInnovationRewardAction
      * @param array<string, int> $bookCounts
      * @param array<string, int> $knowledgeCounts
      */
-    public function execute(Game $game, User $user, array $bookCounts, array $knowledgeCounts): Game
+    public function execute(Game $game, GamePlayer $player, array $bookCounts, array $knowledgeCounts): Game
     {
-        return DB::transaction(function () use ($game, $user, $bookCounts, $knowledgeCounts): Game {
+        return DB::transaction(function () use ($game, $player, $bookCounts, $knowledgeCounts): Game {
             $lockedGame = Game::query()->lockForUpdate()->findOrFail($game->id);
             $state = $lockedGame->state;
             $interaction = $state->pendingInteraction;
-            $player = $lockedGame->players()->whereKey($interaction?->playerId)->whereBelongsTo($user)->first();
-            $playerState = collect($state->players)->firstWhere('playerId', $player?->id);
+            $playerState = collect($state->players)->firstWhere('playerId', $player->id);
 
-            if ($interaction?->type !== PendingInteractionType::ChooseInnovationReward
-                || ! $player instanceof GamePlayer
+            if ($player->game_id !== $lockedGame->id
+                || ! $lockedGame->isActivePlayer($player)
+                || $interaction?->type !== PendingInteractionType::ChooseInnovationReward
+                || $interaction->playerId !== $player->id
                 || ! $playerState instanceof GamePlayerStateData) {
                 throw ValidationException::withMessages(['game' => 'Нельзя распределить награду инновации.']);
             }
@@ -52,7 +52,7 @@ final class ChooseInnovationRewardAction
 
             $sourceAction = $lockedGame->actions()
                 ->where('type', GameActionType::MakeInnovation)
-                ->where('player_id', $user->id)
+                ->where('game_player_id', $player->id)
                 ->latest('sequence')
                 ->first();
 

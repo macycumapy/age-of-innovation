@@ -11,7 +11,6 @@ use App\Domain\Game\Enums\KnowledgeDiscipline;
 use App\Domain\Game\Enums\RoundBonus;
 use App\Models\Game;
 use App\Models\GamePlayer;
-use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -23,18 +22,17 @@ final class PerformRoundBonusAction
     ) {
     }
 
-    public function execute(Game $game, User $user, ?KnowledgeDiscipline $discipline): Game
+    public function execute(Game $game, GamePlayer $player, ?KnowledgeDiscipline $discipline): Game
     {
-        return DB::transaction(function () use ($game, $user, $discipline): Game {
+        return DB::transaction(function () use ($game, $player, $discipline): Game {
             $lockedGame = Game::query()->lockForUpdate()->findOrFail($game->id);
             $state = $lockedGame->state;
-            $player = $lockedGame->players()->whereBelongsTo($user)->first();
 
             if (! $lockedGame->phase->isActionPhase()
-                || $lockedGame->active_player_id !== $user->id
+                || ! $lockedGame->isActivePlayer($player)
                 || $state->pendingInteraction !== null
                 || $state->round->hasTakenMainAction
-                || ! $player instanceof GamePlayer) {
+            ) {
                 throw ValidationException::withMessages(['game' => 'Сейчас нельзя использовать бонус раунда.']);
             }
 

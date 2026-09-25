@@ -9,7 +9,6 @@ use App\Domain\Game\Enums\GameActionType;
 use App\Domain\Game\Enums\GameEventType;
 use App\Models\Game;
 use App\Models\GamePlayer;
-use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -21,16 +20,15 @@ final class SacrificePowerAction
     ) {
     }
 
-    public function execute(Game $game, User $user, int $amount): Game
+    public function execute(Game $game, GamePlayer $player, int $amount): Game
     {
-        return DB::transaction(function () use ($game, $user, $amount): Game {
+        return DB::transaction(function () use ($game, $player, $amount): Game {
             $lockedGame = Game::query()->lockForUpdate()->findOrFail($game->id);
             $state = $lockedGame->state;
-            $player = $lockedGame->players()->whereBelongsTo($user)->first();
 
             if (! $lockedGame->phase->isActionPhase()
-                || $lockedGame->active_player_id !== $user->id
-                || ! $player instanceof GamePlayer) {
+                || ! $lockedGame->isActivePlayer($player)
+            ) {
                 throw ValidationException::withMessages([
                     'game' => 'Сейчас нельзя жертвовать Силу.',
                 ]);

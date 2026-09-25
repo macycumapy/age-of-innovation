@@ -16,7 +16,6 @@ use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\PendingInteractionType;
 use App\Models\Game;
 use App\Models\GamePlayer;
-use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -33,27 +32,24 @@ final class ChooseCompetencyAction
     ) {
     }
 
-    public function execute(Game $game, User $user, Competency $competency): Game
+    public function execute(Game $game, GamePlayer $player, Competency $competency): Game
     {
-        return DB::transaction(function () use ($game, $user, $competency): Game {
+        return DB::transaction(function () use ($game, $player, $competency): Game {
             $lockedGame = Game::query()->lockForUpdate()->findOrFail($game->id);
             $state = $lockedGame->state;
             $interaction = $state->pendingInteraction;
             $stateVersionBefore = $lockedGame->version;
-            $player = $lockedGame->players()
-                ->whereKey($interaction?->playerId)
-                ->whereBelongsTo($user)
-                ->first();
             $isBuildingChoice = $lockedGame->phase->isActionPhase()
                 && ($interaction?->context['reason'] ?? null) === 'building';
             $isInnovationChoice = $lockedGame->phase->isActionPhase()
                 && ($interaction?->context['reason'] ?? null) === 'innovation';
             $isStartingChoice = $lockedGame->phase === GamePhase::Setup
-                && in_array($player?->faction, [Faction::Monks, Faction::Inventors], true);
+                && in_array($player->faction, [Faction::Monks, Faction::Inventors], true);
 
-            if ($lockedGame->active_player_id !== $user->id
+            if ($player->game_id !== $lockedGame->id
+                || ! $lockedGame->isActivePlayer($player)
                 || $interaction?->type !== PendingInteractionType::ChooseCompetency
-                || ! $player instanceof GamePlayer
+                || $interaction->playerId !== $player->id
                 || (! $isStartingChoice && ! $isBuildingChoice && ! $isInnovationChoice)
                 || ! in_array($competency->value, $interaction->optionIds, true)) {
                 throw ValidationException::withMessages([
@@ -154,7 +150,7 @@ final class ChooseCompetencyAction
 
             $lockedGame->update([
                 'phase' => $nextPhase,
-                'active_player_id' => $nextPlayer->user_id,
+                'active_game_player_id' => $nextPlayer->id,
                 'state' => $state,
                 'version' => $lockedGame->version + 1,
             ]);

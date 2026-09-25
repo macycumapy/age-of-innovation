@@ -9,7 +9,6 @@ use App\Domain\Game\Enums\GameActionType;
 use App\Domain\Game\Enums\GameEventType;
 use App\Models\Game;
 use App\Models\GamePlayer;
-use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -21,18 +20,14 @@ final class ConfirmAnnexPlacementAction
     ) {
     }
 
-    public function execute(Game $game, User $user, string $hexId): Game
+    public function execute(Game $game, GamePlayer $player, string $hexId): Game
     {
-        return DB::transaction(function () use ($game, $user, $hexId): Game {
+        return DB::transaction(function () use ($game, $player, $hexId): Game {
             $lockedGame = Game::query()->lockForUpdate()->findOrFail($game->id);
             $state = $lockedGame->state;
-            $player = $lockedGame->players()->whereBelongsTo($user)->first();
-            $playerState = $player instanceof GamePlayer
-                ? collect($state->players)->firstWhere('playerId', $player->id)
-                : null;
+            $playerState = collect($state->players)->firstWhere('playerId', $player->id);
             if (! $lockedGame->phase->isActionPhase()
-                || $lockedGame->active_player_id !== $user->id
-                || ! $player instanceof GamePlayer
+                || ! $lockedGame->isActivePlayer($player)
                 || ! $playerState instanceof GamePlayerStateData) {
                 throw ValidationException::withMessages(['annex' => 'Сначала выберите доступное здание.']);
             }

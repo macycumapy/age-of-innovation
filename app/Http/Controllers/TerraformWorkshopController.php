@@ -19,9 +19,10 @@ final class TerraformWorkshopController extends Controller
     ): Response {
         /** @var User $user */
         $user = $request->user();
+        $player = $game->players()->whereBelongsTo($user)->firstOrFail();
         $resolveWorkshop->execute(
             $game,
-            $user,
+            $player,
             $request->boolean('build'),
             $request->string('hex_id')->toString() ?: null,
         );

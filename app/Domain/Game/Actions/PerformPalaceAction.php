@@ -10,7 +10,6 @@ use App\Domain\Game\Enums\GameEventType;
 use App\Domain\Game\Enums\KnowledgeDiscipline;
 use App\Models\Game;
 use App\Models\GamePlayer;
-use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -23,18 +22,17 @@ final class PerformPalaceAction
     /** @param list<KnowledgeDiscipline> $knowledgeDisciplines */
     public function execute(
         Game $game,
-        User $user,
+        GamePlayer $player,
         ?KnowledgeDiscipline $discipline,
         array $knowledgeDisciplines,
         ?string $hexId,
     ): Game {
-        return DB::transaction(function () use ($game, $user, $discipline, $knowledgeDisciplines, $hexId): Game {
+        return DB::transaction(function () use ($game, $player, $discipline, $knowledgeDisciplines, $hexId): Game {
             $lockedGame = Game::query()->lockForUpdate()->findOrFail($game->id);
             $state = $lockedGame->state;
-            $player = $lockedGame->players()->whereBelongsTo($user)->first();
 
-            if (! $lockedGame->phase->isActionPhase() || $lockedGame->active_player_id !== $user->id
-                || $state->pendingInteraction !== null || ! $player instanceof GamePlayer) {
+            if (! $lockedGame->phase->isActionPhase() || ! $lockedGame->isActivePlayer($player)
+                || $state->pendingInteraction !== null) {
                 throw ValidationException::withMessages(['game' => 'Сейчас нельзя использовать действие Дворца.']);
             }
 

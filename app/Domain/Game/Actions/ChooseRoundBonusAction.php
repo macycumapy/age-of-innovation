@@ -15,7 +15,6 @@ use App\Domain\Game\Enums\RoundBonus;
 use App\Domain\Game\Services\ChooseRoundBonusOptionFinder;
 use App\Models\Game;
 use App\Models\GamePlayer;
-use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -28,18 +27,16 @@ final class ChooseRoundBonusAction
     ) {
     }
 
-    public function execute(Game $game, User $user, RoundBonus $roundBonus): Game
+    public function execute(Game $game, GamePlayer $player, RoundBonus $roundBonus): Game
     {
-        return DB::transaction(function () use ($game, $user, $roundBonus): Game {
+        return DB::transaction(function () use ($game, $player, $roundBonus): Game {
             $lockedGame = Game::query()->lockForUpdate()->findOrFail($game->id);
             $state = $lockedGame->state;
             $interaction = $state->pendingInteraction;
-            $player = $lockedGame->players()->whereKey($interaction?->playerId)->whereBelongsTo($user)->first();
 
             if (! $lockedGame->phase->isActionPhase()
-                || $lockedGame->active_player_id !== $user->id
+                || ! $lockedGame->isActivePlayer($player)
                 || $interaction?->type !== PendingInteractionType::ChooseRoundBonus
-                || ! $player instanceof GamePlayer
                 || ! in_array($roundBonus->value, $interaction->optionIds, true)) {
                 throw ValidationException::withMessages(['round_bonus' => 'Этот жетон бонуса раунда недоступен.']);
             }

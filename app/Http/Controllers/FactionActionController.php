@@ -19,7 +19,8 @@ final class FactionActionController extends Controller
     ): Response {
         /** @var User $user */
         $user = $request->user();
-        $performFactionAction->execute($game, $user, $request->discipline());
+        $player = $game->players()->whereBelongsTo($user)->firstOrFail();
+        $performFactionAction->execute($game, $player, $request->discipline());
 
         return $this->gameChanged($game);
     }

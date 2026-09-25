@@ -9,7 +9,6 @@ use App\Domain\Game\Enums\GameActionType;
 use App\Domain\Game\Enums\GameEventType;
 use App\Models\Game;
 use App\Models\GamePlayer;
-use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -24,17 +23,16 @@ final class ExchangeResourcesAction
     /** @param array<string, int|array<string, int>> $exchanges */
     public function execute(
         Game $game,
-        User $user,
+        GamePlayer $player,
         array $exchanges,
     ): Game {
-        return DB::transaction(function () use ($game, $user, $exchanges): Game {
+        return DB::transaction(function () use ($game, $player, $exchanges): Game {
             $lockedGame = Game::query()->lockForUpdate()->findOrFail($game->id);
             $state = $lockedGame->state;
-            $player = $lockedGame->players()->whereBelongsTo($user)->first();
 
             if (! $lockedGame->phase->isActionPhase()
-                || $lockedGame->active_player_id !== $user->id
-                || ! $player instanceof GamePlayer) {
+                || ! $lockedGame->isActivePlayer($player)
+            ) {
                 throw ValidationException::withMessages(['game' => 'Сейчас нельзя обменивать ресурсы.']);
             }
 

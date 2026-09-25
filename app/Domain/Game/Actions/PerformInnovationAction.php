@@ -12,7 +12,6 @@ use App\Domain\Game\Enums\Innovation;
 use App\Domain\Game\Services\InnovationSpecialActionOptionFinder;
 use App\Models\Game;
 use App\Models\GamePlayer;
-use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -25,15 +24,14 @@ final class PerformInnovationAction
     ) {
     }
 
-    public function execute(Game $game, User $user, Innovation $innovation): Game
+    public function execute(Game $game, GamePlayer $player, Innovation $innovation): Game
     {
-        return DB::transaction(function () use ($game, $user, $innovation): Game {
+        return DB::transaction(function () use ($game, $player, $innovation): Game {
             $lockedGame = Game::query()->lockForUpdate()->findOrFail($game->id);
             $state = $lockedGame->state;
-            $player = $lockedGame->players()->whereBelongsTo($user)->first();
-            $playerState = $player instanceof GamePlayer ? collect($state->players)->firstWhere('playerId', $player->id) : null;
+            $playerState = collect($state->players)->firstWhere('playerId', $player->id);
 
-            if (! $lockedGame->phase->isActionPhase() || $lockedGame->active_player_id !== $user->id
+            if (! $lockedGame->phase->isActionPhase() || ! $lockedGame->isActivePlayer($player)
                 || $state->pendingInteraction !== null || $state->round->hasTakenMainAction
                 || ! $playerState instanceof GamePlayerStateData) {
                 throw ValidationException::withMessages(['innovation' => 'Особое действие этой инновации недоступно.']);

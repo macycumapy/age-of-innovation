@@ -7,7 +7,6 @@ namespace App\Domain\Game\Actions;
 use App\Domain\Game\Enums\PendingInteractionType;
 use App\Models\Game;
 use App\Models\GamePlayer;
-use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -17,22 +16,17 @@ final class StageBridgeAction
     {
     }
 
-    public function execute(Game $game, User $user, string $fromHexId, string $toHexId): Game
+    public function execute(Game $game, GamePlayer $player, string $fromHexId, string $toHexId): Game
     {
-        return DB::transaction(function () use ($game, $user, $fromHexId, $toHexId): Game {
+        return DB::transaction(function () use ($game, $player, $fromHexId, $toHexId): Game {
             $lockedGame = Game::query()->lockForUpdate()->findOrFail($game->id);
             $state = $lockedGame->state;
             $interaction = $state->pendingInteraction;
-            $player = $lockedGame->players()
-                ->whereKey($interaction?->playerId)
-                ->whereBelongsTo($user)
-                ->first();
 
             if (! $lockedGame->phase->isActionPhase()
-                || $lockedGame->active_player_id !== $user->id
+                || ! $lockedGame->isActivePlayer($player)
                 || $interaction?->type !== PendingInteractionType::PlaceBridge
                 || isset($interaction->context['selectedFromHexId'])
-                || ! $player instanceof GamePlayer
                 || ! $this->containsPair(
                     $this->findEligibleBridgePairs->execute(
                         $state,
@@ -58,9 +52,8 @@ final class StageBridgeAction
     private function containsPair(array $pairs, string $fromHexId, string $toHexId): bool
     {
         return collect($pairs)->contains(
-            static fn (mixed $pair): bool => is_array($pair)
-                && ($pair['fromHexId'] ?? null) === $fromHexId
-                && ($pair['toHexId'] ?? null) === $toHexId,
+            static fn (array $pair): bool => $pair['fromHexId'] === $fromHexId
+                && $pair['toHexId'] === $toHexId,
         );
     }
 }

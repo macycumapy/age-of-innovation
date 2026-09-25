@@ -13,7 +13,6 @@ use App\Domain\Game\Enums\KnowledgeDiscipline;
 use App\Domain\Game\Enums\PendingInteractionType;
 use App\Models\Game;
 use App\Models\GamePlayer;
-use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -26,18 +25,18 @@ final class ChooseScienceBonusBooksAction
     }
 
     /** @param array<string, int> $bookCounts */
-    public function execute(Game $game, User $user, array $bookCounts): Game
+    public function execute(Game $game, GamePlayer $player, array $bookCounts): Game
     {
-        return DB::transaction(function () use ($game, $user, $bookCounts): Game {
+        return DB::transaction(function () use ($game, $player, $bookCounts): Game {
             $lockedGame = Game::query()->lockForUpdate()->findOrFail($game->id);
             $state = $lockedGame->state;
             $interaction = $state->pendingInteraction;
-            $player = $lockedGame->players()->whereKey($interaction?->playerId)->whereBelongsTo($user)->first();
 
             if ($lockedGame->phase !== GamePhase::ScienceBonus
-                || $lockedGame->active_player_id !== $user->id
+                || $player->game_id !== $lockedGame->id
+                || ! $lockedGame->isActivePlayer($player)
                 || $interaction?->type !== PendingInteractionType::ChooseScienceBonusBooks
-                || ! $player instanceof GamePlayer) {
+                || $interaction->playerId !== $player->id) {
                 throw ValidationException::withMessages(['book_counts' => 'Сейчас нельзя выбрать эти книги.']);
             }
 

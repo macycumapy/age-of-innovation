@@ -16,7 +16,8 @@ final class PalaceGuildConfirmationController extends Controller
     {
         /** @var User $user */
         $user = $request->user();
-        $confirmPalaceGuild->execute($game, $user);
+        $player = $game->players()->whereBelongsTo($user)->firstOrFail();
+        $confirmPalaceGuild->execute($game, $player);
 
         return $this->gameChanged($game);
     }

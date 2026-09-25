@@ -16,7 +16,8 @@ final class PassController extends Controller
     {
         /** @var User $user */
         $user = $request->user();
-        $pass->execute($game, $user, $request->knowledgeDisciplines());
+        $player = $game->players()->whereBelongsTo($user)->firstOrFail();
+        $pass->execute($game, $player, $request->knowledgeDisciplines());
 
         return $this->gameChanged($game);
     }

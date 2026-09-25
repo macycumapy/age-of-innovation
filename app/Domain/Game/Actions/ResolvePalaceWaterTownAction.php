@@ -9,7 +9,6 @@ use App\Domain\Game\Enums\GameEventType;
 use App\Domain\Game\Enums\PendingInteractionType;
 use App\Models\Game;
 use App\Models\GamePlayer;
-use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -21,18 +20,17 @@ final class ResolvePalaceWaterTownAction
     ) {
     }
 
-    public function execute(Game $game, User $user, bool $accept, ?string $waterHexId): Game
+    public function execute(Game $game, GamePlayer $player, bool $accept, ?string $waterHexId): Game
     {
-        return DB::transaction(function () use ($game, $user, $accept, $waterHexId): Game {
+        return DB::transaction(function () use ($game, $player, $accept, $waterHexId): Game {
             $lockedGame = Game::query()->lockForUpdate()->findOrFail($game->id);
             $state = $lockedGame->state;
             $interaction = $state->pendingInteraction;
-            $player = $lockedGame->players()->whereKey($interaction?->playerId)->whereBelongsTo($user)->first();
 
             if (! $lockedGame->phase->isActionPhase()
-                || $lockedGame->active_player_id !== $user->id
+                || ! $lockedGame->isActivePlayer($player)
                 || $interaction?->type !== PendingInteractionType::OfferPalaceWaterTown
-                || ! $player instanceof GamePlayer) {
+            ) {
                 throw ValidationException::withMessages(['town' => 'Сейчас нельзя подтвердить создание города через воду.']);
             }
 

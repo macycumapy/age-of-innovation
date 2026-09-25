@@ -12,7 +12,6 @@ use App\Domain\Game\Enums\GameStatus;
 use App\Domain\Game\Enums\KnowledgeDiscipline;
 use App\Models\Game;
 use App\Models\GamePlayer;
-use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -25,18 +24,17 @@ final class PassAction
     }
 
     /** @param list<KnowledgeDiscipline> $knowledgeDisciplines */
-    public function execute(Game $game, User $user, array $knowledgeDisciplines = []): Game
+    public function execute(Game $game, GamePlayer $player, array $knowledgeDisciplines = []): Game
     {
-        return DB::transaction(function () use ($game, $user, $knowledgeDisciplines): Game {
+        return DB::transaction(function () use ($game, $player, $knowledgeDisciplines): Game {
             $lockedGame = Game::query()->lockForUpdate()->findOrFail($game->id);
             $state = $lockedGame->state;
-            $player = $lockedGame->players()->whereBelongsTo($user)->first();
 
             if (! $lockedGame->phase->isActionPhase()
-                || $lockedGame->active_player_id !== $user->id
+                || ! $lockedGame->isActivePlayer($player)
                 || $state->pendingInteraction !== null
                 || $state->round->hasTakenMainAction
-                || ! $player instanceof GamePlayer) {
+            ) {
                 throw ValidationException::withMessages(['game' => 'Сейчас нельзя спасовать.']);
             }
 

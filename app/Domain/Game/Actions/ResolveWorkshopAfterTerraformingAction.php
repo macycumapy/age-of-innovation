@@ -10,7 +10,6 @@ use App\Domain\Game\Enums\GameEventType;
 use App\Domain\Game\Enums\PendingInteractionType;
 use App\Models\Game;
 use App\Models\GamePlayer;
-use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -22,17 +21,15 @@ final class ResolveWorkshopAfterTerraformingAction
     ) {
     }
 
-    public function execute(Game $game, User $user, bool $build, ?string $hexId): Game
+    public function execute(Game $game, GamePlayer $player, bool $build, ?string $hexId): Game
     {
-        return DB::transaction(function () use ($game, $user, $build, $hexId): Game {
+        return DB::transaction(function () use ($game, $player, $build, $hexId): Game {
             $lockedGame = Game::query()->lockForUpdate()->findOrFail($game->id);
             $state = $lockedGame->state;
             $interaction = $state->pendingInteraction;
-            $player = $lockedGame->players()->whereBelongsTo($user)->first();
 
             if (! $lockedGame->phase->isActionPhase()
-                || $lockedGame->active_player_id !== $user->id
-                || ! $player instanceof GamePlayer
+                || ! $lockedGame->isActivePlayer($player)
                 || $interaction?->type !== PendingInteractionType::BuildWorkshopAfterTerraforming
                 || $interaction->playerId !== $player->id) {
                 throw ValidationException::withMessages(['game' => 'Сейчас нельзя подтвердить строительство дома.']);

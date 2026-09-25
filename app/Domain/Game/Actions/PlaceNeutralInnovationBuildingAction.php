@@ -14,7 +14,6 @@ use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\PendingInteractionType;
 use App\Models\Game;
 use App\Models\GamePlayer;
-use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -29,16 +28,13 @@ final class PlaceNeutralInnovationBuildingAction
     ) {
     }
 
-    public function execute(Game $game, User $user, string $hexId): Game
+    public function execute(Game $game, GamePlayer $player, string $hexId): Game
     {
-        return DB::transaction(function () use ($game, $user, $hexId): Game {
+        return DB::transaction(function () use ($game, $player, $hexId): Game {
             $lockedGame = Game::query()->lockForUpdate()->findOrFail($game->id);
             $state = $lockedGame->state;
             $interaction = $state->pendingInteraction;
-            $player = $lockedGame->players()->whereKey($interaction?->playerId)->whereBelongsTo($user)->first();
-            $playerState = $player instanceof GamePlayer
-                ? collect($state->players)->firstWhere('playerId', $player->id)
-                : null;
+            $playerState = collect($state->players)->firstWhere('playerId', $player->id);
             $buildingType = BuildingType::tryFrom((string) ($interaction?->context['buildingType'] ?? ''));
             $hex = collect($state->board->hexes)->firstWhere('id', $hexId);
 
@@ -46,8 +42,10 @@ final class PlaceNeutralInnovationBuildingAction
                 && ($interaction?->context['reason'] ?? null) === 'starting_competency';
 
             if ((! $isStartingCompetency && ! $lockedGame->phase->isActionPhase())
-                || $lockedGame->active_player_id !== $user->id
+                || $player->game_id !== $lockedGame->id
+                || ! $lockedGame->isActivePlayer($player)
                 || $interaction?->type !== PendingInteractionType::PlaceNeutralBuilding
+                || $interaction->playerId !== $player->id
                 || ! $playerState instanceof GamePlayerStateData
                 || ! $hex instanceof BoardHexStateData
                 || $buildingType === null
@@ -65,7 +63,6 @@ final class PlaceNeutralInnovationBuildingAction
 
                 $this->updateSourceAction(
                     $lockedGame,
-                    $user,
                     $player,
                     $interaction->context,
                     $hexId,
@@ -111,7 +108,6 @@ final class PlaceNeutralInnovationBuildingAction
 
             $this->updateSourceAction(
                 $lockedGame,
-                $user,
                 $player,
                 $interaction->context,
                 $hexId,
@@ -134,7 +130,6 @@ final class PlaceNeutralInnovationBuildingAction
      */
     private function updateSourceAction(
         Game $game,
-        User $user,
         GamePlayer $player,
         array $context,
         string $hexId,
@@ -150,7 +145,7 @@ final class PlaceNeutralInnovationBuildingAction
             : GameActionType::MakeInnovation;
         $sourceAction = $game->actions()
             ->where('type', $sourceActionType)
-            ->where('player_id', $user->id)
+            ->where('game_player_id', $player->id)
             ->latest('sequence')
             ->first();
 

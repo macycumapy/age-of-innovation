@@ -16,7 +16,8 @@ final class RoundBonusChoiceController extends Controller
     {
         /** @var User $user */
         $user = $request->user();
-        $choose->execute($game, $user, $request->roundBonus());
+        $player = $game->players()->whereBelongsTo($user)->firstOrFail();
+        $choose->execute($game, $player, $request->roundBonus());
 
         return $this->gameChanged($game);
     }
