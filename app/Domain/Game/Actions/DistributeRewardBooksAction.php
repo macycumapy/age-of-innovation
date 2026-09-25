@@ -24,30 +24,20 @@ final class DistributeRewardBooksAction
         Game $game,
         GamePlayer $player,
         array $bookCounts,
-        PendingInteractionType $interactionType,
-        GameActionType $sourceActionType,
-        GameEventType $historyEventType,
-        string $rewardName,
     ): Game {
-        return DB::transaction(function () use (
-            $game,
-            $player,
-            $bookCounts,
-            $interactionType,
-            $sourceActionType,
-            $historyEventType,
-            $rewardName,
-        ): Game {
+        return DB::transaction(function () use ($game, $player, $bookCounts): Game {
             $lockedGame = Game::query()->lockForUpdate()->findOrFail($game->id);
             $state = $lockedGame->state;
             $interaction = $state->pendingInteraction;
             $playerState = collect($state->players)->firstWhere('playerId', $player->id);
 
+            [$interactionType, $sourceActionType, $historyEventType, $rewardName]
+                = $this->rewardMetadata($interaction?->type);
+
             if (! $lockedGame->phase->isActionPhase()
                 || $player->game_id !== $lockedGame->id
                 || ! $lockedGame->isActivePlayer($player)
-                || $interaction?->type !== $interactionType
-                || $interaction->playerId !== $player->id
+                || $interaction?->playerId !== $player->id
                 || ! $playerState instanceof GamePlayerStateData) {
                 throw ValidationException::withMessages([
                     'book_counts' => "Сейчас нельзя распределить книги {$rewardName}.",
@@ -94,5 +84,33 @@ final class DistributeRewardBooksAction
 
             return $lockedGame->refresh();
         });
+    }
+
+    /** @return array{PendingInteractionType, GameActionType, GameEventType, string} */
+    private function rewardMetadata(?PendingInteractionType $interactionType): array
+    {
+        return match ($interactionType) {
+            PendingInteractionType::ChooseShippingBooks => [
+                PendingInteractionType::ChooseShippingBooks,
+                GameActionType::AdvanceShipping,
+                GameEventType::ShippingBooksChosen,
+                'за навигацию',
+            ],
+            PendingInteractionType::ChooseTerraformingBooks => [
+                PendingInteractionType::ChooseTerraformingBooks,
+                GameActionType::AdvanceTerraforming,
+                GameEventType::TerraformingBooksChosen,
+                'за терраформинг',
+            ],
+            PendingInteractionType::ChoosePalaceBooks => [
+                PendingInteractionType::ChoosePalaceBooks,
+                GameActionType::ChoosePalace,
+                GameEventType::PalaceBooksChosen,
+                'Крепости',
+            ],
+            default => throw ValidationException::withMessages([
+                'book_counts' => 'Сейчас нельзя распределить эти книги.',
+            ]),
+        };
     }
 }
