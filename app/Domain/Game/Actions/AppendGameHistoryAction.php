@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domain\Game\Actions;
 
+use App\Domain\Game\Data\IncomeReceiptData;
 use App\Domain\Game\Enums\GameActionType;
 use App\Domain\Game\Enums\GameEventType;
 use App\Events\GameHistoryChanged;
@@ -31,9 +32,7 @@ final class AppendGameHistoryAction
         $phaseCheckpointPayload = [];
         $incomeReceiptValues = $payload['income_receipts'] ?? [];
         $scienceBonusReceiptValues = $payload['science_bonus_receipts'] ?? [];
-        $incomeReceipts = is_array($incomeReceiptValues)
-            ? array_values(array_filter($incomeReceiptValues, 'is_array'))
-            : [];
+        $incomeReceipts = $this->incomeReceiptPayloads($incomeReceiptValues);
         $scienceBonusReceipts = is_array($scienceBonusReceiptValues)
             ? array_values(array_filter($scienceBonusReceiptValues, 'is_array'))
             : [];
@@ -71,6 +70,23 @@ final class AppendGameHistoryAction
         GameHistoryChanged::dispatch($lockedGame->id);
 
         return $action;
+    }
+
+    /** @return list<array<string, mixed>> */
+    private function incomeReceiptPayloads(mixed $receipts): array
+    {
+        if (! is_array($receipts)) {
+            return [];
+        }
+
+        return array_values(array_filter(array_map(
+            static fn (mixed $receipt): ?array => match (true) {
+                $receipt instanceof IncomeReceiptData => $receipt->toArray(),
+                is_array($receipt) => $receipt,
+                default => null,
+            },
+            $receipts,
+        )));
     }
 
     /** @param list<array<string, mixed>> $receipts */

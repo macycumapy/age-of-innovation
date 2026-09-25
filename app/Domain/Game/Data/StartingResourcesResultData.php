@@ -10,7 +10,7 @@ use Spatie\LaravelData\Data;
 final class StartingResourcesResultData extends Data
 {
     /**
-     * @param list<array{player_id: int, tools: int, coins: int, scholars: int, power: int, books: int, knowledge_steps: int}> $incomeReceipts
+     * @param list<IncomeReceiptData> $incomeReceipts
      */
     public function __construct(
         public ?int $nextActivePlayerId,

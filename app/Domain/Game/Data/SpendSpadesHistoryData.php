@@ -11,7 +11,7 @@ final class SpendSpadesHistoryData extends Data
 {
     /**
      * @param list<string> $buildableHexIds
-     * @param list<array<string, mixed>> $incomeReceipts
+     * @param list<IncomeReceiptData> $incomeReceipts
      * @param list<array<string, mixed>> $scienceBonusReceipts
      * @param list<array<string, mixed>> $finalScoring
      */

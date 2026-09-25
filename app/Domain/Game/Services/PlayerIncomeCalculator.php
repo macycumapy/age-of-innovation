@@ -6,6 +6,7 @@ namespace App\Domain\Game\Services;
 
 use App\Domain\Game\Data\BoardStateData;
 use App\Domain\Game\Data\GamePlayerStateData;
+use App\Domain\Game\Data\IncomeReceiptData;
 use App\Domain\Game\Enums\BuildingType;
 use App\Domain\Game\Enums\Competency;
 use App\Domain\Game\Enums\Faction;
@@ -17,36 +18,36 @@ use App\Domain\Game\Enums\RoundBonus;
 
 final class PlayerIncomeCalculator
 {
-    /** @return array{tools: int, coins: int, scholars: int, power: int, books: int, knowledgeSteps: int, victoryPoints: int} */
-    public static function calculate(GamePlayerStateData $player, BoardStateData $board): array
+    public static function calculate(GamePlayerStateData $player, BoardStateData $board): IncomeReceiptData
     {
-        $income = [
-            'tools' => 1,
-            'coins' => $player->color === PlayerColor::Grey ? 2 : 0,
-            'scholars' => 0,
-            'power' => 0,
-            'books' => 0,
-            'knowledgeSteps' => 0,
-            'victoryPoints' => 0,
-        ];
+        $income = new IncomeReceiptData(
+            playerId: $player->playerId,
+            tools: 1,
+            coins: $player->color === PlayerColor::Grey ? 2 : 0,
+            scholars: 0,
+            power: 0,
+            books: 0,
+            knowledgeSteps: 0,
+            victoryPoints: 0,
+        );
         $buildingCounts = self::buildingCounts($player->playerId, $board);
 
         $workshopCount = $buildingCounts[BuildingType::Workshop->value];
-        $income['tools'] += $workshopCount - ($workshopCount >= 5 ? 1 : 0);
+        $income->tools += $workshopCount - ($workshopCount >= 5 ? 1 : 0);
         $guildCount = $buildingCounts[BuildingType::Guild->value];
-        $income['coins'] += $guildCount * 2;
+        $income->coins += $guildCount * 2;
 
         if ($player->color === PlayerColor::Grey && $guildCount > 0) {
-            $income['coins']++;
+            $income->coins++;
         }
-        $income['power'] += match ($guildCount) {
+        $income->power += match ($guildCount) {
             0 => 0,
             1 => 1,
             2 => 2,
             3 => 4,
             default => 6,
         };
-        $income['scholars'] += $buildingCounts[BuildingType::School->value]
+        $income->scholars += $buildingCounts[BuildingType::School->value]
             + $buildingCounts[BuildingType::University->value];
 
         if ($player->faction === Faction::Omar) {
@@ -73,7 +74,7 @@ final class PlayerIncomeCalculator
             }
 
             foreach ($discipline->highLevelIncome() as $resource => $amount) {
-                $income[$resource] += $amount;
+                self::addResource($income, $resource, $amount);
             }
         }
 
@@ -103,24 +104,22 @@ final class PlayerIncomeCalculator
         return $counts;
     }
 
-    /** @param array{tools: int, coins: int, scholars: int, power: int, books: int, knowledgeSteps: int} $income */
-    private static function addRoundBonusIncome(array &$income, RoundBonus $roundBonus): void
+    private static function addRoundBonusIncome(IncomeReceiptData $income, RoundBonus $roundBonus): void
     {
         match ($roundBonus) {
-            RoundBonus::SendScholar => $income['scholars']++,
-            RoundBonus::BuildGuild => $income['power'] += 3,
-            RoundBonus::PassPalaceUniversity => $income['tools']++,
-            RoundBonus::Spade, RoundBonus::Bridge => $income['books']++,
-            RoundBonus::Knowledge => $income['tools'] += 2,
-            RoundBonus::PassSchool => $income['coins'] += 4,
+            RoundBonus::SendScholar => $income->scholars++,
+            RoundBonus::BuildGuild => $income->power += 3,
+            RoundBonus::PassPalaceUniversity => $income->tools++,
+            RoundBonus::Spade, RoundBonus::Bridge => $income->books++,
+            RoundBonus::Knowledge => $income->tools += 2,
+            RoundBonus::PassSchool => $income->coins += 4,
             RoundBonus::PowerCoins => self::addPowerCoins($income, 4, 2),
-            RoundBonus::Coins => $income['coins'] += 6,
+            RoundBonus::Coins => $income->coins += 6,
             RoundBonus::RiverWorkshop => null,
         };
     }
 
-    /** @param array{tools: int, coins: int, scholars: int, power: int, books: int, knowledgeSteps: int, victoryPoints: int} $income */
-    private static function addCompetencyIncome(array &$income, Competency $competency): void
+    private static function addCompetencyIncome(IncomeReceiptData $income, Competency $competency): void
     {
         match ($competency) {
             Competency::Competency01 => self::addToolsAndKnowledge($income),
@@ -131,76 +130,82 @@ final class PlayerIncomeCalculator
         };
     }
 
-    /** @param array{tools: int, coins: int, scholars: int, power: int, books: int, knowledgeSteps: int, victoryPoints: int} $income */
-    private static function addVictoryPointsAndCoins(array &$income): void
+    private static function addVictoryPointsAndCoins(IncomeReceiptData $income): void
     {
-        $income['victoryPoints'] += 3;
-        $income['coins'] += 2;
+        $income->victoryPoints += 3;
+        $income->coins += 2;
     }
 
-    /** @param array{tools: int, coins: int, scholars: int, power: int, books: int, knowledgeSteps: int} $income */
-    private static function addInnovationIncome(array &$income, Innovation $innovation): void
+    private static function addInnovationIncome(IncomeReceiptData $income, Innovation $innovation): void
     {
         match ($innovation) {
-            Innovation::Workshop => $income['tools'] += 3,
-            Innovation::Guild => $income['coins'] += 5,
-            Innovation::Palace => $income['power'] += 4,
-            Innovation::University => $income['victoryPoints'] += 2,
+            Innovation::Workshop => $income->tools += 3,
+            Innovation::Guild => $income->coins += 5,
+            Innovation::Palace => $income->power += 4,
+            Innovation::University => $income->victoryPoints += 2,
             default => null,
         };
     }
 
-    /** @param array{tools: int, coins: int, scholars: int, power: int, books: int, knowledgeSteps: int} $income */
-    private static function addPalaceIncome(array &$income, PalaceAbility $palace): void
+    private static function addPalaceIncome(IncomeReceiptData $income, PalaceAbility $palace): void
     {
         match ($palace) {
-            PalaceAbility::Palace01 => $income['power'] += 5,
-            PalaceAbility::Palace03, PalaceAbility::Palace04, PalaceAbility::Palace17 => $income['power'] += 2,
-            PalaceAbility::Palace05, PalaceAbility::Palace07 => $income['power'] += 4,
+            PalaceAbility::Palace01 => $income->power += 5,
+            PalaceAbility::Palace03, PalaceAbility::Palace04, PalaceAbility::Palace17 => $income->power += 2,
+            PalaceAbility::Palace05, PalaceAbility::Palace07 => $income->power += 4,
             PalaceAbility::Palace06, PalaceAbility::Palace16 => self::addPowerAndBook($income),
             PalaceAbility::Palace08 => self::addPalaceEightIncome($income),
-            PalaceAbility::Palace09 => $income['scholars']++,
-            PalaceAbility::Palace10 => $income['coins'] += 6,
-            PalaceAbility::Palace11 => $income['tools']++,
-            PalaceAbility::Palace12 => $income['power'] += 8,
-            PalaceAbility::Palace14, PalaceAbility::Palace15 => $income['power'] += 6,
+            PalaceAbility::Palace09 => $income->scholars++,
+            PalaceAbility::Palace10 => $income->coins += 6,
+            PalaceAbility::Palace11 => $income->tools++,
+            PalaceAbility::Palace12 => $income->power += 8,
+            PalaceAbility::Palace14, PalaceAbility::Palace15 => $income->power += 6,
             PalaceAbility::Palace02, PalaceAbility::Palace13 => null,
         };
     }
 
-    /** @param array{tools: int, coins: int, scholars: int, power: int, books: int, knowledgeSteps: int} $income */
-    private static function addPowerCoins(array &$income, int $power, int $coins): void
+    private static function addPowerCoins(IncomeReceiptData $income, int $power, int $coins): void
     {
-        $income['power'] += $power;
-        $income['coins'] += $coins;
+        $income->power += $power;
+        $income->coins += $coins;
     }
 
-    /** @param array{tools: int, coins: int, scholars: int, power: int, books: int, knowledgeSteps: int} $income */
-    private static function addToolsAndKnowledge(array &$income): void
+    private static function addToolsAndKnowledge(IncomeReceiptData $income): void
     {
-        $income['tools']++;
-        $income['knowledgeSteps']++;
+        $income->tools++;
+        $income->knowledgeSteps++;
     }
 
-    /** @param array{tools: int, coins: int, scholars: int, power: int, books: int, knowledgeSteps: int} $income */
-    private static function addBooksAndPower(array &$income): void
+    private static function addBooksAndPower(IncomeReceiptData $income): void
     {
-        $income['books']++;
-        $income['power']++;
+        $income->books++;
+        $income->power++;
     }
 
-    /** @param array{tools: int, coins: int, scholars: int, power: int, books: int, knowledgeSteps: int} $income */
-    private static function addPowerAndBook(array &$income): void
+    private static function addPowerAndBook(IncomeReceiptData $income): void
     {
-        $income['power'] += 2;
-        $income['books']++;
+        $income->power += 2;
+        $income->books++;
     }
 
-    /** @param array{tools: int, coins: int, scholars: int, power: int, books: int, knowledgeSteps: int} $income */
-    private static function addPalaceEightIncome(array &$income): void
+    private static function addPalaceEightIncome(IncomeReceiptData $income): void
     {
-        $income['power'] += 2;
-        $income['coins'] += 2;
-        $income['tools']++;
+        $income->power += 2;
+        $income->coins += 2;
+        $income->tools++;
+    }
+
+    private static function addResource(IncomeReceiptData $income, string $resource, int $amount): void
+    {
+        match ($resource) {
+            'tools' => $income->tools += $amount,
+            'coins' => $income->coins += $amount,
+            'scholars' => $income->scholars += $amount,
+            'power' => $income->power += $amount,
+            'books' => $income->books += $amount,
+            'knowledgeSteps' => $income->knowledgeSteps += $amount,
+            'victoryPoints' => $income->victoryPoints += $amount,
+            default => null,
+        };
     }
 }

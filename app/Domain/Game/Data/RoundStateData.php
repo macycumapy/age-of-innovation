@@ -16,7 +16,7 @@ use Spatie\LaravelData\Data;
  * @property list<string> $usedBookActionIds Книжные действия, использованные в текущем раунде.
  * @property int $incomeTurnIndex Индекс следующего игрока в порядке начисления дохода.
  * @property list<int> $incomeOrder Порядок начисления дохода: сначала игроки с обязательным выбором.
- * @property list<array{player_id: int, tools: int, coins: int, scholars: int, power: int, books: int, knowledge_steps: int}> $incomeReceipts Накопленные квитанции текущей фазы дохода.
+ * @property list<IncomeReceiptData> $incomeReceipts Накопленные квитанции текущей фазы дохода.
  * @property int|null $turnStartVersion Версия состояния в начале текущего хода.
  * @property bool $hasTakenMainAction Выполнил ли активный игрок основное действие текущего хода.
  * @property bool $isCurrentTurnIrrevocable Нельзя ли перезапустить текущий ход из-за принятой другим игроком Силы.
@@ -30,7 +30,7 @@ class RoundStateData extends Data
      * @param list<string> $usedSharedActionIds
      * @param list<string> $usedBookActionIds
      * @param list<int> $incomeOrder
-     * @param list<array{player_id: int, tools: int, coins: int, scholars: int, power: int, books: int, knowledge_steps: int}> $incomeReceipts
+     * @param list<IncomeReceiptData> $incomeReceipts
      * @param list<int> $passOrder
      * @param list<array<string, int|string>> $scienceBonusReceipts
      */

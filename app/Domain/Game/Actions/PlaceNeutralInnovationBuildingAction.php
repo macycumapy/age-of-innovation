@@ -7,6 +7,7 @@ namespace App\Domain\Game\Actions;
 use App\Domain\Game\Data\BoardHexStateData;
 use App\Domain\Game\Data\BuildingStateData;
 use App\Domain\Game\Data\GamePlayerStateData;
+use App\Domain\Game\Data\IncomeReceiptData;
 use App\Domain\Game\Enums\BuildingType;
 use App\Domain\Game\Enums\GameActionType;
 use App\Domain\Game\Enums\GameEventType;
@@ -126,7 +127,7 @@ final class PlaceNeutralInnovationBuildingAction
     /**
      * @param array<string, mixed> $context
      * @param list<array{source: string, id: string, points: int}> $scoringSources
-     * @param list<array<string, mixed>> $incomeReceipts
+     * @param list<IncomeReceiptData> $incomeReceipts
      */
     private function updateSourceAction(
         Game $game,
@@ -162,7 +163,10 @@ final class PlaceNeutralInnovationBuildingAction
             'bonus_coins' => $bonusCoins,
             'scoring_sources' => $scoringSources,
         ];
-        $payload['income_receipts'] = $incomeReceipts;
+        $payload['income_receipts'] = array_map(
+            static fn (IncomeReceiptData $receipt): array => $receipt->toArray(),
+            $incomeReceipts,
+        );
         $events = $sourceAction->events ?? [];
         $events[] = ['type' => GameEventType::NeutralBuildingBuilt->value, 'player_id' => $player->id, 'hex_id' => $hexId];
         $sourceAction->update([

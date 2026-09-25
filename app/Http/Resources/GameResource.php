@@ -248,7 +248,7 @@ class GameResource extends JsonResource
                         'university' => $this->buildingCount($player->playerId, BuildingType::University),
                         'palace' => $this->buildingCount($player->playerId, BuildingType::Palace),
                     ],
-                    'income' => PlayerIncomeCalculator::calculate($player, $this->state->board),
+                    'income' => $this->income($player),
                     'shippingLevel' => $player->shippingLevel,
                     'largestNetworkSize' => LargestNetworkSizeCalculator::calculate($player, $this->state->board),
                     'canAdvanceShipping' => $player->shippingLevel < 3
@@ -423,6 +423,12 @@ class GameResource extends JsonResource
             ]),
             'createdAt' => $this->created_at?->toISOString(),
         ];
+    }
+
+    /** @return array{tools: int, coins: int, scholars: int, power: int, books: int, knowledgeSteps: int, victoryPoints: int} */
+    private function income(GamePlayerStateData $player): array
+    {
+        return PlayerIncomeCalculator::calculate($player, $this->state->board)->resourceAmounts();
     }
 
     /**

@@ -7,6 +7,7 @@ namespace App\Domain\Game\Actions;
 use App\Domain\Game\Data\BoardHexStateData;
 use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Data\GameStateData;
+use App\Domain\Game\Data\IncomeReceiptData;
 use App\Domain\Game\Data\RoundBonusOfferData;
 use App\Domain\Game\Enums\BuildingType;
 use App\Domain\Game\Enums\GamePhase;
@@ -28,7 +29,7 @@ final class ApplyPassAction
     /**
      * @param Collection<int, GamePlayer> $players
      * @param list<KnowledgeDiscipline>|null $knowledgeDisciplines Null only replays legacy history without this effect.
-     * @return array{nextActivePlayerId: int|null, phase: GamePhase, bonusCoins: int, victoryPoints: int, scoringSources: list<array{source: string, id: string, points: int}>, passOrder: int, nextRoundStarted: bool, incomeReceipts: list<array{player_id: int, tools: int, coins: int, scholars: int, power: int, books: int, knowledge_steps: int}>, finalScoring: list<array{playerId: int, victoryPoints: int, sources: list<array{source: string, id: string, value: int, rank: int, points: int}>}>, finalResourceConversion: array{bowlTwoSpent: int, movedToBowlThree: int, convertedToCoins: int, totalCoins: int, victoryPoints: int, remainingCoins: int}|null}
+     * @return array{nextActivePlayerId: int|null, phase: GamePhase, bonusCoins: int, victoryPoints: int, scoringSources: list<array{source: string, id: string, points: int}>, passOrder: int, nextRoundStarted: bool, incomeReceipts: list<IncomeReceiptData>, finalScoring: list<array{playerId: int, victoryPoints: int, sources: list<array{source: string, id: string, value: int, rank: int, points: int}>}>, finalResourceConversion: array{bowlTwoSpent: int, movedToBowlThree: int, convertedToCoins: int, totalCoins: int, victoryPoints: int, remainingCoins: int}|null}
      */
     public function execute(
         GameStateData $state,

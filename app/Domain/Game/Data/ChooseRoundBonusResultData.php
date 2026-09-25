@@ -11,7 +11,7 @@ use Spatie\LaravelData\Data;
 final class ChooseRoundBonusResultData extends Data
 {
     /**
-     * @param array<int, mixed> $incomeReceipts
+     * @param list<IncomeReceiptData> $incomeReceipts
      * @param array<int, mixed> $finalScoring
      * @param array<int, mixed> $scienceBonusReceipts
      */

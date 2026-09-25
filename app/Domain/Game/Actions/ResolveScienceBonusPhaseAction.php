@@ -6,6 +6,7 @@ namespace App\Domain\Game\Actions;
 
 use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Data\GameStateData;
+use App\Domain\Game\Data\IncomeReceiptData;
 use App\Domain\Game\Data\PendingInteractionData;
 use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\PendingInteractionType;
@@ -23,7 +24,7 @@ final class ResolveScienceBonusPhaseAction
     }
 
     /**
-     * @return array{GamePlayerStateData|null, GamePhase, list<array{player_id: int, tools: int, coins: int, scholars: int, power: int, books: int, knowledge_steps: int}>, list<array{playerId: int, victoryPoints: int, sources: list<array{source: string, id: string, value: int, rank: int, points: int}>}>, list<array<string, int|string>>}
+     * @return array{GamePlayerStateData|null, GamePhase, list<IncomeReceiptData>, list<array{playerId: int, victoryPoints: int, sources: list<array{source: string, id: string, value: int, rank: int, points: int}>}>, list<array<string, int|string>>}
      */
     public function execute(GameStateData $state): array
     {

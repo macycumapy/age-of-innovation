@@ -6,6 +6,7 @@ namespace App\Domain\Game\Actions;
 
 use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Data\GameStateData;
+use App\Domain\Game\Data\IncomeReceiptData;
 use App\Domain\Game\Data\PendingInteractionData;
 use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\KnowledgeDiscipline;
@@ -20,7 +21,7 @@ final class ResolveIncomePhaseAction
     }
 
     /**
-     * @return array{GamePlayerStateData, GamePhase, list<array{player_id: int, tools: int, coins: int, scholars: int, power: int, books: int, knowledge_steps: int}>}
+     * @return array{GamePlayerStateData, GamePhase, list<IncomeReceiptData>}
      */
     public function execute(GameStateData $state): array
     {
@@ -64,17 +65,7 @@ final class ResolveIncomePhaseAction
                 throw ValidationException::withMessages(['game' => 'Нарушен порядок получения дохода.']);
             }
 
-            $income = $this->applyIncome->execute($state, $playerState, false);
-            $state->round->incomeReceipts[] = [
-                'player_id' => $playerId,
-                'tools' => $income['tools'],
-                'coins' => $income['coins'],
-                'scholars' => $income['scholars'],
-                'power' => $income['power'],
-                'books' => $income['books'],
-                'knowledge_steps' => $income['knowledgeSteps'],
-                'victory_points' => $income['victoryPoints'],
-            ];
+            $state->round->incomeReceipts[] = $this->applyIncome->execute($state, $playerState, false);
         }
 
         $firstPlayer = collect($state->players)->firstWhere('playerId', $state->turnOrder[0] ?? null);
@@ -100,7 +91,7 @@ final class ResolveIncomePhaseAction
     private function prepareManualResources(GameStateData $state): array
     {
         $playerStates = collect($state->players)->keyBy('playerId');
-        return collect($state->turnOrder)
+        return array_values(collect($state->turnOrder)
             ->filter(function (int $playerId) use ($playerStates, $state): bool {
                 $playerState = $playerStates->get($playerId);
 
@@ -109,13 +100,13 @@ final class ResolveIncomePhaseAction
                 }
 
                 $income = PlayerIncomeCalculator::calculate($playerState, $state->board);
-                $playerState->resources->books->unassigned += $income['books'];
-                $playerState->knowledge->unassignedSteps += $income['knowledgeSteps'];
+                $playerState->resources->books->unassigned += $income->books;
+                $playerState->knowledge->unassignedSteps += $income->knowledgeSteps;
 
                 return $playerState->resources->books->unassigned > 0
                     || $playerState->knowledge->unassignedSteps > 0;
             })
             ->values()
-            ->all();
+            ->all());
     }
 }

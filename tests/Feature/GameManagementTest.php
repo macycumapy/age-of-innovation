@@ -26,6 +26,7 @@ use App\Domain\Game\Data\BridgeStateData;
 use App\Domain\Game\Data\BuildingStateData;
 use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Data\GameStateData;
+use App\Domain\Game\Data\IncomeReceiptData;
 use App\Domain\Game\Data\KnowledgeStateData;
 use App\Domain\Game\Data\PendingInteractionData;
 use App\Domain\Game\Data\PlaceBridgeOptionData;
@@ -696,7 +697,11 @@ class GameManagementTest extends TestCase
             ),
         );
 
-        $this->assertEquals([
+        $income = PlayerIncomeCalculator::calculate($playerState, $board);
+
+        $this->assertInstanceOf(IncomeReceiptData::class, $income);
+        $this->assertSame(15, $income->playerId);
+        $this->assertSame([
             'tools' => 8,
             'coins' => 22,
             'scholars' => 1,
@@ -704,7 +709,7 @@ class GameManagementTest extends TestCase
             'books' => 1,
             'knowledgeSteps' => 1,
             'victoryPoints' => 3,
-        ], PlayerIncomeCalculator::calculate($playerState, $board));
+        ], $income->resourceAmounts());
     }
 
     #[DataProvider('guildPowerIncomeProvider')]
@@ -730,7 +735,7 @@ class GameManagementTest extends TestCase
             range(1, $guildCount),
         ));
 
-        $this->assertSame($expectedPower, PlayerIncomeCalculator::calculate($playerState, $board)['power']);
+        $this->assertSame($expectedPower, PlayerIncomeCalculator::calculate($playerState, $board)->power);
     }
 
     /** @return array<string, array{int, int}> */
@@ -773,13 +778,13 @@ class GameManagementTest extends TestCase
 
         $this->assertSame(
             3,
-            PlayerIncomeCalculator::calculate($greyPlayer, $board)['coins']
-                - PlayerIncomeCalculator::calculate($greyPlayer, new BoardStateData())['coins'],
+            PlayerIncomeCalculator::calculate($greyPlayer, $board)->coins
+                - PlayerIncomeCalculator::calculate($greyPlayer, new BoardStateData())->coins,
         );
         $this->assertSame(
             2,
-            PlayerIncomeCalculator::calculate($greenPlayer, $board)['coins']
-                - PlayerIncomeCalculator::calculate($greenPlayer, new BoardStateData())['coins'],
+            PlayerIncomeCalculator::calculate($greenPlayer, $board)->coins
+                - PlayerIncomeCalculator::calculate($greenPlayer, new BoardStateData())->coins,
         );
     }
 
@@ -802,10 +807,10 @@ class GameManagementTest extends TestCase
             roundBonus: RoundBonus::RiverWorkshop,
         );
 
-        $this->assertSame(2, PlayerIncomeCalculator::calculate($greyPlayer, new BoardStateData())['coins']);
-        $this->assertSame(0, PlayerIncomeCalculator::calculate($greyPlayer, new BoardStateData())['power']);
-        $this->assertSame(2, PlayerIncomeCalculator::calculate($greenPlayer, new BoardStateData())['coins']);
-        $this->assertSame(2, PlayerIncomeCalculator::calculate($greenPlayer, new BoardStateData())['power']);
+        $this->assertSame(2, PlayerIncomeCalculator::calculate($greyPlayer, new BoardStateData())->coins);
+        $this->assertSame(0, PlayerIncomeCalculator::calculate($greyPlayer, new BoardStateData())->power);
+        $this->assertSame(2, PlayerIncomeCalculator::calculate($greenPlayer, new BoardStateData())->coins);
+        $this->assertSame(2, PlayerIncomeCalculator::calculate($greenPlayer, new BoardStateData())->power);
     }
 
     public function test_tenth_competency_has_two_coin_and_two_power_income_without_a_tower(): void
@@ -822,8 +827,8 @@ class GameManagementTest extends TestCase
 
         $income = PlayerIncomeCalculator::calculate($playerState, new BoardStateData());
 
-        $this->assertSame(2, $income['coins']);
-        $this->assertSame(2, $income['power']);
+        $this->assertSame(2, $income->coins);
+        $this->assertSame(2, $income->power);
     }
 
     public function test_tower_does_not_have_its_own_income(): void
@@ -847,8 +852,8 @@ class GameManagementTest extends TestCase
 
         $income = PlayerIncomeCalculator::calculate($playerState, $board);
 
-        $this->assertSame(0, $income['coins']);
-        $this->assertSame(0, $income['power']);
+        $this->assertSame(0, $income->coins);
+        $this->assertSame(0, $income->power);
     }
 
     #[DataProvider('workshopToolIncomeProvider')]
@@ -876,7 +881,7 @@ class GameManagementTest extends TestCase
             range(1, $workshopCount),
         ));
 
-        $this->assertSame($expectedTools, PlayerIncomeCalculator::calculate($playerState, $board)['tools']);
+        $this->assertSame($expectedTools, PlayerIncomeCalculator::calculate($playerState, $board)->tools);
     }
 
     /** @return array<string, array{int, int}> */
@@ -993,11 +998,11 @@ class GameManagementTest extends TestCase
 
         $this->assertSame(
             $expectedIncome,
-            PlayerIncomeCalculator::calculate($playerState, new BoardStateData())[$resource],
+            PlayerIncomeCalculator::calculate($playerState, new BoardStateData())->{$resource},
         );
         $this->assertSame(
             $expectedIncome,
-            PlayerIncomeCalculator::calculate($playerState, $boardWithNeutralBuilding)[$resource],
+            PlayerIncomeCalculator::calculate($playerState, $boardWithNeutralBuilding)->{$resource},
         );
     }
 
@@ -1176,10 +1181,10 @@ class GameManagementTest extends TestCase
 
         $income = PlayerIncomeCalculator::calculate($playerState, new BoardStateData());
 
-        $this->assertSame(9, $income['coins']);
-        $this->assertSame(6, $income['power']);
-        $this->assertSame(2, $income['tools']);
-        $this->assertSame(3, $income['victoryPoints']);
+        $this->assertSame(9, $income->coins);
+        $this->assertSame(6, $income->power);
+        $this->assertSame(2, $income->tools);
+        $this->assertSame(3, $income->victoryPoints);
     }
 
     public function test_income_skips_players_without_choices_and_stops_on_a_required_choice(): void
@@ -7654,7 +7659,7 @@ class GameManagementTest extends TestCase
                         PlayerIncomeCalculator::calculate(
                             $game->state->players[0],
                             $game->state->board,
-                        ),
+                        )->resourceAmounts(),
                     )
                     ->where(
                         'game.data.playerBoardStates.0.shippingLevel',
@@ -8500,9 +8505,9 @@ class GameManagementTest extends TestCase
             $resourcesBefore = $resourcesBeforeIncome->get($playerState->playerId);
 
             $this->assertIsArray($resourcesBefore);
-            $this->assertSame($resourcesBefore['tools'] + $income['tools'], $playerState->resources->tools);
-            $this->assertSame($resourcesBefore['coins'] + $income['coins'], $playerState->resources->coins);
-            $this->assertSame($resourcesBefore['scholars'] + $income['scholars'], $playerState->resources->scholars);
+            $this->assertSame($resourcesBefore['tools'] + $income->tools, $playerState->resources->tools);
+            $this->assertSame($resourcesBefore['coins'] + $income->coins, $playerState->resources->coins);
+            $this->assertSame($resourcesBefore['scholars'] + $income->scholars, $playerState->resources->scholars);
         }
 
         $activePlayerState = collect($game->state->players)->firstWhere('userId', $users[0]->id);

@@ -6,6 +6,7 @@ namespace App\Domain\Game\Actions;
 
 use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Data\GameStateData;
+use App\Domain\Game\Data\IncomeReceiptData;
 use App\Domain\Game\Enums\GamePhase;
 use BackedEnum;
 
@@ -16,7 +17,7 @@ final class StartNextRoundAction
     }
 
     /**
-     * @return array{GamePlayerStateData, GamePhase, list<array{player_id: int, tools: int, coins: int, scholars: int, power: int, books: int, knowledge_steps: int}>}
+     * @return array{GamePlayerStateData, GamePhase, list<IncomeReceiptData>}
      */
     public function execute(GameStateData $state): array
     {

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Domain\Game\Actions;
 
 use App\Domain\Game\Data\GameStateData;
+use App\Domain\Game\Data\IncomeReceiptData;
 use App\Domain\Game\Enums\GamePhase;
 use App\Models\GamePlayer;
 use Illuminate\Database\Eloquent\Collection;
@@ -18,7 +19,7 @@ final class CompletePassTurnAction
 
     /**
      * @param Collection<int, GamePlayer> $players
-     * @return array{nextActivePlayerId: int|null, phase: GamePhase, nextRoundStarted: bool, incomeReceipts: array, finalScoring: array, scienceBonusReceipts?: array}
+     * @return array{nextActivePlayerId: int|null, phase: GamePhase, nextRoundStarted: bool, incomeReceipts: list<IncomeReceiptData>, finalScoring: array, scienceBonusReceipts?: array}
      */
     public function execute(GameStateData $state, int $currentPlayerId, Collection $players): array
     {
