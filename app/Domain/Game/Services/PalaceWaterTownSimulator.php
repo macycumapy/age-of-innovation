@@ -20,7 +20,7 @@ final class PalaceWaterTownSimulator
         int $playerId,
         PalaceWaterTownOptionData $option,
     ): GameActionSimulationData {
-        $simulatedState = GameStateData::from($state->toArray());
+        $simulatedState = $state->deepCopy();
         $result = $this->applyPalaceWaterTownDecision->execute(
             $simulatedState,
             $playerId,

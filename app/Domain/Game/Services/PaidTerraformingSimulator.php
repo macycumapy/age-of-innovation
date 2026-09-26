@@ -26,7 +26,7 @@ final class PaidTerraformingSimulator
         int $playerId,
         PaidTerraformingOptionData $option,
     ): GameActionSimulationData {
-        $simulatedState = GameStateData::from($state->toArray());
+        $simulatedState = $state->deepCopy();
         $simulatedPlayer = collect($simulatedState->players)->firstWhere('playerId', $playerId);
 
         if (! $simulatedPlayer instanceof GamePlayerStateData) {

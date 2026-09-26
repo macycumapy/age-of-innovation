@@ -20,7 +20,7 @@ final class PowerOfferSimulator
         int $playerId,
         PowerOfferOptionData $option,
     ): GameActionSimulationData {
-        $simulatedState = GameStateData::from($state->toArray());
+        $simulatedState = $state->deepCopy();
         $result = $this->applyPowerOfferDecision->execute($simulatedState, $playerId, $option->accept);
 
         if ($result['advanceTurnCheckpoint']) {

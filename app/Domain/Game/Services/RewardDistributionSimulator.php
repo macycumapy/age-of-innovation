@@ -36,7 +36,7 @@ final class RewardDistributionSimulator
         int $playerId,
         RewardDistributionOptionData $option,
     ): GameActionSimulationData {
-        $simulatedState = GameStateData::from($state->toArray());
+        $simulatedState = $state->deepCopy();
         $player = collect($simulatedState->players)->firstWhere('playerId', $playerId);
         if (! $player instanceof GamePlayerStateData) {
             throw new InvalidArgumentException('Не найдено состояние игрока для симуляции.');

@@ -258,13 +258,13 @@ final class GameActionRanker
         int $remainingDepth,
         int $auxiliaryActionsRemaining,
     ): string {
-        return hash('xxh128', json_encode([
-            'state' => $state->toArray(),
+        return hash('xxh128', serialize([
+            'state' => $state,
             'nextActivePlayerId' => $nextActivePlayerId,
             'rootPlayerId' => $rootPlayerId,
             'remainingDepth' => $remainingDepth,
             'auxiliaryActionsRemaining' => $auxiliaryActionsRemaining,
-        ], JSON_THROW_ON_ERROR));
+        ]));
     }
 
     private function playerById(GameStateData $state, ?int $playerId): ?GamePlayerStateData

@@ -22,7 +22,7 @@ final class UpgradeBuildingSimulator
         int $playerId,
         UpgradeBuildingOptionData $option,
     ): GameActionSimulationData {
-        $simulatedState = GameStateData::from($state->toArray());
+        $simulatedState = $state->deepCopy();
         $simulatedPlayer = collect($simulatedState->players)->firstWhere('playerId', $playerId);
 
         if (! $simulatedPlayer instanceof GamePlayerStateData) {

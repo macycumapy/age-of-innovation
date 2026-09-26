@@ -21,7 +21,7 @@ final class PalaceActionSimulator
 
     public function execute(GameStateData $state, int $playerId, PalaceActionOptionData $option): GameActionSimulationData
     {
-        $simulatedState = GameStateData::from($state->toArray());
+        $simulatedState = $state->deepCopy();
         $simulatedPlayer = collect($simulatedState->players)->firstWhere('playerId', $playerId);
         if (! $simulatedPlayer instanceof GamePlayerStateData) {
             throw new InvalidArgumentException('Не найдено состояние игрока для симуляции.');

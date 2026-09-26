@@ -214,6 +214,24 @@ class GameActionRankerTest extends TestCase
         app(GameActionRanker::class)->execute($this->state(), 1, maxTimeMilliseconds: 0);
     }
 
+    public function test_game_state_deep_copy_is_equal_and_independent(): void
+    {
+        $state = $this->state();
+        $state->players[0]->resources->coins = 3;
+
+        $copy = $state->deepCopy();
+
+        $this->assertNotSame($state, $copy);
+        $this->assertNotSame($state->players[0], $copy->players[0]);
+        $this->assertNotSame($state->players[0]->resources, $copy->players[0]->resources);
+        $this->assertSame($state->toArray(), $copy->toArray());
+
+        $copy->players[0]->resources->coins++;
+
+        $this->assertSame(3, $state->players[0]->resources->coins);
+        $this->assertSame(4, $copy->players[0]->resources->coins);
+    }
+
     private function state(): GameStateData
     {
         return new GameStateData(

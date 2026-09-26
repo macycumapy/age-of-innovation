@@ -20,7 +20,7 @@ final class PlanningBundleSimulator
         int $playerId,
         PlanningBundleOptionData $option,
     ): GameActionSimulationData {
-        $simulatedState = GameStateData::from($state->toArray());
+        $simulatedState = $state->deepCopy();
         $result = $this->applyPlanningBundle->execute($simulatedState, $playerId, null, $option->homeland);
 
         return new GameActionSimulationData($simulatedState, $result->nextActivePlayerId);

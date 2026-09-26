@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domain\Game\Data;
 
+use RuntimeException;
 use Spatie\LaravelData\Data;
 
 /**
@@ -39,6 +40,8 @@ class GameStateData extends Data
      * @param list<string> $availableCompetencyIds
      * @param list<string> $roundBonusIds
      * @param list<PlayerPlanningSelectionData> $planningSelections
+     * @param array<string, mixed>|null $turnStartSnapshot
+     * @param array<string, mixed>|null $townChoiceCheckpoint
      */
     public function __construct(
         public int $schemaVersion = 1,
@@ -61,5 +64,16 @@ class GameStateData extends Data
         public ?array $turnStartSnapshot = null,
         public ?array $townChoiceCheckpoint = null,
     ) {
+    }
+
+    public function deepCopy(): self
+    {
+        $copy = unserialize(serialize($this), ['allowed_classes' => true]);
+
+        if (! $copy instanceof self) {
+            throw new RuntimeException('Не удалось скопировать состояние игры.');
+        }
+
+        return $copy;
     }
 }

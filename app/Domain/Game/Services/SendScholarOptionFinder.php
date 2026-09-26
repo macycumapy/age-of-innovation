@@ -26,7 +26,7 @@ final class SendScholarOptionFinder
             return [];
         }
 
-        $normalizedState = GameStateData::from($state->toArray());
+        $normalizedState = $state->deepCopy();
         $options = [];
 
         foreach (KnowledgeDiscipline::cases() as $discipline) {

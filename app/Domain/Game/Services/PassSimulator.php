@@ -25,7 +25,7 @@ final class PassSimulator
         int $playerId,
         PassOptionData $option,
     ): GameActionSimulationData {
-        $simulatedState = GameStateData::from($state->toArray());
+        $simulatedState = $state->deepCopy();
         $simulatedPlayer = collect($simulatedState->players)->firstWhere('playerId', $playerId);
 
         if (! $simulatedPlayer instanceof GamePlayerStateData) {
