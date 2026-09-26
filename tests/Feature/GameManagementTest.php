@@ -2873,6 +2873,101 @@ class GameManagementTest extends TestCase
         );
     }
 
+    public function test_replay_uses_game_player_id_to_distinguish_bots(): void
+    {
+        $game = Game::factory()->create([
+            'status' => GameStatus::Active,
+            'phase' => GamePhase::Actions,
+            'version' => 0,
+        ]);
+        $firstBot = GamePlayer::factory()->bot()->create([
+            'game_id' => $game->id,
+            'user_id' => null,
+            'seat' => 1,
+        ]);
+        $secondBot = GamePlayer::factory()->bot()->create([
+            'game_id' => $game->id,
+            'user_id' => null,
+            'seat' => 2,
+        ]);
+        $state = new GameStateData(
+            turnOrder: [$firstBot->id, $secondBot->id],
+            round: new RoundStateData(phase: GamePhase::Actions),
+            players: [
+                new GamePlayerStateData(
+                    playerId: $firstBot->id,
+                    userId: null,
+                    color: PlayerColor::Green,
+                    faction: Faction::Blessed,
+                    homeland: TerrainType::Forest,
+                    roundBonus: RoundBonus::Coins,
+                ),
+                new GamePlayerStateData(
+                    playerId: $secondBot->id,
+                    userId: null,
+                    color: PlayerColor::Red,
+                    faction: Faction::Inventors,
+                    homeland: TerrainType::Wasteland,
+                    roundBonus: RoundBonus::Coins,
+                    resources: new PlayerResourcesData(
+                        power: new PowerBowlsStateData(bowlThree: 1),
+                    ),
+                ),
+            ],
+        );
+        $game->update(['state' => $state]);
+
+        $game->actions()->create([
+            'sequence' => 1,
+            'player_id' => null,
+            'game_player_id' => null,
+            'type' => GameActionType::PhaseCheckpoint,
+            'payload' => [
+                'phase' => GamePhase::Actions->value,
+                'game' => [
+                    'status' => GameStatus::Active->value,
+                    'round' => 1,
+                    'phase' => GamePhase::Actions->value,
+                    'active_player_id' => null,
+                    'version' => 0,
+                    'state' => $state->toArray(),
+                    'started_at' => null,
+                    'finished_at' => null,
+                ],
+                'players' => [
+                    ['id' => $firstBot->id],
+                    ['id' => $secondBot->id],
+                ],
+                'final_scoring' => [],
+            ],
+            'events' => [],
+            'state_version_before' => 0,
+            'state_version_after' => 0,
+        ]);
+        $game->actions()->create([
+            'sequence' => 2,
+            'player_id' => null,
+            'game_player_id' => $secondBot->id,
+            'type' => GameActionType::ExchangeResources,
+            'payload' => ['exchanges' => $this->resourceExchanges(powerToCoin: 1)],
+            'events' => [],
+            'state_version_before' => 0,
+            'state_version_after' => 1,
+        ]);
+
+        app(ReplayGameHistoryAction::class)->execute(
+            $game,
+            $game->actions()->orderBy('sequence')->get(),
+        );
+
+        $game->refresh();
+        $this->assertSame(0, $game->state->players[0]->resources->coins);
+        $this->assertSame(0, $game->state->players[0]->resources->power->bowlOne);
+        $this->assertSame(1, $game->state->players[1]->resources->coins);
+        $this->assertSame(1, $game->state->players[1]->resources->power->bowlOne);
+        $this->assertSame(0, $game->state->players[1]->resources->power->bowlThree);
+    }
+
     public function test_professor_innovation_action_grants_a_scholar_and_victory_points(): void
     {
         [$game, $user] = $this->gameForFactionAction(Faction::Blessed);

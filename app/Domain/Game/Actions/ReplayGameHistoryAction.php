@@ -25,6 +25,7 @@ use App\Domain\Game\Enums\Innovation;
 use App\Domain\Game\Enums\KnowledgeDiscipline;
 use App\Domain\Game\Enums\PalaceAbility;
 use App\Domain\Game\Enums\PendingInteractionType;
+use App\Domain\Game\Enums\PlayerColor;
 use App\Domain\Game\Enums\PowerAction;
 use App\Domain\Game\Enums\ResourceExchange;
 use App\Domain\Game\Enums\RoundBonus;
@@ -217,7 +218,7 @@ final class ReplayGameHistoryAction
     /** @param Collection<int, GamePlayer> $players */
     private function replayAdvanceShipping(Game $game, Collection $players, GameAction $action): void
     {
-        $player = $players->firstWhere('user_id', $action->player_id);
+        $player = $this->historyPlayer($players, $action);
 
         if (! $player instanceof GamePlayer) {
             $this->invalidHistory();
@@ -249,7 +250,7 @@ final class ReplayGameHistoryAction
     /** @param Collection<int, GamePlayer> $players */
     private function replayAdvanceTerraforming(Game $game, Collection $players, GameAction $action): void
     {
-        $player = $players->firstWhere('user_id', $action->player_id);
+        $player = $this->historyPlayer($players, $action);
 
         if (! $player instanceof GamePlayer) {
             $this->invalidHistory();
@@ -318,7 +319,7 @@ final class ReplayGameHistoryAction
     /** @param Collection<int, GamePlayer> $players */
     private function replayRoundBonusAction(Game $game, Collection $players, GameAction $action): void
     {
-        $player = $players->firstWhere('user_id', $action->player_id);
+        $player = $this->historyPlayer($players, $action);
 
         if (! $player instanceof GamePlayer) {
             $this->invalidHistory();
@@ -464,7 +465,7 @@ final class ReplayGameHistoryAction
     /** @param Collection<int, GamePlayer> $players */
     private function replayPlanningBundle(Game $game, Collection $players, GameAction $action): void
     {
-        $player = $players->firstWhere('user_id', $action->player_id);
+        $player = $this->historyPlayer($players, $action);
         $homeland = TerrainType::from((string) $action->payload['homeland']);
         $state = $game->state;
         $bundle = collect($state->setupPool?->planningBundles)->first(
@@ -507,7 +508,7 @@ final class ReplayGameHistoryAction
     /** @param Collection<int, GamePlayer> $players */
     private function replayStartingResources(Game $game, Collection $players, GameAction $action): void
     {
-        $player = $players->firstWhere('user_id', $action->player_id);
+        $player = $this->historyPlayer($players, $action);
 
         if (! $player instanceof GamePlayer) {
             $this->invalidHistory();
@@ -555,7 +556,7 @@ final class ReplayGameHistoryAction
     /** @param Collection<int, GamePlayer> $players */
     private function replayPlaceStartingBuilding(Game $game, Collection $players, GameAction $action): void
     {
-        $player = $players->firstWhere('user_id', $action->player_id);
+        $player = $this->historyPlayer($players, $action);
         $hexId = (string) $action->payload['hex_id'];
         $state = $game->state;
 
@@ -608,7 +609,7 @@ final class ReplayGameHistoryAction
     /** @param Collection<int, GamePlayer> $players */
     private function replayFinishStartingBuildingTurn(Game $game, Collection $players, GameAction $action): void
     {
-        $player = $players->firstWhere('user_id', $action->player_id);
+        $player = $this->historyPlayer($players, $action);
 
         if (! $player instanceof GamePlayer) {
             $this->invalidHistory();
@@ -672,7 +673,7 @@ final class ReplayGameHistoryAction
     /** @param Collection<int, GamePlayer> $players */
     private function replayStartingCompetency(Game $game, Collection $players, GameAction $action): void
     {
-        $player = $players->firstWhere('user_id', $action->player_id);
+        $player = $this->historyPlayer($players, $action);
 
         if (! $player instanceof GamePlayer) {
             $this->invalidHistory();
@@ -815,7 +816,7 @@ final class ReplayGameHistoryAction
     /** @param Collection<int, GamePlayer> $players */
     private function replayStartingSpade(Game $game, Collection $players, GameAction $action): void
     {
-        $player = $players->firstWhere('user_id', $action->player_id);
+        $player = $this->historyPlayer($players, $action);
 
         if (! $player instanceof GamePlayer) {
             $this->invalidHistory();
@@ -1001,7 +1002,7 @@ final class ReplayGameHistoryAction
     /** @param Collection<int, GamePlayer> $players */
     private function replayTerraformAndBuild(Game $game, Collection $players, GameAction $action): void
     {
-        $player = $players->firstWhere('user_id', $action->player_id);
+        $player = $this->historyPlayer($players, $action);
 
         if (! $player instanceof GamePlayer) {
             $this->invalidHistory();
@@ -1063,9 +1064,7 @@ final class ReplayGameHistoryAction
     /** @param Collection<int, GamePlayer> $players */
     private function replayBuildWorkshop(Game $game, Collection $players, GameAction $action): void
     {
-        $player = $action->game_player_id !== null
-            ? $players->firstWhere('id', $action->game_player_id)
-            : $players->firstWhere('user_id', $action->player_id);
+        $player = $this->historyPlayer($players, $action);
         $hex = collect($game->state->board->hexes)->firstWhere('id', $action->payload['hex_id'] ?? null);
 
         if (! $player instanceof GamePlayer || ! $hex instanceof BoardHexStateData || $hex->building !== null) {
@@ -1098,7 +1097,7 @@ final class ReplayGameHistoryAction
     /** @param Collection<int, GamePlayer> $players */
     private function replayChooseTown(Game $game, Collection $players, GameAction $action): void
     {
-        $player = $players->firstWhere('user_id', $action->player_id);
+        $player = $this->historyPlayer($players, $action);
         $townTile = TownTile::tryFrom((string) ($action->payload['town_tile'] ?? ''));
 
         if (! $player instanceof GamePlayer || $townTile === null) {
@@ -1199,7 +1198,7 @@ final class ReplayGameHistoryAction
     /** @param Collection<int, GamePlayer> $players */
     private function replayChooseTownBooks(Game $game, Collection $players, GameAction $action): void
     {
-        $player = $players->firstWhere('user_id', $action->player_id);
+        $player = $this->historyPlayer($players, $action);
 
         $expectedInteractionType = $action->type === GameActionType::ChooseFelineTownBonus
             ? PendingInteractionType::ChooseFelineTownBonus
@@ -1283,7 +1282,7 @@ final class ReplayGameHistoryAction
     /** @param Collection<int, GamePlayer> $players */
     private function replayPalaceWaterTownDecision(Game $game, Collection $players, GameAction $action): void
     {
-        $player = $players->firstWhere('user_id', $action->player_id);
+        $player = $this->historyPlayer($players, $action);
 
         if (! $player instanceof GamePlayer
             || $game->state->pendingInteraction?->type !== PendingInteractionType::OfferPalaceWaterTown) {
@@ -1326,7 +1325,7 @@ final class ReplayGameHistoryAction
     /** @param Collection<int, GamePlayer> $players */
     private function replayChoosePalace(Game $game, Collection $players, GameAction $action): void
     {
-        $player = $players->firstWhere('user_id', $action->player_id);
+        $player = $this->historyPlayer($players, $action);
 
         if (! $player instanceof GamePlayer
             || $game->state->pendingInteraction?->type !== PendingInteractionType::ChoosePalace) {
@@ -1412,7 +1411,7 @@ final class ReplayGameHistoryAction
     /** @param Collection<int, GamePlayer> $players */
     private function replayPlacePalaceGuild(Game $game, Collection $players, GameAction $action): void
     {
-        $player = $players->firstWhere('user_id', $action->player_id);
+        $player = $this->historyPlayer($players, $action);
         $hex = collect($game->state->board->hexes)->firstWhere('id', $action->payload['hex_id'] ?? null);
 
         if (! $player instanceof GamePlayer
@@ -1440,7 +1439,7 @@ final class ReplayGameHistoryAction
     /** @param Collection<int, GamePlayer> $players */
     private function replayMakeInnovation(Game $game, Collection $players, GameAction $action): void
     {
-        $player = $players->firstWhere('user_id', $action->player_id);
+        $player = $this->historyPlayer($players, $action);
         $innovation = Innovation::tryFrom((string) ($action->payload['innovation'] ?? ''));
 
         if (! $player instanceof GamePlayer || $innovation === null) {
@@ -1517,7 +1516,7 @@ final class ReplayGameHistoryAction
 
     private function replaySendScholar(Game $game, Collection $players, GameAction $action): void
     {
-        $player = $players->firstWhere('user_id', $action->player_id);
+        $player = $this->historyPlayer($players, $action);
         $discipline = KnowledgeDiscipline::tryFrom((string) ($action->payload['discipline'] ?? ''));
 
         if (! $player instanceof GamePlayer || $discipline === null) {
@@ -1559,9 +1558,7 @@ final class ReplayGameHistoryAction
     /** @param Collection<int, GamePlayer> $players */
     private function replayPowerOfferDecision(Game $game, Collection $players, GameAction $action): void
     {
-        $player = $action->game_player_id !== null
-            ? $players->firstWhere('id', $action->game_player_id)
-            : $players->firstWhere('user_id', $action->player_id);
+        $player = $this->historyPlayer($players, $action);
 
         if (! $player instanceof GamePlayer) {
             $this->invalidHistory();
@@ -1587,7 +1584,7 @@ final class ReplayGameHistoryAction
     /** @param Collection<int, GamePlayer> $players */
     private function replayUpgradeBuilding(Game $game, Collection $players, GameAction $action): void
     {
-        $player = $players->firstWhere('user_id', $action->player_id);
+        $player = $this->historyPlayer($players, $action);
         $hex = collect($game->state->board->hexes)->firstWhere('id', $action->payload['hex_id'] ?? null);
 
         if (! $player instanceof GamePlayer || ! $hex instanceof BoardHexStateData || $hex->building === null) {
@@ -1639,7 +1636,7 @@ final class ReplayGameHistoryAction
     /** @param Collection<int, GamePlayer> $players */
     private function replayPass(Game $game, Collection $players, GameAction $action): void
     {
-        $player = $players->firstWhere('user_id', $action->player_id);
+        $player = $this->historyPlayer($players, $action);
 
         if (! $player instanceof GamePlayer) {
             $this->invalidHistory();
@@ -1689,7 +1686,7 @@ final class ReplayGameHistoryAction
     /** @param Collection<int, GamePlayer> $players */
     private function replayChooseRoundBonus(Game $game, Collection $players, GameAction $action): void
     {
-        $player = $players->firstWhere('user_id', $action->player_id);
+        $player = $this->historyPlayer($players, $action);
 
         if (! $player instanceof GamePlayer) {
             $this->invalidHistory();
@@ -1719,7 +1716,7 @@ final class ReplayGameHistoryAction
     /** @param Collection<int, GamePlayer> $players */
     private function replayScienceBonusBooks(Game $game, Collection $players, GameAction $action): void
     {
-        $player = $players->firstWhere('user_id', $action->player_id);
+        $player = $this->historyPlayer($players, $action);
         $state = $game->state;
 
         if (! $player instanceof GamePlayer
@@ -1745,7 +1742,7 @@ final class ReplayGameHistoryAction
     /** @param Collection<int, GamePlayer> $players */
     private function replaySacrificePower(Game $game, Collection $players, GameAction $action): void
     {
-        $player = $players->firstWhere('user_id', $action->player_id);
+        $player = $this->historyPlayer($players, $action);
 
         if (! $player instanceof GamePlayer) {
             $this->invalidHistory();
@@ -1772,7 +1769,7 @@ final class ReplayGameHistoryAction
     /** @param Collection<int, GamePlayer> $players */
     private function replayResourceExchange(Game $game, Collection $players, GameAction $action): void
     {
-        $player = $players->firstWhere('user_id', $action->player_id);
+        $player = $this->historyPlayer($players, $action);
 
         if (! $player instanceof GamePlayer) {
             $this->invalidHistory();
@@ -1795,7 +1792,7 @@ final class ReplayGameHistoryAction
     /** @param Collection<int, GamePlayer> $players */
     private function replayPowerAction(Game $game, Collection $players, GameAction $action): void
     {
-        $player = $players->firstWhere('user_id', $action->player_id);
+        $player = $this->historyPlayer($players, $action);
 
         if (! $player instanceof GamePlayer) {
             $this->invalidHistory();
@@ -1853,7 +1850,7 @@ final class ReplayGameHistoryAction
     /** @param Collection<int, GamePlayer> $players */
     private function replayPlaceAnnex(Game $game, Collection $players, GameAction $action): void
     {
-        $player = $players->firstWhere('user_id', $action->player_id);
+        $player = $this->historyPlayer($players, $action);
         $hexId = $action->payload['hex_id'] ?? null;
 
         if (! $player instanceof GamePlayer || ! is_string($hexId)) {
@@ -1891,9 +1888,7 @@ final class ReplayGameHistoryAction
     /** @param Collection<int, GamePlayer> $players */
     private function replayBookAction(Game $game, Collection $players, GameAction $action): void
     {
-        $player = $action->game_player_id !== null
-            ? $players->firstWhere('id', $action->game_player_id)
-            : $players->firstWhere('user_id', $action->player_id);
+        $player = $this->historyPlayer($players, $action);
 
         if (! $player instanceof GamePlayer) {
             $this->invalidHistory();
@@ -2037,6 +2032,20 @@ final class ReplayGameHistoryAction
         }
 
         return $playerState;
+    }
+
+    /** @param Collection<int, GamePlayer> $players */
+    private function historyPlayer(Collection $players, GameAction $action): ?GamePlayer
+    {
+        if ($action->game_player_id !== null) {
+            return $players->firstWhere('id', $action->game_player_id);
+        }
+
+        if ($action->player_id !== null) {
+            return $players->firstWhere('user_id', $action->player_id);
+        }
+
+        return null;
     }
 
     /** @param list<string> $hexIds */
