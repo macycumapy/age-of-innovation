@@ -19,6 +19,7 @@ final class GameActionSelector
         GameStateData $state,
         int $playerId,
         GameBotDifficulty $difficulty = GameBotDifficulty::Balanced,
+        int $auxiliaryActionsRemaining = 1,
     ): ?EvaluatedGameActionData {
         $parameters = $difficulty->searchParameters();
 
@@ -29,6 +30,7 @@ final class GameActionSelector
             branchLimit: $parameters['branchLimit'],
             maxNodes: $parameters['maxNodes'],
             maxTimeMilliseconds: $parameters['maxTimeMilliseconds'],
+            auxiliaryActionsRemaining: $auxiliaryActionsRemaining,
         )[0] ?? null;
     }
 }

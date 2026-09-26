@@ -15,6 +15,7 @@ use App\Domain\Game\Data\RoundStateData;
 use App\Domain\Game\Data\SendScholarOptionData;
 use App\Domain\Game\Enums\Competency;
 use App\Domain\Game\Enums\Faction;
+use App\Domain\Game\Enums\GameActionOptionType;
 use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\PendingInteractionType;
 use App\Domain\Game\Enums\PlayerColor;
@@ -198,6 +199,41 @@ class GameActionRankerTest extends TestCase
         );
 
         $this->assertInstanceOf(SendScholarOptionData::class, $rankedActions[0]->option);
+    }
+
+    public function test_it_excludes_auxiliary_actions_when_the_current_turn_budget_is_spent(): void
+    {
+        $state = $this->state();
+        $state->turnOrder = [1, 2];
+        $state->players[0]->resources = new PlayerResourcesData(
+            tools: 1,
+            scholars: 1,
+            power: new PowerBowlsStateData(bowlTwo: 2, bowlThree: 3),
+            books: new BookSupplyData(law: 1),
+        );
+        $state->players[] = new GamePlayerStateData(
+            playerId: 2,
+            userId: 20,
+            color: PlayerColor::Red,
+            faction: Faction::Inventors,
+            homeland: TerrainType::Wasteland,
+            roundBonus: RoundBonus::Coins,
+            resources: new PlayerResourcesData(),
+        );
+
+        $rankedActions = app(GameActionRanker::class)->execute(
+            $state,
+            1,
+            auxiliaryActionsRemaining: 0,
+        );
+
+        $rankedTypes = array_map(
+            static fn ($rankedAction): GameActionOptionType => $rankedAction->option->type(),
+            $rankedActions,
+        );
+
+        $this->assertNotContains(GameActionOptionType::ExchangeResources, $rankedTypes);
+        $this->assertNotContains(GameActionOptionType::SacrificePower, $rankedTypes);
     }
 
     public function test_it_rejects_an_invalid_search_budget(): void

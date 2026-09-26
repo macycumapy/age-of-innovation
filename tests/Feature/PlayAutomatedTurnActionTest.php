@@ -749,6 +749,59 @@ class PlayAutomatedTurnActionTest extends TestCase
         Event::assertDispatchedTimes(GameChanged::class, 2);
     }
 
+    public function test_a_new_job_does_not_repeat_an_auxiliary_action_from_the_current_turn(): void
+    {
+        Queue::fake();
+
+        $game = Game::factory()->create([
+            'status' => GameStatus::Active,
+            'phase' => GamePhase::Actions,
+            'version' => 1,
+        ]);
+        $botPlayer = GamePlayer::factory()->bot(GameBotDifficulty::Fast)->create([
+            'game_id' => $game->id,
+            'user_id' => null,
+        ]);
+        $setupPool = app(GameSetupPoolFactory::class)->create(2);
+        $setupPool->bookActions = [BookAction::GainCoins];
+        $game->update([
+            'active_game_player_id' => $botPlayer->id,
+            'state' => new GameStateData(
+                turnOrder: [$botPlayer->id],
+                players: [$this->playerState(
+                    $botPlayer,
+                    books: new BookSupplyData(banking: 1, law: 1),
+                )],
+                round: new RoundStateData(
+                    phase: GamePhase::Actions,
+                    turnStartVersion: 0,
+                ),
+                setupPool: $setupPool,
+            ),
+        ]);
+        GameAction::factory()->create([
+            'game_id' => $game->id,
+            'sequence' => 1,
+            'player_id' => null,
+            'game_player_id' => $botPlayer->id,
+            'type' => GameActionType::ExchangeResources,
+            'state_version_before' => 0,
+            'state_version_after' => 1,
+        ]);
+
+        app(PlayAutomatedTurnAction::class)->execute(
+            $game,
+            $botPlayer,
+            GameBotDifficulty::Fast,
+            singleDecision: true,
+        );
+
+        $this->assertSame(
+            [GameActionType::ExchangeResources, GameActionType::BookAction],
+            $game->actions()->orderBy('sequence')->pluck('type')->all(),
+        );
+    }
+
     public function test_it_resolves_its_pending_decision_and_stops_when_control_changes(): void
     {
         $opponent = User::factory()->create();

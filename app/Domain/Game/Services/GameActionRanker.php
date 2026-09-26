@@ -34,15 +34,29 @@ final class GameActionRanker
         int $branchLimit = 8,
         int $maxNodes = 1000,
         int $maxTimeMilliseconds = 20_000,
+        int $auxiliaryActionsRemaining = self::MAX_AUXILIARY_ACTIONS_PER_TURN,
     ): array {
-        if ($depth < 1 || $branchLimit < 1 || $maxNodes < 1 || $maxTimeMilliseconds < 1) {
+        if ($depth < 1
+            || $branchLimit < 1
+            || $maxNodes < 1
+            || $maxTimeMilliseconds < 1
+            || $auxiliaryActionsRemaining < 0
+        ) {
             throw new InvalidArgumentException('Глубина, ширина и бюджеты поиска должны быть положительными.');
         }
 
         $context = new GameTreeSearchContext($maxNodes, $maxTimeMilliseconds);
         $candidates = [];
 
-        foreach ($this->gameActionOptionFinder->execute($state, $playerId) as $index => $option) {
+        $options = $this->gameActionOptionFinder->execute($state, $playerId);
+        if ($auxiliaryActionsRemaining === 0) {
+            $options = array_values(array_filter(
+                $options,
+                fn (GameActionOption $option): bool => ! $this->isAuxiliaryOption($option),
+            ));
+        }
+
+        foreach ($options as $index => $option) {
             if ($candidates !== [] && $context->isExhausted()) {
                 break;
             }
@@ -75,7 +89,7 @@ final class GameActionRanker
                         $simulation,
                         $playerId,
                         $this->remainingDepthAfter($state, $option, $depth),
-                        $this->auxiliaryActionsAfter($option, self::MAX_AUXILIARY_ACTIONS_PER_TURN),
+                        $this->auxiliaryActionsAfter($option, $auxiliaryActionsRemaining),
                         $branchLimit,
                         $context,
                         PHP_INT_MIN,
