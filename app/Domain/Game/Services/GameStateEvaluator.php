@@ -14,7 +14,7 @@ use InvalidArgumentException;
 
 final class GameStateEvaluator
 {
-    private const int VICTORY_POINT_WEIGHT = 1000;
+    private const int VICTORY_POINT_WEIGHT = 10;
 
     private const int COIN_WEIGHT = 10;
 

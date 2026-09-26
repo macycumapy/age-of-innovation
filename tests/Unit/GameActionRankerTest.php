@@ -108,6 +108,40 @@ class GameActionRankerTest extends TestCase
         $this->assertSame(0, $finalIncomeAdvantage);
     }
 
+    public function test_state_evaluation_prefers_early_engine_income_over_small_victory_point_income(): void
+    {
+        $engineIncomeState = $this->state();
+        $engineIncomeState->round->number = 1;
+        $engineIncomeState->players[0]->competencyIds = [Competency::Competency01->value];
+
+        $victoryPointIncomeState = $this->state();
+        $victoryPointIncomeState->round->number = 1;
+        $victoryPointIncomeState->players[0]->competencyIds = [Competency::Competency02->value];
+
+        $evaluator = app(GameStateEvaluator::class);
+
+        $this->assertGreaterThan(
+            $evaluator->execute($victoryPointIncomeState, 1),
+            $evaluator->execute($engineIncomeState, 1),
+        );
+    }
+
+    public function test_state_evaluation_does_not_overvalue_a_small_victory_point_gain(): void
+    {
+        $victoryPointState = $this->state();
+        $victoryPointState->players[0]->victoryPoints = 3;
+
+        $scholarState = $this->state();
+        $scholarState->players[0]->resources->scholars = 1;
+
+        $evaluator = app(GameStateEvaluator::class);
+
+        $this->assertGreaterThan(
+            $evaluator->execute($victoryPointState, 1),
+            $evaluator->execute($scholarState, 1),
+        );
+    }
+
     public function test_state_evaluation_does_not_treat_round_bonus_income_as_recurring(): void
     {
         $coinsState = $this->state();
