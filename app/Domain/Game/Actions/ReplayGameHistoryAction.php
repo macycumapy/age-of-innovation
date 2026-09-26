@@ -336,10 +336,10 @@ final class ReplayGameHistoryAction
         $discipline = is_string($disciplineValue) ? KnowledgeDiscipline::from($disciplineValue) : null;
         $knowledgeDisciplineValues = $action->payload['knowledge_disciplines'] ?? [];
         $knowledgeDisciplines = is_array($knowledgeDisciplineValues)
-            ? array_map(
+            ? array_values(array_map(
                 static fn (mixed $value): KnowledgeDiscipline => KnowledgeDiscipline::from((string) $value),
                 $knowledgeDisciplineValues,
-            )
+            ))
             : [];
 
         if (($action->payload['palace'] ?? null) === PalaceAbility::Palace06->value
@@ -427,12 +427,16 @@ final class ReplayGameHistoryAction
             'started_at' => $action->created_at,
             'state' => new GameStateData(
                 schemaVersion: CompetencySupply::CURRENT_SCHEMA_VERSION,
-                turnOrder: $orderedPlayers->pluck('id')->all(),
+                turnOrder: array_values($orderedPlayers
+                    ->map(static fn (GamePlayer $player): int => $player->id)
+                    ->all()),
                 board: $game->state->board,
                 round: new RoundStateData(
                     number: 1,
                     phase: GamePhase::Setup,
-                    scoringTileId: $setupPool->roundScoringTiles[0]->value,
+                    scoringTileId: $setupPool->roundScoringTiles[0] instanceof \BackedEnum
+                        ? (string) $setupPool->roundScoringTiles[0]->value
+                        : $setupPool->roundScoringTiles[0],
                     additionalScoringTileId: $setupPool->additionalFinalRoundGoal->value,
                 ),
                 availableTownTileIds: array_merge(...array_fill(
@@ -537,7 +541,7 @@ final class ReplayGameHistoryAction
                 $state,
                 $playerState,
                 Competency::from($competencyValue),
-                $state->setupPool?->competencies ?? [],
+                $state->setupPool->competencies,
             );
         }
 
@@ -632,7 +636,7 @@ final class ReplayGameHistoryAction
                 PendingInteractionType::ChooseCompetency,
                 $player->id,
                 array_values(array_filter(
-                    $this->enumValues($state->setupPool?->competencies ?? []),
+                    $this->enumValues($state->setupPool->competencies),
                     static fn (string $competencyId): bool => ! in_array(
                         $competencyId,
                         $playerState->competencyIds,
@@ -647,7 +651,7 @@ final class ReplayGameHistoryAction
                 PendingInteractionType::ChooseCompetency,
                 $player->id,
                 array_values(array_filter(
-                    $this->enumValues($state->setupPool?->competencies ?? []),
+                    $this->enumValues($state->setupPool->competencies),
                     static fn (string $competencyId): bool => ! in_array(
                         $competencyId,
                         $playerState->competencyIds,
@@ -687,7 +691,7 @@ final class ReplayGameHistoryAction
             $state,
             $this->playerState($state, $player->id),
             $competency,
-            $state->setupPool?->competencies ?? $state->availableCompetencyIds,
+            $state->setupPool->competencies,
         );
         $this->playerState($state, $player->id)->victoryPoints += (int) ($action->payload['victory_points'] ?? 0);
         $state->pendingInteraction = null;
@@ -972,7 +976,7 @@ final class ReplayGameHistoryAction
                     PendingInteractionType::ChooseCompetency,
                     $player->id,
                     array_values(array_filter(
-                        $this->enumValues($state->setupPool?->competencies ?? []),
+                        $this->enumValues($state->setupPool->competencies),
                         static fn (string $competencyId): bool => ! in_array(
                             $competencyId,
                             $playerState->competencyIds,
@@ -1535,6 +1539,7 @@ final class ReplayGameHistoryAction
         $game->state = $state;
     }
 
+    /** @param Collection<int, GamePlayer> $players */
     private function replaySendScholar(Game $game, Collection $players, GameAction $action): void
     {
         $player = $this->historyPlayer($players, $action);
@@ -1670,10 +1675,10 @@ final class ReplayGameHistoryAction
                 $state,
                 $this->playerState($state, $player->id),
                 $players,
-                array_map(
+                array_values(array_map(
                     static fn (string $discipline): KnowledgeDiscipline => KnowledgeDiscipline::from($discipline),
                     $action->payload['knowledge_disciplines'] ?? [],
-                ),
+                )),
             );
             $completion = $result['completion'];
             $game->phase = $completion['phase'] ?? GamePhase::Actions;
@@ -1692,10 +1697,10 @@ final class ReplayGameHistoryAction
                 : null,
             $players,
             isset($action->payload['knowledge_disciplines'])
-                ? array_map(
+                ? array_values(array_map(
                     static fn (string $discipline): KnowledgeDiscipline => KnowledgeDiscipline::from($discipline),
                     $action->payload['knowledge_disciplines'],
-                )
+                ))
                 : null,
         );
         $game->phase = $result['phase'];
@@ -1716,7 +1721,7 @@ final class ReplayGameHistoryAction
         $state = $game->state;
         $playerState = $this->playerState($state, $player->id);
         $roundBonus = RoundBonus::from((string) $action->payload['round_bonus']);
-        $offerIndex = collect($state->setupPool?->availableRoundBonuses ?? [])
+        $offerIndex = collect($state->setupPool->availableRoundBonuses)
             ->search(static fn (RoundBonusOfferData $offer): bool => $offer->roundBonus === $roundBonus);
 
         if (! is_int($offerIndex) || $state->setupPool === null) {
@@ -2069,7 +2074,10 @@ final class ReplayGameHistoryAction
         return null;
     }
 
-    /** @param list<string> $hexIds */
+    /**
+     * @param list<string> $hexIds
+     * @return list<string>
+     */
     private function availableWorkshopHexIds(
         GameStateData $state,
         GamePlayerStateData $playerState,
