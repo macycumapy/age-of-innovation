@@ -8,13 +8,13 @@ use App\Domain\Game\Actions\PlayAutomatedTurnAction;
 use App\Events\GameChanged;
 use App\Models\Game;
 use App\Models\GamePlayer;
-use Illuminate\Contracts\Queue\ShouldBeUnique;
+use Illuminate\Contracts\Queue\ShouldBeUniqueUntilProcessing;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
-final class PlayAutomatedTurnJob implements ShouldBeUnique, ShouldQueue
+final class PlayAutomatedTurnJob implements ShouldBeUniqueUntilProcessing, ShouldQueue
 {
     use Queueable;
 
@@ -48,8 +48,13 @@ final class PlayAutomatedTurnJob implements ShouldBeUnique, ShouldQueue
             return;
         }
 
-        $playAutomatedTurn->execute($game, $player, $player->bot_difficulty);
+        $playAutomatedTurn->execute($game, $player, $player->bot_difficulty, singleDecision: true);
         GameChanged::dispatch($game->id);
+
+        $game->refresh();
+        if ($game->active_game_player_id === $player->id) {
+            self::dispatch($game->id, $player->id);
+        }
     }
 
     public function uniqueId(): string

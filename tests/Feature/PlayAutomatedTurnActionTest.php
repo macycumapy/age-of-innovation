@@ -713,6 +713,22 @@ class PlayAutomatedTurnActionTest extends TestCase
             ->handle(app(PlayAutomatedTurnAction::class));
 
         $game->refresh();
+        $this->assertSame($botPlayer->id, $game->active_game_player_id);
+        $this->assertTrue($game->state->round->hasTakenMainAction);
+        $this->assertSame(
+            [GameActionType::BookAction],
+            $game->actions()->orderBy('sequence')->pluck('type')->all(),
+        );
+        Queue::assertPushed(
+            PlayAutomatedTurnJob::class,
+            fn (PlayAutomatedTurnJob $job): bool => $job->gameId === $game->id
+                && $job->gamePlayerId === $botPlayer->id,
+        );
+
+        (new PlayAutomatedTurnJob($game->id, $botPlayer->id))
+            ->handle(app(PlayAutomatedTurnAction::class));
+
+        $game->refresh();
         $this->assertSame($opponent->id, $game->active_player_id);
         $this->assertSame(6, $game->state->players[0]->resources->coins);
         $this->assertSame(0, $game->state->players[0]->resources->books->banking);
@@ -729,6 +745,7 @@ class PlayAutomatedTurnActionTest extends TestCase
             GameChanged::class,
             fn (GameChanged $event): bool => $event->gameId === $game->id,
         );
+        Event::assertDispatchedTimes(GameChanged::class, 2);
     }
 
     public function test_it_resolves_its_pending_decision_and_stops_when_control_changes(): void

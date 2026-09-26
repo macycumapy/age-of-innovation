@@ -25,6 +25,7 @@ final class PlayAutomatedTurnAction
         Game $game,
         GamePlayer $player,
         GameBotDifficulty $difficulty = GameBotDifficulty::Balanced,
+        bool $singleDecision = false,
     ): Game {
         if ($player->game_id !== $game->id) {
             throw new DomainException('Автоматический игрок не участвует в этой партии.');
@@ -50,6 +51,10 @@ final class PlayAutomatedTurnAction
             }
 
             $game = $this->performGameActionOption->execute($game, $player, $selection->option);
+
+            if ($singleDecision) {
+                return $game;
+            }
         }
 
         throw new DomainException('Автоматический игрок превысил лимит решений за ход.');
