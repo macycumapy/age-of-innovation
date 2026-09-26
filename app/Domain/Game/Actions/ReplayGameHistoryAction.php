@@ -119,6 +119,7 @@ final class ReplayGameHistoryAction
         private ApplyScienceBonusBookDistributionAction $applyScienceBonusBookDistribution,
         private ApplyStartingResourcesAction $applyStartingResources,
         private GainPowerAction $gainPower,
+        private AdvancePendingInteractionQueueAction $advancePendingInteractionQueue,
     ) {
     }
 
@@ -347,7 +348,15 @@ final class ReplayGameHistoryAction
         }
         $playerState = $this->playerState($state, $player->id);
 
-        if (isset($action->payload['palace'])) {
+        if (($action->payload['palace_bridge_skipped'] ?? null) === PalaceAbility::Palace15->value) {
+            $game->active_game_player_id = $this->advancePendingInteractionQueue->execute(
+                $state,
+                $playerState,
+                (string) ($state->pendingInteraction?->context['builtHexId'] ?? ''),
+            );
+        } elseif (isset($action->payload['palace_bridge'])) {
+            // Размещение моста будет восстановлено общим обработчиком ниже.
+        } elseif (isset($action->payload['palace'])) {
             $result = $this->applyPalaceAction->execute(
                 $state,
                 $playerState,
@@ -1817,12 +1826,21 @@ final class ReplayGameHistoryAction
     {
         $fromHexId = $action->payload['from_hex_id'] ?? null;
         $toHexId = $action->payload['to_hex_id'] ?? null;
+        $builtHexId = (string) ($state->pendingInteraction?->context['builtHexId'] ?? '');
 
         if (! is_string($fromHexId) || ! is_string($toHexId)) {
             return null;
         }
 
         $state->board->bridges[] = new BridgeStateData($fromHexId, $toHexId, $playerId);
+
+        if (($action->payload['palace_bridge'] ?? null) === PalaceAbility::Palace15->value) {
+            return $this->advancePendingInteractionQueue->execute(
+                $state,
+                $this->playerState($state, $playerId),
+                $builtHexId,
+            );
+        }
 
         return $this->createTownChoiceAfterBuilding->execute(
             $state,

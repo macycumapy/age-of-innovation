@@ -12,6 +12,7 @@ use App\Domain\Game\Data\GameStateData;
 use App\Domain\Game\Data\PendingInteractionData;
 use App\Domain\Game\Data\PlaceBridgeOptionData;
 use App\Domain\Game\Data\RoundStateData;
+use App\Domain\Game\Data\SkipBridgeOptionData;
 use App\Domain\Game\Enums\BuildingType;
 use App\Domain\Game\Enums\Faction;
 use App\Domain\Game\Enums\GameActionOptionType;
@@ -61,8 +62,22 @@ class PlaceBridgeSimulatorTest extends TestCase
                         initialTerrain: TerrainType::Water,
                         terrain: TerrainType::Water,
                     ),
+                    new BoardHexStateData(
+                        id: '2:-1',
+                        q: 2,
+                        r: -1,
+                        initialTerrain: TerrainType::Mountain,
+                        terrain: TerrainType::Mountain,
+                    ),
+                    new BoardHexStateData(
+                        id: '1:-1',
+                        q: 1,
+                        r: -1,
+                        initialTerrain: TerrainType::Water,
+                        terrain: TerrainType::Water,
+                    ),
                 ],
-                riverBankHexIds: ['0:0', '1:1'],
+                riverBankHexIds: ['0:0', '1:1', '2:-1'],
             ),
             players: [new GamePlayerStateData(
                 playerId: 1,
@@ -85,7 +100,7 @@ class PlaceBridgeSimulatorTest extends TestCase
             static fn ($option): bool => $option instanceof PlaceBridgeOptionData,
         ));
 
-        $this->assertCount(1, $options);
+        $this->assertCount(2, $options);
         $this->assertSame(GameActionOptionType::PlaceBridge, $options[0]->type());
         $this->assertSame('0:0', $options[0]->fromHexId);
         $this->assertSame('1:1', $options[0]->toHexId);
@@ -97,5 +112,48 @@ class PlaceBridgeSimulatorTest extends TestCase
         $this->assertSame('1:1', $simulation->state->board->bridges[0]->toHexId);
         $this->assertNull($simulation->state->pendingInteraction);
         $this->assertSame(1, $simulation->nextActivePlayerId);
+
+        $palaceState = $state->deepCopy();
+        $palaceState->pendingInteraction->context = [
+            'source' => 'palace_15',
+            'builtHexId' => '0:0',
+        ];
+        $palaceState->pendingInteractionQueue = [new PendingInteractionData(
+            PendingInteractionType::PlaceBridge,
+            1,
+            context: ['builtHexId' => '0:0'],
+        )];
+        $skipOption = collect(app(GameActionOptionFinder::class)->execute($palaceState, 1))
+            ->first(static fn ($option): bool => $option instanceof SkipBridgeOptionData);
+
+        $this->assertInstanceOf(SkipBridgeOptionData::class, $skipOption);
+
+        $firstSkip = app(GameActionSimulator::class)->execute($palaceState, 1, $skipOption);
+        $secondSkipOption = collect(app(GameActionOptionFinder::class)->execute($firstSkip->state, 1))
+            ->first(static fn ($option): bool => $option instanceof SkipBridgeOptionData);
+
+        $this->assertInstanceOf(SkipBridgeOptionData::class, $secondSkipOption);
+
+        $secondSkip = app(GameActionSimulator::class)->execute($firstSkip->state, 1, $secondSkipOption);
+
+        $this->assertSame([], $secondSkip->state->board->bridges);
+        $this->assertNull($secondSkip->state->pendingInteraction);
+
+        $firstBridge = app(GameActionSimulator::class)->execute($palaceState, 1, $options[0]);
+
+        $this->assertSame('palace_15', $firstBridge->state->pendingInteraction?->context['source']);
+        $this->assertSame([], $firstBridge->state->pendingInteractionQueue);
+
+        $secondOptions = array_values(array_filter(
+            app(GameActionOptionFinder::class)->execute($firstBridge->state, 1),
+            static fn ($option): bool => $option instanceof PlaceBridgeOptionData,
+        ));
+
+        $this->assertCount(1, $secondOptions);
+
+        $secondBridge = app(GameActionSimulator::class)->execute($firstBridge->state, 1, $secondOptions[0]);
+
+        $this->assertCount(2, $secondBridge->state->board->bridges);
+        $this->assertNull($secondBridge->state->pendingInteraction);
     }
 }

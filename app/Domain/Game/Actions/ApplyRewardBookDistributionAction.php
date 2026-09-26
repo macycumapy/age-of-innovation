@@ -13,7 +13,7 @@ final class ApplyRewardBookDistributionAction
 {
     public function __construct(
         private ApplyBookDistributionAction $applyBookDistribution,
-        private CreateTownChoiceAfterBuildingAction $createTownChoiceAfterBuilding,
+        private AdvancePendingInteractionQueueAction $advancePendingInteractionQueue,
     ) {
     }
 
@@ -37,7 +37,7 @@ final class ApplyRewardBookDistributionAction
         $state->pendingInteraction = null;
 
         if ($expectedInteractionType === PendingInteractionType::ChoosePalaceBooks) {
-            return $this->createTownChoiceAfterBuilding->execute(
+            return $this->advancePendingInteractionQueue->execute(
                 $state,
                 $player,
                 (string) ($interaction->context['builtHexId'] ?? ''),

@@ -2712,6 +2712,35 @@ class GameManagementTest extends TestCase
         );
     }
 
+    public function test_palace_fifteen_bridges_can_be_skipped_independently(): void
+    {
+        [$game, $user] = $this->gameForBridgeAction();
+        $player = $game->players()->whereBelongsTo($user)->firstOrFail();
+        $game = app(PerformPowerActionAction::class)->execute($game, $player, PowerAction::BuildBridge, 0);
+        $state = $game->state;
+        $this->assertNotNull($state->pendingInteraction);
+        $state->pendingInteraction->context = ['source' => 'palace_15', 'builtHexId' => '8:5'];
+        $state->pendingInteractionQueue = [new PendingInteractionData(
+            PendingInteractionType::PlaceBridge,
+            $player->id,
+            context: ['builtHexId' => '8:5'],
+        )];
+        $game->update(['state' => $state]);
+
+        $this->actingAs($user)->post(route('games.bridge.skip', $game))->assertNoContent();
+
+        $game->refresh();
+        $this->assertSame(PendingInteractionType::PlaceBridge, $game->state->pendingInteraction?->type);
+        $this->assertSame([], $game->state->pendingInteractionQueue);
+        $this->assertSame([], $game->state->board->bridges);
+
+        $this->post(route('games.bridge.skip', $game))->assertNoContent();
+
+        $game->refresh();
+        $this->assertNull($game->state->pendingInteraction);
+        $this->assertSame([], $game->state->board->bridges);
+    }
+
     public function test_round_bonus_bridge_starts_the_same_bridge_interaction(): void
     {
         [$game, $user] = $this->gameForBridgeAction(RoundBonus::Bridge);
@@ -5044,14 +5073,49 @@ class GameManagementTest extends TestCase
         ]);
         $game->update(['state' => new GameStateData(
             turnOrder: [$player->id],
-            board: new BoardStateData(hexes: [new BoardHexStateData(
-                id: '0:0',
-                q: 0,
-                r: 0,
-                initialTerrain: TerrainType::Forest,
-                terrain: TerrainType::Forest,
-                building: new BuildingStateData(BuildingType::Palace, $player->id),
-            )]),
+            board: new BoardStateData(
+                hexes: [
+                    new BoardHexStateData(
+                        id: '0:0',
+                        q: 0,
+                        r: 0,
+                        initialTerrain: TerrainType::Forest,
+                        terrain: TerrainType::Forest,
+                        building: new BuildingStateData(BuildingType::Palace, $player->id),
+                        adjacentHexIds: ['0:-1'],
+                    ),
+                    new BoardHexStateData(
+                        id: '1:1',
+                        q: 1,
+                        r: 1,
+                        initialTerrain: TerrainType::Mountain,
+                        terrain: TerrainType::Mountain,
+                        adjacentHexIds: ['0:0'],
+                    ),
+                    new BoardHexStateData(
+                        id: '1:0',
+                        q: 1,
+                        r: 0,
+                        initialTerrain: TerrainType::Water,
+                        terrain: TerrainType::Water,
+                    ),
+                    new BoardHexStateData(
+                        id: '0:1',
+                        q: 0,
+                        r: 1,
+                        initialTerrain: TerrainType::Water,
+                        terrain: TerrainType::Water,
+                    ),
+                    new BoardHexStateData(
+                        id: '0:-1',
+                        q: 0,
+                        r: -1,
+                        initialTerrain: TerrainType::Mountain,
+                        terrain: TerrainType::Mountain,
+                    ),
+                ],
+                riverBankHexIds: ['0:0', '1:1'],
+            ),
             round: new RoundStateData(phase: GamePhase::Actions),
             players: [new GamePlayerStateData(
                 playerId: $player->id,
@@ -5088,6 +5152,14 @@ class GameManagementTest extends TestCase
         $this->assertSame(1, $game->state->players[0]->resources->books->engineering);
         $this->assertSame(1, $game->state->players[0]->resources->books->medicine);
         $this->assertSame(0, $game->state->players[0]->resources->books->unassigned);
+        $this->assertSame(PendingInteractionType::SpendSpades, $game->state->pendingInteraction?->type);
+        $this->assertSame([
+            PendingInteractionType::PlaceBridge,
+            PendingInteractionType::PlaceBridge,
+        ], array_map(
+            static fn (PendingInteractionData $interaction): PendingInteractionType => $interaction->type,
+            $game->state->pendingInteractionQueue,
+        ));
     }
 
     public function test_palace_sixteen_places_a_free_guild_on_any_empty_homeland_hex(): void

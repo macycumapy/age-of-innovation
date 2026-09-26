@@ -30,6 +30,7 @@ use App\Domain\Game\Data\ResourceExchangeOptionData;
 use App\Domain\Game\Data\RewardDistributionOptionData;
 use App\Domain\Game\Data\SacrificePowerOptionData;
 use App\Domain\Game\Data\SendScholarOptionData;
+use App\Domain\Game\Data\SkipBridgeOptionData;
 use App\Domain\Game\Data\SpendSpadesOptionData;
 use App\Domain\Game\Data\StartingBuildingOptionData;
 use App\Domain\Game\Data\UpgradeBuildingOptionData;
@@ -75,6 +76,7 @@ final class PerformGameActionOptionAction
         private PlaceNeutralInnovationBuildingAction $placeNeutralBuilding,
         private StageBridgeAction $stageBridge,
         private ConfirmBridgeAction $confirmBridge,
+        private SkipBridgeAction $skipBridge,
         private SpendStartingSpadeAction $spendSpade,
         private FinishStartingSpadeAction $finishSpade,
         private PlacePalaceGuildAction $placePalaceGuild,
@@ -184,6 +186,7 @@ final class PerformGameActionOptionAction
             $option instanceof ChooseCompetencyOptionData => $this->chooseCompetency->execute($game, $player, $option->competency),
             $option instanceof PlaceNeutralBuildingOptionData => $this->placeNeutralBuilding->execute($game, $player, $option->hexId),
             $option instanceof PlaceBridgeOptionData => $this->performBridgePlacement($game, $player, $option),
+            $option instanceof SkipBridgeOptionData => $this->skipBridge->execute($game, $player),
             $option instanceof PlacePalaceGuildOptionData => $this->performPalaceGuildPlacement($game, $player, $option),
             $option instanceof RewardDistributionOptionData => $this->distributeRewards->execute(
                 $game,

@@ -21,6 +21,7 @@ final class ApplyWorkshopAfterTerraformingAction
         private CreatePowerOffersAfterBuildingAction $createPowerOffersAfterBuilding,
         private ApplyBuildingBonusesAction $applyBuildingBonuses,
         private StartFelineTownBonusAction $startFelineTownBonus,
+        private AdvancePendingInteractionQueueAction $advancePendingInteractionQueue,
     ) {
     }
 
@@ -93,6 +94,14 @@ final class ApplyWorkshopAfterTerraformingAction
                     BuildingType::Workshop,
                 )
                 : null;
+        }
+
+        if ($state->pendingInteraction === null && $state->pendingInteractionQueue !== []) {
+            $nextActivePlayerId = $this->advancePendingInteractionQueue->execute(
+                $state,
+                $player,
+                (string) ($interaction->context['builtHexId'] ?? ''),
+            );
         }
 
         return new WorkshopAfterTerraformingResultData(

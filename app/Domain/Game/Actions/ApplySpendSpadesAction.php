@@ -27,6 +27,7 @@ final class ApplySpendSpadesAction
         private OfferWorkshopAfterTerraformingAction $offerWorkshopAfterTerraforming,
         private StartFelineTownBonusAction $startFelineTownBonus,
         private StartLizardTownBonusAction $startLizardTownBonus,
+        private AdvancePendingInteractionQueueAction $advancePendingInteractionQueue,
     ) {
     }
 
@@ -82,6 +83,14 @@ final class ApplySpendSpadesAction
             $state->pendingInteraction = $interaction;
         } else {
             $buildOffered = $this->continueAfterSpades($state, $player, $buildableHexIds, $interaction);
+
+            if ($state->pendingInteraction === null && $state->pendingInteractionQueue !== []) {
+                $this->advancePendingInteractionQueue->execute(
+                    $state,
+                    $player,
+                    (string) ($interaction->context['builtHexId'] ?? ''),
+                );
+            }
         }
 
         return new SpendSpadesResultData(
@@ -190,7 +199,12 @@ final class ApplySpendSpadesAction
             return false;
         }
 
-        return $this->offerWorkshopAfterTerraforming->execute($state, $player, $buildableHexIds);
+        return $this->offerWorkshopAfterTerraforming->execute(
+            $state,
+            $player,
+            $buildableHexIds,
+            ['builtHexId' => (string) ($interaction->context['builtHexId'] ?? '')],
+        );
     }
 
     private function clearSelectionContext(PendingInteractionData $interaction): void

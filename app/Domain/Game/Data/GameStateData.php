@@ -22,6 +22,7 @@ use Spatie\LaravelData\Data;
  * @property GameSetupPoolData|null $setupPool Пул компонентов, сформированный при старте партии.
  * @property list<PlayerPlanningSelectionData> $planningSelections Выбранные игроками стартовые комплекты.
  * @property PendingInteractionData|null $pendingInteraction Незавершённое решение игрока, блокирующее продолжение партии.
+ * @property list<PendingInteractionData> $pendingInteractionQueue Ожидающие выполнения шаги составного действия.
  * @property NeutralKnowledgeStateData|null $neutralKnowledge Состояние неигровой фракции на шкалах знаний для партии вдвоём.
  * @property int $startingBuildingTurnIndex Индекс текущего хода стартового выставления.
  * @property string|null $pendingStartingBuildingHexId Гекс дома, который ещё можно отменить.
@@ -40,6 +41,7 @@ class GameStateData extends Data
      * @param list<string> $availableCompetencyIds
      * @param list<string> $roundBonusIds
      * @param list<PlayerPlanningSelectionData> $planningSelections
+     * @param list<PendingInteractionData> $pendingInteractionQueue
      * @param array<string, mixed>|null $turnStartSnapshot
      * @param array<string, mixed>|null $townChoiceCheckpoint
      */
@@ -58,6 +60,7 @@ class GameStateData extends Data
         public ?GameSetupPoolData $setupPool = null,
         public array $planningSelections = [],
         public ?PendingInteractionData $pendingInteraction = null,
+        public array $pendingInteractionQueue = [],
         public ?NeutralKnowledgeStateData $neutralKnowledge = null,
         public int $startingBuildingTurnIndex = 0,
         public ?string $pendingStartingBuildingHexId = null,

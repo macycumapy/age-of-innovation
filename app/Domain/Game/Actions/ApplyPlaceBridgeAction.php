@@ -16,6 +16,7 @@ final class ApplyPlaceBridgeAction
     public function __construct(
         private FindEligibleBridgePairsAction $findEligibleBridgePairs,
         private CreateTownChoiceAfterBuildingAction $createTownChoiceAfterBuilding,
+        private AdvancePendingInteractionQueueAction $advancePendingInteractionQueue,
     ) {
     }
 
@@ -36,12 +37,23 @@ final class ApplyPlaceBridgeAction
             : [];
 
         if ($interaction?->playerId !== $player->playerId
-            || ! in_array($source, ['power', 'round_bonus', 'faction'], true)
+            || ! in_array($source, ['power', 'round_bonus', 'faction', 'palace_15'], true)
             || ! $this->containsPair($pairs, $fromHexId, $toHexId)) {
             throw ValidationException::withMessages(['bridge' => 'Это место недоступно для строительства моста.']);
         }
 
         $state->board->bridges[] = new BridgeStateData($fromHexId, $toHexId, $player->playerId);
+
+        if ($source === 'palace_15') {
+            $nextActivePlayerId = $this->advancePendingInteractionQueue->execute(
+                $state,
+                $player,
+                (string) ($interaction->context['builtHexId'] ?? ''),
+            );
+
+            return new PlaceBridgeResultData($nextActivePlayerId, $source);
+        }
+
         $nextActivePlayerId = $this->createTownChoiceAfterBuilding->execute(
             $state,
             $player,

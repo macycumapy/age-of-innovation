@@ -35,6 +35,7 @@ enum GameActionOptionType: string
     case ChooseCompetency = 'choose_competency';
     case PlaceNeutralBuilding = 'place_neutral_building';
     case PlaceBridge = 'place_bridge';
+    case SkipBridge = 'skip_bridge';
     case SpendSpades = 'spend_spades';
     case PlacePalaceGuild = 'place_palace_guild';
     case DistributeRewards = 'distribute_rewards';

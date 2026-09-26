@@ -6,6 +6,7 @@ use App\Http\Controllers\AnnexPlacementController;
 use App\Http\Controllers\BookActionController;
 use App\Http\Controllers\BridgeConfirmationController;
 use App\Http\Controllers\BridgeController;
+use App\Http\Controllers\BridgeSkipController;
 use App\Http\Controllers\BuildingUpgradeController;
 use App\Http\Controllers\CompetencyActionController;
 use App\Http\Controllers\CurrentTurnFinishController;
@@ -123,6 +124,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('games.bridge.destroy');
     Route::post('games/{game}/bridge/confirm', BridgeConfirmationController::class)
         ->name('games.bridge.confirm');
+    Route::post('games/{game}/bridge/skip', BridgeSkipController::class)
+        ->name('games.bridge.skip');
     Route::post('games/{game}/annex/start', [AnnexPlacementController::class, 'create'])
         ->name('games.annex.start');
     Route::post('games/{game}/power-offer', PowerOfferController::class)

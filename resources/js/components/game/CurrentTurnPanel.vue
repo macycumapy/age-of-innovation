@@ -3,6 +3,7 @@ import { useHttp } from '@inertiajs/vue3';
 import { Check, RotateCcw } from '@lucide/vue';
 import { computed } from 'vue';
 import BridgeConfirmationController from '@/actions/App/Http/Controllers/BridgeConfirmationController';
+import BridgeSkipController from '@/actions/App/Http/Controllers/BridgeSkipController';
 import PalaceGuildConfirmationController from '@/actions/App/Http/Controllers/PalaceGuildConfirmationController';
 import PalaceGuildController from '@/actions/App/Http/Controllers/PalaceGuildController';
 import PowerOfferController from '@/actions/App/Http/Controllers/PowerOfferController';
@@ -403,10 +404,19 @@ function scrollToPageTop(event: MouseEvent): void {
             </Button>
         </div>
 
-        <CurrentTurnRestartDialog
+        <div
             v-else-if="isCurrentUsersTurn && game.data.pendingInteraction?.type === 'place_bridge'"
-            :game-id="game.data.id"
-        />
+            class="flex shrink-0 items-center gap-2"
+        >
+            <CurrentTurnRestartDialog v-if="game.data.canRestartCurrentTurn" :game-id="game.data.id" />
+            <Form
+                v-if="game.data.pendingInteraction.context.source === 'palace_15'"
+                v-bind="BridgeSkipController.form(game.data.id)"
+                #default="{ processing }"
+            >
+                <Button type="submit" variant="outline" size="sm" :disabled="processing">Не строить мост</Button>
+            </Form>
+        </div>
 
         <TooltipProvider
             v-else-if="

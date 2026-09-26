@@ -71,12 +71,16 @@ final class ConfirmBridgeAction
                     'discipline' => null,
                     'from_hex_id' => $fromHexId,
                     'to_hex_id' => $toHexId,
+                ] : ($source === 'palace_15' ? [
+                    'palace_bridge' => 'palace_15',
+                    'from_hex_id' => $fromHexId,
+                    'to_hex_id' => $toHexId,
                 ] : [
                     'round_bonus' => 'bridge',
                     'discipline' => null,
                     'from_hex_id' => $fromHexId,
                     'to_hex_id' => $toHexId,
-                ]);
+                ]));
             $this->appendGameHistory->execute(
                 $lockedGame,
                 $player,

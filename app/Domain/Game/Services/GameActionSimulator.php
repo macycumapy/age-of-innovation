@@ -32,6 +32,7 @@ use App\Domain\Game\Data\ResourceExchangeOptionData;
 use App\Domain\Game\Data\RewardDistributionOptionData;
 use App\Domain\Game\Data\SacrificePowerOptionData;
 use App\Domain\Game\Data\SendScholarOptionData;
+use App\Domain\Game\Data\SkipBridgeOptionData;
 use App\Domain\Game\Data\SpendSpadesOptionData;
 use App\Domain\Game\Data\StartingBuildingOptionData;
 use App\Domain\Game\Data\UpgradeBuildingOptionData;
@@ -66,6 +67,7 @@ final class GameActionSimulator
         private ChooseCompetencySimulator $chooseCompetencySimulator,
         private PlaceNeutralBuildingSimulator $placeNeutralBuildingSimulator,
         private PlaceBridgeSimulator $placeBridgeSimulator,
+        private SkipBridgeSimulator $skipBridgeSimulator,
         private SpendSpadesSimulator $spendSpadesSimulator,
         private PlacePalaceGuildSimulator $placePalaceGuildSimulator,
         private RewardDistributionSimulator $rewardDistributionSimulator,
@@ -104,6 +106,7 @@ final class GameActionSimulator
             $option instanceof ChooseCompetencyOptionData => $this->chooseCompetencySimulator->execute($state, $playerId, $option),
             $option instanceof PlaceNeutralBuildingOptionData => $this->placeNeutralBuildingSimulator->execute($state, $playerId, $option),
             $option instanceof PlaceBridgeOptionData => $this->placeBridgeSimulator->execute($state, $playerId, $option),
+            $option instanceof SkipBridgeOptionData => $this->skipBridgeSimulator->execute($state, $playerId),
             $option instanceof SpendSpadesOptionData => $this->spendSpadesSimulator->execute($state, $playerId, $option),
             $option instanceof PlacePalaceGuildOptionData => $this->placePalaceGuildSimulator->execute($state, $playerId, $option),
             $option instanceof RewardDistributionOptionData => $this->rewardDistributionSimulator->execute($state, $playerId, $option),

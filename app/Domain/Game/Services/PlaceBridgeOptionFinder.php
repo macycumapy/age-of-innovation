@@ -8,6 +8,7 @@ use App\Domain\Game\Actions\FindEligibleBridgePairsAction;
 use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Data\GameStateData;
 use App\Domain\Game\Data\PlaceBridgeOptionData;
+use App\Domain\Game\Data\SkipBridgeOptionData;
 use App\Domain\Game\Enums\PendingInteractionType;
 
 final class PlaceBridgeOptionFinder
@@ -16,7 +17,7 @@ final class PlaceBridgeOptionFinder
     {
     }
 
-    /** @return list<PlaceBridgeOptionData> */
+    /** @return list<PlaceBridgeOptionData|SkipBridgeOptionData> */
     public function execute(GameStateData $state, GamePlayerStateData $player): array
     {
         $interaction = $state->pendingInteraction;
@@ -31,7 +32,7 @@ final class PlaceBridgeOptionFinder
             return [new PlaceBridgeOptionData($selectedFromHexId, $selectedToHexId)];
         }
 
-        return array_map(
+        $options = array_map(
             static fn (array $pair): PlaceBridgeOptionData => new PlaceBridgeOptionData(
                 $pair['fromHexId'],
                 $pair['toHexId'],
@@ -42,5 +43,11 @@ final class PlaceBridgeOptionFinder
                 canBuildAcrossTerrain: ($interaction->context['source'] ?? null) === 'faction',
             ),
         );
+
+        if (($interaction->context['source'] ?? null) === 'palace_15') {
+            $options[] = new SkipBridgeOptionData();
+        }
+
+        return $options;
     }
 }

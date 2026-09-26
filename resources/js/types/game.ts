@@ -529,7 +529,8 @@ export type PendingInteraction =
           optionIds: string[];
           context: {
               pairs: Array<{ fromHexId: string; toHexId: string }>;
-              source?: 'power' | 'round_bonus' | 'faction';
+              source?: 'power' | 'round_bonus' | 'faction' | 'palace_15';
+              builtHexId?: string;
               selectedFromHexId?: string;
               selectedToHexId?: string;
           };

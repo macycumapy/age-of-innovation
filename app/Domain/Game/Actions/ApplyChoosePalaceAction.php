@@ -21,6 +21,7 @@ final class ApplyChoosePalaceAction
         private ApplyDevelopmentTrackRoundScoringAction $applyDevelopmentTrackRoundScoring,
         private CreateTownChoiceAfterBuildingAction $createTownChoiceAfterBuilding,
         private GainPowerAction $gainPower,
+        private AdvancePendingInteractionQueueAction $advancePendingInteractionQueue,
     ) {
     }
 
@@ -47,11 +48,6 @@ final class ApplyChoosePalaceAction
             $gainedPower = $this->gainPower->execute($player, 12);
             $gainedBooks = 2;
             $player->resources->books->unassigned += $gainedBooks;
-        } elseif ($palace === PalaceAbility::Palace15) {
-            $gainedBooks = 2;
-            $gainedSpades = 2;
-            $player->resources->books->unassigned += $gainedBooks;
-            $player->unassignedSpades += $gainedSpades;
         } elseif ($palace === PalaceAbility::Palace14) {
             $shippingReward = $this->advanceDevelopmentTrack->advanceShipping($player, 2);
             $shippingReward['victoryPoints'] += $this->applyDevelopmentTrackRoundScoring->execute(
@@ -68,7 +64,25 @@ final class ApplyChoosePalaceAction
         ));
         $state->pendingInteraction = null;
 
-        if ($gainedBooks > 0) {
+        if ($palace === PalaceAbility::Palace15) {
+            $gainedBooks = 2;
+            $gainedSpades = 2;
+            $player->resources->books->unassigned += $gainedBooks;
+            $player->unassignedSpades += $gainedSpades;
+
+            $stepContext = ['builtHexId' => $builtHexId];
+            $state->pendingInteractionQueue = [
+                new PendingInteractionData(
+                    PendingInteractionType::ChoosePalaceBooks,
+                    $player->playerId,
+                    context: ['bookCount' => $gainedBooks, 'source' => 'palace', ...$stepContext],
+                ),
+                new PendingInteractionData(PendingInteractionType::SpendSpades, $player->playerId, context: $stepContext),
+                new PendingInteractionData(PendingInteractionType::PlaceBridge, $player->playerId, context: $stepContext),
+                new PendingInteractionData(PendingInteractionType::PlaceBridge, $player->playerId, context: $stepContext),
+            ];
+            $nextActivePlayerId = $this->advancePendingInteractionQueue->execute($state, $player, $builtHexId);
+        } elseif ($gainedBooks > 0) {
             $state->pendingInteraction = new PendingInteractionData(
                 PendingInteractionType::ChoosePalaceBooks,
                 $player->playerId,
