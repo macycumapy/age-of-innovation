@@ -5257,6 +5257,180 @@ class GameManagementTest extends TestCase
         ));
     }
 
+    public function test_palace_fifteen_mixed_bridge_choices_are_replayed(): void
+    {
+        $user = User::factory()->create();
+        $game = Game::factory()->create([
+            'status' => GameStatus::Active,
+            'phase' => GamePhase::Actions,
+            'active_player_id' => $user->id,
+            'version' => 0,
+        ]);
+        $player = GamePlayer::factory()->create([
+            'game_id' => $game->id,
+            'user_id' => $user->id,
+            'seat' => 1,
+        ]);
+        $state = new GameStateData(
+            turnOrder: [$player->id],
+            board: new BoardStateData(
+                hexes: [
+                    new BoardHexStateData(
+                        id: '8:5',
+                        q: 8,
+                        r: 5,
+                        initialTerrain: TerrainType::Forest,
+                        terrain: TerrainType::Forest,
+                        adjacentHexIds: ['9:5'],
+                        building: new BuildingStateData(BuildingType::Palace, $player->id),
+                    ),
+                    new BoardHexStateData(
+                        id: '9:5',
+                        q: 9,
+                        r: 5,
+                        initialTerrain: TerrainType::Wasteland,
+                        terrain: TerrainType::Wasteland,
+                        adjacentHexIds: ['8:5'],
+                    ),
+                    new BoardHexStateData(
+                        id: '8:6',
+                        q: 8,
+                        r: 6,
+                        initialTerrain: TerrainType::Water,
+                        terrain: TerrainType::Water,
+                    ),
+                    new BoardHexStateData(
+                        id: '7:6',
+                        q: 7,
+                        r: 6,
+                        initialTerrain: TerrainType::Water,
+                        terrain: TerrainType::Water,
+                    ),
+                    new BoardHexStateData(
+                        id: '7:5',
+                        q: 7,
+                        r: 5,
+                        initialTerrain: TerrainType::Water,
+                        terrain: TerrainType::Water,
+                    ),
+                    new BoardHexStateData(
+                        id: '7:7',
+                        q: 7,
+                        r: 7,
+                        initialTerrain: TerrainType::Plains,
+                        terrain: TerrainType::Plains,
+                    ),
+                    new BoardHexStateData(
+                        id: '6:6',
+                        q: 6,
+                        r: 6,
+                        initialTerrain: TerrainType::Mountain,
+                        terrain: TerrainType::Mountain,
+                    ),
+                ],
+                riverBankHexIds: ['8:5', '7:7', '6:6'],
+            ),
+            round: new RoundStateData(phase: GamePhase::Actions),
+            players: [new GamePlayerStateData(
+                playerId: $player->id,
+                userId: $user->id,
+                color: PlayerColor::Green,
+                faction: Faction::Blessed,
+                homeland: TerrainType::Forest,
+                roundBonus: RoundBonus::Coins,
+            )],
+            availablePalaceIds: [PalaceAbility::Palace15->value],
+            pendingInteraction: new PendingInteractionData(
+                PendingInteractionType::ChoosePalace,
+                $player->id,
+                [PalaceAbility::Palace15->value],
+                ['reason' => 'building', 'builtHexId' => '8:5'],
+            ),
+        );
+        $game->update(['state' => $state]);
+        $game->actions()->create([
+            'sequence' => 1,
+            'player_id' => null,
+            'game_player_id' => null,
+            'type' => GameActionType::PhaseCheckpoint,
+            'payload' => [
+                'phase' => GamePhase::Actions->value,
+                'game' => [
+                    'status' => GameStatus::Active->value,
+                    'round' => 1,
+                    'phase' => GamePhase::Actions->value,
+                    'active_player_id' => $user->id,
+                    'version' => 0,
+                    'state' => $state->toArray(),
+                    'started_at' => null,
+                    'finished_at' => null,
+                ],
+                'players' => [['id' => $player->id]],
+                'final_scoring' => [],
+            ],
+            'events' => [],
+            'state_version_before' => 0,
+            'state_version_after' => 0,
+        ]);
+
+        $this->actingAs($user)->post(route('games.palace-choice', $game), [
+            'palace_id' => PalaceAbility::Palace15->value,
+        ])->assertNoContent();
+        $this->post(route('games.rewards', $game), [
+            'book_counts' => ['banking' => 1, 'law' => 1, 'engineering' => 0, 'medicine' => 0],
+        ])->assertNoContent();
+
+        $this->post(route('games.paid-terraforming', $game), [
+            'hex_id' => '9:5',
+            'use_available' => false,
+        ])->assertNoContent();
+        $this->post(route('games.starting-spade.finish', $game))->assertNoContent();
+
+        $game->refresh();
+        $this->assertSame(PendingInteractionType::BuildWorkshopAfterTerraforming, $game->state->pendingInteraction?->type);
+        $this->post(route('games.terraform-workshop', $game), [
+            'build' => false,
+            'hex_id' => '9:5',
+        ])->assertNoContent();
+        $this->post(route('games.bridge.store', $game), [
+            'from_hex_id' => '8:5',
+            'to_hex_id' => '7:7',
+        ])->assertNoContent();
+        $this->post(route('games.bridge.confirm', $game))->assertNoContent();
+        $this->post(route('games.bridge.skip', $game))->assertNoContent();
+
+        $game->refresh();
+        $expectedState = $game->state;
+        $this->assertSame(TerrainType::Forest, $expectedState->board->hexes[1]->terrain);
+        $this->assertCount(1, $expectedState->board->bridges);
+        $this->assertNull($expectedState->pendingInteraction);
+        $this->assertSame([], $expectedState->pendingInteractionQueue);
+
+        app(ReplayGameHistoryAction::class)->execute(
+            $game,
+            $game->actions()->orderBy('sequence')->get(),
+        );
+
+        $game->refresh();
+        $this->assertSame($expectedState->board->hexes[1]->terrain, $game->state->board->hexes[1]->terrain);
+        $bridgeValues = static fn (array $bridges): array => array_map(
+            static fn (BridgeStateData $bridge): array => [
+                $bridge->fromHexId,
+                $bridge->toHexId,
+                $bridge->ownerPlayerId,
+            ],
+            $bridges,
+        );
+        $this->assertSame(
+            $bridgeValues($expectedState->board->bridges),
+            $bridgeValues($game->state->board->bridges),
+        );
+        $this->assertSame($expectedState->players[0]->resources->books->toArray(), $game->state->players[0]->resources->books->toArray());
+        $this->assertSame($expectedState->players[0]->unassignedSpades, $game->state->players[0]->unassignedSpades);
+        $this->assertNull($game->state->pendingInteraction);
+        $this->assertSame([], $game->state->pendingInteractionQueue);
+    }
+
     public function test_palace_sixteen_places_a_free_guild_on_any_empty_homeland_hex(): void
     {
         $user = User::factory()->create();

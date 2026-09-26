@@ -1010,10 +1010,10 @@ final class ReplayGameHistoryAction
 
         $state = $game->state;
         $state->round->hasTakenMainAction = true;
+        $playerState = $this->playerState($state, $player->id);
 
         if ((bool) ($action->payload['built'] ?? false)) {
             $hex = collect($state->board->hexes)->firstWhere('id', $action->payload['hex_id'] ?? null);
-            $playerState = $this->playerState($state, $player->id);
 
             if (! $hex instanceof BoardHexStateData) {
                 $this->invalidHistory();
@@ -1052,10 +1052,19 @@ final class ReplayGameHistoryAction
             $state->pendingInteraction = (bool) ($action->payload['feline_bonus_pending'] ?? false)
                 ? $this->createReplayFelineBonusInteraction(
                     $state,
-                    $this->playerState($state, $player->id),
+                    $playerState,
                     $action,
                 )
                 : null;
+        }
+
+        if ($state->pendingInteraction === null && $state->pendingInteractionQueue !== []) {
+            $nextStep = $state->pendingInteractionQueue[0];
+            $game->active_game_player_id = $this->advancePendingInteractionQueue->execute(
+                $state,
+                $playerState,
+                (string) ($nextStep->context['builtHexId'] ?? ''),
+            );
         }
 
         $game->state = $state;
@@ -1371,7 +1380,19 @@ final class ReplayGameHistoryAction
         $builtHexId = (string) ($action->payload['built_hex_id'] ?? '');
         $state->pendingInteraction = null;
 
-        if ($palace === PalaceAbility::Palace11) {
+        if ($palace === PalaceAbility::Palace15) {
+            $stepContext = ['builtHexId' => $builtHexId];
+            $state->pendingInteractionQueue = [
+                new PendingInteractionData(PendingInteractionType::SpendSpades, $player->id, context: $stepContext),
+                new PendingInteractionData(PendingInteractionType::PlaceBridge, $player->id, context: $stepContext),
+                new PendingInteractionData(PendingInteractionType::PlaceBridge, $player->id, context: $stepContext),
+            ];
+            $game->active_game_player_id = $this->advancePendingInteractionQueue->execute(
+                $state,
+                $playerState,
+                $builtHexId,
+            );
+        } elseif ($palace === PalaceAbility::Palace11) {
             $state->pendingInteraction = new PendingInteractionData(
                 PendingInteractionType::ChooseTown,
                 $player->id,
@@ -1382,7 +1403,7 @@ final class ReplayGameHistoryAction
                     'freePalaceTownTile' => true,
                 ],
             );
-            $game->active_player_id = $player->user_id;
+            $game->active_game_player_id = $player->id;
         } elseif ($palace === PalaceAbility::Palace16) {
             $state->pendingInteraction = new PendingInteractionData(
                 PendingInteractionType::PlacePalaceGuild,
@@ -1397,9 +1418,9 @@ final class ReplayGameHistoryAction
                 )),
                 ['palaceBuiltHexId' => $builtHexId, 'selectedHexId' => null],
             );
-            $game->active_player_id = $player->user_id;
+            $game->active_game_player_id = $player->id;
         } else {
-            $game->active_player_id = $this->createTownChoiceAfterBuilding->execute(
+            $game->active_game_player_id = $this->createTownChoiceAfterBuilding->execute(
                 $state,
                 $playerState,
                 $builtHexId,
