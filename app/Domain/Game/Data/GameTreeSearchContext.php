@@ -11,7 +11,17 @@ final class GameTreeSearchContext
 
     public int $visitedNodes = 0;
 
-    public function __construct(public readonly int $maxNodes)
+    public readonly int $deadlineNanoseconds;
+
+    public function __construct(
+        public readonly int $maxNodes,
+        int $maxTimeMilliseconds,
+    ) {
+        $this->deadlineNanoseconds = hrtime(true) + ($maxTimeMilliseconds * 1_000_000);
+    }
+
+    public function isExhausted(): bool
     {
+        return $this->visitedNodes >= $this->maxNodes || hrtime(true) >= $this->deadlineNanoseconds;
     }
 }

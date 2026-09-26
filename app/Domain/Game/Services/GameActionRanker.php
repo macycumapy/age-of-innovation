@@ -33,14 +33,20 @@ final class GameActionRanker
         int $depth = 1,
         int $branchLimit = 8,
         int $maxNodes = 1000,
+        int $maxTimeMilliseconds = 20_000,
     ): array {
-        if ($depth < 1 || $branchLimit < 1 || $maxNodes < 1) {
-            throw new InvalidArgumentException('Глубина, ширина и бюджет поиска должны быть положительными.');
+        if ($depth < 1 || $branchLimit < 1 || $maxNodes < 1 || $maxTimeMilliseconds < 1) {
+            throw new InvalidArgumentException('Глубина, ширина и бюджеты поиска должны быть положительными.');
         }
 
+        $context = new GameTreeSearchContext($maxNodes, $maxTimeMilliseconds);
         $candidates = [];
 
         foreach ($this->gameActionOptionFinder->execute($state, $playerId) as $index => $option) {
+            if ($candidates !== [] && $context->isExhausted()) {
+                break;
+            }
+
             $simulation = $this->gameActionSimulator->execute($state, $playerId, $option);
             $candidates[] = [
                 'option' => $option,
@@ -56,7 +62,6 @@ final class GameActionRanker
                 ?: $left['index'] <=> $right['index'],
         );
 
-        $context = new GameTreeSearchContext($maxNodes);
         $rankedActions = [];
 
         foreach ($candidates as $candidate) {
@@ -135,7 +140,7 @@ final class GameActionRanker
             return $context->cachedScores[$cacheKey];
         }
 
-        if ($context->visitedNodes >= $context->maxNodes) {
+        if ($context->isExhausted()) {
             return $this->gameStateEvaluator->execute($state, $rootPlayerId);
         }
 
@@ -156,6 +161,10 @@ final class GameActionRanker
         $options = array_slice($options, 0, $branchLimit);
         $simulations = [];
         foreach ($options as $option) {
+            if ($simulations !== [] && $context->isExhausted()) {
+                break;
+            }
+
             $nextSimulation = $this->gameActionSimulator->execute($state, $activePlayer->playerId, $option);
             $simulations[] = [
                 'simulation' => $nextSimulation,

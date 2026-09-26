@@ -207,6 +207,13 @@ class GameActionRankerTest extends TestCase
         app(GameActionRanker::class)->execute($this->state(), 1, maxNodes: 0);
     }
 
+    public function test_it_rejects_an_invalid_time_budget(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+
+        app(GameActionRanker::class)->execute($this->state(), 1, maxTimeMilliseconds: 0);
+    }
+
     private function state(): GameStateData
     {
         return new GameStateData(

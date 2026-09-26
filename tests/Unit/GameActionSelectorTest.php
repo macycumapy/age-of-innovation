@@ -86,6 +86,8 @@ class GameActionSelectorTest extends TestCase
         $this->assertLessThan($strong['depth'], $balanced['depth']);
         $this->assertLessThan($balanced['maxNodes'], $fast['maxNodes']);
         $this->assertLessThan($strong['maxNodes'], $balanced['maxNodes']);
+        $this->assertLessThan($balanced['maxTimeMilliseconds'], $fast['maxTimeMilliseconds']);
+        $this->assertLessThan($strong['maxTimeMilliseconds'], $balanced['maxTimeMilliseconds']);
     }
 
     private function state(): GameStateData

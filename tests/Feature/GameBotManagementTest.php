@@ -93,7 +93,8 @@ class GameBotManagementTest extends TestCase
         Queue::assertPushed(
             PlayAutomatedTurnJob::class,
             fn (PlayAutomatedTurnJob $job): bool => $job->gameId === $game->id
-                && $job->gamePlayerId === $botPlayer->id,
+                && $job->gamePlayerId === $botPlayer->id
+                && $job->queue === PlayAutomatedTurnJob::QUEUE,
         );
     }
 

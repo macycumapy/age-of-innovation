@@ -28,6 +28,7 @@ final class GameActionSelector
             depth: $state->round->phase === GamePhase::Setup ? 1 : $parameters['depth'],
             branchLimit: $parameters['branchLimit'],
             maxNodes: $parameters['maxNodes'],
+            maxTimeMilliseconds: $parameters['maxTimeMilliseconds'],
         )[0] ?? null;
     }
 }
