@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Tests\Unit;
 
+use App\Domain\Game\Data\BoardHexStateData;
 use App\Domain\Game\Data\BookSupplyData;
+use App\Domain\Game\Data\BuildingStateData;
 use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Data\GameStateData;
 use App\Domain\Game\Data\PendingInteractionData;
@@ -13,6 +15,7 @@ use App\Domain\Game\Data\PowerBowlsStateData;
 use App\Domain\Game\Data\RewardDistributionOptionData;
 use App\Domain\Game\Data\RoundStateData;
 use App\Domain\Game\Data\SendScholarOptionData;
+use App\Domain\Game\Enums\BuildingType;
 use App\Domain\Game\Enums\Competency;
 use App\Domain\Game\Enums\Faction;
 use App\Domain\Game\Enums\GameActionOptionType;
@@ -20,14 +23,52 @@ use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\PendingInteractionType;
 use App\Domain\Game\Enums\PlayerColor;
 use App\Domain\Game\Enums\RoundBonus;
+use App\Domain\Game\Enums\RoundScoringTile;
 use App\Domain\Game\Enums\TerrainType;
 use App\Domain\Game\Services\GameActionRanker;
 use App\Domain\Game\Services\GameStateEvaluator;
+use App\Domain\Game\Services\RoundScoringProgressEvaluator;
 use InvalidArgumentException;
 use Tests\TestCase;
 
 class GameActionRankerTest extends TestCase
 {
+    public function test_round_scoring_priority_only_values_new_matching_progress(): void
+    {
+        $before = $this->state();
+        $before->round->phase = GamePhase::Actions;
+        $before->round->scoringTileId = RoundScoringTile::WorkshopLaw->value;
+        $before->board->hexes = [
+            new BoardHexStateData(
+                id: '0:0',
+                q: 0,
+                r: 0,
+                initialTerrain: TerrainType::Plains,
+                terrain: TerrainType::Plains,
+                building: new BuildingStateData(BuildingType::Workshop, 1),
+            ),
+        ];
+        $unchanged = $before->deepCopy();
+        $after = $before->deepCopy();
+        $after->board->hexes[] = new BoardHexStateData(
+            id: '1:0',
+            q: 1,
+            r: 0,
+            initialTerrain: TerrainType::Plains,
+            terrain: TerrainType::Plains,
+            building: new BuildingStateData(BuildingType::Workshop, 1),
+        );
+
+        $evaluator = app(RoundScoringProgressEvaluator::class);
+
+        $this->assertSame(0, $evaluator->execute($before, $unchanged, 1));
+        $this->assertSame(2, $evaluator->execute($before, $after, 1));
+
+        $before->round->scoringTileId = RoundScoringTile::GuildLaw->value;
+
+        $this->assertSame(0, $evaluator->execute($before, $after, 1));
+    }
+
     public function test_it_ranks_simulated_actions_by_resulting_state_value(): void
     {
         $state = $this->state();

@@ -18,10 +18,13 @@ final class GameActionRanker
 {
     private const int MAX_AUXILIARY_ACTIONS_PER_TURN = 1;
 
+    private const int ROUND_SCORING_PRIORITY_WEIGHT = 10;
+
     public function __construct(
         private GameActionOptionFinder $gameActionOptionFinder,
         private GameActionSimulator $gameActionSimulator,
         private GameStateEvaluator $gameStateEvaluator,
+        private RoundScoringProgressEvaluator $roundScoringProgressEvaluator,
         private ApplyFinishActionTurnAction $applyFinishActionTurn,
     ) {
     }
@@ -65,7 +68,8 @@ final class GameActionRanker
             $candidates[] = [
                 'option' => $option,
                 'simulation' => $simulation,
-                'score' => $this->gameStateEvaluator->execute($simulation->state, $playerId),
+                'score' => $this->gameStateEvaluator->execute($simulation->state, $playerId)
+                    + $this->roundScoringPriority($state, $simulation->state, $playerId),
                 'index' => $index,
             ];
         }
@@ -94,7 +98,7 @@ final class GameActionRanker
                         $context,
                         PHP_INT_MIN,
                         PHP_INT_MAX,
-                    ),
+                    ) + $this->roundScoringPriority($state, $simulation->state, $playerId),
                 ),
                 'index' => $candidate['index'],
                 'isAuxiliary' => $this->isAuxiliaryOption($option),
@@ -255,6 +259,12 @@ final class GameActionRanker
     private function auxiliaryActionsAfter(GameActionOption $option, int $remaining): int
     {
         return $this->isAuxiliaryOption($option) ? max(0, $remaining - 1) : $remaining;
+    }
+
+    private function roundScoringPriority(GameStateData $before, GameStateData $after, int $playerId): int
+    {
+        return $this->roundScoringProgressEvaluator->execute($before, $after, $playerId)
+            * self::ROUND_SCORING_PRIORITY_WEIGHT;
     }
 
     private function isAuxiliaryOption(GameActionOption $option): bool
