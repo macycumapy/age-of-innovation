@@ -18,6 +18,8 @@ final class PlayAutomatedTurnJob implements ShouldBeUniqueUntilProcessing, Shoul
 {
     use Queueable;
 
+    public const string QUEUE = 'bot-turns';
+
     public int $tries = 3;
 
     public int $timeout = 60;
@@ -31,6 +33,7 @@ final class PlayAutomatedTurnJob implements ShouldBeUniqueUntilProcessing, Shoul
         public readonly int $gameId,
         public readonly int $gamePlayerId,
     ) {
+        $this->onQueue(self::QUEUE);
         $this->afterCommit();
     }
 

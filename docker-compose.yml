@@ -86,6 +86,22 @@ services:
                 - ping
             retries: 3
             timeout: 5s
+    horizon:
+        image: sail-8.5/app
+        restart: unless-stopped
+        command: php artisan horizon
+        environment:
+            WWWUSER: '${WWWUSER:-1000}'
+            LARAVEL_SAIL: 1
+        volumes:
+            - '.:/var/www/html'
+        networks:
+            - sail
+        depends_on:
+            redis:
+                condition: service_healthy
+            mysql:
+                condition: service_started
     reverb:
         image: sail-8.5/app
         restart: unless-stopped

@@ -111,7 +111,8 @@ class PlayAutomatedTurnActionTest extends TestCase
         Queue::assertPushed(
             PlayAutomatedTurnJob::class,
             fn (PlayAutomatedTurnJob $job): bool => $job->gameId === $game->id
-                && $job->gamePlayerId === $game->players()->whereBelongsTo($bot)->value('id'),
+                && $job->gamePlayerId === $game->players()->whereBelongsTo($bot)->value('id')
+                && $job->queue === PlayAutomatedTurnJob::QUEUE,
         );
     }
 
