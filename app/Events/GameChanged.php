@@ -7,10 +7,9 @@ namespace App\Events;
 use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Broadcasting\PrivateChannel;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
-use Illuminate\Contracts\Events\ShouldDispatchAfterCommit;
 use Illuminate\Foundation\Events\Dispatchable;
 
-final class GameChanged implements ShouldBroadcastNow, ShouldDispatchAfterCommit
+final class GameChanged implements ShouldBroadcastNow
 {
     use Dispatchable;
     use InteractsWithSockets;

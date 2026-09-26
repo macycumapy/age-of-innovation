@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Jobs;
 
 use App\Domain\Game\Actions\PlayAutomatedTurnAction;
+use App\Events\GameChanged;
 use App\Models\Game;
 use App\Models\GamePlayer;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
@@ -48,6 +49,7 @@ final class PlayAutomatedTurnJob implements ShouldBeUnique, ShouldQueue
         }
 
         $playAutomatedTurn->execute($game, $player, $player->bot_difficulty);
+        GameChanged::dispatch($game->id);
     }
 
     public function uniqueId(): string
