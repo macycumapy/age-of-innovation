@@ -76,12 +76,14 @@ use App\Domain\Game\Services\PassOptionFinder;
 use App\Domain\Game\Services\PlaceAnnexOptionFinder;
 use App\Domain\Game\Services\PlayerSpecialActionOptionFinder;
 use App\Domain\Game\Services\ResourceConversionOptionFinder;
+use App\Events\GameChanged;
 use App\Jobs\PlayAutomatedTurnJob;
 use App\Models\Game;
 use App\Models\GameAction;
 use App\Models\GamePlayer;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Queue;
 use Tests\TestCase;
 
@@ -289,7 +291,7 @@ class PlayAutomatedTurnActionTest extends TestCase
             ),
         ]);
 
-        app(PlayAutomatedTurnAction::class)->execute($game, $botPlayer, GameBotDifficulty::Fast);
+        app(PlayAutomatedTurnAction::class)->execute($game, $botPlayer, GameBotDifficulty::Balanced);
 
         $game->refresh();
         $this->assertSame($humanPlayer->id, $game->active_game_player_id);
@@ -676,6 +678,8 @@ class PlayAutomatedTurnActionTest extends TestCase
 
     public function test_it_chooses_performs_and_confirms_a_complete_turn(): void
     {
+        Queue::fake();
+
         $opponent = User::factory()->create();
         $game = Game::factory()->create([
             'status' => GameStatus::Active,
@@ -703,6 +707,8 @@ class PlayAutomatedTurnActionTest extends TestCase
             setupPool: $setupPool,
         ), 'active_game_player_id' => $botPlayer->id]);
 
+        Event::fake([GameChanged::class]);
+
         (new PlayAutomatedTurnJob($game->id, $botPlayer->id))
             ->handle(app(PlayAutomatedTurnAction::class));
 
@@ -719,6 +725,10 @@ class PlayAutomatedTurnActionTest extends TestCase
         );
         $this->assertSame([$botPlayer->id, $botPlayer->id], $game->actions()->pluck('game_player_id')->all());
         $this->assertSame([null, null], $game->actions()->pluck('player_id')->all());
+        Event::assertDispatched(
+            GameChanged::class,
+            fn (GameChanged $event): bool => $event->gameId === $game->id,
+        );
     }
 
     public function test_it_resolves_its_pending_decision_and_stops_when_control_changes(): void

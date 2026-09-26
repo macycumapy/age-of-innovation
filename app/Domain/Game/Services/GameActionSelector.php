@@ -7,6 +7,7 @@ namespace App\Domain\Game\Services;
 use App\Domain\Game\Data\EvaluatedGameActionData;
 use App\Domain\Game\Data\GameStateData;
 use App\Domain\Game\Enums\GameBotDifficulty;
+use App\Domain\Game\Enums\GamePhase;
 
 final class GameActionSelector
 {
@@ -24,7 +25,7 @@ final class GameActionSelector
         return $this->gameActionRanker->execute(
             $state,
             $playerId,
-            depth: $parameters['depth'],
+            depth: $state->round->phase === GamePhase::Setup ? 1 : $parameters['depth'],
             branchLimit: $parameters['branchLimit'],
             maxNodes: $parameters['maxNodes'],
         )[0] ?? null;

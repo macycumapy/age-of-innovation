@@ -5,15 +5,19 @@ declare(strict_types=1);
 namespace App\Domain\Game\Services;
 
 use App\Domain\Game\Actions\ApplyFinishActionTurnAction;
+use App\Domain\Game\Contracts\GameActionOption;
 use App\Domain\Game\Data\EvaluatedGameActionData;
 use App\Domain\Game\Data\GameActionSimulationData;
 use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Data\GameStateData;
 use App\Domain\Game\Data\GameTreeSearchContext;
+use App\Domain\Game\Enums\GameActionOptionType;
 use InvalidArgumentException;
 
 final class GameActionRanker
 {
+    private const int MAX_AUXILIARY_ACTIONS_PER_TURN = 1;
+
     public function __construct(
         private GameActionOptionFinder $gameActionOptionFinder,
         private GameActionSimulator $gameActionSimulator,
@@ -34,10 +38,30 @@ final class GameActionRanker
             throw new InvalidArgumentException('Глубина, ширина и бюджет поиска должны быть положительными.');
         }
 
-        $rankedActions = [];
+        $candidates = [];
 
         foreach ($this->gameActionOptionFinder->execute($state, $playerId) as $index => $option) {
             $simulation = $this->gameActionSimulator->execute($state, $playerId, $option);
+            $candidates[] = [
+                'option' => $option,
+                'simulation' => $simulation,
+                'score' => $this->gameStateEvaluator->execute($simulation->state, $playerId),
+                'index' => $index,
+            ];
+        }
+
+        usort(
+            $candidates,
+            static fn (array $left, array $right): int => $right['score'] <=> $left['score']
+                ?: $left['index'] <=> $right['index'],
+        );
+
+        $context = new GameTreeSearchContext($maxNodes);
+        $rankedActions = [];
+
+        foreach ($candidates as $candidate) {
+            $option = $candidate['option'];
+            $simulation = $candidate['simulation'];
             $rankedActions[] = [
                 'evaluation' => new EvaluatedGameActionData(
                     $option,
@@ -45,20 +69,23 @@ final class GameActionRanker
                     $this->search(
                         $simulation,
                         $playerId,
-                        $depth - 1,
+                        $this->remainingDepthAfter($state, $option, $depth),
+                        $this->auxiliaryActionsAfter($option, self::MAX_AUXILIARY_ACTIONS_PER_TURN),
                         $branchLimit,
-                        new GameTreeSearchContext($maxNodes),
+                        $context,
                         PHP_INT_MIN,
                         PHP_INT_MAX,
                     ),
                 ),
-                'index' => $index,
+                'index' => $candidate['index'],
+                'isAuxiliary' => $this->isAuxiliaryOption($option),
             ];
         }
 
         usort(
             $rankedActions,
             static fn (array $left, array $right): int => $right['evaluation']->score <=> $left['evaluation']->score
+                ?: $left['isAuxiliary'] <=> $right['isAuxiliary']
                 ?: $left['index'] <=> $right['index'],
         );
 
@@ -69,6 +96,7 @@ final class GameActionRanker
         GameActionSimulationData $simulation,
         int $rootPlayerId,
         int $remainingDepth,
+        int $auxiliaryActionsRemaining,
         int $branchLimit,
         GameTreeSearchContext $context,
         int $alpha,
@@ -77,7 +105,9 @@ final class GameActionRanker
         $state = $simulation->state;
         $nextActivePlayerId = $simulation->nextActivePlayerId;
 
-        if ($state->pendingInteraction === null && $state->round->hasTakenMainAction) {
+        if ($state->round->phase->isActionPhase()
+            && $state->pendingInteraction === null
+            && $state->round->hasTakenMainAction) {
             $currentPlayer = $this->playerById($state, $nextActivePlayerId);
 
             if ($currentPlayer === null) {
@@ -87,13 +117,20 @@ final class GameActionRanker
             $nextPlayerId = $this->applyFinishActionTurn->execute($state, $currentPlayer);
             $nextPlayer = collect($state->players)->firstWhere('playerId', $nextPlayerId);
             $nextActivePlayerId = $nextPlayer instanceof GamePlayerStateData ? $nextPlayer->playerId : null;
+            $auxiliaryActionsRemaining = self::MAX_AUXILIARY_ACTIONS_PER_TURN;
         }
 
         if ($remainingDepth === 0) {
             return $this->gameStateEvaluator->execute($state, $rootPlayerId);
         }
 
-        $cacheKey = $this->cacheKey($state, $nextActivePlayerId, $rootPlayerId, $remainingDepth);
+        $cacheKey = $this->cacheKey(
+            $state,
+            $nextActivePlayerId,
+            $rootPlayerId,
+            $remainingDepth,
+            $auxiliaryActionsRemaining,
+        );
         if (isset($context->cachedScores[$cacheKey])) {
             return $context->cachedScores[$cacheKey];
         }
@@ -109,17 +146,22 @@ final class GameActionRanker
             return $this->gameStateEvaluator->execute($state, $rootPlayerId);
         }
 
-        $options = array_slice(
-            $this->gameActionOptionFinder->execute($state, $activePlayer->playerId),
-            0,
-            $branchLimit,
-        );
+        $options = $this->gameActionOptionFinder->execute($state, $activePlayer->playerId);
+        if ($auxiliaryActionsRemaining === 0) {
+            $options = array_values(array_filter(
+                $options,
+                fn (GameActionOption $option): bool => ! $this->isAuxiliaryOption($option),
+            ));
+        }
+        $options = array_slice($options, 0, $branchLimit);
         $simulations = [];
         foreach ($options as $option) {
             $nextSimulation = $this->gameActionSimulator->execute($state, $activePlayer->playerId, $option);
             $simulations[] = [
                 'simulation' => $nextSimulation,
                 'score' => $this->gameStateEvaluator->execute($nextSimulation->state, $rootPlayerId),
+                'remainingDepth' => $this->remainingDepthAfter($state, $option, $remainingDepth),
+                'auxiliaryActionsRemaining' => $this->auxiliaryActionsAfter($option, $auxiliaryActionsRemaining),
             ];
         }
 
@@ -141,7 +183,8 @@ final class GameActionRanker
             $score = $this->search(
                 $candidate['simulation'],
                 $rootPlayerId,
-                $remainingDepth - 1,
+                $candidate['remainingDepth'],
+                $candidate['auxiliaryActionsRemaining'],
                 $branchLimit,
                 $context,
                 $alpha,
@@ -170,17 +213,48 @@ final class GameActionRanker
         return $bestScore;
     }
 
+    private function remainingDepthAfter(
+        GameStateData $state,
+        GameActionOption $option,
+        int $remainingDepth,
+    ): int {
+        if ($state->pendingInteraction !== null
+            || in_array($option->type(), [
+                GameActionOptionType::ExchangeResources,
+                GameActionOptionType::SacrificePower,
+            ], true)) {
+            return $remainingDepth;
+        }
+
+        return max(0, $remainingDepth - 1);
+    }
+
+    private function auxiliaryActionsAfter(GameActionOption $option, int $remaining): int
+    {
+        return $this->isAuxiliaryOption($option) ? max(0, $remaining - 1) : $remaining;
+    }
+
+    private function isAuxiliaryOption(GameActionOption $option): bool
+    {
+        return in_array($option->type(), [
+            GameActionOptionType::ExchangeResources,
+            GameActionOptionType::SacrificePower,
+        ], true);
+    }
+
     private function cacheKey(
         GameStateData $state,
         ?int $nextActivePlayerId,
         int $rootPlayerId,
         int $remainingDepth,
+        int $auxiliaryActionsRemaining,
     ): string {
         return hash('xxh128', json_encode([
             'state' => $state->toArray(),
             'nextActivePlayerId' => $nextActivePlayerId,
             'rootPlayerId' => $rootPlayerId,
             'remainingDepth' => $remainingDepth,
+            'auxiliaryActionsRemaining' => $auxiliaryActionsRemaining,
         ], JSON_THROW_ON_ERROR));
     }
 

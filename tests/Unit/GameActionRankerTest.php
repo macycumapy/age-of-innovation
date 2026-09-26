@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit;
 
+use App\Domain\Game\Data\BookSupplyData;
 use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Data\GameStateData;
 use App\Domain\Game\Data\PendingInteractionData;
@@ -11,6 +12,7 @@ use App\Domain\Game\Data\PlayerResourcesData;
 use App\Domain\Game\Data\PowerBowlsStateData;
 use App\Domain\Game\Data\RewardDistributionOptionData;
 use App\Domain\Game\Data\RoundStateData;
+use App\Domain\Game\Data\SendScholarOptionData;
 use App\Domain\Game\Enums\Competency;
 use App\Domain\Game\Enums\Faction;
 use App\Domain\Game\Enums\GamePhase;
@@ -167,6 +169,35 @@ class GameActionRankerTest extends TestCase
         $this->assertSame(1, $rankedActions[0]->simulation->nextActivePlayerId);
         $this->assertTrue($state->round->hasTakenMainAction);
         $this->assertNotNull($state->pendingInteraction);
+    }
+
+    public function test_free_resource_conversions_do_not_gain_an_extra_search_ply(): void
+    {
+        $state = $this->state();
+        $state->turnOrder = [1, 2];
+        $state->players[0]->resources = new PlayerResourcesData(
+            scholars: 1,
+            books: new BookSupplyData(law: 1),
+        );
+        $state->players[] = new GamePlayerStateData(
+            playerId: 2,
+            userId: 20,
+            color: PlayerColor::Red,
+            faction: Faction::Inventors,
+            homeland: TerrainType::Wasteland,
+            roundBonus: RoundBonus::Coins,
+            resources: new PlayerResourcesData(),
+        );
+
+        $rankedActions = app(GameActionRanker::class)->execute(
+            $state,
+            1,
+            depth: 2,
+            branchLimit: 8,
+            maxNodes: 1000,
+        );
+
+        $this->assertInstanceOf(SendScholarOptionData::class, $rankedActions[0]->option);
     }
 
     public function test_it_rejects_an_invalid_search_budget(): void
