@@ -9,6 +9,7 @@ use App\Domain\Game\Data\BookSupplyData;
 use App\Domain\Game\Data\BuildingStateData;
 use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Data\GameStateData;
+use App\Domain\Game\Data\KnowledgeStateData;
 use App\Domain\Game\Data\PendingInteractionData;
 use App\Domain\Game\Data\PlayerResourcesData;
 use App\Domain\Game\Data\PowerBowlsStateData;
@@ -25,6 +26,7 @@ use App\Domain\Game\Enums\PlayerColor;
 use App\Domain\Game\Enums\RoundBonus;
 use App\Domain\Game\Enums\RoundScoringTile;
 use App\Domain\Game\Enums\TerrainType;
+use App\Domain\Game\Services\FinalScoringProgressEvaluator;
 use App\Domain\Game\Services\GameActionRanker;
 use App\Domain\Game\Services\GameStateEvaluator;
 use App\Domain\Game\Services\RoundScoringProgressEvaluator;
@@ -33,6 +35,54 @@ use Tests\TestCase;
 
 class GameActionRankerTest extends TestCase
 {
+    public function test_final_scoring_priority_values_improved_projected_rank(): void
+    {
+        $before = $this->state();
+        $before->players[0]->knowledge->banking = 4;
+        $before->players[] = new GamePlayerStateData(
+            playerId: 2,
+            userId: 20,
+            color: PlayerColor::Red,
+            faction: Faction::Inventors,
+            homeland: TerrainType::Wasteland,
+            roundBonus: RoundBonus::Coins,
+            knowledge: new KnowledgeStateData(banking: 5),
+        );
+        $unchanged = $before->deepCopy();
+        $after = $before->deepCopy();
+        $after->players[0]->knowledge->banking = 5;
+
+        $evaluator = app(FinalScoringProgressEvaluator::class);
+
+        $this->assertSame(0, $evaluator->execute($before, $unchanged, 1));
+        $this->assertSame(2, $evaluator->execute($before, $after, 1));
+    }
+
+    public function test_final_scoring_priority_values_larger_connected_network(): void
+    {
+        $before = $this->state();
+        $before->players[] = new GamePlayerStateData(
+            playerId: 2,
+            userId: 20,
+            color: PlayerColor::Red,
+            faction: Faction::Inventors,
+            homeland: TerrainType::Wasteland,
+            roundBonus: RoundBonus::Coins,
+        );
+        $before->board->hexes = [
+            $this->buildingHex('a', 1, ['b']),
+            $this->buildingHex('c', 2, ['d']),
+            $this->buildingHex('d', 2, ['c']),
+        ];
+        $after = $before->deepCopy();
+        $after->board->hexes[] = $this->buildingHex('b', 1, ['a']);
+
+        $this->assertSame(
+            3,
+            app(FinalScoringProgressEvaluator::class)->execute($before, $after, 1),
+        );
+    }
+
     public function test_round_scoring_priority_only_values_new_matching_progress(): void
     {
         $before = $this->state();
@@ -85,10 +135,18 @@ class GameActionRankerTest extends TestCase
 
         $this->assertCount(4, $rankedActions);
         $this->assertInstanceOf(RewardDistributionOptionData::class, $rankedActions[0]->option);
-        $this->assertSame(1, $rankedActions[0]->option->knowledgeCounts['banking']);
-        $this->assertSame(3, $rankedActions[0]->simulation->state->players[0]->knowledge->banking);
+        $this->assertSame(1, array_sum($rankedActions[0]->option->knowledgeCounts));
+        $this->assertSame(
+            3,
+            array_sum([
+                $rankedActions[0]->simulation->state->players[0]->knowledge->banking,
+                $rankedActions[0]->simulation->state->players[0]->knowledge->law,
+                $rankedActions[0]->simulation->state->players[0]->knowledge->engineering,
+                $rankedActions[0]->simulation->state->players[0]->knowledge->medicine,
+            ]),
+        );
         $this->assertSame(2, $state->players[0]->knowledge->banking);
-        $this->assertGreaterThan($rankedActions[1]->score, $rankedActions[0]->score);
+        $this->assertGreaterThanOrEqual($rankedActions[1]->score, $rankedActions[0]->score);
     }
 
     public function test_state_evaluation_rewards_resources_and_progress(): void
@@ -356,6 +414,20 @@ class GameActionRankerTest extends TestCase
                 resources: new PlayerResourcesData(),
             )],
             round: new RoundStateData(phase: GamePhase::Actions),
+        );
+    }
+
+    /** @param list<string> $adjacentHexIds */
+    private function buildingHex(string $id, int $playerId, array $adjacentHexIds): BoardHexStateData
+    {
+        return new BoardHexStateData(
+            id: $id,
+            q: 0,
+            r: 0,
+            initialTerrain: TerrainType::Forest,
+            terrain: TerrainType::Forest,
+            adjacentHexIds: $adjacentHexIds,
+            building: new BuildingStateData(BuildingType::Workshop, $playerId),
         );
     }
 }

@@ -20,11 +20,14 @@ final class GameActionRanker
 
     private const int ROUND_SCORING_PRIORITY_WEIGHT = 10;
 
+    private const int FINAL_SCORING_PRIORITY_WEIGHT = 10;
+
     public function __construct(
         private GameActionOptionFinder $gameActionOptionFinder,
         private GameActionSimulator $gameActionSimulator,
         private GameStateEvaluator $gameStateEvaluator,
         private RoundScoringProgressEvaluator $roundScoringProgressEvaluator,
+        private FinalScoringProgressEvaluator $finalScoringProgressEvaluator,
         private ApplyFinishActionTurnAction $applyFinishActionTurn,
     ) {
     }
@@ -69,7 +72,7 @@ final class GameActionRanker
                 'option' => $option,
                 'simulation' => $simulation,
                 'score' => $this->gameStateEvaluator->execute($simulation->state, $playerId)
-                    + $this->roundScoringPriority($state, $simulation->state, $playerId),
+                    + $this->strategicProgress($state, $simulation->state, $playerId),
                 'index' => $index,
             ];
         }
@@ -98,7 +101,7 @@ final class GameActionRanker
                         $context,
                         PHP_INT_MIN,
                         PHP_INT_MAX,
-                    ) + $this->roundScoringPriority($state, $simulation->state, $playerId),
+                    ) + $this->strategicProgress($state, $simulation->state, $playerId),
                 ),
                 'index' => $candidate['index'],
                 'isAuxiliary' => $this->isAuxiliaryOption($option),
@@ -261,10 +264,12 @@ final class GameActionRanker
         return $this->isAuxiliaryOption($option) ? max(0, $remaining - 1) : $remaining;
     }
 
-    private function roundScoringPriority(GameStateData $before, GameStateData $after, int $playerId): int
+    private function strategicProgress(GameStateData $before, GameStateData $after, int $playerId): int
     {
         return $this->roundScoringProgressEvaluator->execute($before, $after, $playerId)
-            * self::ROUND_SCORING_PRIORITY_WEIGHT;
+                * self::ROUND_SCORING_PRIORITY_WEIGHT
+            + $this->finalScoringProgressEvaluator->execute($before, $after, $playerId)
+                * self::FINAL_SCORING_PRIORITY_WEIGHT;
     }
 
     private function isAuxiliaryOption(GameActionOption $option): bool
