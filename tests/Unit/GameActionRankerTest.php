@@ -7,6 +7,7 @@ namespace Tests\Unit;
 use App\Domain\Game\Data\BoardHexStateData;
 use App\Domain\Game\Data\BookSupplyData;
 use App\Domain\Game\Data\BuildingStateData;
+use App\Domain\Game\Data\BuildWorkshopOptionData;
 use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Data\GameStateData;
 use App\Domain\Game\Data\KnowledgeStateData;
@@ -26,6 +27,7 @@ use App\Domain\Game\Enums\PlayerColor;
 use App\Domain\Game\Enums\RoundBonus;
 use App\Domain\Game\Enums\RoundScoringTile;
 use App\Domain\Game\Enums\TerrainType;
+use App\Domain\Game\Services\BoardPositionProgressEvaluator;
 use App\Domain\Game\Services\FinalScoringProgressEvaluator;
 use App\Domain\Game\Services\GameActionRanker;
 use App\Domain\Game\Services\GameStateEvaluator;
@@ -35,6 +37,73 @@ use Tests\TestCase;
 
 class GameActionRankerTest extends TestCase
 {
+    public function test_it_prefers_a_workshop_that_improves_town_cohesion(): void
+    {
+        $state = $this->state();
+        $state->turnOrder = [1, 2];
+        $state->players[] = new GamePlayerStateData(
+            playerId: 2,
+            userId: 20,
+            color: PlayerColor::Red,
+            faction: Faction::Inventors,
+            homeland: TerrainType::Wasteland,
+            roundBonus: RoundBonus::Coins,
+        );
+        $state->players[0]->resources->tools = 1;
+        $state->players[0]->resources->coins = 2;
+        $state->players[0]->shippingLevel = 1;
+        $state->board->hexes = [
+            $this->buildingHex('a', 1, ['connected', 'water']),
+            $this->emptyHex('connected', ['a']),
+            $this->emptyHex('water', ['a', 'remote'], TerrainType::Water),
+            $this->emptyHex('remote', ['water']),
+        ];
+
+        $rankedActions = app(GameActionRanker::class)->execute($state, 1, depth: 1);
+
+        $this->assertInstanceOf(BuildWorkshopOptionData::class, $rankedActions[0]->option);
+        $this->assertSame('connected', $rankedActions[0]->option->hexId);
+    }
+
+    public function test_board_position_priority_prefers_a_connected_building(): void
+    {
+        $before = $this->state();
+        $before->board->hexes = [
+            $this->buildingHex('a', 1, ['b']),
+            $this->emptyHex('b', ['a']),
+            $this->emptyHex('c'),
+        ];
+        $connected = $before->deepCopy();
+        $connected->board->hexes[1]->building = new BuildingStateData(BuildingType::Workshop, 1);
+        $isolated = $before->deepCopy();
+        $isolated->board->hexes[2]->building = new BuildingStateData(BuildingType::Workshop, 1);
+
+        $evaluator = app(BoardPositionProgressEvaluator::class);
+
+        $this->assertGreaterThan(
+            $evaluator->execute($before, $isolated, 1),
+            $evaluator->execute($before, $connected, 1),
+        );
+    }
+
+    public function test_board_position_priority_values_new_reachable_homeland(): void
+    {
+        $before = $this->state();
+        $before->round->phase = GamePhase::Actions;
+        $before->board->hexes = [
+            $this->buildingHex('a', 1, ['water']),
+            $this->emptyHex('water', ['a', 'target'], TerrainType::Water),
+            $this->emptyHex('target', ['water']),
+        ];
+        $after = $before->deepCopy();
+        $after->players[0]->shippingLevel = 1;
+
+        $this->assertSame(
+            3,
+            app(BoardPositionProgressEvaluator::class)->execute($before, $after, 1),
+        );
+    }
+
     public function test_final_scoring_priority_values_improved_projected_rank(): void
     {
         $before = $this->state();
@@ -428,6 +497,22 @@ class GameActionRankerTest extends TestCase
             terrain: TerrainType::Forest,
             adjacentHexIds: $adjacentHexIds,
             building: new BuildingStateData(BuildingType::Workshop, $playerId),
+        );
+    }
+
+    /** @param list<string> $adjacentHexIds */
+    private function emptyHex(
+        string $id,
+        array $adjacentHexIds = [],
+        TerrainType $terrain = TerrainType::Forest,
+    ): BoardHexStateData {
+        return new BoardHexStateData(
+            id: $id,
+            q: 0,
+            r: 0,
+            initialTerrain: $terrain,
+            terrain: $terrain,
+            adjacentHexIds: $adjacentHexIds,
         );
     }
 }
