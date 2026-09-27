@@ -79,12 +79,14 @@ final class GameActionRanker
                 'score' => $this->gameStateEvaluator->execute($simulation->state, $playerId)
                     + $this->strategicProgress($state, $simulation->state, $playerId),
                 'index' => $index,
+                'isPass' => $option->type() === GameActionOptionType::Pass,
             ];
         }
 
         usort(
             $candidates,
             static fn (array $left, array $right): int => $right['score'] <=> $left['score']
+                ?: $left['isPass'] <=> $right['isPass']
                 ?: $left['index'] <=> $right['index'],
         );
 
@@ -110,12 +112,14 @@ final class GameActionRanker
                 ),
                 'index' => $candidate['index'],
                 'isAuxiliary' => $this->isAuxiliaryOption($option),
+                'isPass' => $option->type() === GameActionOptionType::Pass,
             ];
         }
 
         usort(
             $rankedActions,
             static fn (array $left, array $right): int => $right['evaluation']->score <=> $left['evaluation']->score
+                ?: $left['isPass'] <=> $right['isPass']
                 ?: $left['isAuxiliary'] <=> $right['isAuxiliary']
                 ?: $left['index'] <=> $right['index'],
         );

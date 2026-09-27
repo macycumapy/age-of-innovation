@@ -13,8 +13,10 @@ use App\Domain\Game\Enums\PendingInteractionType;
 
 final class PlaceBridgeOptionFinder
 {
-    public function __construct(private FindEligibleBridgePairsAction $findEligibleBridgePairs)
-    {
+    public function __construct(
+        private FindEligibleBridgePairsAction $findEligibleBridgePairs,
+        private BridgeSupply $bridgeSupply,
+    ) {
     }
 
     /** @return list<PlaceBridgeOptionData|SkipBridgeOptionData> */
@@ -24,6 +26,12 @@ final class PlaceBridgeOptionFinder
         if ($interaction?->type !== PendingInteractionType::PlaceBridge
             || $interaction->playerId !== $player->playerId) {
             return [];
+        }
+
+        if ($this->bridgeSupply->remaining($state, $player) === 0) {
+            return ($interaction->context['source'] ?? null) === 'palace_15'
+                ? [new SkipBridgeOptionData()]
+                : [];
         }
 
         $selectedFromHexId = $interaction->context['selectedFromHexId'] ?? null;

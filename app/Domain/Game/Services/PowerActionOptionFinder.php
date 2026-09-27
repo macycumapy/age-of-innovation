@@ -12,8 +12,10 @@ use App\Domain\Game\Enums\PowerAction;
 
 final class PowerActionOptionFinder
 {
-    public function __construct(private FindEligibleBridgePairsAction $findEligibleBridgePairs)
-    {
+    public function __construct(
+        private FindEligibleBridgePairsAction $findEligibleBridgePairs,
+        private BridgeSupply $bridgeSupply,
+    ) {
     }
 
     /** @return list<PowerActionOptionData> */
@@ -24,7 +26,10 @@ final class PowerActionOptionFinder
         foreach (PowerAction::cases() as $action) {
             if (in_array($action->value, $state->round->usedSharedActionIds, true)
                 || ($action === PowerAction::GainScholar && $player->resources->scholars >= $player->scholarPoolSize)
-                || ($action === PowerAction::BuildBridge && $this->findEligibleBridgePairs->execute($state, $player->playerId) === [])) {
+                || ($action === PowerAction::BuildBridge && (
+                    $this->bridgeSupply->remaining($state, $player) === 0
+                    || $this->findEligibleBridgePairs->execute($state, $player->playerId) === []
+                ))) {
                 continue;
             }
 

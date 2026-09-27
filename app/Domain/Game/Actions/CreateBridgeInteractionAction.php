@@ -8,12 +8,15 @@ use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Data\GameStateData;
 use App\Domain\Game\Data\PendingInteractionData;
 use App\Domain\Game\Enums\PendingInteractionType;
+use App\Domain\Game\Services\BridgeSupply;
 use Illuminate\Validation\ValidationException;
 
 final class CreateBridgeInteractionAction
 {
-    public function __construct(private FindEligibleBridgePairsAction $findEligibleBridgePairs)
-    {
+    public function __construct(
+        private FindEligibleBridgePairsAction $findEligibleBridgePairs,
+        private BridgeSupply $bridgeSupply,
+    ) {
     }
 
     public function execute(
@@ -21,11 +24,7 @@ final class CreateBridgeInteractionAction
         GamePlayerStateData $playerState,
         bool $canBuildAcrossTerrain = false,
     ): void {
-        $builtBridgeCount = collect($state->board->bridges)
-            ->where('ownerPlayerId', $playerState->playerId)
-            ->count();
-
-        if ($builtBridgeCount >= 3) {
+        if ($this->bridgeSupply->remaining($state, $playerState) === 0) {
             throw ValidationException::withMessages(['bridge' => 'У игрока не осталось мостов.']);
         }
 

@@ -6,6 +6,7 @@ namespace Tests\Unit;
 
 use App\Domain\Game\Data\BoardHexStateData;
 use App\Domain\Game\Data\BoardStateData;
+use App\Domain\Game\Data\BridgeStateData;
 use App\Domain\Game\Data\BuildingStateData;
 use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Data\GameStateData;
@@ -55,6 +56,54 @@ class PowerActionSimulatorTest extends TestCase
         }
 
         $this->assertCount(5, $options);
+    }
+
+    public function test_it_does_not_offer_a_bridge_action_when_the_supply_is_exhausted(): void
+    {
+        $state = $this->state();
+        $state->board = new BoardStateData(
+            hexes: [
+                new BoardHexStateData(
+                    id: '0:0',
+                    q: 0,
+                    r: 0,
+                    initialTerrain: TerrainType::Forest,
+                    terrain: TerrainType::Forest,
+                    building: new BuildingStateData(BuildingType::Workshop, 1),
+                ),
+                new BoardHexStateData(
+                    id: '1:1',
+                    q: 1,
+                    r: 1,
+                    initialTerrain: TerrainType::Mountain,
+                    terrain: TerrainType::Mountain,
+                ),
+                new BoardHexStateData(
+                    id: '1:0',
+                    q: 1,
+                    r: 0,
+                    initialTerrain: TerrainType::Water,
+                    terrain: TerrainType::Water,
+                ),
+                new BoardHexStateData(
+                    id: '0:1',
+                    q: 0,
+                    r: 1,
+                    initialTerrain: TerrainType::Water,
+                    terrain: TerrainType::Water,
+                ),
+            ],
+            bridges: [
+                new BridgeStateData('a', 'b', 1),
+                new BridgeStateData('c', 'd', 1),
+                new BridgeStateData('e', 'f', 1),
+            ],
+            riverBankHexIds: ['0:0', '1:1'],
+        );
+
+        $options = app(PowerActionOptionFinder::class)->execute($state, $state->players[0]);
+
+        $this->assertNull(collect($options)->firstWhere('action', PowerAction::BuildBridge));
     }
 
     private function state(): GameStateData

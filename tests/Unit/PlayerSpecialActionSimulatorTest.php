@@ -6,6 +6,7 @@ namespace Tests\Unit;
 
 use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Data\GameStateData;
+use App\Domain\Game\Data\PlayerResourcesData;
 use App\Domain\Game\Data\RoundStateData;
 use App\Domain\Game\Enums\Faction;
 use App\Domain\Game\Enums\GameActionOptionType;
@@ -47,5 +48,25 @@ class PlayerSpecialActionSimulatorTest extends TestCase
         $this->assertSame([Faction::Philosophers->specialActionId()], $simulation->state->players[0]->usedSpecialActionIds);
         $this->assertTrue($simulation->state->round->hasTakenMainAction);
         $this->assertSame(1, $simulation->nextActivePlayerId);
+    }
+
+    public function test_it_does_not_offer_bridge_special_actions_without_an_eligible_pair(): void
+    {
+        $state = new GameStateData(
+            players: [new GamePlayerStateData(
+                playerId: 1,
+                userId: 10,
+                color: PlayerColor::Green,
+                faction: Faction::Moles,
+                homeland: TerrainType::Forest,
+                roundBonus: RoundBonus::Bridge,
+                resources: new PlayerResourcesData(tools: 1),
+            )],
+            round: new RoundStateData(phase: GamePhase::Actions),
+        );
+
+        $options = app(PlayerSpecialActionOptionFinder::class)->execute($state, $state->players[0]);
+
+        $this->assertSame([], $options);
     }
 }

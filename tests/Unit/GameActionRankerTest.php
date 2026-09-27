@@ -389,6 +389,22 @@ class GameActionRankerTest extends TestCase
         $this->assertSame([], app(GameActionRanker::class)->execute($state, 1));
     }
 
+    public function test_it_prefers_a_non_pass_action_when_scores_are_equal(): void
+    {
+        $state = $this->state();
+        $state->round->phase = GamePhase::Actions;
+        $state->players[0]->resources->power = new PowerBowlsStateData(bowlTwo: 2);
+
+        $rankedActions = app(GameActionRanker::class)->execute($state, 1, depth: 1);
+        $passAction = collect($rankedActions)->first(
+            static fn ($action): bool => $action->option->type() === GameActionOptionType::Pass,
+        );
+
+        $this->assertNotNull($passAction);
+        $this->assertSame($passAction->score, $rankedActions[0]->score);
+        $this->assertSame(GameActionOptionType::SacrificePower, $rankedActions[0]->option->type());
+    }
+
     public function test_it_searches_the_next_players_response(): void
     {
         $state = $this->state();
