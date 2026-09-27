@@ -85,8 +85,10 @@ use App\Models\GamePlayer;
 use App\Models\User;
 use DomainException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class PlayAutomatedTurnActionTest extends TestCase
@@ -150,6 +152,60 @@ class PlayAutomatedTurnActionTest extends TestCase
             Game::factory()->create(),
             maxDecisions: 0,
         );
+    }
+
+    public function test_simulate_bots_command_writes_a_detailed_report(): void
+    {
+        Queue::fake();
+
+        $game = Game::factory()->create([
+            'status' => GameStatus::Active,
+            'phase' => GamePhase::Actions,
+            'round' => 6,
+        ]);
+        $firstBot = GamePlayer::factory()->bot(GameBotDifficulty::Fast)->create([
+            'game_id' => $game->id,
+            'user_id' => null,
+            'seat' => 1,
+        ]);
+        $secondBot = GamePlayer::factory()->bot(GameBotDifficulty::Fast)->create([
+            'game_id' => $game->id,
+            'user_id' => null,
+            'seat' => 2,
+        ]);
+        $game->update([
+            'active_game_player_id' => $firstBot->id,
+            'state' => new GameStateData(
+                turnOrder: [$firstBot->id, $secondBot->id],
+                players: [$this->playerState($firstBot), $this->playerState($secondBot)],
+                round: new RoundStateData(number: 6, phase: GamePhase::Actions),
+                setupPool: app(GameSetupPoolFactory::class)->createFromSeed(2, 'bot-command-smoke'),
+            ),
+        ]);
+        $reportPath = "bot-reports/game-{$game->id}.json";
+        Storage::fake('local');
+
+        $exitCode = Artisan::call('game:simulate-bots', [
+            'game' => $game->id,
+            '--max-decisions' => 10,
+            '--max-duration' => 10_000,
+        ]);
+
+        $this->assertSame(0, $exitCode);
+
+        Storage::disk('local')->assertExists($reportPath);
+        $report = json_decode(Storage::disk('local')->get($reportPath), true, flags: JSON_THROW_ON_ERROR);
+        $this->assertTrue($report['completed']);
+        $this->assertCount(2, $report['decisions']);
+        $this->assertSame('pass', $report['decisions'][0]['action_type']);
+        $this->assertSame([
+            'coins' => 0,
+            'tools' => 0,
+            'scholars' => 0,
+            'books' => 0,
+            'power' => 0,
+            'spades' => 0,
+        ], $report['decisions'][0]['remaining_resources']);
     }
 
     public function test_changing_active_player_dispatches_automated_turn_for_bot(): void

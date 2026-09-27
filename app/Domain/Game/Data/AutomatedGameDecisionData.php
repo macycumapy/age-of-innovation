@@ -23,6 +23,7 @@ final readonly class AutomatedGameDecisionData
         public int $durationMilliseconds,
         public bool $budgetExhausted,
         public ?string $passReason,
+        public ?AutomatedGameResourcesData $remainingResources = null,
     ) {
     }
 }

@@ -6,6 +6,7 @@ namespace App\Domain\Game\Services;
 
 use App\Domain\Game\Actions\PlayAutomatedTurnAction;
 use App\Domain\Game\Data\AutomatedGameDecisionData;
+use App\Domain\Game\Data\AutomatedGameResourcesData;
 use App\Domain\Game\Data\AutomatedGameSimulationResultData;
 use App\Domain\Game\Data\GameActionSelectionDiagnosticsData;
 use App\Domain\Game\Enums\GameActionType;
@@ -59,6 +60,7 @@ class AutomatedGameSimulator
             $versionBefore = $game->version;
             $round = $game->state->round->number;
             $phase = $game->state->round->phase;
+            $playerState = collect($game->state->players)->firstWhere('playerId', $player->id);
             $decisionStartedAt = hrtime(true);
             $diagnostics = null;
 
@@ -108,6 +110,16 @@ class AutomatedGameSimulator
                 durationMilliseconds: $durationMilliseconds,
                 budgetExhausted: $budgetExhausted,
                 passReason: $actionType === GameActionType::Pass ? 'selected_pass' : null,
+                remainingResources: $actionType === GameActionType::Pass && $playerState !== null
+                    ? new AutomatedGameResourcesData(
+                        coins: $playerState->resources->coins,
+                        tools: $playerState->resources->tools,
+                        scholars: $playerState->resources->scholars,
+                        books: array_sum($playerState->resources->books->toArray()),
+                        power: array_sum($playerState->resources->power->toArray()),
+                        spades: $playerState->unassignedSpades,
+                    )
+                    : null,
             );
         }
 
