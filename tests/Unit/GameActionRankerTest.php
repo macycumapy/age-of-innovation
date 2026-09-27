@@ -104,6 +104,62 @@ class GameActionRankerTest extends TestCase
         );
     }
 
+    public function test_board_position_priority_values_affordable_terraforming_opportunities(): void
+    {
+        $before = $this->state();
+        $before->board->hexes = [$this->buildingHex('a', 1, ['target'])];
+        $affordable = $before->deepCopy();
+        $affordable->board->hexes[] = $this->emptyHex('target', ['a'], TerrainType::Mountain);
+        $expensive = $before->deepCopy();
+        $expensive->board->hexes[] = $this->emptyHex('target', ['a'], TerrainType::Wasteland);
+
+        $evaluator = app(BoardPositionProgressEvaluator::class);
+
+        $this->assertGreaterThan(
+            $evaluator->execute($before, $expensive, 1),
+            $evaluator->execute($before, $affordable, 1),
+        );
+    }
+
+    public function test_board_position_priority_values_expansion_directions(): void
+    {
+        $before = $this->state();
+        $before->board->hexes = [$this->buildingHex('a', 1, ['target'])];
+        $deadEnd = $before->deepCopy();
+        $deadEnd->board->hexes[] = $this->emptyHex('target', ['a']);
+        $open = $before->deepCopy();
+        $open->board->hexes = [
+            ...$open->board->hexes,
+            $this->emptyHex('target', ['a', 'next-1', 'next-2']),
+            $this->emptyHex('next-1', ['target']),
+            $this->emptyHex('next-2', ['target']),
+        ];
+
+        $evaluator = app(BoardPositionProgressEvaluator::class);
+
+        $this->assertGreaterThan(
+            $evaluator->execute($before, $deadEnd, 1),
+            $evaluator->execute($before, $open, 1),
+        );
+    }
+
+    public function test_board_position_priority_values_claimed_contested_positions(): void
+    {
+        $before = $this->state();
+        $before->board->hexes = [
+            $this->buildingHex('a', 1, []),
+            $this->buildingHex('b', 2, []),
+        ];
+        $after = $before->deepCopy();
+        $after->board->hexes[0]->adjacentHexIds = ['b'];
+        $after->board->hexes[1]->adjacentHexIds = ['a'];
+
+        $this->assertSame(
+            5,
+            app(BoardPositionProgressEvaluator::class)->execute($before, $after, 1),
+        );
+    }
+
     public function test_final_scoring_priority_values_improved_projected_rank(): void
     {
         $before = $this->state();

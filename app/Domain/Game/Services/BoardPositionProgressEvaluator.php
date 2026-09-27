@@ -17,6 +17,10 @@ class BoardPositionProgressEvaluator
 
     private const int NETWORK_COHESION_WEIGHT = 10;
 
+    private const int OPEN_DIRECTION_WEIGHT = 2;
+
+    private const int CONTESTED_POSITION_WEIGHT = 5;
+
     public function __construct(private FindReachableLandHexesAction $findReachableLandHexes)
     {
     }
@@ -52,6 +56,8 @@ class BoardPositionProgressEvaluator
         ));
 
         return ($this->reachableHomelandCount($state, $player) * self::REACHABLE_HOMELAND_WEIGHT)
+            + $this->expansionOpportunityScore($state, $player)
+            + ($this->contestedPositionCount($state, $playerId) * self::CONTESTED_POSITION_WEIGHT)
             + ($townCohesion * self::TOWN_COHESION_WEIGHT)
             + ($networkCohesion * self::NETWORK_COHESION_WEIGHT);
     }
@@ -65,6 +71,63 @@ class BoardPositionProgressEvaluator
             static fn (BoardHexStateData $hex): bool => isset($reachableHexIds[$hex->id])
                 && $hex->building === null
                 && $hex->terrain === $player->homeland,
+        ));
+    }
+
+    private function expansionOpportunityScore(GameStateData $state, GamePlayerStateData $player): int
+    {
+        $hexesById = collect($state->board->hexes)->keyBy('id');
+        $reachableHexIds = $this->findReachableLandHexes->execute($state, $player);
+        $toolCostPerSpade = max(1, 3 - $player->terraformingLevel);
+        $score = 0;
+
+        foreach ($reachableHexIds as $hexId) {
+            $hex = $hexesById->get($hexId);
+
+            if (! $hex instanceof BoardHexStateData || $hex->building !== null || ! $hex->terrain->isHomeland()) {
+                continue;
+            }
+
+            if ($hex->terrain !== $player->homeland) {
+                $terraformingToolCost = $hex->terrain->spadesTo($player->homeland) * $toolCostPerSpade;
+                $score += max(0, 10 - $terraformingToolCost);
+            }
+
+            $openDirections = count(array_filter(
+                $hex->adjacentHexIds,
+                static function (string $adjacentHexId) use ($hexesById): bool {
+                    $adjacentHex = $hexesById->get($adjacentHexId);
+
+                    return $adjacentHex instanceof BoardHexStateData
+                        && $adjacentHex->building === null
+                        && $adjacentHex->terrain->isHomeland();
+                },
+            ));
+            $score += min(3, $openDirections) * self::OPEN_DIRECTION_WEIGHT;
+        }
+
+        return $score;
+    }
+
+    private function contestedPositionCount(GameStateData $state, int $playerId): int
+    {
+        $hexesById = collect($state->board->hexes)->keyBy('id');
+
+        return count(array_filter(
+            $state->board->hexes,
+            static function (BoardHexStateData $hex) use ($hexesById, $playerId): bool {
+                if ($hex->building?->ownerPlayerId !== $playerId) {
+                    return false;
+                }
+
+                return collect($hex->adjacentHexIds)->contains(
+                    static function (string $adjacentHexId) use ($hexesById, $playerId): bool {
+                        $ownerPlayerId = $hexesById->get($adjacentHexId)?->building?->ownerPlayerId;
+
+                        return $ownerPlayerId !== null && $ownerPlayerId !== $playerId;
+                    },
+                );
+            },
         ));
     }
 
