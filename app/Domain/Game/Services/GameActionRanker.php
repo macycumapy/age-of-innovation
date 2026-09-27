@@ -16,6 +16,10 @@ use InvalidArgumentException;
 
 final class GameActionRanker
 {
+    private int $lastVisitedNodes = 0;
+
+    private bool $lastBudgetExhausted = false;
+
     private const int MAX_AUXILIARY_ACTIONS_PER_TURN = 1;
 
     private const int ROUND_SCORING_PRIORITY_WEIGHT = 10;
@@ -116,7 +120,20 @@ final class GameActionRanker
                 ?: $left['index'] <=> $right['index'],
         );
 
+        $this->lastVisitedNodes = $context->visitedNodes;
+        $this->lastBudgetExhausted = $context->isExhausted();
+
         return array_column($rankedActions, 'evaluation');
+    }
+
+    public function lastVisitedNodes(): int
+    {
+        return $this->lastVisitedNodes;
+    }
+
+    public function lastBudgetExhausted(): bool
+    {
+        return $this->lastBudgetExhausted;
     }
 
     private function search(

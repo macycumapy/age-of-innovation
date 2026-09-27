@@ -29,6 +29,7 @@ final class PlayAutomatedTurnAction
         GamePlayer $player,
         GameBotDifficulty $difficulty = GameBotDifficulty::Balanced,
         bool $singleDecision = false,
+        ?\Closure $onDecisionSelected = null,
     ): Game {
         if ($player->game_id !== $game->id) {
             throw new DomainException('Автоматический игрок не участвует в этой партии.');
@@ -47,12 +48,14 @@ final class PlayAutomatedTurnAction
                 return $this->finishActionTurn->execute($game, $player);
             }
 
-            $selection = $this->gameActionSelector->execute(
+            $diagnostics = $this->gameActionSelector->selectWithDiagnostics(
                 $state,
                 $player->id,
                 $difficulty,
                 $this->auxiliaryActionsRemaining($game, $player),
             );
+            $onDecisionSelected?->__invoke($diagnostics);
+            $selection = $diagnostics->selected;
 
             if ($selection === null) {
                 throw new DomainException('Для автоматического игрока не найдено допустимое действие.');

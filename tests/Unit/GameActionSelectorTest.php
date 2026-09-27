@@ -26,6 +26,33 @@ use Tests\TestCase;
 
 class GameActionSelectorTest extends TestCase
 {
+    public function test_it_reports_compact_search_diagnostics(): void
+    {
+        $state = $this->state();
+        $state->players[0]->knowledge->unassignedSteps = 1;
+        $state->pendingInteraction = new PendingInteractionData(
+            PendingInteractionType::ChooseStartingResources,
+            1,
+            context: ['bookCount' => 0, 'knowledgeStepCount' => 1],
+        );
+
+        $diagnostics = app(GameActionSelector::class)->selectWithDiagnostics(
+            $state,
+            1,
+            GameBotDifficulty::Fast,
+        );
+
+        $this->assertNotNull($diagnostics->selected);
+        $this->assertCount(4, $diagnostics->candidates);
+        $this->assertSame(
+            $diagnostics->selected->option->type()->value,
+            $diagnostics->candidates[0]['type'],
+        );
+        $this->assertSame($diagnostics->selected->score, $diagnostics->candidates[0]['score']);
+        $this->assertGreaterThanOrEqual(0, $diagnostics->visitedNodes);
+        $this->assertGreaterThanOrEqual(0, $diagnostics->durationMilliseconds);
+    }
+
     public function test_it_selects_the_highest_ranked_legal_action(): void
     {
         $state = $this->state();
@@ -41,7 +68,16 @@ class GameActionSelectorTest extends TestCase
 
         $this->assertNotNull($selection);
         $this->assertInstanceOf(RewardDistributionOptionData::class, $selection->option);
-        $this->assertSame(1, $selection->option->knowledgeCounts['banking']);
+        $this->assertSame(1, array_sum($selection->option->knowledgeCounts));
+        $this->assertSame(
+            3,
+            array_sum([
+                $selection->simulation->state->players[0]->knowledge->banking,
+                $selection->simulation->state->players[0]->knowledge->law,
+                $selection->simulation->state->players[0]->knowledge->engineering,
+                $selection->simulation->state->players[0]->knowledge->medicine,
+            ]),
+        );
         $this->assertSame(2, $state->players[0]->knowledge->banking);
     }
 

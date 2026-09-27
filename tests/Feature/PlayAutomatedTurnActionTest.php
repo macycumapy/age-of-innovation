@@ -65,6 +65,7 @@ use App\Domain\Game\Enums\RoundScoringTile;
 use App\Domain\Game\Enums\TerrainType;
 use App\Domain\Game\Enums\TownTile;
 use App\Domain\Game\Factories\GameSetupPoolFactory;
+use App\Domain\Game\Services\AutomatedGameSimulator;
 use App\Domain\Game\Services\DevelopmentAdvancementOptionFinder;
 use App\Domain\Game\Services\GameActionOptionFinder;
 use App\Domain\Game\Services\GameActionSimulator;
@@ -82,6 +83,7 @@ use App\Models\Game;
 use App\Models\GameAction;
 use App\Models\GamePlayer;
 use App\Models\User;
+use DomainException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Queue;
@@ -90,6 +92,65 @@ use Tests\TestCase;
 class PlayAutomatedTurnActionTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_automated_game_simulator_completes_a_final_round_and_collects_diagnostics(): void
+    {
+        Queue::fake();
+
+        $game = Game::factory()->create([
+            'status' => GameStatus::Active,
+            'phase' => GamePhase::Actions,
+            'round' => 6,
+        ]);
+        $firstBot = GamePlayer::factory()->bot(GameBotDifficulty::Fast)->create([
+            'game_id' => $game->id,
+            'user_id' => null,
+            'seat' => 1,
+        ]);
+        $secondBot = GamePlayer::factory()->bot(GameBotDifficulty::Fast)->create([
+            'game_id' => $game->id,
+            'user_id' => null,
+            'seat' => 2,
+        ]);
+        $game->update([
+            'active_game_player_id' => $firstBot->id,
+            'state' => new GameStateData(
+                turnOrder: [$firstBot->id, $secondBot->id],
+                players: [$this->playerState($firstBot), $this->playerState($secondBot)],
+                round: new RoundStateData(number: 6, phase: GamePhase::Actions),
+                setupPool: app(GameSetupPoolFactory::class)->createFromSeed(2, 'bot-simulation-smoke'),
+            ),
+        ]);
+
+        $result = app(AutomatedGameSimulator::class)->execute(
+            $game,
+            maxDecisions: 10,
+            maxDurationMilliseconds: 10_000,
+        );
+
+        $this->assertTrue($result->completed);
+        $this->assertNull($result->stoppedReason);
+        $this->assertCount(2, $result->decisions);
+        $this->assertSame(
+            [GameActionType::Pass, GameActionType::Pass],
+            array_column($result->decisions, 'actionType'),
+        );
+        $this->assertSame(['selected_pass', 'selected_pass'], array_column($result->decisions, 'passReason'));
+        $this->assertNotEmpty($result->decisions[0]->candidates);
+        $this->assertArrayHasKey($firstBot->id, $result->finalScores);
+        $this->assertArrayHasKey($secondBot->id, $result->finalScores);
+        $this->assertSame(GameStatus::Finished, $game->refresh()->status);
+    }
+
+    public function test_automated_game_simulator_rejects_invalid_limits(): void
+    {
+        $this->expectException(DomainException::class);
+
+        app(AutomatedGameSimulator::class)->execute(
+            Game::factory()->create(),
+            maxDecisions: 0,
+        );
+    }
 
     public function test_changing_active_player_dispatches_automated_turn_for_bot(): void
     {
