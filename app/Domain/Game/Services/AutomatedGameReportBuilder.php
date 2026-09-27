@@ -6,6 +6,7 @@ namespace App\Domain\Game\Services;
 
 use App\Domain\Game\Data\AutomatedGameDecisionData;
 use App\Domain\Game\Data\AutomatedGameSimulationResultData;
+use App\Domain\Game\Data\GameActionCandidateDiagnosticsData;
 
 final class AutomatedGameReportBuilder
 {
@@ -24,11 +25,21 @@ final class AutomatedGameReportBuilder
                     'phase' => $decision->phase->value,
                     'action_type' => $decision->actionType?->value,
                     'selected_score' => $decision->selectedScore,
-                    'candidates' => $decision->candidates,
+                    'candidates' => array_map(
+                        static fn (GameActionCandidateDiagnosticsData $candidate): array => [
+                            'type' => $candidate->type->value,
+                            'score' => $candidate->score,
+                            'rank' => $candidate->rank,
+                            'score_delta' => $candidate->scoreDelta,
+                            'selected' => $candidate->selected,
+                        ],
+                        $decision->candidates,
+                    ),
                     'visited_nodes' => $decision->visitedNodes,
                     'duration_milliseconds' => $decision->durationMilliseconds,
                     'budget_exhausted' => $decision->budgetExhausted,
-                    'pass_reason' => $decision->passReason,
+                    'selection_reason' => $decision->selectionReason->value,
+                    'pass_reason' => $decision->passReason?->value,
                     'remaining_resources' => $decision->remainingResources === null ? null : [
                         'coins' => $decision->remainingResources->coins,
                         'tools' => $decision->remainingResources->tools,

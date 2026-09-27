@@ -45,6 +45,7 @@ use App\Domain\Game\Data\SpendSpadesOptionData;
 use App\Domain\Game\Data\StartingBuildingOptionData;
 use App\Domain\Game\Data\UpgradeBuildingOptionData;
 use App\Domain\Game\Data\WorkshopAfterTerraformingOptionData;
+use App\Domain\Game\Enums\AutomatedGamePassReason;
 use App\Domain\Game\Enums\BookAction;
 use App\Domain\Game\Enums\BuildingType;
 use App\Domain\Game\Enums\Competency;
@@ -180,7 +181,10 @@ class PlayAutomatedTurnActionTest extends TestCase
             [GameActionType::Pass, GameActionType::Pass],
             array_column($result->decisions, 'actionType'),
         );
-        $this->assertSame(['selected_pass', 'selected_pass'], array_column($result->decisions, 'passReason'));
+        $this->assertSame(
+            [AutomatedGamePassReason::OnlyLegalAction, AutomatedGamePassReason::OnlyLegalAction],
+            array_column($result->decisions, 'passReason'),
+        );
         $this->assertNotEmpty($result->decisions[0]->candidates);
         $this->assertArrayHasKey($firstBot->id, $result->finalScores);
         $this->assertArrayHasKey($secondBot->id, $result->finalScores);
@@ -241,6 +245,10 @@ class PlayAutomatedTurnActionTest extends TestCase
         $this->assertTrue($report['completed']);
         $this->assertCount(2, $report['decisions']);
         $this->assertSame('pass', $report['decisions'][0]['action_type']);
+        $this->assertSame('only_legal_action', $report['decisions'][0]['selection_reason']);
+        $this->assertSame('only_legal_action', $report['decisions'][0]['pass_reason']);
+        $this->assertSame(1, $report['decisions'][0]['candidates'][0]['rank']);
+        $this->assertTrue($report['decisions'][0]['candidates'][0]['selected']);
         $this->assertSame([
             'coins' => 0,
             'tools' => 0,

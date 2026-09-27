@@ -9,6 +9,8 @@ use App\Domain\Game\Data\AutomatedGameDecisionData;
 use App\Domain\Game\Data\AutomatedGameResourcesData;
 use App\Domain\Game\Data\AutomatedGameSimulationResultData;
 use App\Domain\Game\Data\GameActionSelectionDiagnosticsData;
+use App\Domain\Game\Enums\AutomatedGamePassReason;
+use App\Domain\Game\Enums\GameActionSelectionReason;
 use App\Domain\Game\Enums\GameActionType;
 use App\Domain\Game\Enums\GameStatus;
 use App\Models\Game;
@@ -90,6 +92,7 @@ class AutomatedGameSimulator
             $visitedNodes = 0;
             $durationMilliseconds = $this->elapsedMilliseconds($decisionStartedAt);
             $budgetExhausted = false;
+            $selectionReason = GameActionSelectionReason::NoLegalActions;
 
             if ($diagnostics instanceof GameActionSelectionDiagnosticsData) {
                 $selectedScore = $diagnostics->selected?->score;
@@ -97,6 +100,7 @@ class AutomatedGameSimulator
                 $visitedNodes = $diagnostics->visitedNodes;
                 $durationMilliseconds = $diagnostics->durationMilliseconds;
                 $budgetExhausted = $diagnostics->budgetExhausted;
+                $selectionReason = $diagnostics->selectionReason;
             }
 
             $decisions[] = new AutomatedGameDecisionData(
@@ -109,7 +113,13 @@ class AutomatedGameSimulator
                 visitedNodes: $visitedNodes,
                 durationMilliseconds: $durationMilliseconds,
                 budgetExhausted: $budgetExhausted,
-                passReason: $actionType === GameActionType::Pass ? 'selected_pass' : null,
+                selectionReason: $selectionReason,
+                passReason: $actionType === GameActionType::Pass
+                    ? match ($selectionReason) {
+                        GameActionSelectionReason::OnlyLegalAction => AutomatedGamePassReason::OnlyLegalAction,
+                        default => AutomatedGamePassReason::PreferredOverAlternatives,
+                    }
+                : null,
                 remainingResources: $actionType === GameActionType::Pass && $playerState !== null
                     ? new AutomatedGameResourcesData(
                         coins: $playerState->resources->coins,

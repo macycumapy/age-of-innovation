@@ -15,6 +15,7 @@ use App\Domain\Game\Data\RewardDistributionOptionData;
 use App\Domain\Game\Data\RoundStateData;
 use App\Domain\Game\Enums\Competency;
 use App\Domain\Game\Enums\Faction;
+use App\Domain\Game\Enums\GameActionSelectionReason;
 use App\Domain\Game\Enums\GameBotDifficulty;
 use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\PendingInteractionType;
@@ -46,9 +47,14 @@ class GameActionSelectorTest extends TestCase
         $this->assertCount(4, $diagnostics->candidates);
         $this->assertSame(
             $diagnostics->selected->option->type()->value,
-            $diagnostics->candidates[0]['type'],
+            $diagnostics->candidates[0]->type->value,
         );
-        $this->assertSame($diagnostics->selected->score, $diagnostics->candidates[0]['score']);
+        $this->assertSame($diagnostics->selected->score, $diagnostics->candidates[0]->score);
+        $this->assertSame(GameActionSelectionReason::HighestScore, $diagnostics->selectionReason);
+        $this->assertSame(1, $diagnostics->candidates[0]->rank);
+        $this->assertSame(0, $diagnostics->candidates[0]->scoreDelta);
+        $this->assertTrue($diagnostics->candidates[0]->selected);
+        $this->assertFalse($diagnostics->candidates[1]->selected);
         $this->assertGreaterThanOrEqual(0, $diagnostics->visitedNodes);
         $this->assertGreaterThanOrEqual(0, $diagnostics->durationMilliseconds);
     }
@@ -87,6 +93,11 @@ class GameActionSelectorTest extends TestCase
         $state->round->phase = GamePhase::Income;
 
         $this->assertNull(app(GameActionSelector::class)->execute($state, 1));
+
+        $diagnostics = app(GameActionSelector::class)->selectWithDiagnostics($state, 1);
+
+        $this->assertSame(GameActionSelectionReason::NoLegalActions, $diagnostics->selectionReason);
+        $this->assertSame([], $diagnostics->candidates);
     }
 
     public function test_it_selects_a_starting_competency_for_monks_without_an_interaction_reason(): void

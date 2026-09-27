@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use App\Domain\Game\Actions\CreateAutomatedGameAction;
+use App\Domain\Game\Data\AutomatedGameDecisionData;
 use App\Domain\Game\Data\AutomatedGameSimulationResultData;
+use App\Domain\Game\Enums\AutomatedGamePassReason;
 use App\Domain\Game\Enums\GameBotDifficulty;
 use App\Domain\Game\Services\AutomatedGameReportBuilder;
 use App\Domain\Game\Services\AutomatedGameSimulator;
@@ -91,6 +93,8 @@ class BenchmarkAutomatedGamesCommand extends Command
             ['Решений', $summary['decisions']],
             ['Среднее решение, мс', $summary['average_decision_milliseconds']],
             ['Исчерпан бюджет', $summary['budget_exhaustions']],
+            ['Вынужденных пасов', $summary['forced_passes']],
+            ['Пасов вместо альтернатив', $summary['strategic_passes']],
             ['Ранних пасов', $summary['early_passes']],
         ]);
         $this->components->info('Отчёты сохранены: '.self::REPORT_DISK."://{$directory}");
@@ -130,8 +134,14 @@ class BenchmarkAutomatedGamesCommand extends Command
             'maximum_decision_milliseconds' => (int) ($decisions->max('durationMilliseconds') ?? 0),
             'visited_nodes' => (int) $decisions->sum('visitedNodes'),
             'budget_exhaustions' => $decisions->where('budgetExhausted', true)->count(),
+            'forced_passes' => $decisions->filter(
+                static fn (AutomatedGameDecisionData $decision): bool => $decision->passReason === AutomatedGamePassReason::OnlyLegalAction,
+            )->count(),
+            'strategic_passes' => $decisions->filter(
+                static fn (AutomatedGameDecisionData $decision): bool => $decision->passReason === AutomatedGamePassReason::PreferredOverAlternatives,
+            )->count(),
             'early_passes' => $decisions->filter(
-                static fn ($decision): bool => $decision->passReason !== null && $decision->round < 6,
+                static fn (AutomatedGameDecisionData $decision): bool => $decision->passReason !== null && $decision->round < 6,
             )->count(),
             'errors' => $errors,
         ];

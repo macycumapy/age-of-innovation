@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace App\Domain\Game\Services;
 
 use App\Domain\Game\Data\EvaluatedGameActionData;
+use App\Domain\Game\Data\GameActionCandidateDiagnosticsData;
 use App\Domain\Game\Data\GameActionSelectionDiagnosticsData;
 use App\Domain\Game\Data\GameStateData;
+use App\Domain\Game\Enums\GameActionSelectionReason;
 use App\Domain\Game\Enums\GameBotDifficulty;
 use App\Domain\Game\Enums\GamePhase;
 
@@ -49,15 +51,26 @@ final class GameActionSelector
             auxiliaryActionsRemaining: $auxiliaryActionsRemaining,
         );
 
+        $selected = $rankedActions[0] ?? null;
+
         return new GameActionSelectionDiagnosticsData(
-            selected: $rankedActions[0] ?? null,
+            selected: $selected,
             candidates: array_map(
-                static fn (EvaluatedGameActionData $action): array => [
-                    'type' => $action->option->type()->value,
-                    'score' => $action->score,
-                ],
+                static fn (EvaluatedGameActionData $action, int $index): GameActionCandidateDiagnosticsData => new GameActionCandidateDiagnosticsData(
+                    type: $action->option->type(),
+                    score: $action->score,
+                    rank: $index + 1,
+                    scoreDelta: $selected === null ? 0 : $selected->score - $action->score,
+                    selected: $index === 0,
+                ),
                 $rankedActions,
+                array_keys($rankedActions),
             ),
+            selectionReason: match (count($rankedActions)) {
+                0 => GameActionSelectionReason::NoLegalActions,
+                1 => GameActionSelectionReason::OnlyLegalAction,
+                default => GameActionSelectionReason::HighestScore,
+            },
             visitedNodes: $this->gameActionRanker->lastVisitedNodes(),
             durationMilliseconds: (int) ((hrtime(true) - $startedAt) / 1_000_000),
             budgetExhausted: $this->gameActionRanker->lastBudgetExhausted(),

@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Domain\Game\Data\AutomatedGameDecisionData;
 use App\Domain\Game\Data\AutomatedGameSimulationResultData;
+use App\Domain\Game\Enums\AutomatedGamePassReason;
 use App\Domain\Game\Services\AutomatedGameReportBuilder;
 use App\Domain\Game\Services\AutomatedGameSimulator;
 use App\Models\Game;
@@ -87,6 +88,14 @@ class SimulateAutomatedGameCommand extends Command
                 static fn (AutomatedGameDecisionData $decision): bool => $decision->budgetExhausted,
             ))],
             ['Пасов', count($passes)],
+            ['Вынужденных пасов', count(array_filter(
+                $passes,
+                static fn (AutomatedGameDecisionData $decision): bool => $decision->passReason === AutomatedGamePassReason::OnlyLegalAction,
+            ))],
+            ['Пасов вместо альтернатив', count(array_filter(
+                $passes,
+                static fn (AutomatedGameDecisionData $decision): bool => $decision->passReason === AutomatedGamePassReason::PreferredOverAlternatives,
+            ))],
             ['Ранних пасов', count(array_filter(
                 $passes,
                 static fn (AutomatedGameDecisionData $decision): bool => $decision->round < 6,
