@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use App\Domain\Game\Actions\CreateAutomatedGameAction;
 use App\Domain\Game\Actions\PerformGameActionOptionAction;
 use App\Domain\Game\Actions\PlayAutomatedTurnAction;
 use App\Domain\Game\Contracts\GameActionOption;
@@ -94,6 +95,48 @@ use Tests\TestCase;
 class PlayAutomatedTurnActionTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_it_creates_reproducible_automated_games_from_a_seed(): void
+    {
+        Queue::fake();
+
+        $first = app(CreateAutomatedGameAction::class)->execute('reproducible-bots', 2);
+        $second = app(CreateAutomatedGameAction::class)->execute('reproducible-bots', 2);
+
+        $this->assertSame($first->state->setupPool?->toArray(), $second->state->setupPool?->toArray());
+        $this->assertSame($first->state->board->toArray(), $second->state->board->toArray());
+        $this->assertCount(2, $first->players);
+        $this->assertTrue($first->players->every(
+            static fn (GamePlayer $player): bool => $player->bot_difficulty === GameBotDifficulty::Fast,
+        ));
+    }
+
+    public function test_benchmark_bots_command_writes_game_and_summary_reports(): void
+    {
+        Queue::fake();
+        Storage::fake('local');
+
+        $exitCode = Artisan::call('game:benchmark-bots', [
+            '--games' => 1,
+            '--players' => 2,
+            '--difficulty' => GameBotDifficulty::Fast->value,
+            '--seed' => 'command-benchmark',
+            '--max-decisions' => 1,
+            '--max-duration' => 10_000,
+        ]);
+
+        $this->assertSame(1, $exitCode);
+        Storage::disk('local')->assertExists('bot-reports/batches/command-benchmark/game-1.json');
+        Storage::disk('local')->assertExists('bot-reports/batches/command-benchmark/summary.json');
+        $summary = json_decode(
+            Storage::disk('local')->get('bot-reports/batches/command-benchmark/summary.json'),
+            true,
+            flags: JSON_THROW_ON_ERROR,
+        );
+        $this->assertSame(1, $summary['games']);
+        $this->assertSame(1, $summary['decisions']);
+        $this->assertSame(0, $summary['completed_games']);
+    }
 
     public function test_automated_game_simulator_completes_a_final_round_and_collects_diagnostics(): void
     {

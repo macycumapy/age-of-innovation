@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Domain\Game\Data\AutomatedGameDecisionData;
 use App\Domain\Game\Data\AutomatedGameSimulationResultData;
+use App\Domain\Game\Services\AutomatedGameReportBuilder;
 use App\Domain\Game\Services\AutomatedGameSimulator;
 use App\Models\Game;
 use Illuminate\Console\Attributes\Description;
@@ -25,8 +26,10 @@ class SimulateAutomatedGameCommand extends Command
 
     private const string REPORT_DIRECTORY = 'bot-reports';
 
-    public function handle(AutomatedGameSimulator $simulator): int
-    {
+    public function handle(
+        AutomatedGameSimulator $simulator,
+        AutomatedGameReportBuilder $reportBuilder,
+    ): int {
         $gameId = filter_var($this->argument('game'), FILTER_VALIDATE_INT);
         $maxDecisions = filter_var($this->option('max-decisions'), FILTER_VALIDATE_INT);
         $maxDuration = filter_var($this->option('max-duration'), FILTER_VALIDATE_INT);
@@ -55,7 +58,7 @@ class SimulateAutomatedGameCommand extends Command
 
         $this->renderSummary($result);
 
-        if (! $this->writeReport($game->id, $result)) {
+        if (! $this->writeReport($game->id, $reportBuilder->execute($result))) {
             return self::FAILURE;
         }
 
@@ -97,14 +100,15 @@ class SimulateAutomatedGameCommand extends Command
         );
     }
 
+    /** @param array<string, mixed> $report */
     private function writeReport(
         int $gameId,
-        AutomatedGameSimulationResultData $result,
+        array $report,
     ): bool {
         try {
             $path = self::REPORT_DIRECTORY."/game-{$gameId}.json";
             $written = Storage::disk(self::REPORT_DISK)->put($path, json_encode(
-                $this->report($result),
+                $report,
                 JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR,
             ));
 
@@ -124,37 +128,4 @@ class SimulateAutomatedGameCommand extends Command
         }
     }
 
-    /** @return array<string, mixed> */
-    private function report(AutomatedGameSimulationResultData $result): array
-    {
-        return [
-            'completed' => $result->completed,
-            'stopped_reason' => $result->stoppedReason,
-            'duration_milliseconds' => $result->durationMilliseconds,
-            'final_scores' => $result->finalScores,
-            'decisions' => array_map(
-                static fn (AutomatedGameDecisionData $decision): array => [
-                    'game_player_id' => $decision->gamePlayerId,
-                    'round' => $decision->round,
-                    'phase' => $decision->phase->value,
-                    'action_type' => $decision->actionType?->value,
-                    'selected_score' => $decision->selectedScore,
-                    'candidates' => $decision->candidates,
-                    'visited_nodes' => $decision->visitedNodes,
-                    'duration_milliseconds' => $decision->durationMilliseconds,
-                    'budget_exhausted' => $decision->budgetExhausted,
-                    'pass_reason' => $decision->passReason,
-                    'remaining_resources' => $decision->remainingResources === null ? null : [
-                        'coins' => $decision->remainingResources->coins,
-                        'tools' => $decision->remainingResources->tools,
-                        'scholars' => $decision->remainingResources->scholars,
-                        'books' => $decision->remainingResources->books,
-                        'power' => $decision->remainingResources->power,
-                        'spades' => $decision->remainingResources->spades,
-                    ],
-                ],
-                $result->decisions,
-            ),
-        ];
-    }
 }
