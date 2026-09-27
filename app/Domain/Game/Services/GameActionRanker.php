@@ -33,6 +33,7 @@ final class GameActionRanker
         private RoundScoringProgressEvaluator $roundScoringProgressEvaluator,
         private FinalScoringProgressEvaluator $finalScoringProgressEvaluator,
         private BoardPositionProgressEvaluator $boardPositionProgressEvaluator,
+        private PassValueEvaluator $passValueEvaluator,
         private ApplyFinishActionTurnAction $applyFinishActionTurn,
     ) {
     }
@@ -66,6 +67,7 @@ final class GameActionRanker
                 fn (GameActionOption $option): bool => ! $this->isAuxiliaryOption($option),
             ));
         }
+        $hasNonPassOption = $this->hasNonPassOption($options);
 
         foreach ($options as $index => $option) {
             if ($candidates !== [] && $context->isExhausted()) {
@@ -73,13 +75,16 @@ final class GameActionRanker
             }
 
             $simulation = $this->gameActionSimulator->execute($state, $playerId, $option);
+            $passPenalty = $this->passPenalty($state, $playerId, $option, $hasNonPassOption);
             $candidates[] = [
                 'option' => $option,
                 'simulation' => $simulation,
                 'score' => $this->gameStateEvaluator->execute($simulation->state, $playerId)
-                    + $this->strategicProgress($state, $simulation->state, $playerId),
+                    + $this->strategicProgress($state, $simulation->state, $playerId)
+                    - $passPenalty,
                 'index' => $index,
                 'isPass' => $option->type() === GameActionOptionType::Pass,
+                'passPenalty' => $passPenalty,
             ];
         }
 
@@ -108,7 +113,8 @@ final class GameActionRanker
                         $context,
                         PHP_INT_MIN,
                         PHP_INT_MAX,
-                    ) + $this->strategicProgress($state, $simulation->state, $playerId),
+                    ) + $this->strategicProgress($state, $simulation->state, $playerId)
+                        - $candidate['passPenalty'],
                 ),
                 'index' => $candidate['index'],
                 'isAuxiliary' => $this->isAuxiliaryOption($option),
@@ -201,19 +207,29 @@ final class GameActionRanker
                 fn (GameActionOption $option): bool => ! $this->isAuxiliaryOption($option),
             ));
         }
+        $hasNonPassOption = $this->hasNonPassOption($options);
         $options = array_slice($options, 0, $branchLimit);
         $simulations = [];
+        $maximizing = $activePlayer->playerId === $rootPlayerId;
         foreach ($options as $option) {
             if ($simulations !== [] && $context->isExhausted()) {
                 break;
             }
 
             $nextSimulation = $this->gameActionSimulator->execute($state, $activePlayer->playerId, $option);
+            $passPenalty = $this->passPenalty(
+                $state,
+                $activePlayer->playerId,
+                $option,
+                $hasNonPassOption,
+            );
             $simulations[] = [
                 'simulation' => $nextSimulation,
-                'score' => $this->gameStateEvaluator->execute($nextSimulation->state, $rootPlayerId),
+                'score' => $this->gameStateEvaluator->execute($nextSimulation->state, $rootPlayerId)
+                    + ($maximizing ? -$passPenalty : $passPenalty),
                 'remainingDepth' => $this->remainingDepthAfter($state, $option, $remainingDepth),
                 'auxiliaryActionsRemaining' => $this->auxiliaryActionsAfter($option, $auxiliaryActionsRemaining),
+                'passPenalty' => $passPenalty,
             ];
         }
 
@@ -221,7 +237,6 @@ final class GameActionRanker
             return $this->gameStateEvaluator->execute($state, $rootPlayerId);
         }
 
-        $maximizing = $activePlayer->playerId === $rootPlayerId;
         usort(
             $simulations,
             static fn (array $left, array $right): int => $maximizing
@@ -241,7 +256,7 @@ final class GameActionRanker
                 $context,
                 $alpha,
                 $beta,
-            );
+            ) + ($maximizing ? -$candidate['passPenalty'] : $candidate['passPenalty']);
 
             if ($maximizing) {
                 $bestScore = max($bestScore, $score);
@@ -301,6 +316,25 @@ final class GameActionRanker
             GameActionOptionType::ExchangeResources,
             GameActionOptionType::SacrificePower,
         ], true);
+    }
+
+    /** @param list<GameActionOption> $options */
+    private function hasNonPassOption(array $options): bool
+    {
+        return collect($options)->contains(
+            static fn (GameActionOption $option): bool => $option->type() !== GameActionOptionType::Pass,
+        );
+    }
+
+    private function passPenalty(
+        GameStateData $state,
+        int $playerId,
+        GameActionOption $option,
+        bool $hasNonPassOption,
+    ): int {
+        return $hasNonPassOption && $option->type() === GameActionOptionType::Pass
+            ? $this->passValueEvaluator->execute($state, $playerId)
+            : 0;
     }
 
     private function cacheKey(

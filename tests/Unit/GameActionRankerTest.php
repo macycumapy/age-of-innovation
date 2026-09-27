@@ -389,7 +389,7 @@ class GameActionRankerTest extends TestCase
         $this->assertSame([], app(GameActionRanker::class)->execute($state, 1));
     }
 
-    public function test_it_prefers_a_non_pass_action_when_scores_are_equal(): void
+    public function test_it_penalizes_pass_when_a_non_pass_action_is_available(): void
     {
         $state = $this->state();
         $state->round->phase = GamePhase::Actions;
@@ -401,8 +401,20 @@ class GameActionRankerTest extends TestCase
         );
 
         $this->assertNotNull($passAction);
-        $this->assertSame($passAction->score, $rankedActions[0]->score);
+        $this->assertGreaterThan($passAction->score, $rankedActions[0]->score);
         $this->assertSame(GameActionOptionType::SacrificePower, $rankedActions[0]->option->type());
+    }
+
+    public function test_it_does_not_penalize_pass_when_it_is_the_only_legal_action(): void
+    {
+        $state = $this->state();
+        $state->round->phase = GamePhase::Actions;
+        $state->players[0]->resources->coins = 10;
+
+        $rankedActions = app(GameActionRanker::class)->execute($state, 1, depth: 1);
+
+        $this->assertCount(1, $rankedActions);
+        $this->assertSame(GameActionOptionType::Pass, $rankedActions[0]->option->type());
     }
 
     public function test_it_searches_the_next_players_response(): void
