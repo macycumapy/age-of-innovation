@@ -145,6 +145,7 @@ final class AppendGameHistoryAction
                     'round' => $game->round,
                     'phase' => $game->phase->value,
                     'active_player_id' => $game->active_player_id,
+                    'active_game_player_id' => $game->active_game_player_id,
                     'version' => $game->version,
                     'state' => $game->state->toArray(),
                     'started_at' => $game->started_at?->toISOString(),

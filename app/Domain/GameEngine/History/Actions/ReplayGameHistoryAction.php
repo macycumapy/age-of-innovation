@@ -176,6 +176,7 @@ final class ReplayGameHistoryAction
                 'round' => 1,
                 'phase' => GamePhase::Setup,
                 'active_player_id' => null,
+                'active_game_player_id' => null,
                 'version' => 0,
                 'state' => new GameStateData(board: $this->boardStateFactory->create($mapVariant)),
                 'started_at' => null,
@@ -325,7 +326,11 @@ final class ReplayGameHistoryAction
             'status' => GameStatus::from((string) $gameSnapshot['status']),
             'round' => (int) $gameSnapshot['round'],
             'phase' => GamePhase::from((string) $gameSnapshot['phase']),
-            'active_player_id' => $gameSnapshot['active_player_id'],
+            'active_game_player_id' => array_key_exists('active_game_player_id', $gameSnapshot)
+                ? $gameSnapshot['active_game_player_id']
+                : (isset($gameSnapshot['active_player_id'])
+                    ? $game->players()->where('user_id', $gameSnapshot['active_player_id'])->value('id')
+                    : null),
             'version' => (int) $gameSnapshot['version'],
             'state' => GameStateData::from($gameSnapshot['state']),
             'started_at' => $gameSnapshot['started_at'] ?? null,
@@ -455,7 +460,7 @@ final class ReplayGameHistoryAction
         $game->fill([
             'status' => GameStatus::Active,
             'phase' => GamePhase::Setup,
-            'active_player_id' => $orderedPlayers->firstOrFail()->user_id,
+            'active_game_player_id' => $orderedPlayers->firstOrFail()->id,
             'started_at' => $action->created_at,
             'state' => new GameStateData(
                 schemaVersion: CompetencySupply::CURRENT_SCHEMA_VERSION,
@@ -536,9 +541,9 @@ final class ReplayGameHistoryAction
             )
             : null;
         $game->state = $state;
-        $game->active_player_id = $requiresChoice
-            ? $player->user_id
-            : $this->nextPlanningPlayer($game, $players, $player)->user_id;
+        $game->active_game_player_id = $requiresChoice
+            ? $player->id
+            : $this->nextPlanningPlayer($game, $players, $player)->id;
     }
 
     /** @param Collection<int, GamePlayer> $players */
@@ -586,7 +591,7 @@ final class ReplayGameHistoryAction
             return;
         }
 
-        $game->active_player_id = $this->nextPlanningPlayer($game, $players, $player)->user_id;
+        $game->active_game_player_id = $this->nextPlanningPlayer($game, $players, $player)->id;
     }
 
     /** @param Collection<int, GamePlayer> $players */
@@ -676,7 +681,7 @@ final class ReplayGameHistoryAction
                     ),
                 )),
             );
-            $game->active_player_id = $player->user_id;
+            $game->active_game_player_id = $player->id;
         } elseif ($player->faction === Faction::Inventors && $hasFinishedOwnStartingBuildings) {
             $playerState = $this->playerState($state, $player->id);
             $state->pendingInteraction = new PendingInteractionData(
@@ -691,16 +696,16 @@ final class ReplayGameHistoryAction
                     ),
                 )),
             );
-            $game->active_player_id = $player->user_id;
+            $game->active_game_player_id = $player->id;
         } elseif ($state->startingBuildingTurnIndex >= count($placementOrder)) {
             $resolution = $this->resolveCompletedStartingSetup->execute($state);
             $game->phase = $resolution->phase;
-            $game->active_player_id = $this->replayPlayer($players, $resolution->nextActivePlayerId)->user_id;
+            $game->active_game_player_id = $this->replayPlayer($players, $resolution->nextActivePlayerId)->id;
         } else {
-            $game->active_player_id = $players->firstWhere(
+            $game->active_game_player_id = $players->firstWhere(
                 'id',
                 $placementOrder[$state->startingBuildingTurnIndex],
-            )?->user_id;
+            )?->id;
         }
 
         $game->state = $state;
@@ -749,7 +754,7 @@ final class ReplayGameHistoryAction
                             'targetTerrain' => $playerState->homeland->value,
                         ],
                     );
-                    $game->active_player_id = $player->user_id;
+                    $game->active_game_player_id = $player->id;
                     $game->state = $state;
 
                     return;
@@ -769,13 +774,13 @@ final class ReplayGameHistoryAction
                 return;
             }
 
-            $game->active_player_id = $isBuildingChoice
+            $game->active_game_player_id = $isBuildingChoice
                 ? $this->createTownChoiceAfterBuilding->execute(
                     $state,
                     $this->playerState($state, $player->id),
                     (string) ($action->payload['built_hex_id'] ?? ''),
                 )
-                : $player->user_id;
+                : $player->id;
             $game->state = $state;
 
             return;
@@ -807,7 +812,7 @@ final class ReplayGameHistoryAction
                     ],
                 );
                 $game->phase = GamePhase::Setup;
-                $game->active_player_id = $player->user_id;
+                $game->active_game_player_id = $player->id;
                 $game->state = $state;
 
                 return;
@@ -821,13 +826,13 @@ final class ReplayGameHistoryAction
             if ($state->startingBuildingTurnIndex >= count($placementOrder)) {
                 $resolution = $this->resolveCompletedStartingSetup->execute($state);
                 $game->phase = $resolution->phase;
-                $game->active_player_id = $this->replayPlayer($players, $resolution->nextActivePlayerId)->user_id;
+                $game->active_game_player_id = $this->replayPlayer($players, $resolution->nextActivePlayerId)->id;
             } else {
                 $game->phase = GamePhase::Setup;
-                $game->active_player_id = $players->firstWhere(
+                $game->active_game_player_id = $players->firstWhere(
                     'id',
                     $placementOrder[$state->startingBuildingTurnIndex],
-                )?->user_id;
+                )?->id;
             }
 
             $game->state = $state;
@@ -838,12 +843,12 @@ final class ReplayGameHistoryAction
         if ($state->startingBuildingTurnIndex >= count($placementOrder)) {
             $resolution = $this->resolveCompletedStartingSetup->execute($state);
             $game->phase = $resolution->phase;
-            $game->active_player_id = $this->replayPlayer($players, $resolution->nextActivePlayerId)->user_id;
+            $game->active_game_player_id = $this->replayPlayer($players, $resolution->nextActivePlayerId)->id;
         } else {
-            $game->active_player_id = $players->firstWhere(
+            $game->active_game_player_id = $players->firstWhere(
                 'id',
                 $placementOrder[$state->startingBuildingTurnIndex],
-            )?->user_id;
+            )?->id;
         }
 
         $game->state = $state;
@@ -928,7 +933,7 @@ final class ReplayGameHistoryAction
 
             if ($eligibleHexIds !== []) {
                 $game->phase = $interactionPhase;
-                $game->active_player_id = $player->user_id;
+                $game->active_game_player_id = $player->id;
             } elseif ($interactionPhase->isActionPhase()) {
                 $availableHexIds = $this->availableWorkshopHexIds(
                     $state,
@@ -938,7 +943,7 @@ final class ReplayGameHistoryAction
 
                 if ((bool) ($action->payload['lizard_bonus_pending'] ?? false)) {
                     $this->startLizardTownBonus->execute($state, $playerState);
-                    $game->active_player_id = $player->user_id;
+                    $game->active_game_player_id = $player->id;
                 } elseif ($availableHexIds !== [] && (bool) ($action->payload['build_offered'] ?? false)) {
                     $isFreeWorkshop = (bool) ($action->payload['lizard_free_workshop'] ?? false);
                     $state->pendingInteraction = new PendingInteractionData(
@@ -954,10 +959,10 @@ final class ReplayGameHistoryAction
                             ...($isFreeWorkshop ? ['lizardFreeWorkshop' => true] : []),
                         ],
                     );
-                    $game->active_player_id = $player->user_id;
+                    $game->active_game_player_id = $player->id;
                 } elseif ((bool) ($action->payload['feline_bonus_pending'] ?? false)) {
                     $this->startFelineTownBonus->execute($state, $playerState);
-                    $game->active_player_id = $player->user_id;
+                    $game->active_game_player_id = $player->id;
                 } else {
                     $state->pendingInteraction = null;
                 }
@@ -965,7 +970,7 @@ final class ReplayGameHistoryAction
                 $state->pendingInteraction = null;
                 [$nextPlayer, $nextPhase] = $this->resolveScienceBonusPhase->execute($state);
                 $game->phase = $nextPhase;
-                $game->active_player_id = $nextPlayer?->playerId;
+                $game->active_game_player_id = $nextPlayer?->playerId;
             } else {
                 $this->completeStartingInteraction($game, $state, $players);
             }
@@ -1000,7 +1005,7 @@ final class ReplayGameHistoryAction
             $state->pendingInteraction = null;
             [$nextPlayer, $nextPhase] = $this->resolveScienceBonusPhase->execute($state);
             $game->phase = $nextPhase;
-            $game->active_player_id = $nextPlayer?->playerId;
+            $game->active_game_player_id = $nextPlayer?->playerId;
         } else {
             if (($action->payload['choose_starting_competency_after_spade'] ?? false) === true) {
                 $playerState = $this->playerState($state, $player->id);
@@ -1017,15 +1022,15 @@ final class ReplayGameHistoryAction
                     )),
                 );
                 $game->phase = GamePhase::Setup;
-                $game->active_player_id = $player->user_id;
+                $game->active_game_player_id = $player->id;
             } elseif (($action->payload['resume_starting_building_placement'] ?? false) === true
                 && $state->startingBuildingTurnIndex < count($this->startingBuildingOrder($state, $players))) {
                 $placementOrder = $this->startingBuildingOrder($state, $players);
                 $game->phase = GamePhase::Setup;
-                $game->active_player_id = $players->firstWhere(
+                $game->active_game_player_id = $players->firstWhere(
                     'id',
                     $placementOrder[$state->startingBuildingTurnIndex],
-                )?->user_id;
+                )?->id;
                 $state->pendingInteraction = null;
             } else {
                 $this->completeStartingInteraction($game, $state, $players);
@@ -1130,7 +1135,7 @@ final class ReplayGameHistoryAction
         $playerState->victoryPoints += (int) ($action->payload['victory_points'] ?? 0);
         $hex->building = new BuildingStateData(BuildingType::Workshop, $player->id);
         $state->round->hasTakenMainAction = true;
-        $game->active_player_id = $this->createBuildingFollowUpInteraction->execute(
+        $game->active_game_player_id = $this->createBuildingFollowUpInteraction->execute(
             $state,
             $playerState,
             $hex->id,
@@ -1207,7 +1212,7 @@ final class ReplayGameHistoryAction
                     ...($playerState->faction === Faction::Lizards ? ['lizardBonusPending' => true] : []),
                 ],
             );
-            $game->active_player_id = $player->user_id;
+            $game->active_game_player_id = $player->id;
         } elseif ($townTile === TownTile::Terraform) {
             $state->pendingInteraction = new PendingInteractionData(
                 PendingInteractionType::SpendSpades,
@@ -1222,19 +1227,19 @@ final class ReplayGameHistoryAction
                     ...($playerState->faction === Faction::Lizards ? ['lizardBonusPending' => true] : []),
                 ],
             );
-            $game->active_player_id = $player->user_id;
+            $game->active_game_player_id = $player->id;
         } elseif ($playerState->faction === Faction::Felines) {
             $this->startFelineTownBonus->execute($state, $playerState, [
                 'builtHexId' => $markerHexId,
                 'queuedBuiltHexIds' => $queuedBuiltHexIds,
             ]);
-            $game->active_player_id = $player->user_id;
+            $game->active_game_player_id = $player->id;
         } elseif ($playerState->faction === Faction::Lizards) {
             $this->startLizardTownBonus->execute($state, $playerState);
-            $game->active_player_id = $player->user_id;
+            $game->active_game_player_id = $player->id;
         } else {
             $state->pendingInteraction = null;
-            $game->active_player_id = $player->user_id;
+            $game->active_game_player_id = $player->id;
         }
 
         $game->state = $state;
@@ -1313,14 +1318,14 @@ final class ReplayGameHistoryAction
             && $playerState->faction === Faction::Lizards) {
             $this->startLizardTownBonus->execute($state, $playerState);
         } elseif (is_string($interaction->context['continueBuildingAfterPowerHexId'] ?? null)) {
-            $game->active_player_id = $this->createTownChoiceAfterBuilding->execute(
+            $game->active_game_player_id = $this->createTownChoiceAfterBuilding->execute(
                 $state,
                 $playerState,
                 $interaction->context['continueBuildingAfterPowerHexId'],
                 powerOffersResolved: true,
             );
         }
-        $game->active_player_id ??= $player->user_id;
+        $game->active_game_player_id ??= $player->id;
         $game->state = $state;
     }
 
@@ -1358,10 +1363,10 @@ final class ReplayGameHistoryAction
                     'queuedBuiltHexIds' => $queuedBuiltHexIds,
                 ],
             );
-            $game->active_player_id = $player->user_id;
+            $game->active_game_player_id = $player->id;
         } else {
             $state->pendingInteraction = null;
-            $game->active_player_id = $player->user_id;
+            $game->active_game_player_id = $player->id;
         }
 
         $game->state = $state;
@@ -1565,7 +1570,7 @@ final class ReplayGameHistoryAction
         $hex->terrain = $playerState->homeland;
         $hex->building = new BuildingStateData($buildingType, $player->id, isNeutral: true);
         $state->pendingInteraction = null;
-        $game->active_player_id = $buildingType === BuildingType::Tower
+        $game->active_game_player_id = $buildingType === BuildingType::Tower
             ? $this->createTownChoiceAfterBuilding->execute($state, $playerState, $hex->id, $queuedBuiltHexIds)
             : $this->createBuildingFollowUpInteraction->execute($state, $playerState, $hex->id, $buildingType);
         $game->state = $state;
@@ -1934,7 +1939,7 @@ final class ReplayGameHistoryAction
         $playerState->availableAnnexes--;
         $hex->building->hasAnnex = true;
         $state->round->hasTakenMainAction = true;
-        $game->active_player_id = $this->createTownChoiceAfterBuilding->execute(
+        $game->active_game_player_id = $this->createTownChoiceAfterBuilding->execute(
             $state,
             $playerState,
             $hexId,
@@ -2010,7 +2015,7 @@ final class ReplayGameHistoryAction
         $state->pendingInteraction = null;
         $resolution = $this->resolveCompletedStartingSetup->execute($state);
         $game->phase = $resolution->phase;
-        $game->active_player_id = $this->replayPlayer($players, $resolution->nextActivePlayerId)->user_id;
+        $game->active_game_player_id = $this->replayPlayer($players, $resolution->nextActivePlayerId)->id;
     }
 
     /** @param Collection<int, GamePlayer> $players */

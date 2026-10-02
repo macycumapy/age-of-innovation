@@ -101,6 +101,7 @@ class GameHistoryRollbackTest extends TestCase
 
         $game->refresh();
         $checkpoint = $game->actions()->where('type', GameActionType::PhaseCheckpoint)->sole();
+        $this->assertSame($game->active_game_player_id, $checkpoint->payload['game']['active_game_player_id']);
         $activeUser = User::query()->findOrFail($game->active_player_id);
         $selectedBundle = $game->state->setupPool->planningBundles[0];
 

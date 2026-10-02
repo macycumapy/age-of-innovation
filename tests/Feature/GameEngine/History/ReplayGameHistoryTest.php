@@ -15,6 +15,7 @@ use App\Domain\GameEngine\Economy\Data\PlayerResourcesData;
 use App\Domain\GameEngine\Economy\Data\PowerBowlsStateData;
 use App\Domain\GameEngine\Enums\GameActionType;
 use App\Domain\GameEngine\History\Actions\ReplayGameHistoryAction;
+use App\Domain\GameEngine\History\Actions\UndoLastGameAction;
 use App\Domain\GameEngine\Interactions\Data\PendingInteractionData;
 use App\Domain\GameEngine\Interactions\Enums\PendingInteractionType;
 use App\Domain\GameEngine\PlayerAbilities\Enums\Faction;
@@ -29,6 +30,7 @@ use App\Models\Game;
 use App\Models\GamePlayer;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Queue;
 use Tests\TestCase;
 
 class ReplayGameHistoryTest extends TestCase
@@ -37,6 +39,7 @@ class ReplayGameHistoryTest extends TestCase
 
     public function test_replay_uses_game_player_id_to_distinguish_bots(): void
     {
+        Queue::fake();
         $game = Game::factory()->create([
             'status' => GameStatus::Active,
             'phase' => GamePhase::Actions,
@@ -54,6 +57,13 @@ class ReplayGameHistoryTest extends TestCase
         ]);
         $state = new GameStateData(
             turnOrder: [$firstBot->id, $secondBot->id],
+            board: new BoardStateData(hexes: [new BoardHexStateData(
+                id: 'target',
+                q: 0,
+                r: 0,
+                initialTerrain: TerrainType::Wasteland,
+                terrain: TerrainType::Wasteland,
+            )]),
             round: new RoundStateData(phase: GamePhase::Actions),
             players: [
                 new GamePlayerStateData(
@@ -72,6 +82,8 @@ class ReplayGameHistoryTest extends TestCase
                     homeland: TerrainType::Wasteland,
                     roundBonus: RoundBonus::Coins,
                     resources: new PlayerResourcesData(
+                        coins: 5,
+                        tools: 2,
                         power: new PowerBowlsStateData(bowlThree: 1),
                     ),
                 ),
@@ -91,6 +103,7 @@ class ReplayGameHistoryTest extends TestCase
                     'round' => 1,
                     'phase' => GamePhase::Actions->value,
                     'active_player_id' => null,
+                    'active_game_player_id' => $secondBot->id,
                     'version' => 0,
                     'state' => $state->toArray(),
                     'started_at' => null,
@@ -125,9 +138,38 @@ class ReplayGameHistoryTest extends TestCase
         $game->refresh();
         $this->assertSame(0, $game->state->players[0]->resources->coins);
         $this->assertSame(0, $game->state->players[0]->resources->power->bowlOne);
-        $this->assertSame(1, $game->state->players[1]->resources->coins);
+        $this->assertSame(6, $game->state->players[1]->resources->coins);
         $this->assertSame(1, $game->state->players[1]->resources->power->bowlOne);
         $this->assertSame(0, $game->state->players[1]->resources->power->bowlThree);
+        $this->assertSame($secondBot->id, $game->active_game_player_id);
+        $this->assertNull($game->active_player_id);
+
+        $game->actions()->create([
+            'sequence' => 3,
+            'game_player_id' => $secondBot->id,
+            'type' => GameActionType::BuildWorkshop,
+            'payload' => ['hex_id' => 'target', 'tools' => 1, 'coins' => 2],
+            'state_version_before' => 1,
+            'state_version_after' => 2,
+        ]);
+        $finish = $game->actions()->create([
+            'sequence' => 4,
+            'game_player_id' => $secondBot->id,
+            'type' => GameActionType::FinishTurn,
+            'payload' => ['next_player_id' => $firstBot->id],
+            'state_version_before' => 2,
+            'state_version_after' => 3,
+        ]);
+        app(ReplayGameHistoryAction::class)->execute($game, $game->actions()->orderBy('sequence')->get());
+        $this->assertSame($firstBot->id, $game->refresh()->active_game_player_id);
+
+        app(UndoLastGameAction::class)->execute($game);
+
+        $this->assertModelMissing($finish);
+        $this->assertSame($secondBot->id, $game->refresh()->active_game_player_id);
+        $this->assertNull($game->active_player_id);
+        $this->assertSame($secondBot->id, $game->state->board->hexes[0]->building?->ownerPlayerId);
+        $this->assertSame(4, $game->state->players[1]->resources->coins);
     }
 
     public function test_palace_fifteen_mixed_bridge_choices_are_replayed(): void
