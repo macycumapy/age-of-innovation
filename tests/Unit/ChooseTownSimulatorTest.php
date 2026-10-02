@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit;
 
+use App\Domain\Game\Actions\ApplyChooseTownAction;
 use App\Domain\Game\Data\BoardHexStateData;
 use App\Domain\Game\Data\BoardStateData;
 use App\Domain\Game\Data\BuildingStateData;
@@ -48,6 +49,7 @@ class ChooseTownSimulatorTest extends TestCase
         $this->assertSame([TownTile::Books->value], $simulation->state->availableTownTileIds);
         $this->assertNull($simulation->state->pendingInteraction);
         $this->assertSame(1, $simulation->nextActivePlayerId);
+        $this->assertNull($simulation->state->townChoiceCheckpoint);
     }
 
     public function test_books_tile_creates_the_follow_up_distribution(): void
@@ -60,6 +62,31 @@ class ChooseTownSimulatorTest extends TestCase
         $this->assertSame(2, $simulation->state->players[0]->resources->books->unassigned);
         $this->assertSame(PendingInteractionType::ChooseTownBooks, $simulation->state->pendingInteraction?->type);
         $this->assertSame(2, $simulation->state->pendingInteraction->context['bookCount']);
+        $this->assertNull($simulation->state->townChoiceCheckpoint);
+    }
+
+    public function test_a_real_town_choice_preserves_the_complete_pre_choice_checkpoint(): void
+    {
+        $state = $this->state();
+        $before = $state->toArray();
+
+        app(ApplyChooseTownAction::class)->execute($state, $state->players[0], TownTile::Coins);
+
+        $this->assertSame($before, $state->townChoiceCheckpoint);
+        $this->assertSame(6, $state->players[0]->resources->coins);
+        $this->assertSame([TownTile::Coins->value], $state->players[0]->townTileIds);
+    }
+
+    public function test_simulating_a_town_choice_does_not_replace_an_existing_checkpoint(): void
+    {
+        $state = $this->state();
+        $state->townChoiceCheckpoint = ['version' => 11];
+        $option = app(ChooseTownOptionFinder::class)->execute($state, 1)[0];
+
+        $simulation = app(GameActionSimulator::class)->execute($state, 1, $option);
+
+        $this->assertSame(['version' => 11], $state->townChoiceCheckpoint);
+        $this->assertSame(['version' => 11], $simulation->state->townChoiceCheckpoint);
     }
 
     private function state(): GameStateData

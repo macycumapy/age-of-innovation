@@ -34,6 +34,7 @@ final class ApplyChooseTownAction
         GameStateData $state,
         GamePlayerStateData $player,
         TownTile $townTile,
+        bool $captureCheckpoint = true,
     ): ChooseTownResultData {
         $interaction = $state->pendingInteraction;
 
@@ -53,7 +54,9 @@ final class ApplyChooseTownAction
             throw ValidationException::withMessages(['town_tile' => 'Не найдены клетки основанного города.']);
         }
 
-        $state->townChoiceCheckpoint = $state->toArray();
+        if ($captureCheckpoint) {
+            $state->townChoiceCheckpoint = $state->toArray();
+        }
         $townId = $isFreePalaceTownTile ? null : (string) Str::uuid();
 
         foreach ($state->board->hexes as $hex) {

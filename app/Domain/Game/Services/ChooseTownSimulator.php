@@ -29,7 +29,12 @@ final class ChooseTownSimulator
             throw new InvalidArgumentException('Не найдено состояние игрока для симуляции.');
         }
 
-        $result = $this->applyChooseTown->execute($simulatedState, $simulatedPlayer, $option->townTile);
+        $result = $this->applyChooseTown->execute(
+            $simulatedState,
+            $simulatedPlayer,
+            $option->townTile,
+            captureCheckpoint: false,
+        );
 
         return new GameActionSimulationData($simulatedState, $result->nextActivePlayerId);
     }
