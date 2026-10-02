@@ -9,6 +9,7 @@ import GameHistoryUndoController from '@/actions/App/Http/Controllers/GameHistor
 import Form from '@/components/game/GameActionForm.vue';
 import { Button } from '@/components/ui/button';
 import { playerColorValues, roundBonusNames, terrainNames } from '@/lib/gameDisplay';
+import { specialActionDescription } from '@/lib/gameHistoryDisplay';
 import { resourceExchangeDetails } from '@/lib/resourceExchangeHistory';
 import type {
     BookAction,
@@ -369,6 +370,10 @@ function finalScoringDetails(entry: GameHistoryEntry): string[] {
 }
 
 function actionDescription(entry: GameHistoryEntry): string {
+    if (entry.type === 'special_action') {
+        return specialActionDescription(entry.payload, disciplineNames);
+    }
+
     if (entry.type === 'terraform_and_build' && entry.payload.built === false) {
         return 'отказался от строительства после преобразования';
     }
