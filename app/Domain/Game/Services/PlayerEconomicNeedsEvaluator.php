@@ -38,7 +38,6 @@ final class PlayerEconomicNeedsEvaluator
             return 0;
         }
 
-        $neededTools = $this->neededTools($before, $playerBefore);
         $scholarScore = $this->scholarScore($before, $after, $playerBefore, $playerAfter);
 
         $gainedTools = max(0, $playerAfter->resources->tools - $playerBefore->resources->tools);
@@ -52,8 +51,13 @@ final class PlayerEconomicNeedsEvaluator
             - PlayerIncomeCalculator::calculate($incomeBefore, $before->board)->tools,
         );
         $remainingRounds = max(0, 6 - $before->round->number);
+        $effectiveToolGain = $gainedTools + $gainedIncome * $remainingRounds;
+        if ($effectiveToolGain === 0) {
+            return $scholarScore;
+        }
+        $neededTools = $this->neededTools($before, $playerBefore);
 
-        return min($neededTools, $gainedTools + $gainedIncome * $remainingRounds)
+        return min($neededTools, $effectiveToolGain)
             * self::NEEDED_TOOL_WEIGHT + $scholarScore;
     }
 
@@ -68,7 +72,13 @@ final class PlayerEconomicNeedsEvaluator
         $developed = $playerAfter->shippingLevel > $playerBefore->shippingLevel
             || $playerAfter->terraformingLevel > $playerBefore->terraformingLevel;
 
-        if ($scholarsBefore === $scholarsAfter && ! $developed) {
+        if ($developed) {
+            $progress = max(0, $this->boardPositionProgressEvaluator->execute($before, $after, $playerBefore->playerId));
+
+            return min(self::MAX_SCHOLAR_BONUS, $progress * self::USEFUL_DEVELOPMENT_WEIGHT);
+        }
+
+        if (($scholarsBefore > 0) === ($scholarsAfter > 0)) {
             return 0;
         }
 
@@ -98,12 +108,6 @@ final class PlayerEconomicNeedsEvaluator
             ));
         }
         $bonus = min(self::MAX_SCHOLAR_BONUS, $potential * self::USEFUL_DEVELOPMENT_WEIGHT);
-
-        if ($developed) {
-            $progress = max(0, $this->boardPositionProgressEvaluator->execute($before, $after, $playerBefore->playerId));
-
-            return min(self::MAX_SCHOLAR_BONUS, $progress * self::USEFUL_DEVELOPMENT_WEIGHT);
-        }
 
         return ((int) ($scholarsAfter > 0) - (int) ($scholarsBefore > 0)) * $bonus;
     }

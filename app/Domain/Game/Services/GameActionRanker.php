@@ -77,15 +77,17 @@ final class GameActionRanker
 
             $simulation = $this->gameActionSimulator->execute($state, $playerId, $option);
             $passPenalty = $this->passPenalty($state, $playerId, $option, $hasNonPassOption);
+            $strategicProgress = $this->strategicProgress($state, $simulation->state, $playerId);
             $candidates[] = [
                 'option' => $option,
                 'simulation' => $simulation,
                 'score' => $this->gameStateEvaluator->execute($simulation->state, $playerId)
-                    + $this->strategicProgress($state, $simulation->state, $playerId)
+                    + $strategicProgress
                     - $passPenalty,
                 'index' => $index,
                 'isPass' => $option->type() === GameActionOptionType::Pass,
                 'passPenalty' => $passPenalty,
+                'strategicProgress' => $strategicProgress,
             ];
         }
 
@@ -114,7 +116,7 @@ final class GameActionRanker
                         $context,
                         PHP_INT_MIN,
                         PHP_INT_MAX,
-                    ) + $this->strategicProgress($state, $simulation->state, $playerId)
+                    ) + $candidate['strategicProgress']
                         - $candidate['passPenalty'],
                 ),
                 'index' => $candidate['index'],
