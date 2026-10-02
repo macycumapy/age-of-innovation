@@ -21,6 +21,73 @@ use Tests\TestCase;
 
 class PlayerEconomicNeedsEvaluatorTest extends TestCase
 {
+    public function test_it_penalizes_spending_the_last_scholar_when_shipping_opens_land(): void
+    {
+        $before = $this->shippingState();
+        $before->players[0]->resources->scholars = 1;
+        $after = $before->deepCopy();
+        $after->players[0]->resources->scholars = 0;
+
+        $this->assertLessThan(0, app(PlayerEconomicNeedsEvaluator::class)->execute($before, $after, 1));
+    }
+
+    public function test_it_rewards_a_scholar_only_when_affordable_development_improves_the_map(): void
+    {
+        $before = $this->shippingState();
+        $after = $before->deepCopy();
+        $after->players[0]->resources->scholars = 1;
+        $evaluator = app(PlayerEconomicNeedsEvaluator::class);
+
+        $this->assertGreaterThan(0, $evaluator->execute($before, $after, 1));
+        $before->players[0]->resources->coins = 0;
+        $after->players[0]->resources->coins = 0;
+        $this->assertSame(0, $evaluator->execute($before, $after, 1));
+    }
+
+    public function test_it_does_not_reserve_a_scholar_without_useful_development(): void
+    {
+        $before = $this->state();
+        $before->players[0]->resources->scholars = 1;
+        $after = $before->deepCopy();
+        $after->players[0]->resources->scholars = 0;
+
+        $this->assertSame(0, app(PlayerEconomicNeedsEvaluator::class)->execute($before, $after, 1));
+    }
+
+    public function test_it_does_not_penalize_sending_a_scholar_when_another_remains(): void
+    {
+        $before = $this->shippingState();
+        $before->players[0]->resources->scholars = 2;
+        $after = $before->deepCopy();
+        $after->players[0]->resources->scholars = 1;
+
+        $this->assertSame(0, app(PlayerEconomicNeedsEvaluator::class)->execute($before, $after, 1));
+    }
+
+    private function shippingState(): GameStateData
+    {
+        $state = $this->state();
+        $state->board->hexes[0]->adjacentHexIds = ['water'];
+        $state->board->hexes[] = new BoardHexStateData(
+            id: 'water',
+            q: 1,
+            r: 0,
+            initialTerrain: TerrainType::Water,
+            terrain: TerrainType::Water,
+            adjacentHexIds: ['0:0', 'target'],
+        );
+        $state->board->hexes[] = new BoardHexStateData(
+            id: 'target',
+            q: 2,
+            r: 0,
+            initialTerrain: TerrainType::Forest,
+            terrain: TerrainType::Forest,
+            adjacentHexIds: ['water'],
+        );
+
+        return $state;
+    }
+
     public function test_it_values_tools_that_unlock_a_real_upgrade_over_more_coins(): void
     {
         $before = $this->state();

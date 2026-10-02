@@ -39,6 +39,27 @@ use Tests\TestCase;
 
 class GameActionRankerTest extends TestCase
 {
+    public function test_it_prefers_shipping_to_sending_the_last_scholar_when_it_opens_expansion(): void
+    {
+        $state = $this->state();
+        $state->turnOrder = [1];
+        $state->round->phase = GamePhase::Actions;
+        $state->players[0]->resources->coins = 4;
+        $state->players[0]->resources->tools = 0;
+        $state->players[0]->resources->scholars = 1;
+        $state->board->hexes = [
+            $this->buildingHex('a', 1, ['water']),
+            $this->emptyHex('water', ['a', 'b', 'c', 'd'], TerrainType::Water),
+            $this->emptyHex('b', ['water']),
+            $this->emptyHex('c', ['water']),
+            $this->emptyHex('d', ['water']),
+        ];
+
+        $ranked = app(GameActionRanker::class)->execute($state, 1, depth: 1);
+
+        $this->assertSame(GameActionOptionType::AdvanceShipping, $ranked[0]->option->type());
+    }
+
     public function test_it_prefers_power_tools_over_coins_when_tools_unlock_an_upgrade(): void
     {
         $state = $this->state();
