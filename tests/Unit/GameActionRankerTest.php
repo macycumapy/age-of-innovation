@@ -39,6 +39,27 @@ use Tests\TestCase;
 
 class GameActionRankerTest extends TestCase
 {
+    public function test_a_one_ply_search_finishes_terraforming_before_evaluating_it(): void
+    {
+        $state = $this->state();
+        $state->turnOrder = [1];
+        $state->round->phase = GamePhase::Actions;
+        $state->players[0]->resources = new PlayerResourcesData(coins: 2, tools: 4);
+        $state->board->hexes = [
+            $this->buildingHex('a', 1, ['target']),
+            $this->emptyHex('target', ['a'], TerrainType::Mountain),
+        ];
+
+        $ranked = app(GameActionRanker::class)->execute($state, 1, depth: 1, auxiliaryActionsRemaining: 0);
+
+        $this->assertSame(GameActionOptionType::PaidTerraforming, $ranked[0]->option->type());
+        $this->assertGreaterThan(0, $ranked[0]->scoreBreakdown->searchAdjustment);
+        $this->assertSame($ranked[0]->score, $ranked[0]->scoreBreakdown->total());
+        $this->assertNotNull($ranked[0]->simulation->state->pendingInteraction);
+        $this->assertNull($state->board->hexes[1]->building);
+        $this->assertSame(TerrainType::Mountain, $state->board->hexes[1]->terrain);
+    }
+
     public function test_a_narrow_search_considers_construction_unlocked_by_a_conversion(): void
     {
         $state = $this->state();
@@ -60,6 +81,8 @@ class GameActionRankerTest extends TestCase
 
         $this->assertSame(GameActionOptionType::ExchangeResources, $narrow[0]->option->type());
         $this->assertSame($wide[0]->score, $narrow[0]->score);
+        $this->assertGreaterThan(0, $narrow[0]->scoreBreakdown->searchAdjustment);
+        $this->assertSame($narrow[0]->score, $narrow[0]->scoreBreakdown->total());
         $this->assertSame(1, $state->players[0]->resources->coins);
         $this->assertNull($state->board->hexes[1]->building);
     }
@@ -348,11 +371,16 @@ class GameActionRankerTest extends TestCase
         $state = $this->state();
         $evaluator = app(GameStateEvaluator::class);
         $initialScore = $evaluator->execute($state, 1);
+        $initialBreakdown = $evaluator->evaluateWithBreakdown($state, 1);
 
         $state->players[0]->resources->tools++;
         $state->players[0]->knowledge->law++;
 
         $this->assertGreaterThan($initialScore, $evaluator->execute($state, 1));
+        $breakdown = $evaluator->evaluateWithBreakdown($state, 1);
+        $this->assertSame(30, $breakdown->resources - $initialBreakdown->resources);
+        $this->assertSame(34, $breakdown->development - $initialBreakdown->development);
+        $this->assertSame($evaluator->execute($state, 1), $breakdown->total());
     }
 
     public function test_state_evaluation_penalizes_the_strongest_opponents_progress(): void
@@ -472,6 +500,8 @@ class GameActionRankerTest extends TestCase
         $this->assertNotNull($passAction);
         $this->assertGreaterThan($passAction->score, $rankedActions[0]->score);
         $this->assertSame(GameActionOptionType::SacrificePower, $rankedActions[0]->option->type());
+        $this->assertGreaterThan(0, $passAction->scoreBreakdown->passPenalty);
+        $this->assertSame($passAction->score, $passAction->scoreBreakdown->total());
     }
 
     public function test_it_does_not_penalize_pass_when_it_is_the_only_legal_action(): void
@@ -484,6 +514,7 @@ class GameActionRankerTest extends TestCase
 
         $this->assertCount(1, $rankedActions);
         $this->assertSame(GameActionOptionType::Pass, $rankedActions[0]->option->type());
+        $this->assertSame(0, $rankedActions[0]->scoreBreakdown->passPenalty);
     }
 
     public function test_it_searches_the_next_players_response(): void

@@ -14,6 +14,7 @@ final readonly class GameActionCandidateDiagnosticsData
         public int $rank,
         public int $scoreDelta,
         public bool $selected,
+        public GameActionScoreData $scoreBreakdown,
     ) {
     }
 }

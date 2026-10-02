@@ -7,11 +7,13 @@ namespace App\Domain\Game\Services;
 use App\Domain\Game\Actions\ApplyFinishActionTurnAction;
 use App\Domain\Game\Contracts\GameActionOption;
 use App\Domain\Game\Data\EvaluatedGameActionData;
+use App\Domain\Game\Data\GameActionScoreData;
 use App\Domain\Game\Data\GameActionSimulationData;
 use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Data\GameStateData;
 use App\Domain\Game\Data\GameTreeSearchContext;
 use App\Domain\Game\Enums\GameActionOptionType;
+use App\Domain\Game\Enums\PendingInteractionType;
 use InvalidArgumentException;
 
 final class GameActionRanker
@@ -77,17 +79,14 @@ final class GameActionRanker
 
             $simulation = $this->gameActionSimulator->execute($state, $playerId, $option);
             $passPenalty = $this->passPenalty($state, $playerId, $option, $hasNonPassOption);
-            $strategicProgress = $this->strategicProgress($state, $simulation->state, $playerId);
+            $scoreBreakdown = $this->scoreBreakdown($state, $simulation->state, $playerId, $passPenalty);
             $candidates[] = [
                 'option' => $option,
                 'simulation' => $simulation,
-                'score' => $this->gameStateEvaluator->execute($simulation->state, $playerId)
-                    + $strategicProgress
-                    - $passPenalty,
+                'score' => $scoreBreakdown->total(),
                 'index' => $index,
                 'isPass' => $option->type() === GameActionOptionType::Pass,
-                'passPenalty' => $passPenalty,
-                'strategicProgress' => $strategicProgress,
+                'scoreBreakdown' => $scoreBreakdown,
             ];
         }
 
@@ -103,21 +102,32 @@ final class GameActionRanker
         foreach ($candidates as $candidate) {
             $option = $candidate['option'];
             $simulation = $candidate['simulation'];
+            $initialBreakdown = $candidate['scoreBreakdown'];
+            $searchScore = $this->search(
+                $simulation,
+                $playerId,
+                $this->remainingDepthAfter($state, $option, $depth),
+                $this->auxiliaryActionsAfter($option, $auxiliaryActionsRemaining),
+                $branchLimit,
+                $context,
+                PHP_INT_MIN,
+                PHP_INT_MAX,
+            );
+            $scoreBreakdown = new GameActionScoreData(
+                state: $initialBreakdown->state,
+                roundScoring: $initialBreakdown->roundScoring,
+                finalScoring: $initialBreakdown->finalScoring,
+                boardPosition: $initialBreakdown->boardPosition,
+                economicNeeds: $initialBreakdown->economicNeeds,
+                passPenalty: $initialBreakdown->passPenalty,
+                searchAdjustment: $searchScore - $initialBreakdown->state->total(),
+            );
             $rankedActions[] = [
                 'evaluation' => new EvaluatedGameActionData(
                     $option,
                     $simulation,
-                    $this->search(
-                        $simulation,
-                        $playerId,
-                        $this->remainingDepthAfter($state, $option, $depth),
-                        $this->auxiliaryActionsAfter($option, $auxiliaryActionsRemaining),
-                        $branchLimit,
-                        $context,
-                        PHP_INT_MIN,
-                        PHP_INT_MAX,
-                    ) + $candidate['strategicProgress']
-                        - $candidate['passPenalty'],
+                    $scoreBreakdown->total(),
+                    $scoreBreakdown,
                 ),
                 'index' => $candidate['index'],
                 'isAuxiliary' => $this->isAuxiliaryOption($option),
@@ -177,7 +187,8 @@ final class GameActionRanker
             $auxiliaryActionsRemaining = self::MAX_AUXILIARY_ACTIONS_PER_TURN;
         }
 
-        if ($remainingDepth === 0) {
+        if ($remainingDepth === 0
+            && $state->pendingInteraction?->type !== PendingInteractionType::BuildWorkshopAfterTerraforming) {
             return $this->gameStateEvaluator->execute($state, $rootPlayerId);
         }
 
@@ -304,14 +315,18 @@ final class GameActionRanker
         return $this->isAuxiliaryOption($option) ? max(0, $remaining - 1) : $remaining;
     }
 
-    private function strategicProgress(GameStateData $before, GameStateData $after, int $playerId): int
+    private function scoreBreakdown(GameStateData $before, GameStateData $after, int $playerId, int $passPenalty): GameActionScoreData
     {
-        return $this->roundScoringProgressEvaluator->execute($before, $after, $playerId)
-                * self::ROUND_SCORING_PRIORITY_WEIGHT
-            + $this->finalScoringProgressEvaluator->execute($before, $after, $playerId)
-                * self::FINAL_SCORING_PRIORITY_WEIGHT
-            + $this->boardPositionProgressEvaluator->execute($before, $after, $playerId)
-            + $this->playerEconomicNeedsEvaluator->execute($before, $after, $playerId);
+        return new GameActionScoreData(
+            state: $this->gameStateEvaluator->evaluateWithBreakdown($after, $playerId),
+            roundScoring: $this->roundScoringProgressEvaluator->execute($before, $after, $playerId)
+                * self::ROUND_SCORING_PRIORITY_WEIGHT,
+            finalScoring: $this->finalScoringProgressEvaluator->execute($before, $after, $playerId)
+                * self::FINAL_SCORING_PRIORITY_WEIGHT,
+            boardPosition: $this->boardPositionProgressEvaluator->execute($before, $after, $playerId),
+            economicNeeds: $this->playerEconomicNeedsEvaluator->execute($before, $after, $playerId),
+            passPenalty: $passPenalty,
+        );
     }
 
     private function isAuxiliaryOption(GameActionOption $option): bool

@@ -12,6 +12,7 @@ final readonly class EvaluatedGameActionData
         public GameActionOption $option,
         public GameActionSimulationData $simulation,
         public int $score,
+        public GameActionScoreData $scoreBreakdown,
     ) {
     }
 }

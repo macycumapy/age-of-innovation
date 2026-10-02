@@ -249,6 +249,13 @@ class PlayAutomatedTurnActionTest extends TestCase
         $this->assertSame('only_legal_action', $report['decisions'][0]['pass_reason']);
         $this->assertSame(1, $report['decisions'][0]['candidates'][0]['rank']);
         $this->assertTrue($report['decisions'][0]['candidates'][0]['selected']);
+        foreach ($report['decisions'] as $decision) {
+            foreach ($decision['candidates'] as $candidate) {
+                $this->assertSame($candidate['score'], array_sum($candidate['score_breakdown']));
+                $this->assertLessThanOrEqual(0, $candidate['score_breakdown']['pass_penalty']);
+                $this->assertLessThanOrEqual(0, $candidate['score_breakdown']['opponent']);
+            }
+        }
         $this->assertNotEmpty($report['decisions'][0]['action_availability']);
         $this->assertSame(
             'build_workshop',

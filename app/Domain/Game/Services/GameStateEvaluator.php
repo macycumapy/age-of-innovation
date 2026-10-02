@@ -6,6 +6,7 @@ namespace App\Domain\Game\Services;
 
 use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Data\GameStateData;
+use App\Domain\Game\Data\GameStateScoreData;
 use App\Domain\Game\Data\IncomeReceiptData;
 use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\KnowledgeDiscipline;
@@ -54,6 +55,11 @@ final class GameStateEvaluator
 
     public function execute(GameStateData $state, int $playerId): int
     {
+        return $this->evaluateWithBreakdown($state, $playerId)->total();
+    }
+
+    public function evaluateWithBreakdown(GameStateData $state, int $playerId): GameStateScoreData
+    {
         $player = collect($state->players)->firstWhere('playerId', $playerId);
 
         if (! $player instanceof GamePlayerStateData) {
@@ -63,20 +69,24 @@ final class GameStateEvaluator
         $playerScore = $this->playerScore($state, $player);
         $strongestOpponentScore = collect($state->players)
             ->reject(static fn (GamePlayerStateData $candidate): bool => $candidate->playerId === $playerId)
-            ->map(fn (GamePlayerStateData $candidate): int => $this->playerScore($state, $candidate))
+            ->map(fn (GamePlayerStateData $candidate): int => $this->playerScore($state, $candidate)->total())
             ->max();
 
-        return is_int($strongestOpponentScore)
-            ? $playerScore - $strongestOpponentScore
-            : $playerScore;
+        return new GameStateScoreData(
+            victoryPoints: $playerScore->victoryPoints,
+            resources: $playerScore->resources,
+            development: $playerScore->development,
+            buildings: $playerScore->buildings,
+            futureIncome: $playerScore->futureIncome,
+            opponent: is_int($strongestOpponentScore) ? $strongestOpponentScore : 0,
+        );
     }
 
-    private function playerScore(GameStateData $state, GamePlayerStateData $player): int
+    private function playerScore(GameStateData $state, GamePlayerStateData $player): GameStateScoreData
     {
         $books = $player->resources->books;
         $power = $player->resources->power;
-        $score = $player->victoryPoints * self::VICTORY_POINT_WEIGHT;
-        $score += $player->resources->coins * self::COIN_WEIGHT;
+        $score = $player->resources->coins * self::COIN_WEIGHT;
         $score += $player->resources->tools * self::TOOL_WEIGHT;
         $score += $player->resources->scholars * self::SCHOLAR_WEIGHT;
         $score += ($books->banking + $books->law + $books->engineering + $books->medicine + $books->unassigned)
@@ -84,7 +94,10 @@ final class GameStateEvaluator
         $score += ($power->bowlOne * self::BOWL_ONE_POWER_WEIGHT)
             + ($power->bowlTwo * self::BOWL_TWO_POWER_WEIGHT)
             + ($power->bowlThree * self::BOWL_THREE_POWER_WEIGHT);
-        $score += $player->knowledge->unassignedSteps * self::KNOWLEDGE_STEP_WEIGHT;
+        $score += $player->unassignedSpades * self::SPADE_WEIGHT;
+        $score += $player->availableAnnexes * self::AVAILABLE_ANNEX_WEIGHT;
+        $resourceScore = $score;
+        $score = $player->knowledge->unassignedSteps * self::KNOWLEDGE_STEP_WEIGHT;
 
         foreach (KnowledgeDiscipline::cases() as $discipline) {
             $level = $player->knowledge->{$discipline->value};
@@ -93,12 +106,12 @@ final class GameStateEvaluator
         }
 
         $score += ($player->shippingLevel + $player->terraformingLevel) * self::DEVELOPMENT_STEP_WEIGHT;
-        $score += $player->unassignedSpades * self::SPADE_WEIGHT;
-        $score += $player->availableAnnexes * self::AVAILABLE_ANNEX_WEIGHT;
         $score += count($player->townTileIds) * self::TOWN_WEIGHT;
         $score += count($player->competencyIds) * self::COMPETENCY_WEIGHT;
         $score += count($player->inventionIds) * self::INVENTION_WEIGHT;
         $score += count($player->scholarDisciplineIds) * self::PLACED_SCHOLAR_WEIGHT;
+        $developmentScore = $score;
+        $score = 0;
 
         foreach ($state->board->hexes as $hex) {
             if ($hex->building?->ownerPlayerId !== $player->playerId) {
@@ -109,9 +122,13 @@ final class GameStateEvaluator
             $score += $hex->building->hasAnnex ? self::PLACED_ANNEX_WEIGHT : 0;
         }
 
-        $score += $this->futureIncomeScore($state, $player);
-
-        return $score;
+        return new GameStateScoreData(
+            victoryPoints: $player->victoryPoints * self::VICTORY_POINT_WEIGHT,
+            resources: $resourceScore,
+            development: $developmentScore,
+            buildings: $score,
+            futureIncome: $this->futureIncomeScore($state, $player),
+        );
     }
 
     private function futureIncomeScore(GameStateData $state, GamePlayerStateData $player): int

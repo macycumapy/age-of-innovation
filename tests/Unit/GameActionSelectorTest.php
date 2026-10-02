@@ -55,6 +55,10 @@ class GameActionSelectorTest extends TestCase
         $this->assertSame(0, $diagnostics->candidates[0]->scoreDelta);
         $this->assertTrue($diagnostics->candidates[0]->selected);
         $this->assertFalse($diagnostics->candidates[1]->selected);
+        foreach ($diagnostics->candidates as $candidate) {
+            $this->assertSame($candidate->score, $candidate->scoreBreakdown->total());
+        }
+        $this->assertSame($diagnostics->selected->scoreBreakdown, $diagnostics->candidates[0]->scoreBreakdown);
         $this->assertGreaterThanOrEqual(0, $diagnostics->visitedNodes);
         $this->assertGreaterThanOrEqual(0, $diagnostics->durationMilliseconds);
     }
