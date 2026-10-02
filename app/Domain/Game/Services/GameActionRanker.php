@@ -10,6 +10,7 @@ use App\Domain\Game\Data\EvaluatedGameActionData;
 use App\Domain\Game\Data\GameActionScoreData;
 use App\Domain\Game\Data\GameActionSearchTimingsData;
 use App\Domain\Game\Data\GameActionSimulationData;
+use App\Domain\Game\Data\GameActionSimulationTimingsData;
 use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Data\GameStateData;
 use App\Domain\Game\Data\GameStateScoreData;
@@ -424,6 +425,12 @@ final class GameActionRanker
         $context->timings->simulationStateCopyNanoseconds += $copyDuration;
         $context->timings->simulationExecutionNanoseconds += $duration - $copyDuration;
         $context->timings->simulationCalls++;
+        $actionTimings = $context->timings->simulationsByAction[$option->type()->value] ??= new GameActionSimulationTimingsData($option->type());
+        $actionTimings->calls++;
+        $actionTimings->nanoseconds += $duration;
+        $actionTimings->stateCopyNanoseconds += $copyDuration;
+        $actionTimings->executionNanoseconds += $duration - $copyDuration;
+        $actionTimings->maximumNanoseconds = max($actionTimings->maximumNanoseconds, $duration);
 
         return $simulation;
     }

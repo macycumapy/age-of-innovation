@@ -14,7 +14,10 @@ final class FindReachableLandHexesAction
     /** @return list<string> */
     public function execute(GameStateData $state, GamePlayerStateData $player): array
     {
-        $hexesById = collect($state->board->hexes)->keyBy('id');
+        $hexesById = [];
+        foreach ($state->board->hexes as $hex) {
+            $hexesById[$hex->id] = $hex;
+        }
         $reachableHexIds = [];
         $waterFrontier = [];
 
@@ -24,7 +27,7 @@ final class FindReachableLandHexesAction
             }
 
             foreach ($hex->adjacentHexIds as $adjacentHexId) {
-                $adjacentHex = $hexesById->get($adjacentHexId);
+                $adjacentHex = $hexesById[$adjacentHexId] ?? null;
 
                 if ($adjacentHex?->terrain === TerrainType::Water) {
                     $waterFrontier[] = $adjacentHexId;
@@ -39,8 +42,8 @@ final class FindReachableLandHexesAction
                 continue;
             }
 
-            $fromHex = $hexesById->get($bridge->fromHexId);
-            $toHex = $hexesById->get($bridge->toHexId);
+            $fromHex = $hexesById[$bridge->fromHexId] ?? null;
+            $toHex = $hexesById[$bridge->toHexId] ?? null;
 
             if ($fromHex?->building?->ownerPlayerId === $player->playerId) {
                 $reachableHexIds[] = $bridge->toHexId;
@@ -63,14 +66,14 @@ final class FindReachableLandHexesAction
                 }
 
                 $visitedWaterHexIds[] = $waterHexId;
-                $waterHex = $hexesById->get($waterHexId);
+                $waterHex = $hexesById[$waterHexId] ?? null;
 
                 if (! $waterHex instanceof BoardHexStateData) {
                     continue;
                 }
 
                 foreach ($waterHex->adjacentHexIds as $adjacentHexId) {
-                    $adjacentHex = $hexesById->get($adjacentHexId);
+                    $adjacentHex = $hexesById[$adjacentHexId] ?? null;
 
                     if ($adjacentHex?->terrain === TerrainType::Water) {
                         $nextWaterFrontier[] = $adjacentHexId;
@@ -83,6 +86,6 @@ final class FindReachableLandHexesAction
             $waterFrontier = $nextWaterFrontier;
         }
 
-        return collect($reachableHexIds)->unique()->values()->all();
+        return array_values(array_unique($reachableHexIds));
     }
 }

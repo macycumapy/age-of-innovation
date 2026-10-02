@@ -882,6 +882,26 @@ class GameActionRankerTest extends TestCase
         $this->assertSame(1, $state->toArray()['metadata']['version']);
     }
 
+    public function test_serialized_snapshots_remain_isolated_in_both_directions_after_copying(): void
+    {
+        $state = $this->townUpgradeState();
+        $snapshot = $state->toArray();
+        $state->turnStartSnapshot = $snapshot;
+        $state->townChoiceCheckpoint = $snapshot;
+        $copy = $state->deepCopy();
+
+        $this->assertSame($state->toArray(), $copy->toArray());
+        $copy->turnStartSnapshot['players'][0]['resources']['coins'] = 9;
+        $copy->townChoiceCheckpoint['board']['hexes'][0]['building']['type'] = BuildingType::Palace->value;
+        $state->turnStartSnapshot['round']['number'] = 3;
+        $state->townChoiceCheckpoint['players'][0]['resources']['tools'] = 4;
+
+        $this->assertSame(6, $state->turnStartSnapshot['players'][0]['resources']['coins']);
+        $this->assertSame(BuildingType::Guild->value, $state->townChoiceCheckpoint['board']['hexes'][0]['building']['type']);
+        $this->assertSame(6, $copy->turnStartSnapshot['round']['number']);
+        $this->assertSame(2, $copy->townChoiceCheckpoint['players'][0]['resources']['tools']);
+    }
+
     private function townUpgradeState(): GameStateData
     {
         $state = $this->state();

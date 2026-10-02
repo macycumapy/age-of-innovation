@@ -8,6 +8,7 @@ use App\Domain\Game\Data\AutomatedGameDecisionData;
 use App\Domain\Game\Data\AutomatedGameSimulationResultData;
 use App\Domain\Game\Data\GameActionAvailabilityData;
 use App\Domain\Game\Data\GameActionCandidateDiagnosticsData;
+use App\Domain\Game\Data\GameActionSimulationTimingsData;
 use App\Domain\Game\Enums\GameActionAvailabilityReason;
 
 final class AutomatedGameReportBuilder
@@ -67,6 +68,18 @@ final class AutomatedGameReportBuilder
                         'continuation_search_inclusive_ms' => $decision->searchTimings->continuationSearchNanoseconds / 1_000_000,
                         'option_finding_calls' => $decision->searchTimings->optionFindingCalls,
                         'simulation_calls' => $decision->searchTimings->simulationCalls,
+                        'simulations_by_action' => array_map(
+                            static fn (GameActionSimulationTimingsData $timings): array => [
+                                'type' => $timings->type->value,
+                                'calls' => $timings->calls,
+                                'total_ms' => $timings->nanoseconds / 1_000_000,
+                                'state_copy_ms' => $timings->stateCopyNanoseconds / 1_000_000,
+                                'execution_ms' => $timings->executionNanoseconds / 1_000_000,
+                                'average_ms' => $timings->nanoseconds / $timings->calls / 1_000_000,
+                                'maximum_ms' => $timings->maximumNanoseconds / 1_000_000,
+                            ],
+                            array_values($decision->searchTimings->simulationsByAction),
+                        ),
                         'state_evaluation_calls' => $decision->searchTimings->stateEvaluationCalls,
                     ],
                     'selection_reason' => $decision->selectionReason->value,

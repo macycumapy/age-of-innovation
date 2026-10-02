@@ -73,9 +73,20 @@ class GameActionSelectorTest extends TestCase
             $diagnostics->searchTimings->simulationStateCopyNanoseconds + $diagnostics->searchTimings->simulationExecutionNanoseconds,
         );
         $state->pendingInteraction = null;
+        $actionTimings = $diagnostics->searchTimings->simulationsByAction;
+        $this->assertNotEmpty($actionTimings);
+        $this->assertSame($diagnostics->searchTimings->simulationCalls, array_sum(array_column($actionTimings, 'calls')));
+        $this->assertSame($diagnostics->searchTimings->simulationNanoseconds, array_sum(array_column($actionTimings, 'nanoseconds')));
+        foreach ($actionTimings as $type => $timings) {
+            $this->assertSame($type, $timings->type->value);
+            $this->assertSame($timings->nanoseconds, $timings->stateCopyNanoseconds + $timings->executionNanoseconds);
+            $this->assertGreaterThan(0, $timings->maximumNanoseconds);
+            $this->assertLessThanOrEqual($timings->nanoseconds, $timings->maximumNanoseconds);
+        }
         $state->round->phase = GamePhase::Income;
         $emptyDiagnostics = $selector->selectWithDiagnostics($state, 1);
         $this->assertSame(0, $emptyDiagnostics->searchTimings->simulationCalls);
+        $this->assertSame([], $emptyDiagnostics->searchTimings->simulationsByAction);
         $this->assertGreaterThan(0, $diagnostics->searchTimings->simulationCalls);
         $this->assertNotSame($diagnostics->searchTimings, $emptyDiagnostics->searchTimings);
     }

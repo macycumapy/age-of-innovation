@@ -36,7 +36,12 @@ final class ResourceConversionSimulator
         }
 
         $isAvailable = collect($this->optionFinder->execute($player))->contains(
-            static fn ($candidate): bool => $candidate->toArray() === $option->toArray(),
+            static fn (ResourceExchangeOptionData|SacrificePowerOptionData $candidate): bool => match (true) {
+                $candidate instanceof ResourceExchangeOptionData && $option instanceof ResourceExchangeOptionData => $candidate->exchange === $option->exchange
+                    && $candidate->discipline === $option->discipline,
+                $candidate instanceof SacrificePowerOptionData && $option instanceof SacrificePowerOptionData => $candidate->amount === $option->amount,
+                default => false,
+            },
         );
         if (! $isAvailable) {
             throw new InvalidArgumentException('Недопустимое преобразование ресурсов.');

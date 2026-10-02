@@ -21,6 +21,7 @@ use App\Domain\Game\Enums\RoundBonus;
 use App\Domain\Game\Enums\TerrainType;
 use App\Domain\Game\Services\GameActionSimulator;
 use App\Domain\Game\Services\ResourceConversionOptionFinder;
+use InvalidArgumentException;
 use Tests\TestCase;
 
 class ResourceConversionSimulatorTest extends TestCase
@@ -64,6 +65,51 @@ class ResourceConversionSimulatorTest extends TestCase
         $this->assertSame(2, $simulation->state->players[0]->resources->power->bowlTwo);
         $this->assertSame(6, $simulation->state->players[0]->resources->power->bowlThree);
         $this->assertFalse($simulation->state->round->hasTakenMainAction);
+    }
+
+    public function test_it_accepts_an_equivalent_exchange_created_independently(): void
+    {
+        $state = $this->state();
+        $option = new ResourceExchangeOptionData(ResourceExchange::PowerToCoin);
+
+        $simulation = app(GameActionSimulator::class)->execute($state, 1, $option);
+
+        $this->assertSame(1, $simulation->state->players[0]->resources->coins);
+        $this->assertSame(4, $simulation->state->players[0]->resources->power->bowlThree);
+        $this->assertSame(0, $state->players[0]->resources->coins);
+    }
+
+    public function test_it_rejects_a_book_exchange_for_an_unavailable_discipline(): void
+    {
+        $state = $this->state();
+        $state->players[0]->resources->books->law = 1;
+
+        $this->expectException(InvalidArgumentException::class);
+        app(GameActionSimulator::class)->execute($state, 1, new ResourceExchangeOptionData(
+            ResourceExchange::BookToCoin,
+            KnowledgeDiscipline::Banking,
+        ));
+    }
+
+    public function test_it_rejects_a_power_to_book_exchange_without_a_discipline(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        app(GameActionSimulator::class)->execute($this->state(), 1, new ResourceExchangeOptionData(ResourceExchange::PowerToBook));
+    }
+
+    public function test_it_rejects_an_unexpected_discipline_on_a_coin_exchange(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        app(GameActionSimulator::class)->execute($this->state(), 1, new ResourceExchangeOptionData(
+            ResourceExchange::PowerToCoin,
+            KnowledgeDiscipline::Law,
+        ));
+    }
+
+    public function test_it_rejects_a_sacrifice_amount_not_offered_by_the_finder(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        app(GameActionSimulator::class)->execute($this->state(), 1, new SacrificePowerOptionData(amount: 2));
     }
 
     private function state(): GameStateData

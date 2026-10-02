@@ -33,5 +33,8 @@ final class GameActionSearchTimingsData
 
     public int $simulationCalls = 0;
 
+    /** @var array<string, GameActionSimulationTimingsData> */
+    public array $simulationsByAction = [];
+
     public int $stateEvaluationCalls = 0;
 }

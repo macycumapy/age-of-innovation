@@ -80,6 +80,10 @@ class GameStateData extends Data
         $copies[$this] = $copy;
 
         foreach (get_object_vars($this) as $property => $value) {
+            /** Serialized snapshots contain only arrays and scalar values, isolated by PHP copy-on-write. */
+            if ($property === 'turnStartSnapshot' || $property === 'townChoiceCheckpoint') {
+                continue;
+            }
             $copy->{$property} = self::copyValue($value, $copies);
         }
         $copy->lastDeepCopyNanoseconds = hrtime(true) - $startedAt;

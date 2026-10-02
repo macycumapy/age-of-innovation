@@ -25,6 +25,32 @@ use Tests\TestCase;
 
 class PaidTerraformingSimulatorTest extends TestCase
 {
+    public function test_it_preserves_target_order_and_recalculates_costs_after_state_changes(): void
+    {
+        $state = $this->state(TerrainType::Mountain, tools: 9);
+        $state->board->hexes[0]->adjacentHexIds = ['2:0', 'missing', '1:0', '2:0'];
+        $state->board->hexes[] = new BoardHexStateData(
+            id: '2:0',
+            q: 2,
+            r: 0,
+            initialTerrain: TerrainType::Desert,
+            terrain: TerrainType::Desert,
+        );
+        $finder = app(PaidTerraformingOptionFinder::class);
+        $options = $finder->execute($state, $state->players[0]);
+
+        $this->assertSame(['2:0', '1:0'], array_column($options, 'hexId'));
+        $this->assertSame([9, 3], array_column($options, 'toolCost'));
+        $state->players[0]->terraformingLevel = 2;
+        $state->players[0]->resources->tools = 3;
+        $options = $finder->execute($state, $state->players[0]);
+        $this->assertSame(['2:0', '1:0'], array_column($options, 'hexId'));
+        $this->assertSame([3, 1], array_column($options, 'toolCost'));
+
+        $state->board->hexes[2]->building = new BuildingStateData(BuildingType::Workshop, 2);
+        $this->assertSame(['1:0'], array_column($finder->execute($state, $state->players[0]), 'hexId'));
+    }
+
     public function test_it_generates_and_simulates_paid_terraforming_without_mutating_the_source(): void
     {
         $state = $this->state(TerrainType::Mountain, tools: 3);

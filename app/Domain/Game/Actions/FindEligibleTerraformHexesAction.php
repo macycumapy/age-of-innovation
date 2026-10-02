@@ -21,19 +21,22 @@ final class FindEligibleTerraformHexesAction
         GamePlayerStateData $player,
         TerrainType $targetTerrain,
     ): array {
-        $hexesById = collect($state->board->hexes)->keyBy('id');
+        $hexesById = [];
+        foreach ($state->board->hexes as $hex) {
+            $hexesById[$hex->id] = $hex;
+        }
         $reachableHexIds = $this->findReachableLandHexes->execute($state, $player);
-        return collect($reachableHexIds)
-            ->unique()
-            ->filter(function (string $hexId) use ($hexesById, $targetTerrain): bool {
-                $hex = $hexesById->get($hexId);
+        $eligibleHexIds = [];
+        foreach ($reachableHexIds as $hexId) {
+            $hex = $hexesById[$hexId] ?? null;
+            if ($hex instanceof BoardHexStateData
+                && $hex->building === null
+                && $hex->terrain->isHomeland()
+                && $hex->terrain !== $targetTerrain) {
+                $eligibleHexIds[] = $hexId;
+            }
+        }
 
-                return $hex instanceof BoardHexStateData
-                    && $hex->building === null
-                    && $hex->terrain->isHomeland()
-                    && $hex->terrain !== $targetTerrain;
-            })
-            ->values()
-            ->all();
+        return $eligibleHexIds;
     }
 }

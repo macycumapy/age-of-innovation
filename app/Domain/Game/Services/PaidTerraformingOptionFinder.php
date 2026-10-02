@@ -65,6 +65,10 @@ final class PaidTerraformingOptionFinder
         ];
         $options = [];
         $toolCostPerSpade = max(1, 3 - $player->terraformingLevel);
+        $hexesById = [];
+        foreach ($state->board->hexes as $hex) {
+            $hexesById[$hex->id] ??= $hex;
+        }
 
         foreach ($modes as [$useTunnel, $useFlight, $hexIds]) {
             foreach ($hexIds as $hexId) {
@@ -72,7 +76,7 @@ final class PaidTerraformingOptionFinder
                     continue;
                 }
 
-                $hex = collect($state->board->hexes)->firstWhere('id', $hexId);
+                $hex = $hexesById[$hexId] ?? null;
 
                 if (! $hex instanceof BoardHexStateData) {
                     continue;
