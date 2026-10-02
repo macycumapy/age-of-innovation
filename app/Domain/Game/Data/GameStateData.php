@@ -125,6 +125,11 @@ class GameStateData extends Data
         $copy = clone $value;
         $copies[$value] = $copy;
         foreach (get_object_vars($value) as $property => $item) {
+            /** Lists of scalar map IDs remain isolated through PHP copy-on-write. */
+            if (($value instanceof BoardHexStateData && in_array($property, ['adjacentHexIds', 'riverConnectedHexIds'], true))
+                || ($value instanceof BoardStateData && in_array($property, ['riverBankHexIds', 'edgeHexIds'], true))) {
+                continue;
+            }
             $copy->{$property} = self::copyValue($item, $copies);
         }
 

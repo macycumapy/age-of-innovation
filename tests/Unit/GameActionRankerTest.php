@@ -902,6 +902,39 @@ class GameActionRankerTest extends TestCase
         $this->assertSame(2, $copy->townChoiceCheckpoint['players'][0]['resources']['tools']);
     }
 
+    public function test_map_topology_and_mutable_hex_state_remain_isolated_in_both_directions(): void
+    {
+        $state = $this->townUpgradeState();
+        $state->board->riverBankHexIds = ['0:0'];
+        $state->board->edgeHexIds = ['1:0'];
+        $hex = $state->board->hexes[0];
+        $hex->adjacentHexIds = ['1:0'];
+        $hex->riverConnectedHexIds = ['2:0'];
+        $hex->additional(['metadata' => new PlayerResourcesData(coins: 3)]);
+        $copy = $state->deepCopy();
+
+        $this->assertEquals($state->toArray(), $copy->toArray());
+        $this->assertNotSame($hex->getAdditionalData()['metadata'], $copy->board->hexes[0]->getAdditionalData()['metadata']);
+        $this->assertNotSame($state->board, $copy->board);
+        $this->assertNotSame($hex, $copy->board->hexes[0]);
+        $this->assertNotSame($hex->building, $copy->board->hexes[0]->building);
+        $copy->board->riverBankHexIds[0] = '3:0';
+        $copy->board->hexes[0]->adjacentHexIds[0] = '4:0';
+        $copy->board->hexes[0]->terrain = TerrainType::Desert;
+        $copy->board->hexes[0]->building->type = BuildingType::Palace;
+        $state->board->edgeHexIds[0] = '5:0';
+        $hex->riverConnectedHexIds[0] = '6:0';
+        $hex->getAdditionalData()['metadata']->coins = 9;
+
+        $this->assertSame(['0:0'], $state->board->riverBankHexIds);
+        $this->assertSame(['1:0'], $hex->adjacentHexIds);
+        $this->assertSame(['1:0'], $copy->board->edgeHexIds);
+        $this->assertSame(['2:0'], $copy->board->hexes[0]->riverConnectedHexIds);
+        $this->assertNotSame(TerrainType::Desert, $hex->terrain);
+        $this->assertSame(BuildingType::Guild, $hex->building->type);
+        $this->assertSame(3, $copy->board->hexes[0]->getAdditionalData()['metadata']->coins);
+    }
+
     private function townUpgradeState(): GameStateData
     {
         $state = $this->state();
