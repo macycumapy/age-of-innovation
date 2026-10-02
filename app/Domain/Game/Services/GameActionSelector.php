@@ -63,6 +63,7 @@ final class GameActionSelector
                     scoreDelta: $selected === null ? 0 : $selected->score - $action->score,
                     selected: $index === 0,
                     scoreBreakdown: $action->scoreBreakdown,
+                    option: $action->option,
                 ),
                 $rankedActions,
                 array_keys($rankedActions),

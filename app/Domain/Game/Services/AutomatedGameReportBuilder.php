@@ -31,6 +31,7 @@ final class AutomatedGameReportBuilder
                     'candidates' => array_map(
                         static fn (GameActionCandidateDiagnosticsData $candidate): array => [
                             'type' => $candidate->type->value,
+                            'parameters' => $candidate->option->toArray(),
                             'score' => $candidate->score,
                             'rank' => $candidate->rank,
                             'score_delta' => $candidate->scoreDelta,

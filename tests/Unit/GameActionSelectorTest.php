@@ -51,6 +51,7 @@ class GameActionSelectorTest extends TestCase
             $diagnostics->candidates[0]->type->value,
         );
         $this->assertSame($diagnostics->selected->score, $diagnostics->candidates[0]->score);
+        $this->assertSame($diagnostics->selected->option, $diagnostics->candidates[0]->option);
         $this->assertSame(GameActionSelectionReason::HighestScore, $diagnostics->selectionReason);
         $this->assertSame(1, $diagnostics->candidates[0]->rank);
         $this->assertSame(0, $diagnostics->candidates[0]->scoreDelta);

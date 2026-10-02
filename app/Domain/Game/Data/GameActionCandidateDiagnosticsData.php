@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domain\Game\Data;
 
+use App\Domain\Game\Contracts\GameActionOption;
 use App\Domain\Game\Enums\GameActionOptionType;
 
 final readonly class GameActionCandidateDiagnosticsData
@@ -15,6 +16,7 @@ final readonly class GameActionCandidateDiagnosticsData
         public int $scoreDelta,
         public bool $selected,
         public GameActionScoreData $scoreBreakdown,
+        public GameActionOption $option,
     ) {
     }
 }
