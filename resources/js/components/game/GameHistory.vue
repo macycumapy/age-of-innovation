@@ -9,6 +9,7 @@ import GameHistoryUndoController from '@/actions/App/Http/Controllers/GameHistor
 import Form from '@/components/game/GameActionForm.vue';
 import { Button } from '@/components/ui/button';
 import { playerColorValues, roundBonusNames, terrainNames } from '@/lib/gameDisplay';
+import { resourceExchangeDetails } from '@/lib/resourceExchangeHistory';
 import type {
     BookAction,
     GameActionType,
@@ -536,6 +537,10 @@ function checkpointDescription(entry: GameHistoryEntry): string {
 function actionDetails(entry: GameHistoryEntry): string | null {
     const details: string[] = [];
     const hexId = payloadString(entry, 'hex_id');
+
+    if (entry.type === 'exchange_resources') {
+        details.push(...resourceExchangeDetails(entry.payload.exchanges, disciplineNames));
+    }
 
     const actionReward = actionRewardDetails(entry);
 
