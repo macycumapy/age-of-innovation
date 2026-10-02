@@ -37,6 +37,7 @@ final class GameActionRanker
         private BoardPositionProgressEvaluator $boardPositionProgressEvaluator,
         private PassValueEvaluator $passValueEvaluator,
         private PlayerEconomicNeedsEvaluator $playerEconomicNeedsEvaluator,
+        private WorkshopAfterTerraformingOptionFinder $workshopAfterTerraformingOptionFinder,
         private ApplyFinishActionTurnAction $applyFinishActionTurn,
     ) {
     }
@@ -187,9 +188,8 @@ final class GameActionRanker
             $auxiliaryActionsRemaining = self::MAX_AUXILIARY_ACTIONS_PER_TURN;
         }
 
-        if ($remainingDepth === 0
-            && $state->pendingInteraction?->type !== PendingInteractionType::BuildWorkshopAfterTerraforming) {
-            return $this->gameStateEvaluator->execute($state, $rootPlayerId);
+        if ($remainingDepth === 0) {
+            return $this->horizonScore($state, $rootPlayerId, $context);
         }
 
         $cacheKey = $this->cacheKey(
@@ -292,6 +292,36 @@ final class GameActionRanker
         }
 
         return $bestScore;
+    }
+
+    private function horizonScore(GameStateData $state, int $rootPlayerId, GameTreeSearchContext $context): int
+    {
+        if ($state->pendingInteraction?->type !== PendingInteractionType::BuildWorkshopAfterTerraforming
+            || $context->isExhausted()) {
+            return $this->gameStateEvaluator->execute($state, $rootPlayerId);
+        }
+
+        $player = $this->playerById($state, $state->pendingInteraction->playerId);
+        if ($player === null) {
+            return $this->gameStateEvaluator->execute($state, $rootPlayerId);
+        }
+
+        $options = $this->workshopAfterTerraformingOptionFinder->execute($state, $player);
+        $bestScore = null;
+        $maximizing = $player->playerId === $rootPlayerId;
+        $context->visitedNodes++;
+
+        foreach ($options as $option) {
+            if ($bestScore !== null && $context->isExhausted()) {
+                break;
+            }
+
+            $simulation = $this->gameActionSimulator->execute($state, $player->playerId, $option);
+            $score = $this->gameStateEvaluator->execute($simulation->state, $rootPlayerId);
+            $bestScore = $bestScore === null ? $score : ($maximizing ? max($bestScore, $score) : min($bestScore, $score));
+        }
+
+        return $bestScore ?? $this->gameStateEvaluator->execute($state, $rootPlayerId);
     }
 
     private function remainingDepthAfter(

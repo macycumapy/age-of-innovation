@@ -39,6 +39,29 @@ use Tests\TestCase;
 
 class GameActionRankerTest extends TestCase
 {
+    public function test_terraforming_continuation_can_decline_when_construction_is_unaffordable(): void
+    {
+        $state = $this->state();
+        $state->turnOrder = [1];
+        $state->round->phase = GamePhase::Actions;
+        $state->players[0]->resources = new PlayerResourcesData(coins: 0, tools: 3);
+        $state->board->hexes = [
+            $this->buildingHex('a', 1, ['target']),
+            $this->emptyHex('target', ['a'], TerrainType::Mountain),
+        ];
+
+        $ranked = app(GameActionRanker::class)->execute($state, 1, depth: 1, auxiliaryActionsRemaining: 0);
+        $terraforming = collect($ranked)->first(
+            static fn ($action): bool => $action->option->type() === GameActionOptionType::PaidTerraforming,
+        );
+
+        $this->assertNotNull($terraforming);
+        $this->assertSame(0, $terraforming->scoreBreakdown->searchAdjustment);
+        $this->assertSame($terraforming->score, $terraforming->scoreBreakdown->total());
+        $this->assertSame(TerrainType::Mountain, $state->board->hexes[1]->terrain);
+        $this->assertNull($state->board->hexes[1]->building);
+    }
+
     public function test_a_one_ply_search_finishes_terraforming_before_evaluating_it(): void
     {
         $state = $this->state();
