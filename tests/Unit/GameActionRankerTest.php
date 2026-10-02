@@ -13,6 +13,7 @@ use App\Domain\Game\Data\GameStateData;
 use App\Domain\Game\Data\KnowledgeStateData;
 use App\Domain\Game\Data\PendingInteractionData;
 use App\Domain\Game\Data\PlayerResourcesData;
+use App\Domain\Game\Data\PowerActionOptionData;
 use App\Domain\Game\Data\PowerBowlsStateData;
 use App\Domain\Game\Data\RewardDistributionOptionData;
 use App\Domain\Game\Data\RoundStateData;
@@ -24,6 +25,7 @@ use App\Domain\Game\Enums\GameActionOptionType;
 use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\PendingInteractionType;
 use App\Domain\Game\Enums\PlayerColor;
+use App\Domain\Game\Enums\PowerAction;
 use App\Domain\Game\Enums\RoundBonus;
 use App\Domain\Game\Enums\RoundScoringTile;
 use App\Domain\Game\Enums\TerrainType;
@@ -37,6 +39,27 @@ use Tests\TestCase;
 
 class GameActionRankerTest extends TestCase
 {
+    public function test_it_prefers_power_tools_over_coins_when_tools_unlock_an_upgrade(): void
+    {
+        $state = $this->state();
+        $state->turnOrder = [1];
+        $state->round->phase = GamePhase::Actions;
+        $state->players[0]->resources->coins = 50;
+        $state->players[0]->resources->tools = 1;
+        $state->players[0]->resources->power = new PowerBowlsStateData(bowlThree: 4);
+        $state->board->hexes = [$this->buildingHex('a', 1, [])];
+
+        $ranked = app(GameActionRanker::class)->execute($state, 1, depth: 1);
+        $tools = collect($ranked)->first(static fn ($action): bool => $action->option instanceof PowerActionOptionData
+            && $action->option->action === PowerAction::GainTools);
+        $coins = collect($ranked)->first(static fn ($action): bool => $action->option instanceof PowerActionOptionData
+            && $action->option->action === PowerAction::GainCoins);
+
+        $this->assertNotNull($tools);
+        $this->assertNotNull($coins);
+        $this->assertGreaterThan($coins->score, $tools->score);
+    }
+
     public function test_it_prefers_a_workshop_that_improves_town_cohesion(): void
     {
         $state = $this->state();

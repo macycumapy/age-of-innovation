@@ -34,6 +34,7 @@ final class GameActionRanker
         private FinalScoringProgressEvaluator $finalScoringProgressEvaluator,
         private BoardPositionProgressEvaluator $boardPositionProgressEvaluator,
         private PassValueEvaluator $passValueEvaluator,
+        private PlayerEconomicNeedsEvaluator $playerEconomicNeedsEvaluator,
         private ApplyFinishActionTurnAction $applyFinishActionTurn,
     ) {
     }
@@ -307,7 +308,8 @@ final class GameActionRanker
                 * self::ROUND_SCORING_PRIORITY_WEIGHT
             + $this->finalScoringProgressEvaluator->execute($before, $after, $playerId)
                 * self::FINAL_SCORING_PRIORITY_WEIGHT
-            + $this->boardPositionProgressEvaluator->execute($before, $after, $playerId);
+            + $this->boardPositionProgressEvaluator->execute($before, $after, $playerId)
+            + $this->playerEconomicNeedsEvaluator->execute($before, $after, $playerId);
     }
 
     private function isAuxiliaryOption(GameActionOption $option): bool
