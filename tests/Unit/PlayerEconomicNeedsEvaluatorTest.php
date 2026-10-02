@@ -21,6 +21,40 @@ use Tests\TestCase;
 
 class PlayerEconomicNeedsEvaluatorTest extends TestCase
 {
+    public function test_it_values_missing_coins_only_when_remaining_tools_can_fund_construction(): void
+    {
+        $before = $this->state();
+        $before->players[0]->resources = new PlayerResourcesData(coins: 1, tools: 2);
+        $before->board->hexes[0]->adjacentHexIds = ['target'];
+        $before->board->hexes[] = new BoardHexStateData('target', 1, 0, TerrainType::Forest, TerrainType::Forest);
+        $after = $before->deepCopy();
+        $after->players[0]->resources->coins++;
+        $after->players[0]->resources->tools--;
+        $evaluator = app(PlayerEconomicNeedsEvaluator::class);
+
+        $this->assertGreaterThan(0, $evaluator->execute($before, $after, 1));
+        $after->players[0]->resources->coins += 10;
+        $this->assertSame(20, $evaluator->execute($before, $after, 1));
+        $after->players[0]->resources->tools = 0;
+        $this->assertSame(0, $evaluator->execute($before, $after, 1));
+        $this->assertSame(1, $before->players[0]->resources->coins);
+    }
+
+    public function test_it_does_not_value_extra_coins_without_a_target_or_with_sufficient_coins(): void
+    {
+        $before = $this->state();
+        $before->players[0]->resources->tools = 3;
+        $after = $before->deepCopy();
+        $after->players[0]->resources->coins++;
+        $evaluator = app(PlayerEconomicNeedsEvaluator::class);
+        $this->assertSame(0, $evaluator->execute($before, $after, 1));
+        $before->players[0]->resources->coins = 0;
+        $after->players[0]->resources->coins = 1;
+        $before->board->hexes = [];
+        $after->board->hexes = [];
+        $this->assertSame(0, $evaluator->execute($before, $after, 1));
+    }
+
     public function test_it_penalizes_spending_the_last_scholar_when_shipping_opens_land(): void
     {
         $before = $this->shippingState();

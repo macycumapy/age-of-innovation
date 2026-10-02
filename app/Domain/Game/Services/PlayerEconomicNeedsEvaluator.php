@@ -13,6 +13,8 @@ final class PlayerEconomicNeedsEvaluator
 {
     private const int NEEDED_TOOL_WEIGHT = 20;
 
+    private const int NEEDED_COIN_WEIGHT = 20;
+
     private const int USEFUL_DEVELOPMENT_WEIGHT = 15;
 
     private const int MAX_SCHOLAR_BONUS = 120;
@@ -39,6 +41,11 @@ final class PlayerEconomicNeedsEvaluator
         }
 
         $scholarScore = $this->scholarScore($before, $after, $playerBefore, $playerAfter);
+        $gainedCoins = max(0, $playerAfter->resources->coins - $playerBefore->resources->coins);
+        $coinScore = $gainedCoins === 0 ? 0 : min(
+            $gainedCoins,
+            $this->neededCoins($before, $playerBefore, $playerAfter),
+        ) * self::NEEDED_COIN_WEIGHT;
 
         $gainedTools = max(0, $playerAfter->resources->tools - $playerBefore->resources->tools);
         $incomeBefore = clone $playerBefore;
@@ -53,12 +60,38 @@ final class PlayerEconomicNeedsEvaluator
         $remainingRounds = max(0, 6 - $before->round->number);
         $effectiveToolGain = $gainedTools + $gainedIncome * $remainingRounds;
         if ($effectiveToolGain === 0) {
-            return $scholarScore;
+            return $scholarScore + $coinScore;
         }
         $neededTools = $this->neededTools($before, $playerBefore);
 
         return min($neededTools, $effectiveToolGain)
-            * self::NEEDED_TOOL_WEIGHT + $scholarScore;
+            * self::NEEDED_TOOL_WEIGHT + $scholarScore + $coinScore;
+    }
+
+    private function neededCoins(GameStateData $state, GamePlayerStateData $before, GamePlayerStateData $after): int
+    {
+        $probe = $state->deepCopy();
+        $probe->round->hasTakenMainAction = false;
+        $player = collect($probe->players)->firstWhere('playerId', $before->playerId);
+        if (! $player instanceof GamePlayerStateData) {
+            return 0;
+        }
+        $player->resources->coins = PHP_INT_MAX;
+        $player->resources->tools = $after->resources->tools;
+        $player->resources->scholars = $after->resources->scholars;
+        $costs = [];
+        foreach ($this->buildWorkshopOptionFinder->execute($probe, $player) as $option) {
+            $costs[] = 2;
+        }
+        foreach ($this->upgradeBuildingOptionFinder->execute($probe, $player) as $option) {
+            $costs[] = $option->coins;
+        }
+        $missingCoins = array_filter(array_map(
+            static fn (int $cost): int => $cost - $before->resources->coins,
+            $costs,
+        ), static fn (int $missing): bool => $missing > 0);
+
+        return $missingCoins === [] ? 0 : min($missingCoins);
     }
 
     private function scholarScore(

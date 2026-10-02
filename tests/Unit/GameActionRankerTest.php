@@ -42,6 +42,28 @@ use Tests\TestCase;
 
 class GameActionRankerTest extends TestCase
 {
+    public function test_it_converts_a_surplus_tool_to_fund_reachable_construction_instead_of_passing(): void
+    {
+        $state = $this->state();
+        $state->turnOrder = [1];
+        $state->round->phase = GamePhase::Actions;
+        $state->round->number = 5;
+        $state->players[0]->resources = new PlayerResourcesData(coins: 0, tools: 9);
+        $state->board->hexes = [
+            $this->buildingHex('a', 1, ['target']),
+            $this->emptyHex('target', ['a']),
+        ];
+        $state->availableTownTileIds = [];
+
+        $ranked = app(GameActionRanker::class)->execute($state, 1, depth: 1);
+
+        $this->assertSame(GameActionOptionType::ExchangeResources, $ranked[0]->option->type());
+        $this->assertSame(\App\Domain\Game\Enums\ResourceExchange::ToolToCoin, $ranked[0]->option->exchange);
+        $this->assertGreaterThan(0, $ranked[0]->scoreBreakdown->economicNeeds);
+        $this->assertSame(0, $state->players[0]->resources->coins);
+        $this->assertSame(9, $state->players[0]->resources->tools);
+    }
+
     public function test_a_one_ply_search_prefers_an_upgrade_that_completes_a_town(): void
     {
         $state = $this->townUpgradeState();
