@@ -9,7 +9,9 @@ use App\Domain\Game\Data\AutomatedGameDecisionData;
 use App\Domain\Game\Data\AutomatedGameResourcesData;
 use App\Domain\Game\Data\AutomatedGameSimulationResultData;
 use App\Domain\Game\Data\GameActionSelectionDiagnosticsData;
+use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Enums\AutomatedGamePassReason;
+use App\Domain\Game\Enums\GameActionOptionType;
 use App\Domain\Game\Enums\GameActionSelectionReason;
 use App\Domain\Game\Enums\GameActionType;
 use App\Domain\Game\Enums\GameStatus;
@@ -19,8 +21,10 @@ use DomainException;
 
 class AutomatedGameSimulator
 {
-    public function __construct(private PlayAutomatedTurnAction $playAutomatedTurn)
-    {
+    public function __construct(
+        private PlayAutomatedTurnAction $playAutomatedTurn,
+        private GameActionAvailabilityEvaluator $actionAvailabilityEvaluator,
+    ) {
     }
 
     public function execute(
@@ -65,14 +69,30 @@ class AutomatedGameSimulator
             $playerState = collect($game->state->players)->firstWhere('playerId', $player->id);
             $decisionStartedAt = hrtime(true);
             $diagnostics = null;
+            $actionAvailability = [];
 
             $this->playAutomatedTurn->execute(
                 $game,
                 $player,
                 $player->bot_difficulty,
                 singleDecision: true,
-                onDecisionSelected: static function (GameActionSelectionDiagnosticsData $selection) use (&$diagnostics): void {
+                onDecisionSelected: function (GameActionSelectionDiagnosticsData $selection) use (
+                    &$diagnostics,
+                    &$actionAvailability,
+                    $game,
+                    $player,
+                ): void {
                     $diagnostics = $selection;
+
+                    if ($selection->selected?->option->type() !== GameActionOptionType::Pass) {
+                        return;
+                    }
+
+                    $state = $game->state;
+                    $statePlayer = collect($state->players)->firstWhere('playerId', $player->id);
+                    if ($statePlayer instanceof GamePlayerStateData) {
+                        $actionAvailability = $this->actionAvailabilityEvaluator->execute($state, $statePlayer);
+                    }
                 },
             );
             $game->refresh();
@@ -130,6 +150,7 @@ class AutomatedGameSimulator
                         spades: $playerState->unassignedSpades,
                     )
                     : null,
+                actionAvailability: $actionAvailability,
             );
         }
 

@@ -11,7 +11,10 @@ use App\Domain\Game\Enums\GamePhase;
 
 final readonly class AutomatedGameDecisionData
 {
-    /** @param list<GameActionCandidateDiagnosticsData> $candidates */
+    /**
+     * @param list<GameActionCandidateDiagnosticsData> $candidates
+     * @param list<GameActionAvailabilityData> $actionAvailability
+     */
     public function __construct(
         public int $gamePlayerId,
         public int $round,
@@ -25,6 +28,7 @@ final readonly class AutomatedGameDecisionData
         public GameActionSelectionReason $selectionReason,
         public ?AutomatedGamePassReason $passReason,
         public ?AutomatedGameResourcesData $remainingResources = null,
+        public array $actionAvailability = [],
     ) {
     }
 }

@@ -6,7 +6,9 @@ namespace App\Domain\Game\Services;
 
 use App\Domain\Game\Data\AutomatedGameDecisionData;
 use App\Domain\Game\Data\AutomatedGameSimulationResultData;
+use App\Domain\Game\Data\GameActionAvailabilityData;
 use App\Domain\Game\Data\GameActionCandidateDiagnosticsData;
+use App\Domain\Game\Enums\GameActionAvailabilityReason;
 
 final class AutomatedGameReportBuilder
 {
@@ -48,6 +50,17 @@ final class AutomatedGameReportBuilder
                         'power' => $decision->remainingResources->power,
                         'spades' => $decision->remainingResources->spades,
                     ],
+                    'action_availability' => array_map(
+                        static fn (GameActionAvailabilityData $availability): array => [
+                            'type' => $availability->type->value,
+                            'available_option_count' => $availability->availableOptionCount,
+                            'unavailable_reasons' => array_map(
+                                static fn (GameActionAvailabilityReason $reason): string => $reason->value,
+                                $availability->unavailableReasons,
+                            ),
+                        ],
+                        $decision->actionAvailability,
+                    ),
                 ],
                 $result->decisions,
             ),
