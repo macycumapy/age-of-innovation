@@ -92,9 +92,6 @@ final class FinishStartingSpadeAction
             $flightVictoryPoints = (int) ($interaction->context['flightVictoryPoints'] ?? 0);
             $buildableHexIds = $interaction->context['buildableHexIds'] ?? [];
 
-            if ($tunnelTools > 0) {
-                $interaction->context['tunnelUsed'] = true;
-            }
             if ($flightScholarCost > 0) {
                 $interaction->context['flightUsed'] = true;
             }
@@ -129,12 +126,10 @@ final class FinishStartingSpadeAction
                     $playerState,
                     $targetTerrain,
                 );
-                if (! ($interaction->context['tunnelUsed'] ?? false)) {
-                    $interaction->optionIds = array_values(array_unique([
-                        ...$interaction->optionIds,
-                        ...$this->findEligibleMoleTunnelHexes->execute($state, $playerState),
-                    ]));
-                }
+                $interaction->optionIds = array_values(array_unique([
+                    ...$interaction->optionIds,
+                    ...$this->findEligibleMoleTunnelHexes->execute($state, $playerState),
+                ]));
                 if (! ($interaction->context['flightUsed'] ?? false)) {
                     $interaction->optionIds = array_values(array_unique([
                         ...$interaction->optionIds,

@@ -70,9 +70,6 @@ final class ApplySpendSpadesAction
         if ($terrainAfter === $player->homeland) {
             $buildableHexIds[] = $matchingOption->hexId;
         }
-        if ((int) ($interaction->context['tunnelTools'] ?? 0) > 0) {
-            $interaction->context['tunnelUsed'] = true;
-        }
         if ((int) ($interaction->context['flightScholarCost'] ?? 0) > 0) {
             $interaction->context['flightUsed'] = true;
         }
@@ -150,12 +147,10 @@ final class ApplySpendSpadesAction
     ): bool {
         $targetTerrain = TerrainType::from((string) $interaction->context['targetTerrain']);
         $interaction->optionIds = $this->findEligibleTerraformHexes->execute($state, $player, $targetTerrain);
-        if (! ($interaction->context['tunnelUsed'] ?? false)) {
-            $interaction->optionIds = array_values(array_unique([
-                ...$interaction->optionIds,
-                ...$this->findEligibleMoleTunnelHexes->execute($state, $player),
-            ]));
-        }
+        $interaction->optionIds = array_values(array_unique([
+            ...$interaction->optionIds,
+            ...$this->findEligibleMoleTunnelHexes->execute($state, $player),
+        ]));
         if (! ($interaction->context['flightUsed'] ?? false)) {
             $interaction->optionIds = array_values(array_unique([
                 ...$interaction->optionIds,

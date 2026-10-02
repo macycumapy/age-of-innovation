@@ -354,6 +354,120 @@ class TerraformingTest extends TestCase
         $this->assertSame(TerrainType::Forest, $game->state->board->hexes[2]->terrain);
     }
 
+    public function test_moles_can_confirm_two_tunnels_on_different_hexes_and_rollback_the_second_selection(): void
+    {
+        $user = User::factory()->create();
+        $game = Game::factory()->create([
+            'status' => GameStatus::Active,
+            'phase' => GamePhase::Actions,
+            'active_player_id' => $user->id,
+        ]);
+        $player = GamePlayer::factory()->create(['game_id' => $game->id, 'user_id' => $user->id]);
+        $game->update(['state' => new GameStateData(
+            turnOrder: [$player->id],
+            board: new BoardStateData(hexes: [
+                new BoardHexStateData(
+                    id: '0:0',
+                    q: 0,
+                    r: 0,
+                    initialTerrain: TerrainType::Mountain,
+                    terrain: TerrainType::Mountain,
+                    adjacentHexIds: ['1:0', '0:1'],
+                    building: new BuildingStateData(BuildingType::Workshop, $player->id),
+                ),
+                new BoardHexStateData(
+                    id: '1:0',
+                    q: 1,
+                    r: 0,
+                    initialTerrain: TerrainType::Water,
+                    terrain: TerrainType::Water,
+                    adjacentHexIds: ['0:0', '2:0'],
+                ),
+                new BoardHexStateData(
+                    id: '0:1',
+                    q: 0,
+                    r: 1,
+                    initialTerrain: TerrainType::Water,
+                    terrain: TerrainType::Water,
+                    adjacentHexIds: ['0:0', '0:2'],
+                ),
+                new BoardHexStateData(
+                    id: '2:0',
+                    q: 2,
+                    r: 0,
+                    initialTerrain: TerrainType::Forest,
+                    terrain: TerrainType::Forest,
+                    adjacentHexIds: ['1:0'],
+                ),
+                new BoardHexStateData(
+                    id: '0:2',
+                    q: 0,
+                    r: 2,
+                    initialTerrain: TerrainType::Forest,
+                    terrain: TerrainType::Forest,
+                    adjacentHexIds: ['0:1'],
+                ),
+            ]),
+            round: new RoundStateData(phase: GamePhase::Actions),
+            players: [new GamePlayerStateData(
+                playerId: $player->id,
+                userId: $user->id,
+                color: PlayerColor::Grey,
+                faction: Faction::Moles,
+                homeland: TerrainType::Mountain,
+                roundBonus: RoundBonus::Coins,
+                resources: new PlayerResourcesData(tools: 2),
+                victoryPoints: 20,
+                unassignedSpades: 2,
+            )],
+            pendingInteraction: new PendingInteractionData(
+                PendingInteractionType::SpendSpades,
+                $player->id,
+                ['2:0', '0:2'],
+                ['remainingSpades' => 2, 'targetTerrain' => TerrainType::Mountain->value],
+            ),
+        )]);
+
+        $this->actingAs($user)->post(route('games.paid-terraforming', $game), [
+            'hex_id' => '2:0', 'use_tunnel' => true,
+        ])->assertNoContent();
+        $this->assertSame(0, $game->actions()->count());
+        $this->post(route('games.starting-spade.finish', $game))->assertNoContent();
+        $game->refresh();
+        $this->assertSame(1, $game->state->players[0]->unassignedSpades);
+        $this->assertContains('0:2', $game->state->pendingInteraction->optionIds);
+        $beforeSecondSelection = $game->state->toArray();
+
+        $this->post(route('games.paid-terraforming', $game), [
+            'hex_id' => '0:2', 'use_tunnel' => true,
+        ])->assertNoContent();
+        $game->refresh();
+        $this->assertSame(0, $game->state->players[0]->resources->tools);
+        $this->assertSame(26, $game->state->players[0]->victoryPoints);
+        $this->assertSame(1, $game->actions()->count());
+
+        $this->delete(route('games.starting-spade.destroy', $game))->assertNoContent();
+        $game->refresh();
+        $this->assertSame($beforeSecondSelection, $game->state->toArray());
+        $this->assertSame(1, $game->actions()->count());
+
+        $this->post(route('games.paid-terraforming', $game), [
+            'hex_id' => '0:2', 'use_tunnel' => true,
+        ])->assertNoContent();
+        $this->post(route('games.starting-spade.finish', $game))->assertNoContent();
+        $game->refresh();
+        $this->assertSame(0, $game->state->players[0]->unassignedSpades);
+        $this->assertSame(0, $game->state->players[0]->resources->tools);
+        $this->assertSame(26, $game->state->players[0]->victoryPoints);
+        $this->assertSame(TerrainType::Mountain, $game->state->board->hexes[3]->terrain);
+        $this->assertSame(TerrainType::Mountain, $game->state->board->hexes[4]->terrain);
+        $actions = $game->actions()->orderBy('sequence')->get();
+        $this->assertCount(2, $actions);
+        $this->assertSame(['2:0', '0:2'], $actions->pluck('payload.hex_id')->all());
+        $this->assertSame([1, 1], $actions->pluck('payload.tunnel_tools')->all());
+        $this->assertSame([3, 3], $actions->pluck('payload.tunnel_victory_points')->all());
+    }
+
     public function test_palace_nine_flight_can_be_selected_rolled_back_and_confirmed(): void
     {
         $user = User::factory()->create();
