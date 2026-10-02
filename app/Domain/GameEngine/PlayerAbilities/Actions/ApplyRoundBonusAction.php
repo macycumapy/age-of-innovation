@@ -6,6 +6,7 @@ namespace App\Domain\GameEngine\PlayerAbilities\Actions;
 
 use App\Domain\GameEngine\Board\Actions\CreateBridgeInteractionAction;
 use App\Domain\GameEngine\Board\Actions\FindEligibleTerraformHexesAction;
+use App\Domain\GameEngine\Board\Enums\BridgeSource;
 use App\Domain\GameEngine\Interactions\Data\PendingInteractionData;
 use App\Domain\GameEngine\Interactions\Enums\PendingInteractionType;
 use App\Domain\GameEngine\PlayerAbilities\Data\RoundBonusActionResultData;
@@ -75,7 +76,7 @@ final class ApplyRoundBonusAction
         }
 
         if ($roundBonus === RoundBonus::Bridge) {
-            $this->createBridgeInteraction->execute($state, $playerState);
+            $this->createBridgeInteraction->execute($state, $playerState, source: BridgeSource::RoundBonus);
         }
 
         $playerState->usedSpecialActionIds[] = $roundBonus->value;

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Domain\GameEngine\PlayerAbilities\Actions;
 
 use App\Domain\GameEngine\Board\Actions\CreateBridgeInteractionAction;
+use App\Domain\GameEngine\Board\Enums\BridgeSource;
 use App\Domain\GameEngine\Economy\Actions\GainPowerAction;
 use App\Domain\GameEngine\PlayerAbilities\Enums\Faction;
 use App\Domain\GameEngine\Research\Enums\KnowledgeDiscipline;
@@ -38,7 +39,7 @@ final class ApplyFactionAction
                 throw ValidationException::withMessages(['faction' => 'Недостаточно инструментов или основное действие уже выполнено.']);
             }
 
-            $this->createBridgeInteraction->execute($state, $playerState, canBuildAcrossTerrain: true);
+            $this->createBridgeInteraction->execute($state, $playerState, source: BridgeSource::Faction, canBuildAcrossTerrain: true);
             $playerState->resources->tools--;
             $state->round->hasTakenMainAction = true;
         }

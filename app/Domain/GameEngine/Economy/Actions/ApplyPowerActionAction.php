@@ -7,6 +7,7 @@ namespace App\Domain\GameEngine\Economy\Actions;
 use App\Domain\GameEngine\Board\Actions\CreateBridgeInteractionAction;
 use App\Domain\GameEngine\Board\Actions\FindEligibleMoleTunnelHexesAction;
 use App\Domain\GameEngine\Board\Actions\FindEligibleTerraformHexesAction;
+use App\Domain\GameEngine\Board\Enums\BridgeSource;
 use App\Domain\GameEngine\Economy\Enums\PowerAction;
 use App\Domain\GameEngine\Interactions\Data\PendingInteractionData;
 use App\Domain\GameEngine\Interactions\Enums\PendingInteractionType;
@@ -59,7 +60,7 @@ final class ApplyPowerActionAction
         );
 
         match ($action) {
-            PowerAction::BuildBridge => $this->createBridgeInteraction->execute($state, $playerState),
+            PowerAction::BuildBridge => $this->createBridgeInteraction->execute($state, $playerState, source: BridgeSource::Power),
             PowerAction::GainScholar => $playerState->resources->scholars++,
             PowerAction::GainTools => $playerState->resources->tools += 2,
             PowerAction::GainCoins => $playerState->resources->coins += 7,

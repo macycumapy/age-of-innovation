@@ -56,6 +56,7 @@ class PowerActionSimulatorTest extends TestCase
         }
 
         $this->assertCount(5, $options);
+        $this->assertNull(collect($options)->firstWhere('action', PowerAction::BuildBridge));
     }
 
     public function test_it_does_not_offer_a_bridge_action_when_the_supply_is_exhausted(): void

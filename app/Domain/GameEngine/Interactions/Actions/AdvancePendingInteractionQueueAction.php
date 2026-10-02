@@ -6,6 +6,7 @@ namespace App\Domain\GameEngine\Interactions\Actions;
 
 use App\Domain\GameEngine\Board\Actions\FindEligibleBridgePairsAction;
 use App\Domain\GameEngine\Board\Actions\FindEligibleTerraformHexesAction;
+use App\Domain\GameEngine\Board\Enums\BridgeSource;
 use App\Domain\GameEngine\Interactions\Enums\PendingInteractionType;
 use App\Domain\GameEngine\State\Data\GamePlayerStateData;
 use App\Domain\GameEngine\State\Data\GameStateData;
@@ -47,7 +48,7 @@ final class AdvancePendingInteractionQueueAction
                     array_column($pairs, 'fromHexId'),
                     array_column($pairs, 'toHexId'),
                 )));
-                $step->context = [...$step->context, 'pairs' => $pairs, 'source' => 'palace_15'];
+                $step->context = [...$step->context, 'pairs' => $pairs, 'source' => BridgeSource::Palace15->value];
             }
 
             if ($step->type === PendingInteractionType::ChoosePalaceBooks || $step->optionIds !== []) {

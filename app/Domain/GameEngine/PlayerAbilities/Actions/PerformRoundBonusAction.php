@@ -52,9 +52,6 @@ final class PerformRoundBonusAction
 
             $roundBonus = $playerState->roundBonus;
             $result = $this->applyRoundBonusAction->execute($state, $playerState, $discipline);
-            if ($roundBonus === RoundBonus::Bridge && $state->pendingInteraction !== null) {
-                $state->pendingInteraction->context['source'] = 'round_bonus';
-            }
             $lockedGame->update(['state' => $state, 'version' => $lockedGame->version + 1]);
 
             if ($roundBonus !== RoundBonus::Bridge) {

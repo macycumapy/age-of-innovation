@@ -61,7 +61,6 @@ final class PerformPowerActionAction
             );
 
             if ($action === PowerAction::BuildBridge && $state->pendingInteraction !== null) {
-                $state->pendingInteraction->context['source'] = 'power';
                 $state->pendingInteraction->context['sacrificeAmount'] = $sacrificeAmount;
                 $state->pendingInteraction->context['victoryPoints'] = $victoryPoints;
             }

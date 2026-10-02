@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domain\GameEngine\Board\Actions;
 
+use App\Domain\GameEngine\Board\Enums\BridgeSource;
 use App\Domain\GameEngine\Board\Services\BridgeSupply;
 use App\Domain\GameEngine\Interactions\Data\PendingInteractionData;
 use App\Domain\GameEngine\Interactions\Enums\PendingInteractionType;
@@ -22,6 +23,7 @@ final class CreateBridgeInteractionAction
     public function execute(
         GameStateData $state,
         GamePlayerStateData $playerState,
+        BridgeSource $source,
         bool $canBuildAcrossTerrain = false,
     ): void {
         if ($this->bridgeSupply->remaining($state, $playerState) === 0) {
@@ -45,7 +47,7 @@ final class CreateBridgeInteractionAction
                 array_column($pairs, 'fromHexId'),
                 array_column($pairs, 'toHexId'),
             ))),
-            ['pairs' => $pairs],
+            ['pairs' => $pairs, 'source' => $source->value],
         );
     }
 }

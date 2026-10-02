@@ -10,6 +10,7 @@ use App\Domain\GameEngine\Board\Data\BoardStateData;
 use App\Domain\GameEngine\Board\Data\BuildingStateData;
 use App\Domain\GameEngine\Board\Data\PlaceBridgeOptionData;
 use App\Domain\GameEngine\Board\Data\SkipBridgeOptionData;
+use App\Domain\GameEngine\Board\Enums\BridgeSource;
 use App\Domain\GameEngine\Board\Enums\BuildingType;
 use App\Domain\GameEngine\Board\Enums\TerrainType;
 use App\Domain\GameEngine\Enums\GameActionOptionType;
@@ -27,9 +28,9 @@ use Tests\TestCase;
 
 class PlaceBridgeSimulatorTest extends TestCase
 {
-    public function test_it_enumerates_and_simulates_a_confirmed_bridge_placement(): void
+    private function bridgeState(): GameStateData
     {
-        $state = new GameStateData(
+        return new GameStateData(
             schemaVersion: 4,
             board: new BoardStateData(
                 hexes: [
@@ -95,6 +96,11 @@ class PlaceBridgeSimulatorTest extends TestCase
                 ['source' => 'power'],
             ),
         );
+    }
+
+    public function test_it_enumerates_and_simulates_a_confirmed_bridge_placement(): void
+    {
+        $state = $this->bridgeState();
         $options = array_values(array_filter(
             app(GameActionOptionFinder::class)->execute($state, 1),
             static fn ($option): bool => $option instanceof PlaceBridgeOptionData,
@@ -142,6 +148,7 @@ class PlaceBridgeSimulatorTest extends TestCase
         $firstBridge = app(GameActionSimulator::class)->execute($palaceState, 1, $options[0]);
 
         $this->assertSame('palace_15', $firstBridge->state->pendingInteraction?->context['source']);
+        $this->assertSame(BridgeSource::Palace15, BridgeSource::from($firstBridge->state->pendingInteraction->context['source']));
         $this->assertSame([], $firstBridge->state->pendingInteractionQueue);
 
         $secondOptions = array_values(array_filter(
@@ -155,5 +162,57 @@ class PlaceBridgeSimulatorTest extends TestCase
 
         $this->assertCount(2, $secondBridge->state->board->bridges);
         $this->assertNull($secondBridge->state->pendingInteraction);
+    }
+
+    public function test_bridge_sources_are_created_by_domain_actions_and_can_be_simulated(): void
+    {
+        foreach (['power', 'round_bonus', 'faction'] as $source) {
+            $state = $this->bridgeState();
+            $state->pendingInteraction = null;
+            $player = $state->players[0];
+            if ($source === 'power') {
+                $player->resources->power->bowlThree = 6;
+                app(\App\Domain\GameEngine\Economy\Actions\ApplyPowerActionAction::class)->execute(
+                    $state,
+                    $player,
+                    \App\Domain\GameEngine\Economy\Enums\PowerAction::BuildBridge,
+                    0,
+                );
+            } elseif ($source === 'round_bonus') {
+                $player->roundBonus = RoundBonus::Bridge;
+                app(\App\Domain\GameEngine\PlayerAbilities\Actions\ApplyRoundBonusAction::class)->execute($state, $player, null);
+            } else {
+                $player->faction = Faction::Moles;
+                $player->resources->tools = 1;
+                $state->board->hexes[2]->terrain = TerrainType::Forest;
+                app(\App\Domain\GameEngine\PlayerAbilities\Actions\ApplyFactionAction::class)->execute($state, $player, null);
+            }
+            $this->assertSame($source, $state->pendingInteraction?->context['source']);
+            $this->assertSame($source, BridgeSource::from($source)->value);
+            $options = array_values(array_filter(
+                app(GameActionOptionFinder::class)->execute($state, 1),
+                static fn ($option): bool => $option instanceof PlaceBridgeOptionData,
+            ));
+            $this->assertNotEmpty($options);
+            foreach ($options as $option) {
+                $simulation = app(GameActionSimulator::class)->execute($state, 1, $option);
+                $this->assertCount(1, $simulation->state->board->bridges);
+            }
+            $this->assertSame([], $state->board->bridges);
+        }
+    }
+
+    public function test_no_bridge_places_produce_no_placement_options_but_allow_skipping_palace_reward(): void
+    {
+        $state = $this->bridgeState();
+        $state->board->riverBankHexIds = [];
+        $this->assertSame([], app(GameActionOptionFinder::class)->execute($state, 1));
+        $state->pendingInteraction->context['source'] = 'palace_15';
+        $options = app(GameActionOptionFinder::class)->execute($state, 1);
+        $this->assertCount(1, $options);
+        $this->assertInstanceOf(SkipBridgeOptionData::class, $options[0]);
+        $simulation = app(GameActionSimulator::class)->execute($state, 1, $options[0]);
+        $this->assertNull($simulation->state->pendingInteraction);
+        $this->assertSame([], $simulation->state->board->bridges);
     }
 }

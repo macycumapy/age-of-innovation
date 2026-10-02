@@ -51,9 +51,6 @@ final class PerformFactionAction
 
             $faction = $playerState->faction;
             $this->applyFactionAction->execute($state, $playerState, $discipline);
-            if ($faction === Faction::Moles && $state->pendingInteraction !== null) {
-                $state->pendingInteraction->context['source'] = 'faction';
-            }
             $lockedGame->update(['state' => $state, 'version' => $lockedGame->version + 1]);
 
             if ($faction !== Faction::Moles) {
