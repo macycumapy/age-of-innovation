@@ -88,10 +88,8 @@ class BoardPositionProgressEvaluator
                 continue;
             }
 
-            if ($hex->terrain !== $player->homeland) {
-                $terraformingToolCost = $hex->terrain->spadesTo($player->homeland) * $toolCostPerSpade;
-                $score += max(0, 10 - $terraformingToolCost);
-            }
+            $terraformingToolCost = $hex->terrain->spadesTo($player->homeland) * $toolCostPerSpade;
+            $score += max(0, 10 - $terraformingToolCost);
 
             $openDirections = count(array_filter(
                 $hex->adjacentHexIds,

@@ -42,6 +42,60 @@ use Tests\TestCase;
 
 class GameActionRankerTest extends TestCase
 {
+    public function test_completed_terraforming_is_more_valuable_than_partial_terraforming(): void
+    {
+        $state = $this->state();
+        $state->board->hexes = [
+            $this->buildingHex('home', 1, ['complete', 'partial']),
+            $this->emptyHex('complete', ['home'], TerrainType::Mountain),
+            $this->emptyHex('partial', ['home'], TerrainType::Wasteland),
+        ];
+        $completed = $state->deepCopy();
+        $completed->board->hexes[1]->terrain = TerrainType::Forest;
+        $partial = $state->deepCopy();
+        $partial->board->hexes[2]->terrain = TerrainType::Mountain;
+        $evaluator = app(BoardPositionProgressEvaluator::class);
+
+        $this->assertGreaterThan(0, $evaluator->execute($state, $completed, 1));
+        $this->assertGreaterThan(
+            $evaluator->execute($state, $partial, 1),
+            $evaluator->execute($state, $completed, 1),
+        );
+    }
+
+    public function test_a_spade_prefers_completed_terraforming_and_offers_construction(): void
+    {
+        $state = $this->state();
+        $state->turnOrder = [1];
+        $state->players[0]->resources = new PlayerResourcesData(coins: 16, tools: 5);
+        $state->players[0]->faction = Faction::Monks;
+        $state->players[0]->unassignedSpades = 1;
+        $state->board->hexes = [
+            $this->buildingHex('home', 1, ['partial', 'complete']),
+            $this->emptyHex('partial', ['home'], TerrainType::Wasteland),
+            $this->emptyHex('complete', ['home'], TerrainType::Mountain),
+        ];
+        $state->board->hexes[0]->building->type = BuildingType::University;
+        $state->pendingInteraction = new PendingInteractionData(
+            PendingInteractionType::SpendSpades,
+            1,
+            ['partial', 'complete'],
+            ['phase' => 'actions', 'remainingSpades' => 1, 'targetTerrain' => 'forest'],
+        );
+        $ranker = app(GameActionRanker::class);
+        $ranked = $ranker->execute($state, 1, depth: 1, auxiliaryActionsRemaining: 0);
+
+        $this->assertSame('complete', $ranked[0]->option->hexId);
+        $this->assertSame(PendingInteractionType::BuildWorkshopAfterTerraforming, $ranked[0]->simulation->state->pendingInteraction?->type);
+        $continuations = $ranker->execute($ranked[0]->simulation->state, 1, depth: 1, auxiliaryActionsRemaining: 0);
+        $construction = collect($continuations)->first(static fn ($action): bool => $action->option->build);
+        $this->assertNotNull($construction);
+        $this->assertSame('complete', $construction->option->hexId);
+        $this->assertSame(BuildingType::Workshop, $construction->simulation->state->board->hexes[2]->building?->type);
+        $this->assertSame(TerrainType::Mountain, $state->board->hexes[2]->terrain);
+        $this->assertNull($state->board->hexes[2]->building);
+    }
+
     public function test_it_converts_a_surplus_tool_to_fund_reachable_construction_instead_of_passing(): void
     {
         $state = $this->state();
@@ -293,7 +347,9 @@ class GameActionRankerTest extends TestCase
         $this->assertNotNull($terraforming);
         $continuations = $ranker->execute($terraforming->simulation->state, 1, depth: 1, auxiliaryActionsRemaining: 0);
         $this->assertTrue($continuations[0]->option->build);
-        $this->assertGreaterThan(0, $terraforming->scoreBreakdown->searchAdjustment);
+        $decline = collect($continuations)->first(static fn ($action): bool => ! $action->option->build);
+        $this->assertNotNull($decline);
+        $this->assertGreaterThan($decline->score, $continuations[0]->score);
         $this->assertNull($state->board->hexes[4]->building);
     }
 
@@ -428,7 +484,7 @@ class GameActionRankerTest extends TestCase
         $after->players[0]->shippingLevel = 1;
 
         $this->assertSame(
-            3,
+            13,
             app(BoardPositionProgressEvaluator::class)->execute($before, $after, 1),
         );
     }
