@@ -38,6 +38,8 @@ final class GameActionRanker
         private PassValueEvaluator $passValueEvaluator,
         private PlayerEconomicNeedsEvaluator $playerEconomicNeedsEvaluator,
         private WorkshopAfterTerraformingOptionFinder $workshopAfterTerraformingOptionFinder,
+        private ChooseCompetencyOptionFinder $chooseCompetencyOptionFinder,
+        private ChoosePalaceOptionFinder $choosePalaceOptionFinder,
         private ApplyFinishActionTurnAction $applyFinishActionTurn,
     ) {
     }
@@ -296,17 +298,26 @@ final class GameActionRanker
 
     private function horizonScore(GameStateData $state, int $rootPlayerId, GameTreeSearchContext $context): int
     {
-        if ($state->pendingInteraction?->type !== PendingInteractionType::BuildWorkshopAfterTerraforming
-            || $context->isExhausted()) {
+        $interaction = $state->pendingInteraction;
+        if ($interaction === null || $context->isExhausted()) {
             return $this->gameStateEvaluator->execute($state, $rootPlayerId);
         }
 
-        $player = $this->playerById($state, $state->pendingInteraction->playerId);
+        $player = $this->playerById($state, $interaction->playerId);
         if ($player === null) {
             return $this->gameStateEvaluator->execute($state, $rootPlayerId);
         }
 
-        $options = $this->workshopAfterTerraformingOptionFinder->execute($state, $player);
+        $isBuildingReward = ($interaction->context['reason'] ?? null) === 'building';
+        $options = match ($interaction->type) {
+            PendingInteractionType::BuildWorkshopAfterTerraforming => $this->workshopAfterTerraformingOptionFinder->execute($state, $player),
+            PendingInteractionType::ChooseCompetency => $isBuildingReward ? $this->chooseCompetencyOptionFinder->execute($state, $player) : [],
+            PendingInteractionType::ChoosePalace => $isBuildingReward ? $this->choosePalaceOptionFinder->execute($state, $player) : [],
+            default => [],
+        };
+        if ($options === []) {
+            return $this->gameStateEvaluator->execute($state, $rootPlayerId);
+        }
         $bestScore = null;
         $maximizing = $player->playerId === $rootPlayerId;
         $context->visitedNodes++;
@@ -321,7 +332,7 @@ final class GameActionRanker
             $bestScore = $bestScore === null ? $score : ($maximizing ? max($bestScore, $score) : min($bestScore, $score));
         }
 
-        return $bestScore ?? $this->gameStateEvaluator->execute($state, $rootPlayerId);
+        return $bestScore;
     }
 
     private function remainingDepthAfter(

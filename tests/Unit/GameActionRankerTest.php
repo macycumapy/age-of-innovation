@@ -23,6 +23,7 @@ use App\Domain\Game\Enums\Competency;
 use App\Domain\Game\Enums\Faction;
 use App\Domain\Game\Enums\GameActionOptionType;
 use App\Domain\Game\Enums\GamePhase;
+use App\Domain\Game\Enums\PalaceAbility;
 use App\Domain\Game\Enums\PendingInteractionType;
 use App\Domain\Game\Enums\PlayerColor;
 use App\Domain\Game\Enums\PowerAction;
@@ -39,6 +40,95 @@ use Tests\TestCase;
 
 class GameActionRankerTest extends TestCase
 {
+    public function test_a_one_ply_search_values_the_competency_awarded_by_a_school(): void
+    {
+        $state = $this->state();
+        $state->turnOrder = [1];
+        $state->round->phase = GamePhase::Actions;
+        $state->round->number = 6;
+        $state->players[0]->resources = new PlayerResourcesData(coins: 5, tools: 3);
+        $state->availableCompetencyIds = [Competency::Competency01->value, Competency::Competency04->value];
+        $state->availablePalaceIds = [];
+        $state->board->hexes = [$this->buildingHex('guild', 1, [])];
+        $state->board->hexes[0]->building->type = BuildingType::Guild;
+
+        $ranked = app(GameActionRanker::class)->execute($state, 1, depth: 1, auxiliaryActionsRemaining: 0);
+
+        $this->assertSame(GameActionOptionType::UpgradeBuilding, $ranked[0]->option->type());
+        $this->assertSame(BuildingType::School, $ranked[0]->option->target);
+        $this->assertSame(276, $ranked[0]->scoreBreakdown->searchAdjustment);
+        $this->assertSame($ranked[0]->score, $ranked[0]->scoreBreakdown->total());
+        $this->assertSame(PendingInteractionType::ChooseCompetency, $ranked[0]->simulation->state->pendingInteraction->type);
+        $this->assertSame([], $ranked[0]->simulation->state->players[0]->competencyIds);
+        $this->assertSame([], $state->players[0]->competencyIds);
+        $this->assertSame(BuildingType::Guild, $state->board->hexes[0]->building->type);
+    }
+
+    public function test_a_one_ply_search_values_the_income_and_books_awarded_by_a_palace(): void
+    {
+        $state = $this->state();
+        $state->turnOrder = [1];
+        $state->round->phase = GamePhase::Actions;
+        $state->round->number = 1;
+        $state->players[0]->resources = new PlayerResourcesData(coins: 6, tools: 4);
+        $state->availableCompetencyIds = [];
+        $state->availablePalaceIds = [PalaceAbility::Palace01->value, PalaceAbility::Palace10->value];
+        $state->board->hexes = [$this->buildingHex('guild', 1, [])];
+        $state->board->hexes[0]->building->type = BuildingType::Guild;
+
+        $ranked = app(GameActionRanker::class)->execute($state, 1, depth: 1, auxiliaryActionsRemaining: 0);
+
+        $this->assertSame(GameActionOptionType::UpgradeBuilding, $ranked[0]->option->type());
+        $this->assertSame(BuildingType::Palace, $ranked[0]->option->target);
+        $this->assertSame(350, $ranked[0]->scoreBreakdown->searchAdjustment);
+        $this->assertSame($ranked[0]->score, $ranked[0]->scoreBreakdown->total());
+        $this->assertSame(PendingInteractionType::ChoosePalace, $ranked[0]->simulation->state->pendingInteraction->type);
+        $this->assertNull($ranked[0]->simulation->state->players[0]->palaceId);
+        $this->assertNull($state->players[0]->palaceId);
+        $this->assertSame(BuildingType::Guild, $state->board->hexes[0]->building->type);
+    }
+
+    public function test_a_one_ply_search_values_the_competency_awarded_by_a_university(): void
+    {
+        $state = $this->state();
+        $state->turnOrder = [1];
+        $state->round->phase = GamePhase::Actions;
+        $state->round->number = 6;
+        $state->players[0]->resources = new PlayerResourcesData(coins: 8, tools: 5);
+        $state->availableCompetencyIds = [Competency::Competency04->value];
+        $state->board->hexes = [$this->buildingHex('school', 1, [])];
+        $state->board->hexes[0]->building->type = BuildingType::School;
+
+        $ranked = app(GameActionRanker::class)->execute($state, 1, depth: 1, auxiliaryActionsRemaining: 0);
+
+        $this->assertSame(GameActionOptionType::UpgradeBuilding, $ranked[0]->option->type());
+        $this->assertSame(BuildingType::University, $ranked[0]->option->target);
+        $this->assertSame(276, $ranked[0]->scoreBreakdown->searchAdjustment);
+        $this->assertSame([], $state->players[0]->competencyIds);
+    }
+
+    public function test_an_upgrade_does_not_gain_value_from_an_already_owned_competency(): void
+    {
+        $state = $this->state();
+        $state->turnOrder = [1];
+        $state->round->phase = GamePhase::Actions;
+        $state->round->number = 6;
+        $state->players[0]->resources = new PlayerResourcesData(coins: 5, tools: 3);
+        $state->players[0]->competencyIds = [Competency::Competency04->value];
+        $state->availableCompetencyIds = [Competency::Competency04->value];
+        $state->board->hexes = [$this->buildingHex('guild', 1, [])];
+        $state->board->hexes[0]->building->type = BuildingType::Guild;
+
+        $ranked = app(GameActionRanker::class)->execute($state, 1, depth: 1, auxiliaryActionsRemaining: 0);
+        $upgrade = collect($ranked)->first(
+            static fn ($action): bool => $action->option->type() === GameActionOptionType::UpgradeBuilding,
+        );
+
+        $this->assertNotNull($upgrade);
+        $this->assertSame(0, $upgrade->scoreBreakdown->searchAdjustment);
+        $this->assertSame(GameActionOptionType::Pass, $ranked[0]->option->type());
+    }
+
     public function test_terraforming_continuation_can_decline_when_construction_is_unaffordable(): void
     {
         $state = $this->state();
