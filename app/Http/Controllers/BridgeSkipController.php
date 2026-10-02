@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
-use App\Domain\Game\Actions\SkipBridgeAction;
+use App\Domain\GameEngine\Board\Actions\SkipBridgeAction;
 use App\Models\Game;
 use App\Models\User;
 use Illuminate\Http\Request;

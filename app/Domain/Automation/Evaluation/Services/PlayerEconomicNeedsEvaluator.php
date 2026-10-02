@@ -1,0 +1,180 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Domain\Automation\Evaluation\Services;
+
+use App\Domain\GameEngine\Board\Services\BuildWorkshopOptionFinder;
+use App\Domain\GameEngine\Board\Services\PaidTerraformingOptionFinder;
+use App\Domain\GameEngine\Board\Services\UpgradeBuildingOptionFinder;
+use App\Domain\GameEngine\Economy\Services\PlayerIncomeCalculator;
+use App\Domain\GameEngine\Enums\GameActionType;
+use App\Domain\GameEngine\PlayerAbilities\Enums\RoundBonus;
+use App\Domain\GameEngine\Research\Services\DevelopmentAdvancementOptionFinder;
+use App\Domain\GameEngine\State\Data\GamePlayerStateData;
+use App\Domain\GameEngine\State\Data\GameStateData;
+
+final class PlayerEconomicNeedsEvaluator
+{
+    private const int NEEDED_TOOL_WEIGHT = 20;
+
+    private const int NEEDED_COIN_WEIGHT = 20;
+
+    private const int USEFUL_DEVELOPMENT_WEIGHT = 15;
+
+    private const int MAX_SCHOLAR_BONUS = 120;
+
+    public function __construct(
+        private BuildWorkshopOptionFinder $buildWorkshopOptionFinder,
+        private UpgradeBuildingOptionFinder $upgradeBuildingOptionFinder,
+        private PaidTerraformingOptionFinder $paidTerraformingOptionFinder,
+        private DevelopmentAdvancementOptionFinder $developmentAdvancementOptionFinder,
+        private BoardPositionProgressEvaluator $boardPositionProgressEvaluator,
+    ) {
+    }
+
+    public function execute(GameStateData $before, GameStateData $after, int $playerId): int
+    {
+        if (! $before->round->phase->isActionPhase() || $before->pendingInteraction !== null) {
+            return 0;
+        }
+
+        $playerBefore = collect($before->players)->firstWhere('playerId', $playerId);
+        $playerAfter = collect($after->players)->firstWhere('playerId', $playerId);
+        if (! $playerBefore instanceof GamePlayerStateData || ! $playerAfter instanceof GamePlayerStateData) {
+            return 0;
+        }
+
+        $scholarScore = $this->scholarScore($before, $after, $playerBefore, $playerAfter);
+        $gainedCoins = max(0, $playerAfter->resources->coins - $playerBefore->resources->coins);
+        $coinScore = $gainedCoins === 0 ? 0 : min(
+            $gainedCoins,
+            $this->neededCoins($before, $playerBefore, $playerAfter),
+        ) * self::NEEDED_COIN_WEIGHT;
+
+        $gainedTools = max(0, $playerAfter->resources->tools - $playerBefore->resources->tools);
+        $incomeBefore = clone $playerBefore;
+        $incomeAfter = clone $playerAfter;
+        $incomeBefore->roundBonus = RoundBonus::RiverWorkshop;
+        $incomeAfter->roundBonus = RoundBonus::RiverWorkshop;
+        $gainedIncome = max(
+            0,
+            PlayerIncomeCalculator::calculate($incomeAfter, $after->board)->tools
+            - PlayerIncomeCalculator::calculate($incomeBefore, $before->board)->tools,
+        );
+        $remainingRounds = max(0, 6 - $before->round->number);
+        $effectiveToolGain = $gainedTools + $gainedIncome * $remainingRounds;
+        if ($effectiveToolGain === 0) {
+            return $scholarScore + $coinScore;
+        }
+        $neededTools = $this->neededTools($before, $playerBefore);
+
+        return min($neededTools, $effectiveToolGain)
+            * self::NEEDED_TOOL_WEIGHT + $scholarScore + $coinScore;
+    }
+
+    private function neededCoins(GameStateData $state, GamePlayerStateData $before, GamePlayerStateData $after): int
+    {
+        $probe = $state->deepCopy();
+        $probe->round->hasTakenMainAction = false;
+        $player = collect($probe->players)->firstWhere('playerId', $before->playerId);
+        if (! $player instanceof GamePlayerStateData) {
+            return 0;
+        }
+        $player->resources->coins = PHP_INT_MAX;
+        $player->resources->tools = $after->resources->tools;
+        $player->resources->scholars = $after->resources->scholars;
+        $costs = [];
+        foreach ($this->buildWorkshopOptionFinder->execute($probe, $player) as $option) {
+            $costs[] = 2;
+        }
+        foreach ($this->upgradeBuildingOptionFinder->execute($probe, $player) as $option) {
+            $costs[] = $option->coins;
+        }
+        $missingCoins = array_filter(array_map(
+            static fn (int $cost): int => $cost - $before->resources->coins,
+            $costs,
+        ), static fn (int $missing): bool => $missing > 0);
+
+        return $missingCoins === [] ? 0 : min($missingCoins);
+    }
+
+    private function scholarScore(
+        GameStateData $before,
+        GameStateData $after,
+        GamePlayerStateData $playerBefore,
+        GamePlayerStateData $playerAfter,
+    ): int {
+        $scholarsBefore = $playerBefore->resources->scholars;
+        $scholarsAfter = $playerAfter->resources->scholars;
+        $developed = $playerAfter->shippingLevel > $playerBefore->shippingLevel
+            || $playerAfter->terraformingLevel > $playerBefore->terraformingLevel;
+
+        if ($developed) {
+            $progress = max(0, $this->boardPositionProgressEvaluator->execute($before, $after, $playerBefore->playerId));
+
+            return min(self::MAX_SCHOLAR_BONUS, $progress * self::USEFUL_DEVELOPMENT_WEIGHT);
+        }
+
+        if (($scholarsBefore > 0) === ($scholarsAfter > 0)) {
+            return 0;
+        }
+
+        $probe = $before->deepCopy();
+        $probe->round->hasTakenMainAction = false;
+        $player = collect($probe->players)->firstWhere('playerId', $playerBefore->playerId);
+        if (! $player instanceof GamePlayerStateData) {
+            return 0;
+        }
+        $player->resources->scholars = max(1, $scholarsBefore);
+        $potential = 0;
+        foreach ($this->developmentAdvancementOptionFinder->execute($probe, $player) as $option) {
+            $development = $probe->deepCopy();
+            $developmentPlayer = collect($development->players)->firstWhere('playerId', $player->playerId);
+            if (! $developmentPlayer instanceof GamePlayerStateData) {
+                continue;
+            }
+            if ($option->action === GameActionType::AdvanceShipping) {
+                $developmentPlayer->shippingLevel = $option->targetLevel;
+            } else {
+                $developmentPlayer->terraformingLevel = $option->targetLevel;
+            }
+            $potential = max($potential, $this->boardPositionProgressEvaluator->execute(
+                $probe,
+                $development,
+                $player->playerId,
+            ));
+        }
+        $bonus = min(self::MAX_SCHOLAR_BONUS, $potential * self::USEFUL_DEVELOPMENT_WEIGHT);
+
+        return ((int) ($scholarsAfter > 0) - (int) ($scholarsBefore > 0)) * $bonus;
+    }
+
+    private function neededTools(GameStateData $state, GamePlayerStateData $player): int
+    {
+        $probe = $state->deepCopy();
+        $probe->round->hasTakenMainAction = false;
+        $probePlayer = collect($probe->players)->firstWhere('playerId', $player->playerId);
+        if (! $probePlayer instanceof GamePlayerStateData) {
+            return 0;
+        }
+        $probePlayer->resources->tools = PHP_INT_MAX;
+        $costs = [];
+        foreach ($this->buildWorkshopOptionFinder->execute($probe, $probePlayer) as $option) {
+            $costs[] = 1;
+        }
+        foreach ($this->upgradeBuildingOptionFinder->execute($probe, $probePlayer) as $option) {
+            $costs[] = $option->tools;
+        }
+        foreach ($this->paidTerraformingOptionFinder->execute($probe, $probePlayer) as $option) {
+            $costs[] = $option->toolCost;
+        }
+
+        $missingTools = array_filter(array_map(
+            static fn (int $cost): int => $cost - $player->resources->tools,
+            $costs,
+        ), static fn (int $missing): bool => $missing > 0);
+
+        return $missingTools === [] ? 0 : min($missingTools);
+    }
+}

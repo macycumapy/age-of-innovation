@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
-use App\Domain\Game\Actions\PerformPalaceAction;
+use App\Domain\GameEngine\PlayerAbilities\Actions\PerformPalaceAction;
 use App\Http\Requests\UsePalaceActionRequest;
 use App\Models\Game;
 use App\Models\User;

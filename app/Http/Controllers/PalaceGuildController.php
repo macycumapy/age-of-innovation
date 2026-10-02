@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
-use App\Domain\Game\Actions\PlacePalaceGuildAction;
-use App\Domain\Game\Actions\UndoPalaceGuildAction;
+use App\Domain\GameEngine\Board\Actions\PlacePalaceGuildAction;
+use App\Domain\GameEngine\Board\Actions\UndoPalaceGuildAction;
 use App\Http\Requests\PlacePalaceGuildRequest;
 use App\Models\Game;
 use App\Models\User;

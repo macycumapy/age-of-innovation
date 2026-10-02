@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
-use App\Domain\Game\Actions\PerformRoundBonusAction;
+use App\Domain\GameEngine\PlayerAbilities\Actions\PerformRoundBonusAction;
 use App\Http\Requests\UseRoundBonusActionRequest;
 use App\Models\Game;
 use App\Models\User;

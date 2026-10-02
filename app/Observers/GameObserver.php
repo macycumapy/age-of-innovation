@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Observers;
 
-use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\GameStatus;
+use App\Domain\GameEngine\Turns\Enums\GamePhase;
 use App\Jobs\PlayAutomatedTurnJob;
 use App\Models\Game;
 use App\Models\GamePlayer;

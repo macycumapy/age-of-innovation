@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Models;
 
-use App\Domain\Game\Data\GameStateData;
-use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\GameStatus;
+use App\Domain\GameEngine\State\Data\GameStateData;
+use App\Domain\GameEngine\Turns\Enums\GamePhase;
 use App\Models\Builders\GameBuilder;
 use Carbon\CarbonInterface;
 use Database\Factories\GameFactory;

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Requests;
 
-use App\Domain\Game\Enums\PendingInteractionType;
+use App\Domain\GameEngine\Interactions\Enums\PendingInteractionType;
 use App\Models\Game;
 use App\Models\GamePlayer;
 use App\Models\User;

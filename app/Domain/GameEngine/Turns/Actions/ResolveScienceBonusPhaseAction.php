@@ -1,0 +1,126 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Domain\GameEngine\Turns\Actions;
+
+use App\Domain\GameEngine\Board\Actions\FindEligibleTerraformHexesAction;
+use App\Domain\GameEngine\Economy\Actions\GainPowerAction;
+use App\Domain\GameEngine\Economy\Data\IncomeReceiptData;
+use App\Domain\GameEngine\Interactions\Data\PendingInteractionData;
+use App\Domain\GameEngine\Interactions\Enums\PendingInteractionType;
+use App\Domain\GameEngine\Scoring\Actions\ApplyFinalScoringAction;
+use App\Domain\GameEngine\Scoring\Enums\RoundScoringTile;
+use App\Domain\GameEngine\State\Data\GamePlayerStateData;
+use App\Domain\GameEngine\State\Data\GameStateData;
+use App\Domain\GameEngine\Turns\Enums\GamePhase;
+use Illuminate\Validation\ValidationException;
+
+final class ResolveScienceBonusPhaseAction
+{
+    public function __construct(
+        private FindEligibleTerraformHexesAction $findEligibleTerraformHexes,
+        private GainPowerAction $gainPower,
+        private StartNextRoundAction $startNextRound,
+        private ApplyFinalScoringAction $applyFinalScoring,
+    ) {
+    }
+
+    /**
+     * @return array{GamePlayerStateData|null, GamePhase, list<IncomeReceiptData>, list<array{playerId: int, victoryPoints: int, sources: list<array{source: string, id: string, value: int, rank: int, points: int}>}>, list<array<string, int|string>>}
+     */
+    public function execute(GameStateData $state): array
+    {
+        if ($state->round->number >= 6) {
+            $state->pendingInteraction = null;
+            $state->round->scienceBonusReceipts = [];
+            $finalScoring = $this->applyFinalScoring->execute($state);
+            $state->round->phase = GamePhase::Finished;
+
+            return [null, GamePhase::Finished, [], $finalScoring, []];
+        }
+
+        $scoringTile = RoundScoringTile::tryFrom((string) $state->round->scoringTileId);
+
+        if ($scoringTile === null) {
+            throw ValidationException::withMessages(['game' => 'Не найдена научная цель текущего раунда.']);
+        }
+
+        if ($state->round->scienceBonusTurnIndex === 0) {
+            $state->round->scienceBonusReceipts = [];
+        }
+
+        while ($state->round->scienceBonusTurnIndex < count($state->turnOrder)) {
+            $playerId = $state->turnOrder[$state->round->scienceBonusTurnIndex];
+            $playerState = collect($state->players)->firstWhere('playerId', $playerId);
+
+            if (! $playerState instanceof GamePlayerStateData) {
+                throw ValidationException::withMessages(['game' => 'Нарушен порядок научных бонусов.']);
+            }
+
+            $knowledgeLevel = $playerState->knowledge->{$scoringTile->knowledgeDiscipline()->value};
+            $scienceBonusKnowledgeLevel = $playerState->faction->scienceBonusKnowledgeLevel($knowledgeLevel);
+            $reward = $scoringTile->scienceBonus($scienceBonusKnowledgeLevel);
+            $scholarsBefore = $playerState->resources->scholars;
+            $playerState->resources->coins += $reward['coins'];
+            $playerState->resources->tools += $reward['tools'];
+            $playerState->resources->scholars = min(
+                $playerState->scholarPoolSize,
+                $playerState->resources->scholars + $reward['scholars'],
+            );
+            $gainedPower = $this->gainPower->execute($playerState, $reward['power']);
+            $state->round->scienceBonusReceipts[] = [
+                'player_id' => $playerId,
+                'round' => $state->round->number,
+                'round_scoring_tile' => $scoringTile->value,
+                'discipline' => $scoringTile->knowledgeDiscipline()->value,
+                'knowledge_level' => $knowledgeLevel,
+                'coins' => $reward['coins'],
+                'tools' => $reward['tools'],
+                'scholars' => $playerState->resources->scholars - $scholarsBefore,
+                'power' => $gainedPower,
+                'books' => $reward['books'],
+                'spades' => $reward['spades'],
+            ];
+            $state->round->scienceBonusTurnIndex++;
+
+            if ($reward['books'] > 0) {
+                $playerState->resources->books->unassigned += $reward['books'];
+                $state->pendingInteraction = new PendingInteractionData(
+                    PendingInteractionType::ChooseScienceBonusBooks,
+                    $playerId,
+                    [],
+                    ['bookCount' => $reward['books']],
+                );
+
+                return [$playerState, GamePhase::ScienceBonus, [], [], []];
+            }
+
+            if ($reward['spades'] > 0) {
+                $options = $this->findEligibleTerraformHexes->execute($state, $playerState, $playerState->homeland);
+
+                if ($options !== []) {
+                    $playerState->unassignedSpades += $reward['spades'];
+                    $state->pendingInteraction = new PendingInteractionData(
+                        PendingInteractionType::SpendSpades,
+                        $playerId,
+                        $options,
+                        [
+                            'phase' => GamePhase::ScienceBonus->value,
+                            'remainingSpades' => $reward['spades'],
+                            'targetTerrain' => $playerState->homeland->value,
+                        ],
+                    );
+
+                    return [$playerState, GamePhase::ScienceBonus, [], [], []];
+                }
+            }
+        }
+
+        $state->pendingInteraction = null;
+        $scienceBonusReceipts = $state->round->scienceBonusReceipts;
+        $state->round->scienceBonusReceipts = [];
+
+        return [...$this->startNextRound->execute($state), [], $scienceBonusReceipts];
+    }
+}

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
-use App\Domain\Game\Actions\ExchangeResourcesAction;
+use App\Domain\GameEngine\Economy\Actions\ExchangeResourcesAction;
 use App\Http\Requests\ExchangeResourcesRequest;
 use App\Models\Game;
 use App\Models\User;

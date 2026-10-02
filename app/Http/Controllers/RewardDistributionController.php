@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
-use App\Domain\Game\Actions\DistributeRewardsAction;
+use App\Domain\GameEngine\Interactions\Actions\DistributeRewardsAction;
 use App\Http\Requests\DistributeRewardsRequest;
 use App\Models\Game;
 use App\Models\User;

@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace App\Http\Requests;
 
-use App\Domain\Game\Data\BoardHexStateData;
-use App\Domain\Game\Data\GamePlayerStateData;
-use App\Domain\Game\Enums\BuildingType;
-use App\Domain\Game\Enums\KnowledgeDiscipline;
-use App\Domain\Game\Enums\RoundBonus;
+use App\Domain\GameEngine\Board\Data\BoardHexStateData;
+use App\Domain\GameEngine\Board\Enums\BuildingType;
+use App\Domain\GameEngine\PlayerAbilities\Enums\RoundBonus;
+use App\Domain\GameEngine\Research\Enums\KnowledgeDiscipline;
+use App\Domain\GameEngine\State\Data\GamePlayerStateData;
 use App\Models\Game;
 use App\Models\GamePlayer;
 use Illuminate\Foundation\Http\FormRequest;

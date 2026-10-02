@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
-use App\Domain\Game\Actions\PerformPowerActionAction;
+use App\Domain\GameEngine\Economy\Actions\PerformPowerActionAction;
 use App\Http\Requests\UsePowerActionRequest;
 use App\Models\Game;
 use App\Models\User;

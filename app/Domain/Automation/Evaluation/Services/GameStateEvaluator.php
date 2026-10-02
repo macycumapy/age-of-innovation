@@ -1,0 +1,162 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Domain\Automation\Evaluation\Services;
+
+use App\Domain\Automation\Evaluation\Data\GameStateScoreData;
+use App\Domain\GameEngine\Economy\Data\IncomeReceiptData;
+use App\Domain\GameEngine\Economy\Services\PlayerIncomeCalculator;
+use App\Domain\GameEngine\PlayerAbilities\Enums\RoundBonus;
+use App\Domain\GameEngine\Research\Enums\KnowledgeDiscipline;
+use App\Domain\GameEngine\State\Data\GamePlayerStateData;
+use App\Domain\GameEngine\State\Data\GameStateData;
+use App\Domain\GameEngine\Turns\Enums\GamePhase;
+use InvalidArgumentException;
+
+final class GameStateEvaluator
+{
+    private const int VICTORY_POINT_WEIGHT = 10;
+
+    private const int COIN_WEIGHT = 10;
+
+    private const int TOOL_WEIGHT = 30;
+
+    private const int SCHOLAR_WEIGHT = 40;
+
+    private const int BOOK_WEIGHT = 25;
+
+    private const int BOWL_ONE_POWER_WEIGHT = 1;
+
+    private const int BOWL_TWO_POWER_WEIGHT = 4;
+
+    private const int BOWL_THREE_POWER_WEIGHT = 8;
+
+    private const int KNOWLEDGE_STEP_WEIGHT = 30;
+
+    private const int KNOWLEDGE_PROGRESS_WEIGHT = 4;
+
+    private const int DEVELOPMENT_STEP_WEIGHT = 50;
+
+    private const int SPADE_WEIGHT = 30;
+
+    private const int AVAILABLE_ANNEX_WEIGHT = 10;
+
+    private const int TOWN_WEIGHT = 80;
+
+    private const int COMPETENCY_WEIGHT = 50;
+
+    private const int INVENTION_WEIGHT = 70;
+
+    private const int PLACED_SCHOLAR_WEIGHT = 40;
+
+    private const int BUILDING_POWER_WEIGHT = 40;
+
+    private const int PLACED_ANNEX_WEIGHT = 25;
+
+    public function execute(GameStateData $state, int $playerId): int
+    {
+        return $this->evaluateWithBreakdown($state, $playerId)->total();
+    }
+
+    public function evaluateWithBreakdown(GameStateData $state, int $playerId): GameStateScoreData
+    {
+        $player = collect($state->players)->firstWhere('playerId', $playerId);
+
+        if (! $player instanceof GamePlayerStateData) {
+            throw new InvalidArgumentException('Не найдено состояние игрока для оценки.');
+        }
+
+        $playerScore = $this->playerScore($state, $player);
+        $strongestOpponentScore = collect($state->players)
+            ->reject(static fn (GamePlayerStateData $candidate): bool => $candidate->playerId === $playerId)
+            ->map(fn (GamePlayerStateData $candidate): int => $this->playerScore($state, $candidate)->total())
+            ->max();
+
+        return new GameStateScoreData(
+            victoryPoints: $playerScore->victoryPoints,
+            resources: $playerScore->resources,
+            development: $playerScore->development,
+            buildings: $playerScore->buildings,
+            futureIncome: $playerScore->futureIncome,
+            opponent: is_int($strongestOpponentScore) ? $strongestOpponentScore : 0,
+        );
+    }
+
+    private function playerScore(GameStateData $state, GamePlayerStateData $player): GameStateScoreData
+    {
+        $books = $player->resources->books;
+        $power = $player->resources->power;
+        $score = $player->resources->coins * self::COIN_WEIGHT;
+        $score += $player->resources->tools * self::TOOL_WEIGHT;
+        $score += $player->resources->scholars * self::SCHOLAR_WEIGHT;
+        $score += ($books->banking + $books->law + $books->engineering + $books->medicine + $books->unassigned)
+            * self::BOOK_WEIGHT;
+        $score += ($power->bowlOne * self::BOWL_ONE_POWER_WEIGHT)
+            + ($power->bowlTwo * self::BOWL_TWO_POWER_WEIGHT)
+            + ($power->bowlThree * self::BOWL_THREE_POWER_WEIGHT);
+        $score += $player->unassignedSpades * self::SPADE_WEIGHT;
+        $score += $player->availableAnnexes * self::AVAILABLE_ANNEX_WEIGHT;
+        $resourceScore = $score;
+        $score = $player->knowledge->unassignedSteps * self::KNOWLEDGE_STEP_WEIGHT;
+
+        foreach (KnowledgeDiscipline::cases() as $discipline) {
+            $level = $player->knowledge->{$discipline->value};
+            $score += ($level * self::KNOWLEDGE_STEP_WEIGHT)
+                + ($level ** 2 * self::KNOWLEDGE_PROGRESS_WEIGHT);
+        }
+
+        $score += ($player->shippingLevel + $player->terraformingLevel) * self::DEVELOPMENT_STEP_WEIGHT;
+        $score += count($player->townTileIds) * self::TOWN_WEIGHT;
+        $score += count($player->competencyIds) * self::COMPETENCY_WEIGHT;
+        $score += count($player->inventionIds) * self::INVENTION_WEIGHT;
+        $score += count($player->scholarDisciplineIds) * self::PLACED_SCHOLAR_WEIGHT;
+        $developmentScore = $score;
+        $score = 0;
+
+        foreach ($state->board->hexes as $hex) {
+            if ($hex->building?->ownerPlayerId !== $player->playerId) {
+                continue;
+            }
+
+            $score += $hex->building->type->powerValue() * self::BUILDING_POWER_WEIGHT;
+            $score += $hex->building->hasAnnex ? self::PLACED_ANNEX_WEIGHT : 0;
+        }
+
+        return new GameStateScoreData(
+            victoryPoints: $player->victoryPoints * self::VICTORY_POINT_WEIGHT,
+            resources: $resourceScore,
+            development: $developmentScore,
+            buildings: $score,
+            futureIncome: $this->futureIncomeScore($state, $player),
+        );
+    }
+
+    private function futureIncomeScore(GameStateData $state, GamePlayerStateData $player): int
+    {
+        $remainingIncomePhases = $state->round->phase === GamePhase::Setup
+            ? 6
+            : max(0, 6 - $state->round->number);
+
+        if ($remainingIncomePhases === 0) {
+            return 0;
+        }
+
+        $incomePlayer = clone $player;
+        $incomePlayer->roundBonus = RoundBonus::RiverWorkshop;
+        $income = PlayerIncomeCalculator::calculate($incomePlayer, $state->board);
+
+        return $this->incomeScore($income) * $remainingIncomePhases;
+    }
+
+    private function incomeScore(IncomeReceiptData $income): int
+    {
+        return ($income->victoryPoints * self::VICTORY_POINT_WEIGHT)
+            + ($income->coins * self::COIN_WEIGHT)
+            + ($income->tools * self::TOOL_WEIGHT)
+            + ($income->scholars * self::SCHOLAR_WEIGHT)
+            + ($income->books * self::BOOK_WEIGHT)
+            + ($income->power * self::BOWL_TWO_POWER_WEIGHT)
+            + ($income->knowledgeSteps * self::KNOWLEDGE_STEP_WEIGHT);
+    }
+}

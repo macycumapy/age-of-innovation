@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
-use App\Domain\Game\Actions\PlaceStartingBuildingAction;
-use App\Domain\Game\Actions\UndoStartingBuildingAction;
+use App\Domain\GameEngine\Setup\Actions\PlaceStartingBuildingAction;
+use App\Domain\GameEngine\Setup\Actions\UndoStartingBuildingAction;
 use App\Http\Requests\PlaceStartingBuildingRequest;
 use App\Models\Game;
 use App\Models\User;

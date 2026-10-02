@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
-use App\Domain\Game\Actions\SpendStartingSpadeAction;
-use App\Domain\Game\Actions\StartPaidTerraformingAction;
+use App\Domain\GameEngine\Board\Actions\SpendStartingSpadeAction;
+use App\Domain\GameEngine\Board\Actions\StartPaidTerraformingAction;
 use App\Http\Requests\StartPaidTerraformingRequest;
 use App\Models\Game;
 use App\Models\User;

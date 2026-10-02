@@ -1,0 +1,180 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Domain\GameEngine\Economy\Actions;
+
+use App\Domain\GameEngine\Board\Actions\ApplyBuildingBonusesAction;
+use App\Domain\GameEngine\Board\Actions\FindEligibleTerraformHexesAction;
+use App\Domain\GameEngine\Board\Data\BoardHexStateData;
+use App\Domain\GameEngine\Board\Enums\BuildingType;
+use App\Domain\GameEngine\Economy\Data\BookActionResultData;
+use App\Domain\GameEngine\Economy\Enums\BookAction;
+use App\Domain\GameEngine\Interactions\Actions\CreateBuildingFollowUpInteractionAction;
+use App\Domain\GameEngine\Interactions\Data\PendingInteractionData;
+use App\Domain\GameEngine\Interactions\Enums\PendingInteractionType;
+use App\Domain\GameEngine\Research\Actions\AdvanceKnowledgeAction;
+use App\Domain\GameEngine\Research\Enums\KnowledgeDiscipline;
+use App\Domain\GameEngine\State\Data\GamePlayerStateData;
+use App\Domain\GameEngine\State\Data\GameStateData;
+use App\Domain\GameEngine\Turns\Enums\GamePhase;
+use Illuminate\Validation\ValidationException;
+
+final class ApplyBookActionAction
+{
+    public function __construct(
+        private AdvanceKnowledgeAction $advanceKnowledge,
+        private ApplyBuildingBonusesAction $applyBuildingBonuses,
+        private CreateBuildingFollowUpInteractionAction $createBuildingFollowUpInteraction,
+        private FindEligibleTerraformHexesAction $findEligibleTerraformHexes,
+        private GainPowerAction $gainPower,
+    ) {
+    }
+
+    /** @param array<string, int> $bookCounts */
+    public function execute(
+        GameStateData $state,
+        GamePlayerStateData $playerState,
+        BookAction $action,
+        array $bookCounts,
+        ?KnowledgeDiscipline $discipline,
+        ?string $hexId,
+    ): BookActionResultData {
+        $availableActionIds = $state->setupPool === null
+            ? []
+            : array_map(
+                $this->bookActionId(...),
+                $state->setupPool->bookActions,
+            );
+
+        if (! in_array($action->value, $availableActionIds, true)
+            || in_array($action->value, $state->round->usedBookActionIds, true)) {
+            throw ValidationException::withMessages(['action' => 'Это действие за книги недоступно.']);
+        }
+
+        $this->spendBooks($playerState, $action, $bookCounts);
+        $victoryPoints = 0;
+        $buildingBonusPoints = 0;
+        $buildingBonusCoins = 0;
+        $gainedPower = 0;
+        $nextActivePlayerId = $playerState->playerId;
+
+        if ($action === BookAction::GainPower) {
+            $this->gainPower->execute($playerState, 5);
+        } elseif ($action === BookAction::AdvanceKnowledge) {
+            if ($discipline === null) {
+                throw ValidationException::withMessages(['discipline' => 'Выберите дисциплину знаний.']);
+            }
+
+            $knowledgeAdvance = $this->advanceKnowledge->execute($state, $playerState, $discipline, 2);
+            $gainedPower = $knowledgeAdvance->gainedPower;
+            $victoryPoints += $knowledgeAdvance->victoryPoints;
+            $playerState->victoryPoints += $knowledgeAdvance->victoryPoints;
+        } elseif ($action === BookAction::GainCoins) {
+            $playerState->resources->coins += 6;
+        } elseif ($action === BookAction::UpgradeToGuild) {
+            $hex = collect($state->board->hexes)->firstWhere('id', $hexId);
+            $guildCount = count(array_filter(
+                $state->board->hexes,
+                static fn (BoardHexStateData $candidate): bool => $candidate->building?->ownerPlayerId === $playerState->playerId
+                    && $candidate->building->type === BuildingType::Guild
+                    && ! $candidate->building->isNeutral,
+            ));
+
+            if (! $hex instanceof BoardHexStateData
+                || $hex->building?->ownerPlayerId !== $playerState->playerId
+                || $hex->building->isNeutral
+                || $hex->building->type !== BuildingType::Workshop
+                || $guildCount >= BuildingType::Guild->supplyLimit()) {
+                throw ValidationException::withMessages(['hex_id' => 'Выберите свою мастерскую.']);
+            }
+
+            $hex->building->type = BuildingType::Guild;
+            $bonuses = $this->applyBuildingBonuses->execute($state, $playerState, $hex, BuildingType::Guild);
+            $buildingBonusPoints = $bonuses['victoryPoints'];
+            $buildingBonusCoins = $bonuses['coins'];
+            $nextActivePlayerId = $this->createBuildingFollowUpInteraction->execute(
+                $state,
+                $playerState,
+                $hex->id,
+                BuildingType::Guild,
+            );
+        } elseif ($action === BookAction::ScoreGuilds) {
+            $guildCount = count(array_filter(
+                $state->board->hexes,
+                static fn (BoardHexStateData $hex): bool => $hex->building?->ownerPlayerId === $playerState->playerId
+                    && $hex->building->type === BuildingType::Guild,
+            ));
+            $victoryPoints = $guildCount * 2;
+            $playerState->victoryPoints += $victoryPoints;
+        } elseif ($action === BookAction::TerraformThreeSpades) {
+            $playerState->unassignedSpades += 3;
+            $eligibleHexIds = $this->findEligibleTerraformHexes->execute(
+                $state,
+                $playerState,
+                $playerState->homeland,
+            );
+
+            if ($eligibleHexIds !== []) {
+                $state->pendingInteraction = new PendingInteractionData(
+                    PendingInteractionType::SpendSpades,
+                    $playerState->playerId,
+                    $eligibleHexIds,
+                    [
+                        'phase' => GamePhase::Actions->value,
+                        'spadeCount' => 3,
+                        'remainingSpades' => 3,
+                        'targetTerrain' => $playerState->homeland->value,
+                    ],
+                );
+            }
+        }
+
+        $state->round->usedBookActionIds[] = $action->value;
+        $state->round->hasTakenMainAction = true;
+
+        return new BookActionResultData(
+            $nextActivePlayerId,
+            $victoryPoints,
+            $buildingBonusPoints,
+            $buildingBonusCoins,
+            $gainedPower,
+        );
+    }
+
+    private function bookActionId(mixed $action): string
+    {
+        return $action instanceof BookAction ? $action->value : (string) $action;
+    }
+
+    /** @param array<string, int> $bookCounts */
+    private function spendBooks(
+        GamePlayerStateData $playerState,
+        BookAction $action,
+        array $bookCounts,
+    ): void {
+        $normalizedCounts = [];
+
+        foreach (KnowledgeDiscipline::cases() as $bookType) {
+            $bookTypeValue = $bookType->value;
+            $count = (int) ($bookCounts[$bookTypeValue] ?? 0);
+            $available = $playerState->resources->books->{$bookTypeValue};
+
+            if ($count < 0 || $count > $available) {
+                throw ValidationException::withMessages(['book_counts' => 'Недостаточно выбранных книг.']);
+            }
+
+            $normalizedCounts[$bookTypeValue] = $count;
+        }
+
+        if (array_sum($normalizedCounts) !== $action->cost()) {
+            throw ValidationException::withMessages([
+                'book_counts' => "Для действия нужно выбрать {$action->cost()} книг.",
+            ]);
+        }
+
+        foreach ($normalizedCounts as $bookType => $count) {
+            $playerState->resources->books->{$bookType} -= $count;
+        }
+    }
+}

@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
-use App\Domain\Game\Actions\SpendStartingSpadeAction;
-use App\Domain\Game\Actions\UndoStartingSpadeAction;
+use App\Domain\GameEngine\Board\Actions\SpendStartingSpadeAction;
+use App\Domain\GameEngine\Board\Actions\UndoStartingSpadeAction;
 use App\Http\Requests\SpendStartingSpadeRequest;
 use App\Models\Game;
 use App\Models\User;

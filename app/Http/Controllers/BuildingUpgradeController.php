@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
-use App\Domain\Game\Actions\UpgradeBuildingAction;
-use App\Domain\Game\Enums\BuildingType;
+use App\Domain\GameEngine\Board\Actions\UpgradeBuildingAction;
+use App\Domain\GameEngine\Board\Enums\BuildingType;
 use App\Http\Requests\UpgradeBuildingRequest;
 use App\Models\Game;
 use App\Models\User;

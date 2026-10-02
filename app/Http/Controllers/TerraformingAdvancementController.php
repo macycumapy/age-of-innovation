@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
-use App\Domain\Game\Actions\PerformAdvanceTerraformingAction;
+use App\Domain\GameEngine\Research\Actions\PerformAdvanceTerraformingAction;
 use App\Http\Requests\AdvanceTerraformingRequest;
 use App\Models\Game;
 use App\Models\User;

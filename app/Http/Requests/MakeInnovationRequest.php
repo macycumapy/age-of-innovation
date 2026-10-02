@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Requests;
 
-use App\Domain\Game\Enums\Innovation;
+use App\Domain\GameEngine\Research\Enums\Innovation;
 use App\Models\Game;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
-use App\Domain\Game\Actions\RollbackGameHistoryAction;
+use App\Domain\GameEngine\History\Actions\RollbackGameHistoryAction;
 use App\Http\Requests\RollbackGameHistoryRequest;
 use App\Models\Game;
 use App\Models\GameAction;

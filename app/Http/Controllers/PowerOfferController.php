@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
-use App\Domain\Game\Actions\ResolvePowerOfferAction;
+use App\Domain\GameEngine\Economy\Actions\ResolvePowerOfferAction;
 use App\Http\Requests\ResolvePowerOfferRequest;
 use App\Models\Game;
 use App\Models\User;

@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
-use App\Domain\Game\Actions\StageBridgeAction;
-use App\Domain\Game\Actions\UndoBridgeAction;
+use App\Domain\GameEngine\Board\Actions\StageBridgeAction;
+use App\Domain\GameEngine\Board\Actions\UndoBridgeAction;
 use App\Http\Requests\StageBridgeRequest;
 use App\Models\Game;
 use App\Models\User;

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
-use App\Domain\Game\Actions\PerformBookActionAction;
+use App\Domain\GameEngine\Economy\Actions\PerformBookActionAction;
 use App\Http\Requests\UseBookActionRequest;
 use App\Models\Game;
 use App\Models\User;

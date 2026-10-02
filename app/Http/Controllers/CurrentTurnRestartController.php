@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
-use App\Domain\Game\Actions\RestartCurrentTurnAction;
+use App\Domain\GameEngine\History\Actions\RestartCurrentTurnAction;
 use App\Http\Requests\RestartCurrentTurnRequest;
 use App\Models\Game;
 use App\Models\User;

@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Http\Requests;
 
-use App\Domain\Game\Enums\Competency;
-use App\Domain\Game\Enums\KnowledgeDiscipline;
-use App\Domain\Game\Enums\PendingInteractionType;
+use App\Domain\GameEngine\Interactions\Enums\PendingInteractionType;
+use App\Domain\GameEngine\Research\Enums\Competency;
+use App\Domain\GameEngine\Research\Enums\KnowledgeDiscipline;
 use App\Models\Game;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
-use App\Domain\Game\Actions\PerformAdvanceShippingAction;
+use App\Domain\GameEngine\Research\Actions\PerformAdvanceShippingAction;
 use App\Http\Requests\AdvanceShippingRequest;
 use App\Models\Game;
 use App\Models\User;

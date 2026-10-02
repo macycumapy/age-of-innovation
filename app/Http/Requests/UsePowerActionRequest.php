@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Requests;
 
-use App\Domain\Game\Enums\PowerAction;
+use App\Domain\GameEngine\Economy\Enums\PowerAction;
 use App\Models\Game;
 use App\Models\GamePlayer;
 use App\Models\User;

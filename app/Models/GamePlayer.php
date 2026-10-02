@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace App\Models;
 
-use App\Domain\Game\Enums\Faction;
 use App\Domain\Game\Enums\GameBotDifficulty;
-use App\Domain\Game\Enums\PlayerColor;
-use App\Domain\Game\Enums\TerrainType;
+use App\Domain\GameEngine\Board\Enums\TerrainType;
+use App\Domain\GameEngine\PlayerAbilities\Enums\Faction;
+use App\Domain\GameEngine\State\Enums\PlayerColor;
 use Database\Factories\GamePlayerFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;

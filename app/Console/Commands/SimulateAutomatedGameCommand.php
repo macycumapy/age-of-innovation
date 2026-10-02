@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
-use App\Domain\Game\Data\AutomatedGameDecisionData;
-use App\Domain\Game\Data\AutomatedGameSimulationResultData;
-use App\Domain\Game\Enums\AutomatedGamePassReason;
-use App\Domain\Game\Services\AutomatedGameReportBuilder;
-use App\Domain\Game\Services\AutomatedGameSimulator;
+use App\Domain\Automation\Data\AutomatedGameDecisionData;
+use App\Domain\Automation\Data\AutomatedGameSimulationResultData;
+use App\Domain\Automation\Enums\AutomatedGamePassReason;
+use App\Domain\Automation\Services\AutomatedGameReportBuilder;
+use App\Domain\Automation\Services\AutomatedGameSimulator;
 use App\Models\Game;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;

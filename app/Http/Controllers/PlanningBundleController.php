@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
-use App\Domain\Game\Actions\ChoosePlanningBundleAction;
+use App\Domain\GameEngine\Setup\Actions\ChoosePlanningBundleAction;
 use App\Http\Requests\ChoosePlanningBundleRequest;
 use App\Models\Game;
 use App\Models\User;

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
-use App\Domain\Game\Actions\ChooseTownAction;
+use App\Domain\GameEngine\Towns\Actions\ChooseTownAction;
 use App\Http\Requests\ChooseTownRequest;
 use App\Models\Game;
 use App\Models\User;

@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Domain\Game\Actions;
 
-use App\Domain\Game\Data\GameStateData;
-use App\Domain\Game\Enums\MapVariant;
-use App\Domain\Game\Factories\BoardStateFactory;
+use App\Domain\GameEngine\Board\Enums\MapVariant;
+use App\Domain\GameEngine\Board\Factories\BoardStateFactory;
+use App\Domain\GameEngine\State\Data\GameStateData;
 use App\Models\Game;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;

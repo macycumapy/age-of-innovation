@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
-use App\Domain\Game\Actions\ResolvePalaceWaterTownAction;
+use App\Domain\GameEngine\Towns\Actions\ResolvePalaceWaterTownAction;
 use App\Http\Requests\ResolvePalaceWaterTownRequest;
 use App\Models\Game;
 use App\Models\User;

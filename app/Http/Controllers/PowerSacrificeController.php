@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
-use App\Domain\Game\Actions\SacrificePowerAction;
+use App\Domain\GameEngine\Economy\Actions\SacrificePowerAction;
 use App\Http\Requests\SacrificePowerRequest;
 use App\Models\Game;
 use App\Models\User;

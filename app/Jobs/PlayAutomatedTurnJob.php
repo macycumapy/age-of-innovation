@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Jobs;
 
-use App\Domain\Game\Actions\PlayAutomatedTurnAction;
+use App\Domain\Automation\Actions\PlayAutomatedTurnAction;
 use App\Events\GameChanged;
 use App\Models\Game;
 use App\Models\GamePlayer;

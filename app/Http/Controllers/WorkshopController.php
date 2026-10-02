@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
-use App\Domain\Game\Actions\BuildWorkshopAction;
+use App\Domain\GameEngine\Board\Actions\BuildWorkshopAction;
 use App\Http\Requests\BuildWorkshopRequest;
 use App\Models\Game;
 use App\Models\User;

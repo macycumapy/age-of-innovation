@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
-use App\Domain\Game\Actions\ConfirmAnnexPlacementAction;
+use App\Domain\GameEngine\Board\Actions\ConfirmAnnexPlacementAction;
 use App\Http\Requests\StartAnnexPlacementRequest;
 use App\Models\Game;
 use App\Models\User;

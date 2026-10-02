@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Resources;
 
 use App\Domain\Game\Enums\GameStatus;
-use App\Domain\Game\Enums\MapVariant;
+use App\Domain\GameEngine\Board\Enums\MapVariant;
 use App\Models\Game;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;

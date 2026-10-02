@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
-use App\Domain\Game\Actions\UndoLastGameAction;
+use App\Domain\GameEngine\History\Actions\UndoLastGameAction;
 use App\Http\Requests\UndoLastGameActionRequest;
 use App\Models\Game;
 use Illuminate\Http\Response;

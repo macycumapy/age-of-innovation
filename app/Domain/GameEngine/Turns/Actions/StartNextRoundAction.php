@@ -1,0 +1,45 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Domain\GameEngine\Turns\Actions;
+
+use App\Domain\GameEngine\Economy\Data\IncomeReceiptData;
+use App\Domain\GameEngine\State\Data\GamePlayerStateData;
+use App\Domain\GameEngine\State\Data\GameStateData;
+use App\Domain\GameEngine\Turns\Enums\GamePhase;
+use BackedEnum;
+
+final class StartNextRoundAction
+{
+    public function __construct(private ResolveIncomePhaseAction $resolveIncomePhase)
+    {
+    }
+
+    /**
+     * @return array{GamePlayerStateData, GamePhase, list<IncomeReceiptData>}
+     */
+    public function execute(GameStateData $state): array
+    {
+        foreach ($state->setupPool?->availableRoundBonuses ?? [] as $roundBonus) {
+            $roundBonus->coins++;
+        }
+
+        foreach ($state->players as $playerState) {
+            $playerState->usedSpecialActionIds = [];
+        }
+
+        $state->round->number++;
+        $scoringTile = $state->setupPool?->roundScoringTiles[$state->round->number - 1] ?? null;
+        $state->round->scoringTileId = $scoringTile instanceof BackedEnum ? (string) $scoringTile->value : $scoringTile;
+        $state->round->usedSharedActionIds = [];
+        $state->round->usedBookActionIds = [];
+        $state->round->incomeTurnIndex = 0;
+        $state->round->incomeOrder = [];
+        $state->round->incomeReceipts = [];
+        $state->round->scienceBonusTurnIndex = 0;
+        $state->round->phase = GamePhase::Income;
+
+        return $this->resolveIncomePhase->execute($state);
+    }
+}

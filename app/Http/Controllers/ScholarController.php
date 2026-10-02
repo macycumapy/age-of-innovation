@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
-use App\Domain\Game\Actions\SendScholarAction;
+use App\Domain\GameEngine\Research\Actions\SendScholarAction;
 use App\Http\Requests\SendScholarRequest;
 use App\Models\Game;
 use App\Models\User;
