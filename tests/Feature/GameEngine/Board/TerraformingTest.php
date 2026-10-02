@@ -354,7 +354,14 @@ class TerraformingTest extends TestCase
         $this->assertSame(TerrainType::Forest, $game->state->board->hexes[2]->terrain);
     }
 
-    public function test_moles_can_confirm_two_tunnels_on_different_hexes_and_rollback_the_second_selection(): void
+    /** @return array<string, array{bool}> */
+    public static function repeatedSpecialReachProvider(): array
+    {
+        return ['tunnels' => [false], 'flights' => [true]];
+    }
+
+    #[DataProvider('repeatedSpecialReachProvider')]
+    public function test_two_special_reaches_on_different_hexes_can_be_confirmed_and_second_selection_rolled_back(bool $useFlight): void
     {
         $user = User::factory()->create();
         $game = Game::factory()->create([
@@ -416,9 +423,10 @@ class TerraformingTest extends TestCase
                 faction: Faction::Moles,
                 homeland: TerrainType::Mountain,
                 roundBonus: RoundBonus::Coins,
-                resources: new PlayerResourcesData(tools: 2),
+                resources: new PlayerResourcesData(tools: $useFlight ? 0 : 2, scholars: $useFlight ? 2 : 0),
                 victoryPoints: 20,
                 unassignedSpades: 2,
+                palaceId: $useFlight ? PalaceAbility::Palace09->value : null,
             )],
             pendingInteraction: new PendingInteractionData(
                 PendingInteractionType::SpendSpades,
@@ -428,8 +436,11 @@ class TerraformingTest extends TestCase
             ),
         )]);
 
+        $reachParameter = $useFlight ? 'use_flight' : 'use_tunnel';
+        $expectedVictoryPoints = $useFlight ? 30 : 26;
+
         $this->actingAs($user)->post(route('games.paid-terraforming', $game), [
-            'hex_id' => '2:0', 'use_tunnel' => true,
+            'hex_id' => '2:0', $reachParameter => true,
         ])->assertNoContent();
         $this->assertSame(0, $game->actions()->count());
         $this->post(route('games.starting-spade.finish', $game))->assertNoContent();
@@ -439,11 +450,12 @@ class TerraformingTest extends TestCase
         $beforeSecondSelection = $game->state->toArray();
 
         $this->post(route('games.paid-terraforming', $game), [
-            'hex_id' => '0:2', 'use_tunnel' => true,
+            'hex_id' => '0:2', $reachParameter => true,
         ])->assertNoContent();
         $game->refresh();
         $this->assertSame(0, $game->state->players[0]->resources->tools);
-        $this->assertSame(26, $game->state->players[0]->victoryPoints);
+        $this->assertSame(0, $game->state->players[0]->resources->scholars);
+        $this->assertSame($expectedVictoryPoints, $game->state->players[0]->victoryPoints);
         $this->assertSame(1, $game->actions()->count());
 
         $this->delete(route('games.starting-spade.destroy', $game))->assertNoContent();
@@ -452,20 +464,23 @@ class TerraformingTest extends TestCase
         $this->assertSame(1, $game->actions()->count());
 
         $this->post(route('games.paid-terraforming', $game), [
-            'hex_id' => '0:2', 'use_tunnel' => true,
+            'hex_id' => '0:2', $reachParameter => true,
         ])->assertNoContent();
         $this->post(route('games.starting-spade.finish', $game))->assertNoContent();
         $game->refresh();
         $this->assertSame(0, $game->state->players[0]->unassignedSpades);
         $this->assertSame(0, $game->state->players[0]->resources->tools);
-        $this->assertSame(26, $game->state->players[0]->victoryPoints);
+        $this->assertSame(0, $game->state->players[0]->resources->scholars);
+        $this->assertSame($expectedVictoryPoints, $game->state->players[0]->victoryPoints);
         $this->assertSame(TerrainType::Mountain, $game->state->board->hexes[3]->terrain);
         $this->assertSame(TerrainType::Mountain, $game->state->board->hexes[4]->terrain);
         $actions = $game->actions()->orderBy('sequence')->get();
         $this->assertCount(2, $actions);
         $this->assertSame(['2:0', '0:2'], $actions->pluck('payload.hex_id')->all());
-        $this->assertSame([1, 1], $actions->pluck('payload.tunnel_tools')->all());
-        $this->assertSame([3, 3], $actions->pluck('payload.tunnel_victory_points')->all());
+        $costKey = $useFlight ? 'flight_scholar_cost' : 'tunnel_tools';
+        $pointsKey = $useFlight ? 'flight_victory_points' : 'tunnel_victory_points';
+        $this->assertSame([1, 1], $actions->pluck('payload.'.$costKey)->all());
+        $this->assertSame($useFlight ? [5, 5] : [3, 3], $actions->pluck('payload.'.$pointsKey)->all());
     }
 
     public function test_palace_nine_flight_can_be_selected_rolled_back_and_confirmed(): void

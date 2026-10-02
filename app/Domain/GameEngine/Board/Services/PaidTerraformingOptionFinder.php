@@ -73,9 +73,7 @@ final class PaidTerraformingOptionFinder
         $modes = [
             [false, false, $regularHexIds],
             [true, false, $this->findEligibleMoleTunnelHexes->execute($state, $player)],
-            [false, true, $isExistingSpadeInteraction && ($interaction?->context['flightUsed'] ?? false)
-                ? []
-                : $this->findEligiblePalaceFlightHexes->execute($state, $player)],
+            [false, true, $this->findEligiblePalaceFlightHexes->execute($state, $player)],
         ];
         $options = [];
         $toolCostPerSpade = max(1, 3 - $player->terraformingLevel);

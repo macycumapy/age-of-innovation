@@ -70,9 +70,6 @@ final class ApplySpendSpadesAction
         if ($terrainAfter === $player->homeland) {
             $buildableHexIds[] = $matchingOption->hexId;
         }
-        if ((int) ($interaction->context['flightScholarCost'] ?? 0) > 0) {
-            $interaction->context['flightUsed'] = true;
-        }
 
         $this->clearSelectionContext($interaction);
         $interaction->context['remainingSpades'] = $remainingSpades;
@@ -151,12 +148,10 @@ final class ApplySpendSpadesAction
             ...$interaction->optionIds,
             ...$this->findEligibleMoleTunnelHexes->execute($state, $player),
         ]));
-        if (! ($interaction->context['flightUsed'] ?? false)) {
-            $interaction->optionIds = array_values(array_unique([
-                ...$interaction->optionIds,
-                ...$this->findEligiblePalaceFlightHexes->execute($state, $player),
-            ]));
-        }
+        $interaction->optionIds = array_values(array_unique([
+            ...$interaction->optionIds,
+            ...$this->findEligiblePalaceFlightHexes->execute($state, $player),
+        ]));
 
         return $interaction->optionIds !== [];
     }

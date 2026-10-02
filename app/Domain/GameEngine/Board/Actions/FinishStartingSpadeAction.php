@@ -92,9 +92,6 @@ final class FinishStartingSpadeAction
             $flightVictoryPoints = (int) ($interaction->context['flightVictoryPoints'] ?? 0);
             $buildableHexIds = $interaction->context['buildableHexIds'] ?? [];
 
-            if ($flightScholarCost > 0) {
-                $interaction->context['flightUsed'] = true;
-            }
 
             unset(
                 $interaction->context['selectedHexId'],
@@ -130,12 +127,10 @@ final class FinishStartingSpadeAction
                     ...$interaction->optionIds,
                     ...$this->findEligibleMoleTunnelHexes->execute($state, $playerState),
                 ]));
-                if (! ($interaction->context['flightUsed'] ?? false)) {
-                    $interaction->optionIds = array_values(array_unique([
-                        ...$interaction->optionIds,
-                        ...$this->findEligiblePalaceFlightHexes->execute($state, $playerState),
-                    ]));
-                }
+                $interaction->optionIds = array_values(array_unique([
+                    ...$interaction->optionIds,
+                    ...$this->findEligiblePalaceFlightHexes->execute($state, $playerState),
+                ]));
 
                 if ($interaction->optionIds !== []) {
                     $state->pendingInteraction = $interaction;

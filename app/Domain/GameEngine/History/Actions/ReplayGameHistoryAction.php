@@ -893,17 +893,14 @@ final class ReplayGameHistoryAction
                 $this->playerState($state, $player->id),
                 $targetTerrain,
             );
-            $flightUsed = (int) ($action->payload['flight_scholar_cost'] ?? 0) > 0;
             $eligibleHexIds = array_values(array_unique([
                 ...$eligibleHexIds,
                 ...$this->findEligibleMoleTunnelHexes->execute($state, $playerState),
             ]));
-            if (! $flightUsed) {
-                $eligibleHexIds = array_values(array_unique([
-                    ...$eligibleHexIds,
-                    ...$this->findEligiblePalaceFlightHexes->execute($state, $playerState),
-                ]));
-            }
+            $eligibleHexIds = array_values(array_unique([
+                ...$eligibleHexIds,
+                ...$this->findEligiblePalaceFlightHexes->execute($state, $playerState),
+            ]));
             $state->pendingInteraction = new PendingInteractionData(
                 PendingInteractionType::SpendSpades,
                 $player->id,
@@ -914,7 +911,6 @@ final class ReplayGameHistoryAction
                     'targetTerrain' => $targetTerrain->value,
                     'phase' => $interactionPhase->value,
                     'buildableHexIds' => $action->payload['buildable_hex_ids'] ?? [],
-                    'flightUsed' => $flightUsed,
                     ...((bool) ($action->payload['feline_bonus_pending'] ?? false)
                         ? ['felineBonusPending' => true]
                         : []),
