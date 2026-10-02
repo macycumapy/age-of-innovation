@@ -30,6 +30,7 @@ use App\Domain\Game\Enums\PowerAction;
 use App\Domain\Game\Enums\RoundBonus;
 use App\Domain\Game\Enums\RoundScoringTile;
 use App\Domain\Game\Enums\TerrainType;
+use App\Domain\Game\Enums\TownTile;
 use App\Domain\Game\Services\BoardPositionProgressEvaluator;
 use App\Domain\Game\Services\FinalScoringProgressEvaluator;
 use App\Domain\Game\Services\GameActionRanker;
@@ -40,6 +41,77 @@ use Tests\TestCase;
 
 class GameActionRankerTest extends TestCase
 {
+    public function test_a_one_ply_search_prefers_an_upgrade_that_completes_a_town(): void
+    {
+        $state = $this->townUpgradeState();
+        $ranked = app(GameActionRanker::class)->execute($state, 1, depth: 1, auxiliaryActionsRemaining: 0);
+
+        $this->assertSame(GameActionOptionType::UpgradeBuilding, $ranked[0]->option->type());
+        $this->assertSame(210, $ranked[0]->scoreBreakdown->searchAdjustment);
+        $this->assertSame(PendingInteractionType::ChooseTown, $ranked[0]->simulation->state->pendingInteraction?->type);
+        $this->assertSame([], $ranked[0]->simulation->state->players[0]->townTileIds);
+        $this->assertSame([], $state->players[0]->townTileIds);
+        $this->assertNull($state->board->hexes[0]->townId);
+        $this->assertSame($ranked[0]->score, $ranked[0]->scoreBreakdown->total());
+    }
+
+    public function test_a_town_reward_is_not_projected_when_the_town_is_ineligible(): void
+    {
+        $state = $this->townUpgradeState();
+        array_pop($state->board->hexes);
+        $ranked = app(GameActionRanker::class)->execute($state, 1, depth: 1, auxiliaryActionsRemaining: 0);
+        $upgrade = collect($ranked)->first(
+            static fn ($action): bool => $action->option->type() === GameActionOptionType::UpgradeBuilding,
+        );
+
+        $this->assertNotNull($upgrade);
+        $this->assertSame(0, $upgrade->scoreBreakdown->searchAdjustment);
+        $this->assertSame([], $state->players[0]->townTileIds);
+    }
+
+    public function test_a_town_reward_is_not_projected_when_no_tiles_remain(): void
+    {
+        $state = $this->townUpgradeState();
+        $state->availableTownTileIds = [];
+        $ranked = app(GameActionRanker::class)->execute($state, 1, depth: 1, auxiliaryActionsRemaining: 0);
+        $upgrade = collect($ranked)->first(
+            static fn ($action): bool => $action->option->type() === GameActionOptionType::UpgradeBuilding,
+        );
+
+        $this->assertNotNull($upgrade);
+        $this->assertSame(0, $upgrade->scoreBreakdown->searchAdjustment);
+    }
+
+    public function test_a_one_ply_search_includes_a_town_after_a_university_competency(): void
+    {
+        $state = $this->townUpgradeState();
+        $state->board->hexes[0]->building->type = BuildingType::School;
+        $state->players[0]->resources = new PlayerResourcesData(coins: 8, tools: 5);
+        $state->availableCompetencyIds = [Competency::Competency04->value];
+        $ranked = app(GameActionRanker::class)->execute($state, 1, depth: 1, auxiliaryActionsRemaining: 0);
+
+        $this->assertSame(GameActionOptionType::UpgradeBuilding, $ranked[0]->option->type());
+        $this->assertSame(BuildingType::University, $ranked[0]->option->target);
+        $this->assertSame(486, $ranked[0]->scoreBreakdown->searchAdjustment);
+        $this->assertSame([], $ranked[0]->simulation->state->players[0]->townTileIds);
+        $this->assertSame([], $state->players[0]->competencyIds);
+    }
+
+    public function test_projecting_town_rewards_respects_the_search_node_budget(): void
+    {
+        $state = $this->townUpgradeState();
+        $ranker = app(GameActionRanker::class);
+        $ranked = $ranker->execute($state, 1, depth: 1, maxNodes: 1, auxiliaryActionsRemaining: 0);
+
+        $this->assertNotEmpty($ranked);
+        $this->assertSame(1, $ranker->lastVisitedNodes());
+        $this->assertTrue($ranker->lastBudgetExhausted());
+        foreach ($ranked as $action) {
+            $this->assertSame($action->score, $action->scoreBreakdown->total());
+        }
+        $this->assertSame([], $state->players[0]->townTileIds);
+    }
+
     public function test_a_one_ply_search_values_the_competency_awarded_by_a_school(): void
     {
         $state = $this->state();
@@ -765,6 +837,25 @@ class GameActionRankerTest extends TestCase
 
         $this->assertSame(3, $state->players[0]->resources->coins);
         $this->assertSame(4, $copy->players[0]->resources->coins);
+    }
+
+    private function townUpgradeState(): GameStateData
+    {
+        $state = $this->state();
+        $state->turnOrder = [1];
+        $state->round->number = 6;
+        $state->players[0]->resources = new PlayerResourcesData(coins: 6, tools: 2);
+        $state->availableTownTileIds = [TownTile::Coins->value, TownTile::Tools->value];
+        $state->board->hexes = [
+            $this->buildingHex('a', 1, ['b']),
+            $this->buildingHex('b', 1, ['a', 'c']),
+            $this->buildingHex('c', 1, ['b', 'd']),
+            $this->buildingHex('d', 1, ['c']),
+        ];
+        $state->board->hexes[0]->building->type = BuildingType::Guild;
+        $state->board->hexes[1]->building->type = BuildingType::Guild;
+
+        return $state;
     }
 
     private function state(): GameStateData

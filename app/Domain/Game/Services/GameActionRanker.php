@@ -40,6 +40,7 @@ final class GameActionRanker
         private WorkshopAfterTerraformingOptionFinder $workshopAfterTerraformingOptionFinder,
         private ChooseCompetencyOptionFinder $chooseCompetencyOptionFinder,
         private ChoosePalaceOptionFinder $choosePalaceOptionFinder,
+        private ChooseTownOptionFinder $chooseTownOptionFinder,
         private ApplyFinishActionTurnAction $applyFinishActionTurn,
     ) {
     }
@@ -313,6 +314,7 @@ final class GameActionRanker
             PendingInteractionType::BuildWorkshopAfterTerraforming => $this->workshopAfterTerraformingOptionFinder->execute($state, $player),
             PendingInteractionType::ChooseCompetency => $isBuildingReward ? $this->chooseCompetencyOptionFinder->execute($state, $player) : [],
             PendingInteractionType::ChoosePalace => $isBuildingReward ? $this->choosePalaceOptionFinder->execute($state, $player) : [],
+            PendingInteractionType::ChooseTown => $this->chooseTownOptionFinder->execute($state, $player->playerId),
             default => [],
         };
         if ($options === []) {
@@ -328,7 +330,9 @@ final class GameActionRanker
             }
 
             $simulation = $this->gameActionSimulator->execute($state, $player->playerId, $option);
-            $score = $this->gameStateEvaluator->execute($simulation->state, $rootPlayerId);
+            $score = $simulation->state->pendingInteraction?->type === PendingInteractionType::ChooseTown
+                ? $this->horizonScore($simulation->state, $rootPlayerId, $context)
+                : $this->gameStateEvaluator->execute($simulation->state, $rootPlayerId);
             $bestScore = $bestScore === null ? $score : ($maximizing ? max($bestScore, $score) : min($bestScore, $score));
         }
 
