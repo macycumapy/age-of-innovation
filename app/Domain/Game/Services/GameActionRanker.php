@@ -346,9 +346,17 @@ final class GameActionRanker
             }
 
             $simulation = $this->simulate($state, $player->playerId, $option, $context);
-            $score = $simulation->state->pendingInteraction?->type === PendingInteractionType::ChooseTown
-                ? $this->horizonScore($simulation->state, $rootPlayerId, $context)
-                : $this->evaluateState($simulation->state, $rootPlayerId, $context)->total();
+            if ($interaction->type === PendingInteractionType::BuildWorkshopAfterTerraforming) {
+                $breakdown = $this->scoreBreakdown($state, $simulation->state, $rootPlayerId, 0, $context);
+                $stateScore = $breakdown->state->total();
+                $score = $breakdown->total();
+            } else {
+                $stateScore = $this->evaluateState($simulation->state, $rootPlayerId, $context)->total();
+                $score = $stateScore;
+            }
+            if ($simulation->state->pendingInteraction?->type === PendingInteractionType::ChooseTown) {
+                $score += $this->horizonScore($simulation->state, $rootPlayerId, $context) - $stateScore;
+            }
             $bestScore = $bestScore === null ? $score : ($maximizing ? max($bestScore, $score) : min($bestScore, $score));
         }
 

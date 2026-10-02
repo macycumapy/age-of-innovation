@@ -246,6 +246,35 @@ class GameActionRankerTest extends TestCase
         $this->assertSame(TerrainType::Mountain, $state->board->hexes[1]->terrain);
     }
 
+    public function test_terraforming_horizon_accounts_for_the_strategic_value_of_a_fifth_workshop(): void
+    {
+        $state = $this->state();
+        $state->turnOrder = [1];
+        $state->round->phase = GamePhase::Actions;
+        $state->round->number = 2;
+        $state->players[0]->terraformingLevel = 2;
+        $state->players[0]->resources = new PlayerResourcesData(coins: 15, tools: 5);
+        $state->availableTownTileIds = [];
+        $state->board->hexes = [
+            $this->buildingHex('a', 1, ['target']),
+            $this->buildingHex('b', 1, []),
+            $this->buildingHex('c', 1, []),
+            $this->buildingHex('d', 1, []),
+            $this->emptyHex('target', ['a'], TerrainType::Mountain),
+        ];
+
+        $ranker = app(GameActionRanker::class);
+        $ranked = $ranker->execute($state, 1, depth: 1, auxiliaryActionsRemaining: 0);
+        $terraforming = collect($ranked)->first(
+            static fn ($action): bool => $action->option->type() === GameActionOptionType::PaidTerraforming,
+        );
+        $this->assertNotNull($terraforming);
+        $continuations = $ranker->execute($terraforming->simulation->state, 1, depth: 1, auxiliaryActionsRemaining: 0);
+        $this->assertTrue($continuations[0]->option->build);
+        $this->assertGreaterThan(0, $terraforming->scoreBreakdown->searchAdjustment);
+        $this->assertNull($state->board->hexes[4]->building);
+    }
+
     public function test_a_narrow_search_considers_construction_unlocked_by_a_conversion(): void
     {
         $state = $this->state();

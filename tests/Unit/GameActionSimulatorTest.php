@@ -43,6 +43,11 @@ class GameActionSimulatorTest extends TestCase
     public function test_it_rejects_an_unsupported_action_type(): void
     {
         $option = new class () implements GameActionOption {
+            public function toArray(): array
+            {
+                return [];
+            }
+
             public function type(): GameActionOptionType
             {
                 return GameActionOptionType::UsePalaceAction;
