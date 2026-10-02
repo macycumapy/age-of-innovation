@@ -28,9 +28,9 @@ final class GameStateEvaluator
 
     private const int BOWL_ONE_POWER_WEIGHT = 1;
 
-    private const int BOWL_TWO_POWER_WEIGHT = 4;
+    private const int BOWL_TWO_POWER_WEIGHT = 7;
 
-    private const int BOWL_THREE_POWER_WEIGHT = 8;
+    private const int BOWL_THREE_POWER_WEIGHT = self::COIN_WEIGHT + self::BOWL_ONE_POWER_WEIGHT + 1;
 
     private const int KNOWLEDGE_STEP_WEIGHT = 30;
 

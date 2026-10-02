@@ -17,6 +17,7 @@ use App\Domain\Automation\Evaluation\Services\GameStateEvaluator;
 use App\Domain\Automation\Evaluation\Services\PassValueEvaluator;
 use App\Domain\Automation\Evaluation\Services\PlayerEconomicNeedsEvaluator;
 use App\Domain\Automation\Evaluation\Services\RoundScoringProgressEvaluator;
+use App\Domain\GameEngine\Board\Services\SpendSpadesOptionFinder;
 use App\Domain\GameEngine\Board\Services\WorkshopAfterTerraformingOptionFinder;
 use App\Domain\GameEngine\Contracts\GameActionOption;
 use App\Domain\GameEngine\Enums\GameActionOptionType;
@@ -54,6 +55,7 @@ final class GameActionRanker
         private PassValueEvaluator $passValueEvaluator,
         private PlayerEconomicNeedsEvaluator $playerEconomicNeedsEvaluator,
         private WorkshopAfterTerraformingOptionFinder $workshopAfterTerraformingOptionFinder,
+        private SpendSpadesOptionFinder $spendSpadesOptionFinder,
         private ChooseCompetencyOptionFinder $chooseCompetencyOptionFinder,
         private ChoosePalaceOptionFinder $choosePalaceOptionFinder,
         private ChooseTownOptionFinder $chooseTownOptionFinder,
@@ -118,43 +120,68 @@ final class GameActionRanker
         );
 
         $rankedActions = [];
-
         foreach ($candidates as $candidate) {
-            $option = $candidate['option'];
-            $simulation = $candidate['simulation'];
-            $initialBreakdown = $candidate['scoreBreakdown'];
-            $searchStartedAt = hrtime(true);
-            $searchScore = $this->search(
-                $simulation,
-                $playerId,
-                $this->remainingDepthAfter($state, $option, $depth),
-                $this->auxiliaryActionsAfter($option, $auxiliaryActionsRemaining),
-                $branchLimit,
-                $context,
-                PHP_INT_MIN,
-                PHP_INT_MAX,
-            );
-            $context->timings->continuationSearchNanoseconds += hrtime(true) - $searchStartedAt;
-            $scoreBreakdown = new GameActionScoreData(
-                state: $initialBreakdown->state,
-                roundScoring: $initialBreakdown->roundScoring,
-                finalScoring: $initialBreakdown->finalScoring,
-                boardPosition: $initialBreakdown->boardPosition,
-                economicNeeds: $initialBreakdown->economicNeeds,
-                passPenalty: $initialBreakdown->passPenalty,
-                searchAdjustment: $searchScore - $initialBreakdown->state->total(),
-            );
             $rankedActions[] = [
                 'evaluation' => new EvaluatedGameActionData(
-                    $option,
-                    $simulation,
-                    $scoreBreakdown->total(),
-                    $scoreBreakdown,
+                    $candidate['option'],
+                    $candidate['simulation'],
+                    $candidate['score'],
+                    $candidate['scoreBreakdown'],
                 ),
                 'index' => $candidate['index'],
-                'isAuxiliary' => $this->isAuxiliaryOption($option),
-                'isPass' => $option->type() === GameActionOptionType::Pass,
+                'isAuxiliary' => $this->isAuxiliaryOption($candidate['option']),
+                'isPass' => $candidate['isPass'],
             ];
+        }
+
+        for ($searchDepth = 1; $searchDepth <= $depth && ! $context->isExhausted(); $searchDepth++) {
+            $iterationActions = [];
+            foreach ($candidates as $candidate) {
+                if ($context->isExhausted()) {
+                    break;
+                }
+                $option = $candidate['option'];
+                $simulation = $candidate['simulation'];
+                $initialBreakdown = $candidate['scoreBreakdown'];
+                $searchStartedAt = hrtime(true);
+                $searchScore = $this->search(
+                    new GameActionSimulationData($simulation->state->deepCopy(), $simulation->nextActivePlayerId),
+                    $playerId,
+                    $this->remainingDepthAfter($state, $option, $searchDepth),
+                    $this->auxiliaryActionsAfter($option, $auxiliaryActionsRemaining),
+                    $branchLimit,
+                    $context,
+                    PHP_INT_MIN,
+                    PHP_INT_MAX,
+                );
+                $context->timings->continuationSearchNanoseconds += hrtime(true) - $searchStartedAt;
+                $scoreBreakdown = new GameActionScoreData(
+                    state: $initialBreakdown->state,
+                    roundScoring: $initialBreakdown->roundScoring,
+                    finalScoring: $initialBreakdown->finalScoring,
+                    boardPosition: $initialBreakdown->boardPosition,
+                    economicNeeds: $initialBreakdown->economicNeeds,
+                    passPenalty: $initialBreakdown->passPenalty,
+                    searchAdjustment: $searchScore - $initialBreakdown->state->total(),
+                );
+                $iterationActions[] = [
+                    'evaluation' => new EvaluatedGameActionData(
+                        $option,
+                        $simulation,
+                        $scoreBreakdown->total(),
+                        $scoreBreakdown,
+                    ),
+                    'index' => $candidate['index'],
+                    'isAuxiliary' => $this->isAuxiliaryOption($option),
+                    'isPass' => $option->type() === GameActionOptionType::Pass,
+                ];
+            }
+
+            if ($context->isExhausted() || count($iterationActions) !== count($candidates)) {
+                break;
+            }
+
+            $rankedActions = $iterationActions;
         }
 
         usort(
@@ -336,6 +363,7 @@ final class GameActionRanker
         $isBuildingReward = ($interaction->context['reason'] ?? null) === 'building';
         $optionsStartedAt = hrtime(true);
         $options = match ($interaction->type) {
+            PendingInteractionType::SpendSpades => $this->spendSpadesOptionFinder->execute($state, $player),
             PendingInteractionType::BuildWorkshopAfterTerraforming => $this->workshopAfterTerraformingOptionFinder->execute($state, $player),
             PendingInteractionType::ChooseCompetency => $isBuildingReward ? $this->chooseCompetencyOptionFinder->execute($state, $player) : [],
             PendingInteractionType::ChoosePalace => $isBuildingReward ? $this->choosePalaceOptionFinder->execute($state, $player) : [],
@@ -357,7 +385,7 @@ final class GameActionRanker
             }
 
             $simulation = $this->simulate($state, $player->playerId, $option, $context);
-            if ($interaction->type === PendingInteractionType::BuildWorkshopAfterTerraforming) {
+            if (in_array($interaction->type, [PendingInteractionType::SpendSpades, PendingInteractionType::BuildWorkshopAfterTerraforming], true)) {
                 $breakdown = $this->scoreBreakdown($state, $simulation->state, $rootPlayerId, 0, $context);
                 $stateScore = $breakdown->state->total();
                 $score = $breakdown->total();
@@ -365,7 +393,11 @@ final class GameActionRanker
                 $stateScore = $this->evaluateState($simulation->state, $rootPlayerId, $context)->total();
                 $score = $stateScore;
             }
-            if ($simulation->state->pendingInteraction?->type === PendingInteractionType::ChooseTown) {
+            if (in_array($simulation->state->pendingInteraction?->type, [
+                PendingInteractionType::SpendSpades,
+                PendingInteractionType::BuildWorkshopAfterTerraforming,
+                PendingInteractionType::ChooseTown,
+            ], true)) {
                 $score += $this->horizonScore($simulation->state, $rootPlayerId, $context) - $stateScore;
             }
             $bestScore = $bestScore === null ? $score : ($maximizing ? max($bestScore, $score) : min($bestScore, $score));
@@ -476,7 +508,8 @@ final class GameActionRanker
     private function hasNonPassOption(array $options): bool
     {
         return collect($options)->contains(
-            static fn (GameActionOption $option): bool => $option->type() !== GameActionOptionType::Pass,
+            fn (GameActionOption $option): bool => $option->type() !== GameActionOptionType::Pass
+                && ! $this->isAuxiliaryOption($option),
         );
     }
 

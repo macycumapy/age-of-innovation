@@ -42,6 +42,126 @@ use Tests\TestCase;
 
 class GameActionRankerTest extends TestCase
 {
+    public function test_a_one_ply_search_prefers_the_round_bonus_spade_to_paid_terraforming(): void
+    {
+        $state = $this->state();
+        $state->turnOrder = [1];
+        $state->players[0]->roundBonus = RoundBonus::Spade;
+        $state->players[0]->resources = new PlayerResourcesData(coins: 15, tools: 5);
+        $state->board->hexes = [
+            $this->buildingHex('home', 1, ['target']),
+            $this->emptyHex('target', ['home'], TerrainType::Mountain),
+        ];
+        $ranker = app(GameActionRanker::class);
+        $ranked = $ranker->execute($state, 1, depth: 1, auxiliaryActionsRemaining: 0);
+
+        $this->assertSame(GameActionOptionType::UseRoundBonusAction, $ranked[0]->option->type());
+        $this->assertGreaterThan(0, $ranked[0]->scoreBreakdown->searchAdjustment);
+        $this->assertSame(PendingInteractionType::SpendSpades, $ranked[0]->simulation->state->pendingInteraction?->type);
+        $this->assertSame(5, $ranked[0]->simulation->state->players[0]->resources->tools);
+        $this->assertNull($state->board->hexes[1]->building);
+        $this->assertSame([], $state->players[0]->usedSpecialActionIds);
+
+        $state->players[0]->usedSpecialActionIds = [RoundBonus::Spade->value];
+        $state->players[0]->resources->power = new PowerBowlsStateData(bowlThree: 4);
+        $state->round->usedSharedActionIds = [PowerAction::GainScholar->value, PowerAction::GainTools->value, PowerAction::GainCoins->value];
+        $ranked = $ranker->execute($state, 1, depth: 1, auxiliaryActionsRemaining: 0);
+
+        $this->assertSame(GameActionOptionType::PowerAction, $ranked[0]->option->type());
+        $this->assertSame(PowerAction::TerraformOneSpade, $ranked[0]->option->action);
+        $this->assertGreaterThan(0, $ranked[0]->scoreBreakdown->searchAdjustment);
+    }
+
+    public function test_an_incomplete_search_iteration_does_not_mix_scores_from_different_depths(): void
+    {
+        $state = $this->state();
+        $state->turnOrder = [1];
+        $state->players[0]->resources = new PlayerResourcesData(
+            coins: 15,
+            tools: 5,
+            power: new PowerBowlsStateData(bowlTwo: 8, bowlThree: 1),
+        );
+        $state->players[0]->unassignedSpades = 1;
+        $state->board->hexes = [
+            $this->buildingHex('home', 1, ['target']),
+            $this->emptyHex('target', ['home'], TerrainType::Mountain),
+        ];
+        $state->pendingInteraction = new PendingInteractionData(
+            PendingInteractionType::SpendSpades,
+            1,
+            ['target'],
+            ['phase' => 'actions', 'remainingSpades' => 1, 'targetTerrain' => 'forest'],
+        );
+        $ranker = app(GameActionRanker::class);
+        $ranked = $ranker->execute($state, 1, depth: 2, maxNodes: 1);
+
+        $this->assertTrue($ranker->lastBudgetExhausted());
+        $this->assertNotEmpty($ranked);
+        foreach ($ranked as $action) {
+            $this->assertSame(0, $action->scoreBreakdown->searchAdjustment);
+            $this->assertSame($action->scoreBreakdown->total(), $action->score);
+        }
+        $this->assertNull($state->board->hexes[1]->building);
+        $this->assertSame(TerrainType::Mountain, $state->board->hexes[1]->terrain);
+
+        $ranked = $ranker->execute($state, 1, depth: 2, maxNodes: 200);
+        $this->assertNotSame(GameActionOptionType::ExchangeResources, $ranked[0]->option->type());
+        $this->assertNotSame(GameActionOptionType::SacrificePower, $ranked[0]->option->type());
+        $this->assertSame('target', $ranked[0]->option->hexId);
+        $this->assertSame(PendingInteractionType::BuildWorkshopAfterTerraforming, $ranked[0]->simulation->state->pendingInteraction?->type);
+    }
+
+    public function test_it_preserves_power_when_coins_do_not_unlock_construction(): void
+    {
+        $state = $this->state();
+        $state->turnOrder = [1];
+        $state->players[0]->resources = new PlayerResourcesData(
+            coins: 15,
+            tools: 5,
+            power: new PowerBowlsStateData(bowlTwo: 8, bowlThree: 1),
+        );
+        $state->board->hexes = [
+            $this->buildingHex('home', 1, ['target']),
+            $this->emptyHex('target', ['home']),
+        ];
+
+        $ranked = app(GameActionRanker::class)->execute($state, 1, depth: 1);
+        $exchange = collect($ranked)->first(static fn ($action): bool => $action->option->type() === GameActionOptionType::ExchangeResources
+            && $action->option->exchange === \App\Domain\GameEngine\Economy\Enums\ResourceExchange::PowerToCoin);
+
+        $this->assertNotNull($exchange);
+        $this->assertSame(GameActionOptionType::BuildWorkshop, $ranked[0]->option->type());
+        $this->assertGreaterThan($exchange->score, $ranked[0]->score);
+        $this->assertLessThan(
+            app(GameStateEvaluator::class)->execute($state, 1),
+            app(GameStateEvaluator::class)->execute($exchange->simulation->state, 1),
+        );
+        $this->assertSame(15, $state->players[0]->resources->coins);
+        $this->assertSame(1, $state->players[0]->resources->power->bowlThree);
+        $sacrifice = collect($ranked)->first(static fn ($action): bool => $action->option->type() === GameActionOptionType::SacrificePower);
+        $this->assertNotNull($sacrifice);
+        $this->assertGreaterThan($sacrifice->score, $ranked[0]->score);
+        $this->assertLessThan(
+            app(GameStateEvaluator::class)->execute($state, 1),
+            app(GameStateEvaluator::class)->execute($sacrifice->simulation->state, 1),
+        );
+        $this->assertSame(8, $state->players[0]->resources->power->bowlTwo);
+
+        $state->board->hexes[1]->terrain = TerrainType::Mountain;
+        $state->players[0]->unassignedSpades = 1;
+        $state->pendingInteraction = new PendingInteractionData(
+            PendingInteractionType::SpendSpades,
+            1,
+            ['target'],
+            ['phase' => 'actions', 'remainingSpades' => 1, 'targetTerrain' => 'forest'],
+        );
+        $pendingRanked = app(GameActionRanker::class)->execute($state, 1, depth: 1);
+
+        $this->assertNotSame(GameActionOptionType::ExchangeResources, $pendingRanked[0]->option->type());
+        $this->assertNotSame(GameActionOptionType::SacrificePower, $pendingRanked[0]->option->type());
+        $this->assertSame('target', $pendingRanked[0]->option->hexId);
+    }
+
     public function test_completed_terraforming_is_more_valuable_than_partial_terraforming(): void
     {
         $state = $this->state();
@@ -779,7 +899,7 @@ class GameActionRankerTest extends TestCase
         $this->assertSame([], app(GameActionRanker::class)->execute($state, 1));
     }
 
-    public function test_it_penalizes_pass_when_a_non_pass_action_is_available(): void
+    public function test_it_prefers_pass_to_sacrificing_power_without_a_useful_follow_up(): void
     {
         $state = $this->state();
         $state->round->phase = GamePhase::Actions;
@@ -791,10 +911,34 @@ class GameActionRankerTest extends TestCase
         );
 
         $this->assertNotNull($passAction);
-        $this->assertGreaterThan($passAction->score, $rankedActions[0]->score);
-        $this->assertSame(GameActionOptionType::SacrificePower, $rankedActions[0]->option->type());
-        $this->assertGreaterThan(0, $passAction->scoreBreakdown->passPenalty);
+        $this->assertSame(GameActionOptionType::Pass, $rankedActions[0]->option->type());
+        $this->assertSame(0, $passAction->scoreBreakdown->passPenalty);
         $this->assertSame($passAction->score, $passAction->scoreBreakdown->total());
+    }
+
+    public function test_sacrificing_power_can_unlock_a_useful_power_action(): void
+    {
+        $state = $this->state();
+        $state->turnOrder = [1];
+        $state->players[0]->resources = new PlayerResourcesData(
+            coins: 0,
+            tools: 0,
+            power: new PowerBowlsStateData(bowlTwo: 2, bowlThree: 3),
+        );
+        $state->round->usedSharedActionIds = array_values(array_map(
+            static fn (PowerAction $action): string => $action->value,
+            array_filter(PowerAction::cases(), static fn (PowerAction $action): bool => $action !== PowerAction::GainCoins),
+        ));
+        $ranked = app(GameActionRanker::class)->execute($state, 1, depth: 1);
+        $sacrifice = collect($ranked)->first(static fn ($action): bool => $action->option->type() === GameActionOptionType::SacrificePower);
+        $pass = collect($ranked)->first(static fn ($action): bool => $action->option->type() === GameActionOptionType::Pass);
+
+        $this->assertNotNull($sacrifice);
+        $this->assertNotNull($pass);
+        $this->assertGreaterThan($pass->score, $sacrifice->score);
+        $continuations = app(GameActionRanker::class)->execute($sacrifice->simulation->state, 1, depth: 1, auxiliaryActionsRemaining: 0);
+        $this->assertSame(GameActionOptionType::PowerAction, $continuations[0]->option->type());
+        $this->assertSame(PowerAction::GainCoins, $continuations[0]->option->action);
     }
 
     public function test_it_does_not_penalize_pass_when_it_is_the_only_legal_action(): void
