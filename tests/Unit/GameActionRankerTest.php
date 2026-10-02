@@ -39,6 +39,31 @@ use Tests\TestCase;
 
 class GameActionRankerTest extends TestCase
 {
+    public function test_a_narrow_search_considers_construction_unlocked_by_a_conversion(): void
+    {
+        $state = $this->state();
+        $state->turnOrder = [1];
+        $state->round->phase = GamePhase::Actions;
+        $state->players[0]->resources = new PlayerResourcesData(
+            coins: 1,
+            tools: 1,
+            power: new PowerBowlsStateData(bowlThree: 1),
+        );
+        $state->board->hexes = [
+            $this->buildingHex('a', 1, ['target']),
+            $this->emptyHex('target', ['a']),
+        ];
+
+        $ranker = app(GameActionRanker::class);
+        $narrow = $ranker->execute($state, 1, depth: 1, branchLimit: 1);
+        $wide = $ranker->execute($state, 1, depth: 1, branchLimit: 8);
+
+        $this->assertSame(GameActionOptionType::ExchangeResources, $narrow[0]->option->type());
+        $this->assertSame($wide[0]->score, $narrow[0]->score);
+        $this->assertSame(1, $state->players[0]->resources->coins);
+        $this->assertNull($state->board->hexes[1]->building);
+    }
+
     public function test_it_prefers_shipping_to_sending_the_last_scholar_when_it_opens_expansion(): void
     {
         $state = $this->state();

@@ -211,7 +211,6 @@ final class GameActionRanker
             ));
         }
         $hasNonPassOption = $this->hasNonPassOption($options);
-        $options = array_slice($options, 0, $branchLimit);
         $simulations = [];
         $maximizing = $activePlayer->playerId === $rootPlayerId;
         foreach ($options as $option) {
@@ -246,6 +245,7 @@ final class GameActionRanker
                 ? $right['score'] <=> $left['score']
                 : $left['score'] <=> $right['score'],
         );
+        $simulations = array_slice($simulations, 0, $branchLimit);
         $bestScore = $maximizing ? PHP_INT_MIN : PHP_INT_MAX;
         $wasCutOff = false;
 
