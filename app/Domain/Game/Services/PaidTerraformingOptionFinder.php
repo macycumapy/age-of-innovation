@@ -30,6 +30,22 @@ final class PaidTerraformingOptionFinder
      */
     public function execute(GameStateData $state, GamePlayerStateData $player, array &$reasons = []): array
     {
+        return $this->findOptions($state, $player, $reasons);
+    }
+
+    public function findMatching(GameStateData $state, GamePlayerStateData $player, PaidTerraformingOptionData $option): ?PaidTerraformingOptionData
+    {
+        $reasons = [];
+
+        return $this->findOptions($state, $player, $reasons, $option)[0] ?? null;
+    }
+
+    /**
+     * @param list<GameActionAvailabilityReason> $reasons
+     * @return list<PaidTerraformingOptionData>
+     */
+    private function findOptions(GameStateData $state, GamePlayerStateData $player, array &$reasons, ?PaidTerraformingOptionData $selected = null): array
+    {
         $reasons = [];
         $interaction = $state->pendingInteraction;
         $isExistingSpadeInteraction = $interaction?->type === PendingInteractionType::SpendSpades
@@ -71,8 +87,14 @@ final class PaidTerraformingOptionFinder
         }
 
         foreach ($modes as [$useTunnel, $useFlight, $hexIds]) {
+            if ($selected !== null && ($selected->useTunnel !== $useTunnel || $selected->useFlight !== $useFlight)) {
+                continue;
+            }
             foreach ($hexIds as $hexId) {
                 if (! is_string($hexId)) {
+                    continue;
+                }
+                if ($selected !== null && $selected->hexId !== $hexId) {
                     continue;
                 }
 
@@ -93,7 +115,8 @@ final class PaidTerraformingOptionFinder
                     $reasons[] = GameActionAvailabilityReason::InsufficientScholars;
                 }
 
-                if ($spadeCount > 0
+                if (($selected === null || ! $selected->useAvailable)
+                    && $spadeCount > 0
                     && $toolCost <= $player->resources->tools
                     && $scholarCost <= $player->resources->scholars) {
                     $options[] = new PaidTerraformingOptionData(
@@ -108,7 +131,8 @@ final class PaidTerraformingOptionFinder
                 }
 
                 $availableToolCost = $useTunnel ? 1 : 0;
-                if ($isExistingSpadeInteraction
+                if (($selected === null || $selected->useAvailable)
+                    && $isExistingSpadeInteraction
                     && $player->unassignedSpades >= 1
                     && $player->unassignedSpades < $spadeCount
                     && $availableToolCost <= $player->resources->tools

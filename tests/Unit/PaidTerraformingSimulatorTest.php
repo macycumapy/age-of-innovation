@@ -9,6 +9,7 @@ use App\Domain\Game\Data\BoardStateData;
 use App\Domain\Game\Data\BuildingStateData;
 use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Data\GameStateData;
+use App\Domain\Game\Data\PaidTerraformingOptionData;
 use App\Domain\Game\Data\PendingInteractionData;
 use App\Domain\Game\Data\PlayerResourcesData;
 use App\Domain\Game\Data\RoundStateData;
@@ -25,6 +26,22 @@ use Tests\TestCase;
 
 class PaidTerraformingSimulatorTest extends TestCase
 {
+    public function test_matching_option_recalculates_costs_and_rejects_unavailable_targets(): void
+    {
+        $state = $this->state(TerrainType::Mountain, tools: 3);
+        $finder = app(PaidTerraformingOptionFinder::class);
+        $selected = new PaidTerraformingOptionData('1:0', false, false, false, 0, 0, 99);
+        $matching = $finder->findMatching($state, $state->players[0], $selected);
+
+        $this->assertNotNull($matching);
+        $this->assertSame($finder->execute($state, $state->players[0])[0]->toArray(), $matching->toArray());
+        $this->assertNull($finder->findMatching($state, $state->players[0], new PaidTerraformingOptionData('missing', false, false, false, 0, 0, 1)));
+        $this->assertNull($finder->findMatching($state, $state->players[0], new PaidTerraformingOptionData('1:0', false, true, false, 0, 0, 1)));
+        $this->assertNull($finder->findMatching($state, $state->players[0], new PaidTerraformingOptionData('1:0', true, false, false, 0, 0, 1)));
+        $state->players[0]->resources->tools = 0;
+        $this->assertNull($finder->findMatching($state, $state->players[0], $selected));
+    }
+
     public function test_it_preserves_target_order_and_recalculates_costs_after_state_changes(): void
     {
         $state = $this->state(TerrainType::Mountain, tools: 9);

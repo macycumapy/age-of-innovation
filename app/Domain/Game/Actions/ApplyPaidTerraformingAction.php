@@ -25,12 +25,7 @@ final class ApplyPaidTerraformingAction
         GamePlayerStateData $player,
         PaidTerraformingOptionData $option,
     ): void {
-        $matchingOption = collect($this->optionFinder->execute($state, $player))->first(
-            static fn (PaidTerraformingOptionData $candidate): bool => $candidate->hexId === $option->hexId
-                && $candidate->useAvailable === $option->useAvailable
-                && $candidate->useTunnel === $option->useTunnel
-                && $candidate->useFlight === $option->useFlight,
-        );
+        $matchingOption = $this->optionFinder->findMatching($state, $player, $option);
 
         if (! $matchingOption instanceof PaidTerraformingOptionData) {
             throw ValidationException::withMessages(['hex_id' => 'Эта клетка недоступна для преобразования.']);
