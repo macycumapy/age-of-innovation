@@ -66,6 +66,12 @@ class GameActionSelectorTest extends TestCase
         $this->assertGreaterThan(0, $diagnostics->searchTimings->simulationCalls);
         $this->assertGreaterThan(0, $diagnostics->searchTimings->stateEvaluationCalls);
         $this->assertGreaterThan(0, $diagnostics->searchTimings->simulationNanoseconds);
+        $this->assertGreaterThan(0, $diagnostics->searchTimings->simulationStateCopyNanoseconds);
+        $this->assertGreaterThanOrEqual(0, $diagnostics->searchTimings->simulationExecutionNanoseconds);
+        $this->assertSame(
+            $diagnostics->searchTimings->simulationNanoseconds,
+            $diagnostics->searchTimings->simulationStateCopyNanoseconds + $diagnostics->searchTimings->simulationExecutionNanoseconds,
+        );
         $state->pendingInteraction = null;
         $state->round->phase = GamePhase::Income;
         $emptyDiagnostics = $selector->selectWithDiagnostics($state, 1);

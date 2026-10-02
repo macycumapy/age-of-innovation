@@ -834,6 +834,10 @@ class GameActionRankerTest extends TestCase
         $this->assertNotSame($state->players[0]->resources, $copy->players[0]->resources);
         $this->assertSame($state->toArray(), $copy->toArray());
 
+        $this->assertSame(0, $state->lastDeepCopyNanoseconds());
+        $this->assertGreaterThan(0, $copy->lastDeepCopyNanoseconds());
+        $this->assertArrayNotHasKey('lastDeepCopyNanoseconds', $copy->toArray());
+
         $copy->players[0]->resources->coins++;
 
         $this->assertSame(3, $state->players[0]->resources->coins);

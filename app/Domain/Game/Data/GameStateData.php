@@ -32,6 +32,8 @@ use UnitEnum;
  */
 class GameStateData extends Data
 {
+    private int $lastDeepCopyNanoseconds = 0;
+
     /**
      * @param list<int> $turnOrder
      * @param list<int> $passedPlayerIds
@@ -72,6 +74,7 @@ class GameStateData extends Data
 
     public function deepCopy(): self
     {
+        $startedAt = hrtime(true);
         $copy = clone $this;
         $copies = new SplObjectStorage();
         $copies[$this] = $copy;
@@ -79,8 +82,14 @@ class GameStateData extends Data
         foreach (get_object_vars($this) as $property => $value) {
             $copy->{$property} = self::copyValue($value, $copies);
         }
+        $copy->lastDeepCopyNanoseconds = hrtime(true) - $startedAt;
 
         return $copy;
+    }
+
+    public function lastDeepCopyNanoseconds(): int
+    {
+        return $this->lastDeepCopyNanoseconds;
     }
 
     /** @param SplObjectStorage<object, object> $copies */

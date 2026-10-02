@@ -57,6 +57,8 @@ final class AutomatedGameReportBuilder
                     'search_timings' => $decision->searchTimings === null ? null : [
                         'option_finding_ms' => $decision->searchTimings->optionFindingNanoseconds / 1_000_000,
                         'simulation_ms' => $decision->searchTimings->simulationNanoseconds / 1_000_000,
+                        'simulation_state_copy_ms' => $decision->searchTimings->simulationStateCopyNanoseconds / 1_000_000,
+                        'simulation_execution_ms' => $decision->searchTimings->simulationExecutionNanoseconds / 1_000_000,
                         'state_evaluation_ms' => $decision->searchTimings->stateEvaluationNanoseconds / 1_000_000,
                         'round_scoring_ms' => $decision->searchTimings->roundScoringNanoseconds / 1_000_000,
                         'final_scoring_ms' => $decision->searchTimings->finalScoringNanoseconds / 1_000_000,

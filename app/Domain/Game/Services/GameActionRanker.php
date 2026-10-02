@@ -418,7 +418,11 @@ final class GameActionRanker
     {
         $startedAt = hrtime(true);
         $simulation = $this->gameActionSimulator->execute($state, $playerId, $option);
-        $context->timings->simulationNanoseconds += hrtime(true) - $startedAt;
+        $duration = hrtime(true) - $startedAt;
+        $copyDuration = $simulation->state->lastDeepCopyNanoseconds();
+        $context->timings->simulationNanoseconds += $duration;
+        $context->timings->simulationStateCopyNanoseconds += $copyDuration;
+        $context->timings->simulationExecutionNanoseconds += $duration - $copyDuration;
         $context->timings->simulationCalls++;
 
         return $simulation;
