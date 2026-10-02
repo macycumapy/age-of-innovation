@@ -41,7 +41,7 @@ const actionDescriptions: Record<GameActionType, string> = {
     undo_starting_building: 'отменил установку стартового дома',
     finish_starting_building_turn: 'завершил ход выставления дома',
     spend_starting_spade: 'использовал лопату',
-    terraform_and_build: 'преобразовал местность и построил здание',
+    terraform_and_build: 'построил здание после преобразования',
     build_workshop: 'построил дом',
     finish_turn: 'завершил ход',
     upgrade_building: 'улучшил здание',
