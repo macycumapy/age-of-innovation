@@ -37,7 +37,8 @@ class GameActionSelectorTest extends TestCase
             context: ['bookCount' => 0, 'knowledgeStepCount' => 1],
         );
 
-        $diagnostics = app(GameActionSelector::class)->selectWithDiagnostics(
+        $selector = app(GameActionSelector::class);
+        $diagnostics = $selector->selectWithDiagnostics(
             $state,
             1,
             GameBotDifficulty::Fast,
@@ -61,6 +62,16 @@ class GameActionSelectorTest extends TestCase
         $this->assertSame($diagnostics->selected->scoreBreakdown, $diagnostics->candidates[0]->scoreBreakdown);
         $this->assertGreaterThanOrEqual(0, $diagnostics->visitedNodes);
         $this->assertGreaterThanOrEqual(0, $diagnostics->durationMilliseconds);
+        $this->assertGreaterThan(0, $diagnostics->searchTimings->optionFindingCalls);
+        $this->assertGreaterThan(0, $diagnostics->searchTimings->simulationCalls);
+        $this->assertGreaterThan(0, $diagnostics->searchTimings->stateEvaluationCalls);
+        $this->assertGreaterThan(0, $diagnostics->searchTimings->simulationNanoseconds);
+        $state->pendingInteraction = null;
+        $state->round->phase = GamePhase::Income;
+        $emptyDiagnostics = $selector->selectWithDiagnostics($state, 1);
+        $this->assertSame(0, $emptyDiagnostics->searchTimings->simulationCalls);
+        $this->assertGreaterThan(0, $diagnostics->searchTimings->simulationCalls);
+        $this->assertNotSame($diagnostics->searchTimings, $emptyDiagnostics->searchTimings);
     }
 
     public function test_it_selects_the_highest_ranked_legal_action(): void

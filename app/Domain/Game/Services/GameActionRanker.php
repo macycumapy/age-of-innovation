@@ -8,9 +8,11 @@ use App\Domain\Game\Actions\ApplyFinishActionTurnAction;
 use App\Domain\Game\Contracts\GameActionOption;
 use App\Domain\Game\Data\EvaluatedGameActionData;
 use App\Domain\Game\Data\GameActionScoreData;
+use App\Domain\Game\Data\GameActionSearchTimingsData;
 use App\Domain\Game\Data\GameActionSimulationData;
 use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Data\GameStateData;
+use App\Domain\Game\Data\GameStateScoreData;
 use App\Domain\Game\Data\GameTreeSearchContext;
 use App\Domain\Game\Enums\GameActionOptionType;
 use App\Domain\Game\Enums\PendingInteractionType;
@@ -21,6 +23,8 @@ final class GameActionRanker
     private int $lastVisitedNodes = 0;
 
     private bool $lastBudgetExhausted = false;
+
+    private ?GameActionSearchTimingsData $lastSearchTimings = null;
 
     private const int MAX_AUXILIARY_ACTIONS_PER_TURN = 1;
 
@@ -67,7 +71,7 @@ final class GameActionRanker
         $context = new GameTreeSearchContext($maxNodes, $maxTimeMilliseconds);
         $candidates = [];
 
-        $options = $this->gameActionOptionFinder->execute($state, $playerId);
+        $options = $this->findOptions($state, $playerId, $context);
         if ($auxiliaryActionsRemaining === 0) {
             $options = array_values(array_filter(
                 $options,
@@ -81,9 +85,9 @@ final class GameActionRanker
                 break;
             }
 
-            $simulation = $this->gameActionSimulator->execute($state, $playerId, $option);
+            $simulation = $this->simulate($state, $playerId, $option, $context);
             $passPenalty = $this->passPenalty($state, $playerId, $option, $hasNonPassOption);
-            $scoreBreakdown = $this->scoreBreakdown($state, $simulation->state, $playerId, $passPenalty);
+            $scoreBreakdown = $this->scoreBreakdown($state, $simulation->state, $playerId, $passPenalty, $context);
             $candidates[] = [
                 'option' => $option,
                 'simulation' => $simulation,
@@ -107,6 +111,7 @@ final class GameActionRanker
             $option = $candidate['option'];
             $simulation = $candidate['simulation'];
             $initialBreakdown = $candidate['scoreBreakdown'];
+            $searchStartedAt = hrtime(true);
             $searchScore = $this->search(
                 $simulation,
                 $playerId,
@@ -117,6 +122,7 @@ final class GameActionRanker
                 PHP_INT_MIN,
                 PHP_INT_MAX,
             );
+            $context->timings->continuationSearchNanoseconds += hrtime(true) - $searchStartedAt;
             $scoreBreakdown = new GameActionScoreData(
                 state: $initialBreakdown->state,
                 roundScoring: $initialBreakdown->roundScoring,
@@ -148,6 +154,7 @@ final class GameActionRanker
         );
 
         $this->lastVisitedNodes = $context->visitedNodes;
+        $this->lastSearchTimings = $context->timings;
         $this->lastBudgetExhausted = $context->isExhausted();
 
         return array_column($rankedActions, 'evaluation');
@@ -161,6 +168,11 @@ final class GameActionRanker
     public function lastBudgetExhausted(): bool
     {
         return $this->lastBudgetExhausted;
+    }
+
+    public function lastSearchTimings(): GameActionSearchTimingsData
+    {
+        return $this->lastSearchTimings ?? new GameActionSearchTimingsData();
     }
 
     private function search(
@@ -182,7 +194,7 @@ final class GameActionRanker
             $currentPlayer = $this->playerById($state, $nextActivePlayerId);
 
             if ($currentPlayer === null) {
-                return $this->gameStateEvaluator->execute($state, $rootPlayerId);
+                return $this->evaluateState($state, $rootPlayerId, $context)->total();
             }
 
             $nextPlayerId = $this->applyFinishActionTurn->execute($state, $currentPlayer);
@@ -207,17 +219,17 @@ final class GameActionRanker
         }
 
         if ($context->isExhausted()) {
-            return $this->gameStateEvaluator->execute($state, $rootPlayerId);
+            return $this->evaluateState($state, $rootPlayerId, $context)->total();
         }
 
         $context->visitedNodes++;
 
         $activePlayer = $this->playerById($state, $nextActivePlayerId);
         if ($activePlayer === null) {
-            return $this->gameStateEvaluator->execute($state, $rootPlayerId);
+            return $this->evaluateState($state, $rootPlayerId, $context)->total();
         }
 
-        $options = $this->gameActionOptionFinder->execute($state, $activePlayer->playerId);
+        $options = $this->findOptions($state, $activePlayer->playerId, $context);
         if ($auxiliaryActionsRemaining === 0) {
             $options = array_values(array_filter(
                 $options,
@@ -232,7 +244,7 @@ final class GameActionRanker
                 break;
             }
 
-            $nextSimulation = $this->gameActionSimulator->execute($state, $activePlayer->playerId, $option);
+            $nextSimulation = $this->simulate($state, $activePlayer->playerId, $option, $context);
             $passPenalty = $this->passPenalty(
                 $state,
                 $activePlayer->playerId,
@@ -241,7 +253,7 @@ final class GameActionRanker
             );
             $simulations[] = [
                 'simulation' => $nextSimulation,
-                'score' => $this->gameStateEvaluator->execute($nextSimulation->state, $rootPlayerId)
+                'score' => $this->evaluateState($nextSimulation->state, $rootPlayerId, $context)->total()
                     + ($maximizing ? -$passPenalty : $passPenalty),
                 'remainingDepth' => $this->remainingDepthAfter($state, $option, $remainingDepth),
                 'auxiliaryActionsRemaining' => $this->auxiliaryActionsAfter($option, $auxiliaryActionsRemaining),
@@ -250,7 +262,7 @@ final class GameActionRanker
         }
 
         if ($simulations === []) {
-            return $this->gameStateEvaluator->execute($state, $rootPlayerId);
+            return $this->evaluateState($state, $rootPlayerId, $context)->total();
         }
 
         usort(
@@ -301,15 +313,16 @@ final class GameActionRanker
     {
         $interaction = $state->pendingInteraction;
         if ($interaction === null || $context->isExhausted()) {
-            return $this->gameStateEvaluator->execute($state, $rootPlayerId);
+            return $this->evaluateState($state, $rootPlayerId, $context)->total();
         }
 
         $player = $this->playerById($state, $interaction->playerId);
         if ($player === null) {
-            return $this->gameStateEvaluator->execute($state, $rootPlayerId);
+            return $this->evaluateState($state, $rootPlayerId, $context)->total();
         }
 
         $isBuildingReward = ($interaction->context['reason'] ?? null) === 'building';
+        $optionsStartedAt = hrtime(true);
         $options = match ($interaction->type) {
             PendingInteractionType::BuildWorkshopAfterTerraforming => $this->workshopAfterTerraformingOptionFinder->execute($state, $player),
             PendingInteractionType::ChooseCompetency => $isBuildingReward ? $this->chooseCompetencyOptionFinder->execute($state, $player) : [],
@@ -317,8 +330,10 @@ final class GameActionRanker
             PendingInteractionType::ChooseTown => $this->chooseTownOptionFinder->execute($state, $player->playerId),
             default => [],
         };
+        $context->timings->optionFindingNanoseconds += hrtime(true) - $optionsStartedAt;
+        $context->timings->optionFindingCalls++;
         if ($options === []) {
-            return $this->gameStateEvaluator->execute($state, $rootPlayerId);
+            return $this->evaluateState($state, $rootPlayerId, $context)->total();
         }
         $bestScore = null;
         $maximizing = $player->playerId === $rootPlayerId;
@@ -329,10 +344,10 @@ final class GameActionRanker
                 break;
             }
 
-            $simulation = $this->gameActionSimulator->execute($state, $player->playerId, $option);
+            $simulation = $this->simulate($state, $player->playerId, $option, $context);
             $score = $simulation->state->pendingInteraction?->type === PendingInteractionType::ChooseTown
                 ? $this->horizonScore($simulation->state, $rootPlayerId, $context)
-                : $this->gameStateEvaluator->execute($simulation->state, $rootPlayerId);
+                : $this->evaluateState($simulation->state, $rootPlayerId, $context)->total();
             $bestScore = $bestScore === null ? $score : ($maximizing ? max($bestScore, $score) : min($bestScore, $score));
         }
 
@@ -360,18 +375,63 @@ final class GameActionRanker
         return $this->isAuxiliaryOption($option) ? max(0, $remaining - 1) : $remaining;
     }
 
-    private function scoreBreakdown(GameStateData $before, GameStateData $after, int $playerId, int $passPenalty): GameActionScoreData
+    private function scoreBreakdown(GameStateData $before, GameStateData $after, int $playerId, int $passPenalty, GameTreeSearchContext $context): GameActionScoreData
     {
+        $stateScore = $this->evaluateState($after, $playerId, $context);
+        $startedAt = hrtime(true);
+        $roundScoring = $this->roundScoringProgressEvaluator->execute($before, $after, $playerId)
+            * self::ROUND_SCORING_PRIORITY_WEIGHT;
+        $context->timings->roundScoringNanoseconds += hrtime(true) - $startedAt;
+        $startedAt = hrtime(true);
+        $finalScoring = $this->finalScoringProgressEvaluator->execute($before, $after, $playerId)
+            * self::FINAL_SCORING_PRIORITY_WEIGHT;
+        $context->timings->finalScoringNanoseconds += hrtime(true) - $startedAt;
+        $startedAt = hrtime(true);
+        $boardPosition = $this->boardPositionProgressEvaluator->execute($before, $after, $playerId);
+        $context->timings->boardPositionNanoseconds += hrtime(true) - $startedAt;
+        $startedAt = hrtime(true);
+        $economicNeeds = $this->playerEconomicNeedsEvaluator->execute($before, $after, $playerId);
+        $context->timings->economicNeedsNanoseconds += hrtime(true) - $startedAt;
+
         return new GameActionScoreData(
-            state: $this->gameStateEvaluator->evaluateWithBreakdown($after, $playerId),
-            roundScoring: $this->roundScoringProgressEvaluator->execute($before, $after, $playerId)
-                * self::ROUND_SCORING_PRIORITY_WEIGHT,
-            finalScoring: $this->finalScoringProgressEvaluator->execute($before, $after, $playerId)
-                * self::FINAL_SCORING_PRIORITY_WEIGHT,
-            boardPosition: $this->boardPositionProgressEvaluator->execute($before, $after, $playerId),
-            economicNeeds: $this->playerEconomicNeedsEvaluator->execute($before, $after, $playerId),
+            state: $stateScore,
+            roundScoring: $roundScoring,
+            finalScoring: $finalScoring,
+            boardPosition: $boardPosition,
+            economicNeeds: $economicNeeds,
             passPenalty: $passPenalty,
         );
+    }
+
+    /** @return list<GameActionOption> */
+    private function findOptions(GameStateData $state, int $playerId, GameTreeSearchContext $context): array
+    {
+        $startedAt = hrtime(true);
+        $options = $this->gameActionOptionFinder->execute($state, $playerId);
+        $context->timings->optionFindingNanoseconds += hrtime(true) - $startedAt;
+        $context->timings->optionFindingCalls++;
+
+        return $options;
+    }
+
+    private function simulate(GameStateData $state, int $playerId, GameActionOption $option, GameTreeSearchContext $context): GameActionSimulationData
+    {
+        $startedAt = hrtime(true);
+        $simulation = $this->gameActionSimulator->execute($state, $playerId, $option);
+        $context->timings->simulationNanoseconds += hrtime(true) - $startedAt;
+        $context->timings->simulationCalls++;
+
+        return $simulation;
+    }
+
+    private function evaluateState(GameStateData $state, int $playerId, GameTreeSearchContext $context): GameStateScoreData
+    {
+        $startedAt = hrtime(true);
+        $score = $this->gameStateEvaluator->evaluateWithBreakdown($state, $playerId);
+        $context->timings->stateEvaluationNanoseconds += hrtime(true) - $startedAt;
+        $context->timings->stateEvaluationCalls++;
+
+        return $score;
     }
 
     private function isAuxiliaryOption(GameActionOption $option): bool

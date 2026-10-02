@@ -75,6 +75,7 @@ final class GameActionSelector
             visitedNodes: $this->gameActionRanker->lastVisitedNodes(),
             durationMilliseconds: (int) ((hrtime(true) - $startedAt) / 1_000_000),
             budgetExhausted: $this->gameActionRanker->lastBudgetExhausted(),
+            searchTimings: $this->gameActionRanker->lastSearchTimings(),
         );
     }
 }

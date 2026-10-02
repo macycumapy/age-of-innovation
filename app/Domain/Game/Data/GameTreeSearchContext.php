@@ -6,6 +6,7 @@ namespace App\Domain\Game\Data;
 
 final class GameTreeSearchContext
 {
+    public GameActionSearchTimingsData $timings;
     /** @var array<string, int> */
     public array $cachedScores = [];
 
@@ -17,6 +18,7 @@ final class GameTreeSearchContext
         public readonly int $maxNodes,
         int $maxTimeMilliseconds,
     ) {
+        $this->timings = new GameActionSearchTimingsData();
         $this->deadlineNanoseconds = hrtime(true) + ($maxTimeMilliseconds * 1_000_000);
     }
 

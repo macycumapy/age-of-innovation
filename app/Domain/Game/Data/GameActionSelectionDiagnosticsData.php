@@ -16,6 +16,7 @@ final readonly class GameActionSelectionDiagnosticsData
         public int $visitedNodes,
         public int $durationMilliseconds,
         public bool $budgetExhausted,
+        public GameActionSearchTimingsData $searchTimings,
     ) {
     }
 }

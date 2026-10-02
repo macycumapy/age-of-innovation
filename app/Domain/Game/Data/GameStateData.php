@@ -4,8 +4,9 @@ declare(strict_types=1);
 
 namespace App\Domain\Game\Data;
 
-use RuntimeException;
 use Spatie\LaravelData\Data;
+use SplObjectStorage;
+use UnitEnum;
 
 /**
  * @property int $schemaVersion Версия структуры снимка для миграции старых сохранений.
@@ -71,10 +72,47 @@ class GameStateData extends Data
 
     public function deepCopy(): self
     {
-        $copy = unserialize(serialize($this), ['allowed_classes' => true]);
+        $copy = clone $this;
+        $copies = new SplObjectStorage();
+        $copies[$this] = $copy;
 
-        if (! $copy instanceof self) {
-            throw new RuntimeException('Не удалось скопировать состояние игры.');
+        foreach (get_object_vars($this) as $property => $value) {
+            $copy->{$property} = self::copyValue($value, $copies);
+        }
+
+        return $copy;
+    }
+
+    /** @param SplObjectStorage<object, object> $copies */
+    private static function copyValue(mixed $value, SplObjectStorage $copies): mixed
+    {
+        if (is_array($value)) {
+            foreach ($value as $key => $item) {
+                $value[$key] = self::copyValue($item, $copies);
+            }
+
+            return $value;
+        }
+
+        if (! is_object($value) || $value instanceof UnitEnum) {
+            return $value;
+        }
+
+        if (isset($copies[$value])) {
+            return $copies[$value];
+        }
+
+        if (! $value instanceof Data) {
+            $copy = unserialize(serialize($value), ['allowed_classes' => true]);
+            $copies[$value] = $copy;
+
+            return $copy;
+        }
+
+        $copy = clone $value;
+        $copies[$value] = $copy;
+        foreach (get_object_vars($value) as $property => $item) {
+            $copy->{$property} = self::copyValue($item, $copies);
         }
 
         return $copy;

@@ -29,6 +29,7 @@ final readonly class AutomatedGameDecisionData
         public ?AutomatedGamePassReason $passReason,
         public ?AutomatedGameResourcesData $remainingResources = null,
         public array $actionAvailability = [],
+        public ?GameActionSearchTimingsData $searchTimings = null,
     ) {
     }
 }

@@ -31,6 +31,7 @@ use App\Domain\Game\Enums\RoundBonus;
 use App\Domain\Game\Enums\RoundScoringTile;
 use App\Domain\Game\Enums\TerrainType;
 use App\Domain\Game\Enums\TownTile;
+use App\Domain\Game\Factories\GameSetupPoolFactory;
 use App\Domain\Game\Services\BoardPositionProgressEvaluator;
 use App\Domain\Game\Services\FinalScoringProgressEvaluator;
 use App\Domain\Game\Services\GameActionRanker;
@@ -837,6 +838,44 @@ class GameActionRankerTest extends TestCase
 
         $this->assertSame(3, $state->players[0]->resources->coins);
         $this->assertSame(4, $copy->players[0]->resources->coins);
+    }
+
+    public function test_deep_copy_isolates_nested_state_and_preserves_shared_dto_references(): void
+    {
+        $state = $this->townUpgradeState();
+        $state->pendingInteraction = new PendingInteractionData(
+            PendingInteractionType::ChooseTown,
+            1,
+            context: ['reward' => ['coins' => 6]],
+        );
+        $state->pendingInteractionQueue = [$state->pendingInteraction];
+        $state->turnStartSnapshot = ['players' => [['coins' => 6]]];
+        $state->setupPool = app(GameSetupPoolFactory::class)->createFromSeed(2, 'copy-isolation');
+        $state->additional(['metadata' => ['version' => 1]]);
+
+        $copy = $state->deepCopy();
+
+        $this->assertSame($state->toArray(), $copy->toArray());
+        $this->assertSame($copy->pendingInteraction, $copy->pendingInteractionQueue[0]);
+        $this->assertNotSame($state->pendingInteraction, $copy->pendingInteraction);
+        $this->assertNotSame($state->setupPool->planningBundles[0], $copy->setupPool->planningBundles[0]);
+        $copy->board->hexes[0]->building->type = BuildingType::Palace;
+        $copy->players[0]->resources->books->law = 2;
+        $copy->players[0]->resources->power->bowlOne = 3;
+        $copy->players[0]->knowledge->law = 4;
+        $copy->round->usedSharedActionIds[] = 'test';
+        $copy->pendingInteraction->context['reward']['coins'] = 9;
+        $copy->turnStartSnapshot['players'][0]['coins'] = 12;
+        $copy->additional(['metadata' => ['version' => 2]]);
+
+        $this->assertSame(BuildingType::Guild, $state->board->hexes[0]->building->type);
+        $this->assertSame(0, $state->players[0]->resources->books->law);
+        $this->assertSame(0, $state->players[0]->resources->power->bowlOne);
+        $this->assertSame(0, $state->players[0]->knowledge->law);
+        $this->assertSame([], $state->round->usedSharedActionIds);
+        $this->assertSame(6, $state->pendingInteraction->context['reward']['coins']);
+        $this->assertSame(6, $state->turnStartSnapshot['players'][0]['coins']);
+        $this->assertSame(1, $state->toArray()['metadata']['version']);
     }
 
     private function townUpgradeState(): GameStateData

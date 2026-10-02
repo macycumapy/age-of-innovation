@@ -133,6 +133,7 @@ class AutomatedGameSimulator
                 visitedNodes: $visitedNodes,
                 durationMilliseconds: $durationMilliseconds,
                 budgetExhausted: $budgetExhausted,
+                searchTimings: $diagnostics?->searchTimings,
                 selectionReason: $selectionReason,
                 passReason: $actionType === GameActionType::Pass
                     ? match ($selectionReason) {
