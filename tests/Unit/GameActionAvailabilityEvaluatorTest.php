@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 namespace Tests\Unit;
 
+use App\Domain\Game\Data\BoardHexStateData;
+use App\Domain\Game\Data\BuildingStateData;
 use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Data\GameStateData;
 use App\Domain\Game\Data\PlayerResourcesData;
 use App\Domain\Game\Data\RoundStateData;
+use App\Domain\Game\Enums\BuildingType;
 use App\Domain\Game\Enums\Faction;
 use App\Domain\Game\Enums\GameActionAvailabilityReason;
 use App\Domain\Game\Enums\GameActionOptionType;
@@ -20,6 +23,26 @@ use Tests\TestCase;
 
 class GameActionAvailabilityEvaluatorTest extends TestCase
 {
+    public function test_it_uses_actual_upgrade_costs_instead_of_assuming_no_target(): void
+    {
+        $state = $this->state(new PlayerResourcesData(coins: 50, tools: 1));
+        $state->board->hexes = [new BoardHexStateData(
+            id: '0:0',
+            q: 0,
+            r: 0,
+            initialTerrain: TerrainType::Forest,
+            terrain: TerrainType::Forest,
+            building: new BuildingStateData(BuildingType::Workshop, 1),
+        )];
+
+        $availability = app(GameActionAvailabilityEvaluator::class)->execute($state, $state->players[0]);
+        $upgrade = collect($availability)->firstWhere('type', GameActionOptionType::UpgradeBuilding);
+
+        $this->assertNotNull($upgrade);
+        $this->assertSame(0, $upgrade->availableOptionCount);
+        $this->assertSame([GameActionAvailabilityReason::InsufficientTools], $upgrade->unavailableReasons);
+    }
+
     public function test_it_reports_typed_reasons_for_unavailable_actions(): void
     {
         $state = $this->state();
@@ -37,8 +60,8 @@ class GameActionAvailabilityEvaluatorTest extends TestCase
             [GameActionAvailabilityReason::InsufficientScholars],
             $byType->get(GameActionOptionType::SendScholar->value)?->unavailableReasons,
         );
-        $this->assertSame(
-            [GameActionAvailabilityReason::InsufficientPower],
+        $this->assertContains(
+            GameActionAvailabilityReason::InsufficientPower,
             $byType->get(GameActionOptionType::PowerAction->value)?->unavailableReasons,
         );
     }

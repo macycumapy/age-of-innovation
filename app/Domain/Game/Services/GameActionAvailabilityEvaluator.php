@@ -8,11 +8,9 @@ use App\Domain\Game\Contracts\GameActionOption;
 use App\Domain\Game\Data\GameActionAvailabilityData;
 use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Data\GameStateData;
-use App\Domain\Game\Enums\BookAction;
 use App\Domain\Game\Enums\GameActionAvailabilityReason;
 use App\Domain\Game\Enums\GameActionOptionType;
 use App\Domain\Game\Enums\PlayerColor;
-use App\Domain\Game\Enums\PowerAction;
 
 final class GameActionAvailabilityEvaluator
 {
@@ -30,8 +28,15 @@ final class GameActionAvailabilityEvaluator
         GameActionOptionType::PlaceAnnex,
     ];
 
-    public function __construct(private GameActionOptionFinder $optionFinder)
-    {
+    public function __construct(
+        private GameActionOptionFinder $optionFinder,
+        private BuildWorkshopOptionFinder $buildWorkshopOptionFinder,
+        private UpgradeBuildingOptionFinder $upgradeBuildingOptionFinder,
+        private PaidTerraformingOptionFinder $paidTerraformingOptionFinder,
+        private BookActionOptionFinder $bookActionOptionFinder,
+        private PowerActionOptionFinder $powerActionOptionFinder,
+        private MakeInnovationOptionFinder $makeInnovationOptionFinder,
+    ) {
     }
 
     /** @return list<GameActionAvailabilityData> */
@@ -62,15 +67,23 @@ final class GameActionAvailabilityEvaluator
         GameStateData $state,
         GamePlayerStateData $player,
     ): array {
+        $finder = match ($type) {
+            GameActionOptionType::BuildWorkshop => $this->buildWorkshopOptionFinder,
+            GameActionOptionType::UpgradeBuilding => $this->upgradeBuildingOptionFinder,
+            GameActionOptionType::PaidTerraforming => $this->paidTerraformingOptionFinder,
+            GameActionOptionType::BookAction => $this->bookActionOptionFinder,
+            GameActionOptionType::PowerAction => $this->powerActionOptionFinder,
+            GameActionOptionType::MakeInnovation => $this->makeInnovationOptionFinder,
+            default => null,
+        };
+        if ($finder !== null) {
+            $reasons = [];
+            $finder->execute($state, $player, $reasons);
+
+            return $reasons;
+        }
+
         $reasons = match ($type) {
-            GameActionOptionType::BuildWorkshop, GameActionOptionType::UpgradeBuilding => [
-                ...($player->resources->tools < 1 ? [GameActionAvailabilityReason::InsufficientTools] : []),
-                ...($player->resources->coins < 2 ? [GameActionAvailabilityReason::InsufficientCoins] : []),
-            ],
-            GameActionOptionType::PaidTerraforming => $player->resources->tools < 1
-                && $player->unassignedSpades < 1
-                    ? [GameActionAvailabilityReason::InsufficientTools]
-                    : [],
             GameActionOptionType::AdvanceShipping => [
                 ...($player->shippingLevel >= 3 ? [GameActionAvailabilityReason::DevelopmentLimitReached] : []),
                 ...($player->resources->coins < 4 ? [GameActionAvailabilityReason::InsufficientCoins] : []),
@@ -86,15 +99,6 @@ final class GameActionAvailabilityEvaluator
             GameActionOptionType::SendScholar => $player->resources->scholars < 1
                 ? [GameActionAvailabilityReason::InsufficientScholars]
                 : [],
-            GameActionOptionType::BookAction => $this->bookActionReasons($state, $player),
-            GameActionOptionType::PowerAction => $this->availablePower($player) < $this->minimumPowerCost($player)
-                ? [GameActionAvailabilityReason::InsufficientPower]
-                : [GameActionAvailabilityReason::SharedActionsUnavailable],
-            GameActionOptionType::MakeInnovation => [
-                ...($state->setupPool === null ? [GameActionAvailabilityReason::GameSetupUnavailable] : []),
-                ...($player->resources->coins < 1 ? [GameActionAvailabilityReason::InsufficientCoins] : []),
-                ...($this->bookCount($player) < 1 ? [GameActionAvailabilityReason::InsufficientBooks] : []),
-            ],
             GameActionOptionType::PlaceAnnex => $player->availableAnnexes < 1
                 ? [GameActionAvailabilityReason::SupplyLimitReached]
                 : [],
@@ -104,51 +108,5 @@ final class GameActionAvailabilityEvaluator
         return $reasons === [] ? [GameActionAvailabilityReason::NoEligibleTarget] : $reasons;
     }
 
-    private function bookCount(GamePlayerStateData $player): int
-    {
-        return array_sum($player->resources->books->toArray());
-    }
 
-    /** @return list<GameActionAvailabilityReason> */
-    private function bookActionReasons(GameStateData $state, GamePlayerStateData $player): array
-    {
-        if ($state->setupPool === null) {
-            return [GameActionAvailabilityReason::GameSetupUnavailable];
-        }
-
-        $availableActions = array_filter(
-            $state->setupPool->bookActions,
-            static fn (BookAction $action): bool => ! in_array(
-                $action->value,
-                $state->round->usedBookActionIds,
-                true,
-            ),
-        );
-
-        if ($availableActions === []) {
-            return [GameActionAvailabilityReason::SharedActionsUnavailable];
-        }
-
-        $minimumCost = min(array_map(
-            static fn (BookAction $action): int => $action->cost(),
-            $availableActions,
-        ));
-
-        return $this->bookCount($player) < $minimumCost
-            ? [GameActionAvailabilityReason::InsufficientBooks]
-            : [];
-    }
-
-    private function availablePower(GamePlayerStateData $player): int
-    {
-        return $player->resources->power->bowlThree + intdiv($player->resources->power->bowlTwo, 2);
-    }
-
-    private function minimumPowerCost(GamePlayerStateData $player): int
-    {
-        return min(array_map(
-            static fn (PowerAction $action): int => $action->cost($player->faction),
-            PowerAction::cases(),
-        ));
-    }
 }

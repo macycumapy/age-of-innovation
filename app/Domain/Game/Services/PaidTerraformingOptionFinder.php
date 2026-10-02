@@ -11,6 +11,7 @@ use App\Domain\Game\Data\BoardHexStateData;
 use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Data\GameStateData;
 use App\Domain\Game\Data\PaidTerraformingOptionData;
+use App\Domain\Game\Enums\GameActionAvailabilityReason;
 use App\Domain\Game\Enums\GamePhase;
 use App\Domain\Game\Enums\PendingInteractionType;
 
@@ -23,9 +24,13 @@ final class PaidTerraformingOptionFinder
     ) {
     }
 
-    /** @return list<PaidTerraformingOptionData> */
-    public function execute(GameStateData $state, GamePlayerStateData $player): array
+    /**
+     * @param list<GameActionAvailabilityReason> $reasons
+     * @return list<PaidTerraformingOptionData>
+     */
+    public function execute(GameStateData $state, GamePlayerStateData $player, array &$reasons = []): array
     {
+        $reasons = [];
         $interaction = $state->pendingInteraction;
         $isExistingSpadeInteraction = $interaction?->type === PendingInteractionType::SpendSpades
             && $interaction->playerId === $player->playerId
@@ -40,6 +45,7 @@ final class PaidTerraformingOptionFinder
         if (! $isAllowedPhase
             || ($interaction !== null && ! $isExistingSpadeInteraction)
             || ($interaction === null && $state->round->hasTakenMainAction)) {
+            $reasons[] = GameActionAvailabilityReason::ActionUnavailable;
             return [];
         }
 
@@ -76,6 +82,12 @@ final class PaidTerraformingOptionFinder
                 $purchasedSpades = max(0, $spadeCount - $player->unassignedSpades);
                 $toolCost = ($purchasedSpades * $toolCostPerSpade) + ($useTunnel ? 1 : 0);
                 $scholarCost = $useFlight ? 1 : 0;
+                if ($spadeCount > 0 && $toolCost > $player->resources->tools) {
+                    $reasons[] = GameActionAvailabilityReason::InsufficientTools;
+                }
+                if ($spadeCount > 0 && $scholarCost > $player->resources->scholars) {
+                    $reasons[] = GameActionAvailabilityReason::InsufficientScholars;
+                }
 
                 if ($spadeCount > 0
                     && $toolCost <= $player->resources->tools
@@ -108,6 +120,11 @@ final class PaidTerraformingOptionFinder
                     );
                 }
             }
+        }
+
+        $reasons = $options !== [] ? [] : array_values(array_unique($reasons, SORT_REGULAR));
+        if ($options === [] && $reasons === []) {
+            $reasons[] = GameActionAvailabilityReason::NoReachableTarget;
         }
 
         return $options;

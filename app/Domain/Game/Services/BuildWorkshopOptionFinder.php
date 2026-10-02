@@ -10,6 +10,7 @@ use App\Domain\Game\Data\BuildWorkshopOptionData;
 use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Data\GameStateData;
 use App\Domain\Game\Enums\BuildingType;
+use App\Domain\Game\Enums\GameActionAvailabilityReason;
 
 final class BuildWorkshopOptionFinder
 {
@@ -17,9 +18,13 @@ final class BuildWorkshopOptionFinder
     {
     }
 
-    /** @return list<BuildWorkshopOptionData> */
-    public function execute(GameStateData $state, GamePlayerStateData $player): array
+    /**
+     * @param list<GameActionAvailabilityReason> $reasons
+     * @return list<BuildWorkshopOptionData>
+     */
+    public function execute(GameStateData $state, GamePlayerStateData $player, array &$reasons = []): array
     {
+        $reasons = [];
         $workshopCount = count(array_filter(
             $state->board->hexes,
             static fn (BoardHexStateData $hex): bool => $hex->building?->ownerPlayerId === $player->playerId
@@ -27,17 +32,25 @@ final class BuildWorkshopOptionFinder
                 && ! $hex->building->isNeutral,
         ));
 
-        if ($state->pendingInteraction !== null
-            || $state->round->hasTakenMainAction
-            || $player->resources->tools < 1
-            || $player->resources->coins < 2
-            || $workshopCount >= BuildingType::Workshop->supplyLimit()) {
+        if ($state->pendingInteraction !== null || $state->round->hasTakenMainAction) {
+            $reasons[] = GameActionAvailabilityReason::ActionUnavailable;
+        }
+        if ($player->resources->tools < 1) {
+            $reasons[] = GameActionAvailabilityReason::InsufficientTools;
+        }
+        if ($player->resources->coins < 2) {
+            $reasons[] = GameActionAvailabilityReason::InsufficientCoins;
+        }
+        if ($workshopCount >= BuildingType::Workshop->supplyLimit()) {
+            $reasons[] = GameActionAvailabilityReason::SupplyLimitReached;
+        }
+        if ($reasons !== []) {
             return [];
         }
 
         $reachableHexIds = $this->findReachableLandHexes->execute($state, $player);
 
-        return array_values(array_map(
+        $options = array_values(array_map(
             static fn (BoardHexStateData $hex): BuildWorkshopOptionData => new BuildWorkshopOptionData($hex->id),
             array_filter(
                 $state->board->hexes,
@@ -46,5 +59,10 @@ final class BuildWorkshopOptionFinder
                     && $hex->terrain === $player->homeland,
             ),
         ));
+        if ($options === []) {
+            $reasons[] = GameActionAvailabilityReason::NoReachableTarget;
+        }
+
+        return $options;
     }
 }

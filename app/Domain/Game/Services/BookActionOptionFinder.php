@@ -11,14 +11,20 @@ use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Data\GameStateData;
 use App\Domain\Game\Enums\BookAction;
 use App\Domain\Game\Enums\BuildingType;
+use App\Domain\Game\Enums\GameActionAvailabilityReason;
 use App\Domain\Game\Enums\KnowledgeDiscipline;
 
 final class BookActionOptionFinder
 {
-    /** @return list<BookActionOptionData> */
-    public function execute(GameStateData $state, GamePlayerStateData $player): array
+    /**
+     * @param list<GameActionAvailabilityReason> $reasons
+     * @return list<BookActionOptionData>
+     */
+    public function execute(GameStateData $state, GamePlayerStateData $player, array &$reasons = []): array
     {
+        $reasons = [];
         if ($state->setupPool === null) {
+            $reasons[] = GameActionAvailabilityReason::GameSetupUnavailable;
             return [];
         }
 
@@ -28,14 +34,30 @@ final class BookActionOptionFinder
             $action = $this->bookAction($actionValue);
 
             if (in_array($action->value, $state->round->usedBookActionIds, true)) {
+                $reasons[] = GameActionAvailabilityReason::SharedActionsUnavailable;
                 continue;
             }
 
-            foreach ($this->payments($player, $action->cost()) as $payment) {
-                foreach ($this->actionOptions($state, $player, $action, $payment) as $option) {
+            $payments = $this->payments($player, $action->cost());
+            if ($payments === []) {
+                $reasons[] = GameActionAvailabilityReason::InsufficientBooks;
+            }
+            foreach ($payments as $payment) {
+                $actionOptions = $this->actionOptions($state, $player, $action, $payment);
+                if ($actionOptions === []) {
+                    $reasons[] = $this->buildingCount($state, $player->playerId, BuildingType::Guild) >= BuildingType::Guild->supplyLimit()
+                        ? GameActionAvailabilityReason::SupplyLimitReached
+                        : GameActionAvailabilityReason::NoEligibleTarget;
+                }
+                foreach ($actionOptions as $option) {
                     $options[] = $option;
                 }
             }
+        }
+
+        $reasons = $options !== [] ? [] : array_values(array_unique($reasons, SORT_REGULAR));
+        if ($options === [] && $reasons === []) {
+            $reasons[] = GameActionAvailabilityReason::SharedActionsUnavailable;
         }
 
         return $options;

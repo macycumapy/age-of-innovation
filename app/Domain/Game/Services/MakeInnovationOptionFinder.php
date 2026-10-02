@@ -10,6 +10,7 @@ use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Data\GameStateData;
 use App\Domain\Game\Data\MakeInnovationOptionData;
 use App\Domain\Game\Enums\BuildingType;
+use App\Domain\Game\Enums\GameActionAvailabilityReason;
 use App\Domain\Game\Enums\Innovation;
 use App\Domain\Game\Enums\TerrainType;
 
@@ -19,23 +20,29 @@ final class MakeInnovationOptionFinder
     {
     }
 
-    /** @return list<MakeInnovationOptionData> */
-    public function execute(GameStateData $state, GamePlayerStateData $player): array
+    /**
+     * @param list<GameActionAvailabilityReason> $reasons
+     * @return list<MakeInnovationOptionData>
+     */
+    public function execute(GameStateData $state, GamePlayerStateData $player, array &$reasons = []): array
     {
+        $reasons = [];
         if (! $state->round->phase->isActionPhase()
             || $state->pendingInteraction !== null
             || $state->round->hasTakenMainAction
             || $state->setupPool === null
             || count($player->inventionIds) >= InnovationPurchaseCostCalculator::MAX_INVENTIONS) {
+            $reasons[] = $state->setupPool === null
+                ? GameActionAvailabilityReason::GameSetupUnavailable
+                : (count($player->inventionIds) >= InnovationPurchaseCostCalculator::MAX_INVENTIONS
+                    ? GameActionAvailabilityReason::SupplyLimitReached
+                    : GameActionAvailabilityReason::ActionUnavailable);
             return [];
         }
 
         $options = [];
         foreach ($state->setupPool->innovations as $slotIndex => $innovationValue) {
-            $innovation = $innovationValue instanceof Innovation
-                ? $innovationValue
-                : Innovation::from((string) $innovationValue);
-
+            $innovation = $this->innovation($innovationValue);
             if (! in_array($innovation->value, $state->availableInventionIds, true)) {
                 continue;
             }
@@ -49,10 +56,15 @@ final class MakeInnovationOptionFinder
             );
 
             if ($player->resources->coins < $cost['coins']) {
+                $reasons[] = GameActionAvailabilityReason::InsufficientCoins;
                 continue;
             }
 
-            foreach ($this->payments($player, $cost['requiredBooks'], $cost['totalBooks']) as $payment) {
+            $payments = $this->payments($player, $cost['requiredBooks'], $cost['totalBooks']);
+            if ($payments === []) {
+                $reasons[] = GameActionAvailabilityReason::InsufficientBooks;
+            }
+            foreach ($payments as $payment) {
                 $options[] = new MakeInnovationOptionData(
                     $innovation,
                     $payment,
@@ -62,7 +74,17 @@ final class MakeInnovationOptionFinder
             }
         }
 
+        $reasons = $options !== [] ? [] : array_values(array_unique($reasons, SORT_REGULAR));
+        if ($options === [] && $reasons === []) {
+            $reasons[] = GameActionAvailabilityReason::SupplyLimitReached;
+        }
+
         return $options;
+    }
+
+    private function innovation(mixed $value): Innovation
+    {
+        return $value instanceof Innovation ? $value : Innovation::from((string) $value);
     }
 
     /**

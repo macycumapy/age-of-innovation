@@ -9,13 +9,19 @@ use App\Domain\Game\Data\GamePlayerStateData;
 use App\Domain\Game\Data\GameStateData;
 use App\Domain\Game\Data\UpgradeBuildingOptionData;
 use App\Domain\Game\Enums\BuildingType;
+use App\Domain\Game\Enums\GameActionAvailabilityReason;
 
 final class UpgradeBuildingOptionFinder
 {
-    /** @return list<UpgradeBuildingOptionData> */
-    public function execute(GameStateData $state, GamePlayerStateData $player): array
+    /**
+     * @param list<GameActionAvailabilityReason> $reasons
+     * @return list<UpgradeBuildingOptionData>
+     */
+    public function execute(GameStateData $state, GamePlayerStateData $player, array &$reasons = []): array
     {
+        $reasons = [];
         if ($state->pendingInteraction !== null || $state->round->hasTakenMainAction) {
+            $reasons[] = GameActionAvailabilityReason::ActionUnavailable;
             return [];
         }
 
@@ -32,6 +38,15 @@ final class UpgradeBuildingOptionFinder
 
             foreach ($hex->building->type->upgradeOptions() as $target) {
                 $cost = $hex->building->type->upgradeCostTo($target, $hasAdjacentOpponent);
+                if ($player->resources->tools < $cost['tools']) {
+                    $reasons[] = GameActionAvailabilityReason::InsufficientTools;
+                }
+                if ($player->resources->coins < $cost['coins']) {
+                    $reasons[] = GameActionAvailabilityReason::InsufficientCoins;
+                }
+                if ($this->buildingCount($state, $player->playerId, $target) >= $target->supplyLimit()) {
+                    $reasons[] = GameActionAvailabilityReason::SupplyLimitReached;
+                }
 
                 if ($player->resources->tools < $cost['tools']
                     || $player->resources->coins < $cost['coins']
@@ -47,6 +62,11 @@ final class UpgradeBuildingOptionFinder
                     $cost['coins'],
                 );
             }
+        }
+
+        $reasons = $options !== [] ? [] : array_values(array_unique($reasons, SORT_REGULAR));
+        if ($options === [] && $reasons === []) {
+            $reasons[] = GameActionAvailabilityReason::NoEligibleTarget;
         }
 
         return $options;

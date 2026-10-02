@@ -12,6 +12,8 @@ enum GameActionAvailabilityReason: string
     case InsufficientBooks = 'insufficient_books';
     case InsufficientPower = 'insufficient_power';
     case NoEligibleTarget = 'no_eligible_target';
+    case NoReachableTarget = 'no_reachable_target';
+    case ActionUnavailable = 'action_unavailable';
     case SupplyLimitReached = 'supply_limit_reached';
     case DevelopmentLimitReached = 'development_limit_reached';
     case SharedActionsUnavailable = 'shared_actions_unavailable';
