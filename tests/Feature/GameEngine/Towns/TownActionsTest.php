@@ -21,6 +21,7 @@ use App\Domain\GameEngine\PlayerAbilities\Enums\Faction;
 use App\Domain\GameEngine\PlayerAbilities\Enums\PalaceAbility;
 use App\Domain\GameEngine\PlayerAbilities\Enums\RoundBonus;
 use App\Domain\GameEngine\Research\Data\KnowledgeStateData;
+use App\Domain\GameEngine\Research\Enums\Competency;
 use App\Domain\GameEngine\Scoring\Enums\RoundScoringTile;
 use App\Domain\GameEngine\State\Data\GamePlayerStateData;
 use App\Domain\GameEngine\State\Data\GameStateData;
@@ -33,11 +34,99 @@ use App\Models\Game;
 use App\Models\GamePlayer;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 class TownActionsTest extends TestCase
 {
     use RefreshDatabase;
+
+    #[DataProvider('universityTownCompetencyProvider')]
+    public function test_university_upgrade_offers_a_town_for_four_connected_hexes_with_seven_power_after_competency_choice(Competency $competency): void
+    {
+        $user = User::factory()->create();
+        $game = Game::factory()->create([
+            'status' => GameStatus::Active,
+            'phase' => GamePhase::Actions,
+            'active_player_id' => $user->id,
+        ]);
+        $player = GamePlayer::factory()->create(['game_id' => $game->id, 'user_id' => $user->id]);
+        $buildingTypes = [BuildingType::School, BuildingType::Guild, BuildingType::Workshop, BuildingType::Workshop];
+        $game->update(['state' => new GameStateData(
+            turnOrder: [$player->id],
+            board: new BoardStateData(hexes: [...array_map(
+                static fn (BuildingType $buildingType, int $index): BoardHexStateData => new BoardHexStateData(
+                    id: $index.':0',
+                    q: $index,
+                    r: 0,
+                    initialTerrain: TerrainType::Forest,
+                    terrain: TerrainType::Forest,
+                    adjacentHexIds: array_values(array_filter([
+                        ($index - 1).':0',
+                        ($index + 1).':0',
+                    ], static fn (string $id): bool => in_array($id, ['0:0', '1:0', '2:0', '3:0'], true))),
+                    building: new BuildingStateData($buildingType, $player->id),
+                ),
+                $buildingTypes,
+                array_keys($buildingTypes),
+            ), new BoardHexStateData(
+                id: '9:0',
+                q: 9,
+                r: 0,
+                initialTerrain: TerrainType::Forest,
+                terrain: TerrainType::Forest,
+                adjacentHexIds: ['10:0'],
+                building: new BuildingStateData(BuildingType::Workshop, $player->id),
+            ), new BoardHexStateData(
+                id: '10:0',
+                q: 10,
+                r: 0,
+                initialTerrain: TerrainType::Forest,
+                terrain: TerrainType::Forest,
+                adjacentHexIds: ['9:0'],
+            )]),
+            players: [new GamePlayerStateData(
+                playerId: $player->id,
+                userId: $user->id,
+                color: PlayerColor::Green,
+                faction: Faction::Blessed,
+                homeland: TerrainType::Forest,
+                roundBonus: RoundBonus::Coins,
+                resources: new PlayerResourcesData(tools: 5, coins: 8),
+            )],
+            round: new RoundStateData(phase: GamePhase::Actions),
+            availableCompetencyIds: [$competency->value],
+            availableTownTileIds: [TownTile::Power->value],
+        )]);
+
+        $this->actingAs($user)->post(route('games.building-upgrade', $game), [
+            'hex_id' => '0:0',
+            'target' => BuildingType::University->value,
+        ])->assertNoContent();
+        $this->assertSame(PendingInteractionType::ChooseCompetency, $game->fresh()->state->pendingInteraction?->type);
+
+        $this->post(route('games.rewards', $game), [
+            'competency_id' => $competency->value,
+        ])->assertNoContent();
+
+        if ($competency === Competency::Competency10) {
+            $this->assertSame(PendingInteractionType::PlaceNeutralBuilding, $game->fresh()->state->pendingInteraction?->type);
+            $this->post(route('games.innovation.neutral-building', $game), ['hex_id' => '10:0'])->assertNoContent();
+        }
+
+        $game->refresh();
+        $this->assertSame(PendingInteractionType::ChooseTown, $game->state->pendingInteraction?->type);
+        $this->assertEqualsCanonicalizing(['0:0', '1:0', '2:0', '3:0'], $game->state->pendingInteraction?->context['townHexIds']);
+    }
+
+    /** @return array<string, array{Competency}> */
+    public static function universityTownCompetencyProvider(): array
+    {
+        return [
+            'regular competency' => [Competency::Competency04],
+            'neutral tower placed away from university' => [Competency::Competency10],
+        ];
+    }
 
     public function test_town_requirements_account_for_special_buildings_annexes_bridges_and_palace(): void
     {

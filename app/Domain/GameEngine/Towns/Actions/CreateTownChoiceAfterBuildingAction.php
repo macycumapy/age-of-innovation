@@ -27,6 +27,17 @@ final class CreateTownChoiceAfterBuildingAction
         array $queuedBuiltHexIds = [],
         bool $powerOffersResolved = false,
     ): int {
+        $townBuiltHexId = $builtHexId;
+
+        foreach (array_unique([$builtHexId, ...$queuedBuiltHexIds]) as $candidateHexId) {
+            if ($this->findEligibleTownHexes->execute($state, $player, $candidateHexId) !== []
+                || $this->findPalaceWaterTownOptions->execute($state, $player, $candidateHexId) !== []) {
+                $townBuiltHexId = $candidateHexId;
+
+                break;
+            }
+        }
+
         if (! $powerOffersResolved) {
             $nextActivePlayerId = $this->createPowerOffersAfterBuilding->execute(
                 $state,
@@ -36,11 +47,13 @@ final class CreateTownChoiceAfterBuildingAction
             );
 
             if ($nextActivePlayerId !== null && $state->pendingInteraction?->type === PendingInteractionType::PowerOffer) {
-                $state->pendingInteraction->context['townBuiltHexId'] = $builtHexId;
+                $state->pendingInteraction->context['townBuiltHexId'] = $townBuiltHexId;
 
                 return $nextActivePlayerId;
             }
         }
+
+        $builtHexId = $townBuiltHexId;
 
         $townHexIds = $this->findEligibleTownHexes->execute($state, $player, $builtHexId);
 
