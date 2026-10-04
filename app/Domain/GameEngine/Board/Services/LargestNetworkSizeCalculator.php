@@ -16,7 +16,6 @@ final class LargestNetworkSizeCalculator
     public static function calculate(
         GamePlayerStateData $player,
         BoardStateData $board,
-        bool $includeRoundBonus = true,
     ): int {
         /** @var array<string, BoardHexStateData> $hexesById */
         $hexesById = [];
@@ -59,12 +58,9 @@ final class LargestNetworkSizeCalculator
             self::connectMoleTunnels($connections, $ownedHexIds, $hexesById);
         }
 
-        $navigationRange = $player->shippingLevel
-            + ($includeRoundBonus ? $player->roundBonus->shippingBonus() : 0);
-
-        if ($navigationRange > 0) {
+        if ($player->shippingLevel > 0) {
             foreach (array_keys($ownedHexIds) as $hexId) {
-                self::connectThroughWater($connections, $hexId, $navigationRange, $ownedHexIds, $hexesById);
+                self::connectThroughWater($connections, $hexId, $player->shippingLevel, $ownedHexIds, $hexesById);
             }
         }
 

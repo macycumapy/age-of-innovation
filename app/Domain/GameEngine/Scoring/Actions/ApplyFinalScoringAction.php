@@ -32,7 +32,6 @@ final class ApplyFinalScoringAction
                 $player->playerId => LargestNetworkSizeCalculator::calculate(
                     $player,
                     $state->board,
-                    includeRoundBonus: false,
                 ),
             ],
         )->all();

@@ -43,7 +43,7 @@ class LargestNetworkSizeCalculatorTest extends TestCase
         $this->assertSame(2, LargestNetworkSizeCalculator::calculate($this->player(shippingLevel: 1), $board));
     }
 
-    public function test_round_bonus_navigation_is_included_and_empty_network_is_zero(): void
+    public function test_round_bonus_navigation_is_ignored_and_empty_network_is_zero(): void
     {
         $board = new BoardStateData(hexes: [
             $this->landHex('a', ['water'], 1),
@@ -52,8 +52,7 @@ class LargestNetworkSizeCalculatorTest extends TestCase
         ]);
         $player = $this->player(shippingLevel: 0, roundBonus: RoundBonus::RiverWorkshop);
 
-        $this->assertSame(2, LargestNetworkSizeCalculator::calculate($player, $board));
-        $this->assertSame(1, LargestNetworkSizeCalculator::calculate($player, $board, includeRoundBonus: false));
+        $this->assertSame(1, LargestNetworkSizeCalculator::calculate($player, $board));
         $this->assertSame(0, LargestNetworkSizeCalculator::calculate($player, new BoardStateData()));
     }
 

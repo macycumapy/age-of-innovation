@@ -36,6 +36,54 @@ class PassTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_displayed_network_ignores_navigation_from_the_round_bonus(): void
+    {
+        [$game, $user] = $this->gameForPassing();
+        $state = $game->state;
+        $player = $state->players[0];
+        $player->shippingLevel = 0;
+        $player->roundBonus = RoundBonus::RiverWorkshop;
+        $state->board = new BoardStateData(hexes: [
+            new BoardHexStateData(
+                id: '0:0',
+                q: 0,
+                r: 0,
+                initialTerrain: TerrainType::Forest,
+                terrain: TerrainType::Forest,
+                adjacentHexIds: ['1:0'],
+                building: new BuildingStateData(BuildingType::Workshop, $player->playerId),
+            ),
+            new BoardHexStateData(
+                id: '1:0',
+                q: 1,
+                r: 0,
+                initialTerrain: TerrainType::Water,
+                terrain: TerrainType::Water,
+                adjacentHexIds: ['0:0', '2:0'],
+            ),
+            new BoardHexStateData(
+                id: '2:0',
+                q: 2,
+                r: 0,
+                initialTerrain: TerrainType::Forest,
+                terrain: TerrainType::Forest,
+                adjacentHexIds: ['1:0'],
+                building: new BuildingStateData(BuildingType::Workshop, $player->playerId),
+            ),
+        ]);
+        $game->update(['state' => $state]);
+
+        $this->actingAs($user)->get(route('games.show', $game))->assertInertia(
+            fn (Assert $page) => $page->where('game.data.playerBoardStates.0.largestNetworkSize', 1),
+        );
+
+        $player->shippingLevel = 1;
+        $game->update(['state' => $state]);
+        $this->get(route('games.show', $game))->assertInertia(
+            fn (Assert $page) => $page->where('game.data.playerBoardStates.0.largestNetworkSize', 2),
+        );
+    }
+
     public function test_player_can_pass_only_on_their_turn_and_choose_an_available_round_bonus(): void
     {
         [$game, $firstUser, $secondUser] = $this->gameForPassing();
