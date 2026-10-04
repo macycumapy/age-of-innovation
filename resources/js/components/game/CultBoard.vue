@@ -62,6 +62,8 @@ const scholarImages = import.meta.glob('../../../images/buildings/*/scientist.pn
 
 const disciplines = Object.keys(disciplineX) as KnowledgeDiscipline[];
 
+const neutralKnowledgeState = computed(() => (props.players.length === 2 ? props.neutralKnowledgeState : null));
+
 function tokenImage(color: PlayerColor): string {
     return tokenImages[`../../../images/buildings/${color}/token.png`];
 }
@@ -87,15 +89,15 @@ const knowledgeMarkers = computed<KnowledgeMarker[]>(() => {
             level: Math.max(0, Math.min(state.knowledge[discipline], 12)),
         }));
     });
-    const neutralKnowledgeState = props.neutralKnowledgeState;
+    const neutralState = neutralKnowledgeState.value;
     const neutralMarkers =
-        neutralKnowledgeState === null
+        neutralState === null
             ? []
             : disciplines.map((discipline) => ({
                   playerId: 0,
-                  color: neutralKnowledgeState.color,
+                  color: neutralState.color,
                   discipline,
-                  level: Math.max(0, Math.min(neutralKnowledgeState.knowledge[discipline], 12)),
+                  level: Math.max(0, Math.min(neutralState.knowledge[discipline], 12)),
               }));
     const markersWithoutCollisions = [...playerMarkers, ...neutralMarkers];
 
@@ -114,8 +116,8 @@ const knowledgeMarkers = computed<KnowledgeMarker[]>(() => {
 
 const scholarMarkers = computed<ScholarMarker[]>(() =>
     disciplines.flatMap((discipline) => {
-        const neutralScholarSlotIndex = props.neutralKnowledgeState?.scholarDisciplineIds.includes(discipline)
-            ? props.neutralKnowledgeState.scholarSlotIndex
+        const neutralScholarSlotIndex = neutralKnowledgeState.value?.scholarDisciplineIds.includes(discipline)
+            ? neutralKnowledgeState.value.scholarSlotIndex
             : null;
         const usedSlotIndexes = neutralScholarSlotIndex === null ? [] : [neutralScholarSlotIndex];
 
@@ -156,10 +158,10 @@ const scholarMarkers = computed<ScholarMarker[]>(() =>
             );
         });
 
-        if (props.neutralKnowledgeState !== null && neutralScholarSlotIndex !== null) {
+        if (neutralKnowledgeState.value !== null && neutralScholarSlotIndex !== null) {
             playerMarkers.push({
                 playerId: 0,
-                color: props.neutralKnowledgeState.color,
+                color: neutralKnowledgeState.value.color,
                 discipline,
                 slotIndex: neutralScholarSlotIndex,
             });
