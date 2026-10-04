@@ -45,22 +45,23 @@ const isOpen = ref(false);
                             <input
                                 type="radio"
                                 name="map_variant"
-                                value="three_to_five_players"
+                                value="one_to_three_players"
                                 class="size-4 accent-primary"
                                 checked
                             />
-                            3–5 игроков
+                            1–3 игрока
                         </label>
+
                         <label
                             class="flex cursor-pointer items-center gap-2 rounded-md border px-3 py-2 text-sm shadow-xs transition-colors has-checked:border-primary has-checked:bg-primary/10 has-checked:text-primary has-focus-visible:ring-3 has-focus-visible:ring-ring/50"
                         >
                             <input
                                 type="radio"
                                 name="map_variant"
-                                value="one_to_three_players"
+                                value="three_to_five_players"
                                 class="size-4 accent-primary"
                             />
-                            1–3 игрока
+                            3–5 игроков
                         </label>
                     </div>
                     <InputError :message="errors.map_variant" />

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import GameBotController from '@/actions/App/Http/Controllers/GameBotController';
+import GameBotAdditionDialog from '@/components/game/GameBotAdditionDialog.vue';
 import GamePlayerController from '@/actions/App/Http/Controllers/GamePlayerController';
 import GamePlayerReadinessController from '@/actions/App/Http/Controllers/GamePlayerReadinessController';
 import GameStartController from '@/actions/App/Http/Controllers/GameStartController';
@@ -9,12 +9,6 @@ import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import type { GamePlayerSummary, GameResource } from '@/types';
-
-const botDifficultyNames = {
-    fast: 'Слабый',
-    balanced: 'Обычный',
-    strong: 'Сильный',
-} as const;
 
 defineProps<{
     game: GameResource;
@@ -37,12 +31,6 @@ defineProps<{
                 <div>
                     <p class="flex items-center gap-2 font-medium">
                         {{ player.name }}
-                        <span
-                            v-if="player.botDifficulty"
-                            class="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary"
-                        >
-                            {{ botDifficultyNames[player.botDifficulty] }}
-                        </span>
                     </p>
                 </div>
 
@@ -101,30 +89,10 @@ defineProps<{
                     is-leaving
                 />
 
-                <Form
+                <GameBotAdditionDialog
                     v-if="game.data.isOwner && game.data.playersCount < game.data.maxPlayers"
-                    v-bind="GameBotController.form(game.data.id)"
-                    #default="{ errors, processing }"
-                    class="grid gap-2"
-                >
-                    <div class="flex items-center gap-2">
-                        <label for="bot-difficulty" class="sr-only">Сложность бота</label>
-                        <select
-                            id="bot-difficulty"
-                            name="difficulty"
-                            class="h-9 rounded-md border border-input bg-background px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50"
-                            :disabled="processing"
-                        >
-                            <option value="fast">Быстрый</option>
-                            <option value="balanced" selected>Обычный</option>
-                            <option value="strong">Сильный</option>
-                        </select>
-                        <Button type="submit" variant="outline" :disabled="processing">
-                            {{ processing ? 'Добавление…' : 'Добавить бота' }}
-                        </Button>
-                    </div>
-                    <InputError :message="errors.difficulty ?? errors.game" />
-                </Form>
+                    :game-id="game.data.id"
+                />
 
                 <Form
                     v-if="!currentPlayer && game.data.playersCount < game.data.maxPlayers"
