@@ -183,7 +183,7 @@ function levelCounters(state: GamePlayerBoardState): StatCounter[] {
         {
             label: 'Уровень навигации',
             image: shippingUrl,
-            value: Math.max(0, state.shippingLevel),
+            value: Math.max(0, state.shippingLevel) + (state.roundBonus === 'river_workshop' ? 1 : 0),
         },
         {
             label: 'Уровень лопаты',
