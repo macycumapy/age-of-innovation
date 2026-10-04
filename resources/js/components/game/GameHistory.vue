@@ -9,7 +9,7 @@ import GameHistoryUndoController from '@/actions/App/Http/Controllers/GameHistor
 import Form from '@/components/game/GameActionForm.vue';
 import { Button } from '@/components/ui/button';
 import { playerColorValues, roundBonusNames, terrainNames } from '@/lib/gameDisplay';
-import { shouldNotifyAboutPlayerAction, specialActionDescription } from '@/lib/gameHistoryDisplay';
+import { finalScoringPlace, shouldNotifyAboutPlayerAction, specialActionDescription } from '@/lib/gameHistoryDisplay';
 import { resourceExchangeDetails } from '@/lib/resourceExchangeHistory';
 import type {
     BookAction,
@@ -351,14 +351,36 @@ function finalScoringDetails(entry: GameHistoryEntry): string[] {
                       return [];
                   }
 
+                  const tiedCount = Number(
+                      scoringSource.tiedCount ??
+                          scoring.filter((player) => {
+                              if (
+                                  typeof player !== 'object' ||
+                                  player === null ||
+                                  !('sources' in player) ||
+                                  !Array.isArray(player.sources)
+                              ) {
+                                  return false;
+                              }
+
+                              return player.sources.some(
+                                  (candidate: Record<string, unknown>) =>
+                                      typeof candidate === 'object' &&
+                                      candidate !== null &&
+                                      candidate.source === scoringSource.source &&
+                                      candidate.id === scoringSource.id &&
+                                      Number(candidate.rank) === rank,
+                              );
+                          }).length,
+                  );
+                  const place = finalScoringPlace(rank, tiedCount);
+
                   if (scoringSource.source === 'network') {
-                      return [`Сеть: ${value} зданий, ${rank}-е место — +${points} ПО`];
+                      return [`Сеть: ${value} зданий, ${place} — +${points} ПО`];
                   }
 
                   if (scoringSource.source === 'knowledge' && typeof scoringSource.id === 'string') {
-                      return [
-                          `${disciplineName(scoringSource.id, true)}: уровень ${value}, ${rank}-е место — +${points} ПО`,
-                      ];
+                      return [`${disciplineName(scoringSource.id, true)}: уровень ${value}, ${place} — +${points} ПО`];
                   }
 
                   return [];

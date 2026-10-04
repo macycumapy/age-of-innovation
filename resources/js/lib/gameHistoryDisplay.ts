@@ -41,3 +41,8 @@ export function shouldNotifyAboutPlayerAction(
 ): boolean {
     return player !== null && player.user_id !== currentUserId;
 }
+export function finalScoringPlace(rank: number, tiedCount: number): string {
+    const count = Number.isInteger(tiedCount) && tiedCount > 0 ? tiedCount : 1;
+
+    return `${Array.from({ length: count }, (_, index) => `${rank + index}-е`).join(' - ')} место`;
+}

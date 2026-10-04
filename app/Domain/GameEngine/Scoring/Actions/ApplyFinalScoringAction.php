@@ -18,7 +18,7 @@ final class ApplyFinalScoringAction
     private const KNOWLEDGE_PLACE_POINTS = [8, 4, 2];
 
     /**
-     * @return list<array{playerId: int, victoryPoints: int, sources: list<array{source: string, id: string, value: int, rank: int, points: int}>}>
+     * @return list<array{playerId: int, victoryPoints: int, sources: list<array{source: string, id: string, value: int, rank: int, tiedCount: int, points: int}>}>
      */
     public function execute(GameStateData $state): array
     {
@@ -77,7 +77,7 @@ final class ApplyFinalScoringAction
     /**
      * @param array<int, int> $valuesByPlayerId
      * @param list<int> $placePoints
-     * @param array<int, array{playerId: int, victoryPoints: int, sources: list<array{source: string, id: string, value: int, rank: int, points: int}>}> $scoringByPlayerId
+     * @param array<int, array{playerId: int, victoryPoints: int, sources: list<array{source: string, id: string, value: int, rank: int, tiedCount: int, points: int}>}> $scoringByPlayerId
      */
     private function awardRanking(
         GameStateData $state,
@@ -111,6 +111,7 @@ final class ApplyFinalScoringAction
                         'id' => $sourceId,
                         'value' => $valuesByPlayerId[$player->playerId],
                         'rank' => $rankIndex + 1,
+                        'tiedCount' => count($tiedPlayerIds),
                         'points' => $pointsPerPlayer,
                     ];
                 }

@@ -49,6 +49,7 @@ class ApplyFinalScoringActionTest extends TestCase
             'id' => 'largest_network',
             'value' => 2,
             'rank' => 1,
+            'tiedCount' => 2,
             'points' => 15,
         ], $scoring[0]['sources'][0]);
         $this->assertSame([
@@ -56,9 +57,12 @@ class ApplyFinalScoringActionTest extends TestCase
             'id' => 'largest_network',
             'value' => 1,
             'rank' => 3,
+            'tiedCount' => 1,
             'points' => 6,
         ], $scoring[2]['sources'][0]);
         $this->assertNotContains('medicine', array_column($scoring[2]['sources'], 'id'));
+        $this->assertSame(3, $scoring[0]['sources'][2]['tiedCount']);
+        $this->assertSame(2, $scoring[1]['sources'][3]['tiedCount']);
     }
 
     public function test_neutral_faction_occupies_knowledge_places_without_receiving_points(): void
