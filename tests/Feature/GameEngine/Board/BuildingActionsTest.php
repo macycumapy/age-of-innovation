@@ -18,6 +18,7 @@ use App\Domain\GameEngine\Interactions\Enums\PendingInteractionType;
 use App\Domain\GameEngine\PlayerAbilities\Enums\Faction;
 use App\Domain\GameEngine\PlayerAbilities\Enums\PalaceAbility;
 use App\Domain\GameEngine\PlayerAbilities\Enums\RoundBonus;
+use App\Domain\GameEngine\Research\Enums\Competency;
 use App\Domain\GameEngine\Scoring\Enums\RoundScoringTile;
 use App\Domain\GameEngine\State\Data\GamePlayerStateData;
 use App\Domain\GameEngine\State\Data\GameStateData;
@@ -408,7 +409,10 @@ class BuildingActionsTest extends TestCase
                 resources: new PlayerResourcesData(tools: 10, coins: 10),
             )],
             availablePalaceIds: [PalaceAbility::Palace01->value],
+            availableCompetencyIds: [Competency::Competency01->value],
         )]);
+
+        $initialState = $game->fresh()->state->toArray();
 
         $this->actingAs($user)->post(route('games.building-upgrade', $game), [
             'hex_id' => '0:0',
@@ -419,6 +423,22 @@ class BuildingActionsTest extends TestCase
         $upgradedBuilding = collect($game->state->board->hexes)->firstWhere('id', '0:0')?->building;
         $this->assertSame($target, $upgradedBuilding?->type);
         $this->assertFalse($upgradedBuilding?->isNeutral);
+        $this->assertSame(
+            $target === BuildingType::Palace
+                ? PendingInteractionType::ChoosePalace
+                : PendingInteractionType::ChooseCompetency,
+            $game->state->pendingInteraction?->type,
+        );
+
+        $this->get(route('games.show', $game))->assertInertia(
+            fn (Assert $page) => $page->where('game.data.canRestartCurrentTurn', true),
+        );
+
+        $this->post(route('games.current-turn.restart', $game))->assertNoContent();
+
+        $game->refresh();
+        $this->assertSame($initialState, $game->state->toArray());
+        $this->assertSame(0, $game->actions()->count());
     }
 
     /** @return array<string, array{BuildingType, BuildingType, int}> */

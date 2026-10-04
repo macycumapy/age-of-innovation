@@ -358,7 +358,9 @@ function scrollToPageTop(event: MouseEvent): void {
         <CurrentTurnRestartDialog
             v-else-if="
                 isCurrentUsersTurn &&
-                ['choose_round_bonus', 'choose_town'].includes(game.data.pendingInteraction?.type ?? '') &&
+                ['choose_round_bonus', 'choose_town', 'choose_palace', 'choose_competency'].includes(
+                    game.data.pendingInteraction?.type ?? '',
+                ) &&
                 game.data.canRestartCurrentTurn
             "
             :game-id="game.data.id"
