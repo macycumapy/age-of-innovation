@@ -18,6 +18,7 @@ use App\Domain\GameEngine\Interactions\Enums\PendingInteractionType;
 use App\Domain\GameEngine\PlayerAbilities\Enums\Faction;
 use App\Domain\GameEngine\PlayerAbilities\Enums\PalaceAbility;
 use App\Domain\GameEngine\PlayerAbilities\Enums\RoundBonus;
+use App\Domain\GameEngine\Research\Enums\Competency;
 use App\Domain\GameEngine\Scoring\Enums\RoundScoringTile;
 use App\Domain\GameEngine\State\Data\GamePlayerStateData;
 use App\Domain\GameEngine\State\Data\GameStateData;
@@ -35,6 +36,68 @@ use Tests\TestCase;
 class PalaceChoiceTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_palace_five_grants_a_free_competency(): void
+    {
+        $user = User::factory()->create();
+        $game = Game::factory()->create([
+            'status' => GameStatus::Active,
+            'phase' => GamePhase::Actions,
+            'active_player_id' => $user->id,
+        ]);
+        $player = GamePlayer::factory()->create(['game_id' => $game->id, 'user_id' => $user->id]);
+        $game->update(['state' => new GameStateData(
+            turnOrder: [$player->id],
+            board: new BoardStateData(hexes: [new BoardHexStateData(
+                id: '0:0',
+                q: 0,
+                r: 0,
+                initialTerrain: TerrainType::Forest,
+                terrain: TerrainType::Forest,
+                building: new BuildingStateData(BuildingType::Palace, $player->id),
+            )]),
+            round: new RoundStateData(phase: GamePhase::Actions, hasTakenMainAction: true),
+            players: [new GamePlayerStateData(
+                playerId: $player->id,
+                userId: $user->id,
+                color: PlayerColor::Green,
+                faction: Faction::Blessed,
+                homeland: TerrainType::Forest,
+                roundBonus: RoundBonus::Coins,
+                resources: new PlayerResourcesData(tools: 0, coins: 0),
+            )],
+            availablePalaceIds: [PalaceAbility::Palace05->value],
+            availableCompetencyIds: [Competency::Competency04->value],
+            pendingInteraction: new PendingInteractionData(
+                PendingInteractionType::ChoosePalace,
+                $player->id,
+                [PalaceAbility::Palace05->value],
+                ['builtHexId' => '0:0'],
+            ),
+        )]);
+
+        $this->actingAs($user)->post(route('games.palace-choice', $game), [
+            'palace_id' => PalaceAbility::Palace05->value,
+        ])->assertNoContent();
+        $game->refresh();
+        $this->assertSame(PendingInteractionType::ChooseCompetency, $game->state->pendingInteraction->type);
+        $this->assertSame([Competency::Competency04->value], $game->state->pendingInteraction->optionIds);
+        $this->assertSame('0:0', $game->state->pendingInteraction->context['builtHexId']);
+        $this->assertSame([], $game->state->players[0]->competencyIds);
+
+        $this->post(route('games.rewards', $game), [
+            'competency_id' => Competency::Competency01->value,
+        ])->assertSessionHasErrors('competency_id');
+        $this->post(route('games.rewards', $game), [
+            'competency_id' => Competency::Competency04->value,
+        ])->assertNoContent();
+        $game->refresh();
+        $this->assertSame([Competency::Competency04->value], $game->state->players[0]->competencyIds);
+        $this->assertSame([], $game->state->availableCompetencyIds);
+        $this->assertNull($game->state->pendingInteraction);
+        $this->assertSame(2, $game->state->players[0]->resources->coins);
+        $this->assertSame(1, $game->state->players[0]->resources->tools);
+    }
 
     public function test_player_chooses_an_available_palace_tile_after_building_a_palace(): void
     {

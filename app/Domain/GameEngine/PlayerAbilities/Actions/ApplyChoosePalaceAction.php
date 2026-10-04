@@ -13,6 +13,7 @@ use App\Domain\GameEngine\Interactions\Enums\PendingInteractionType;
 use App\Domain\GameEngine\PlayerAbilities\Data\ChoosePalaceResultData;
 use App\Domain\GameEngine\PlayerAbilities\Enums\PalaceAbility;
 use App\Domain\GameEngine\Research\Actions\AdvanceDevelopmentTrackAction;
+use App\Domain\GameEngine\Research\Services\CompetencySupply;
 use App\Domain\GameEngine\Scoring\Actions\ApplyDevelopmentTrackRoundScoringAction;
 use App\Domain\GameEngine\State\Data\GamePlayerStateData;
 use App\Domain\GameEngine\State\Data\GameStateData;
@@ -87,6 +88,14 @@ final class ApplyChoosePalaceAction
                 new PendingInteractionData(PendingInteractionType::PlaceBridge, $player->playerId, context: $stepContext),
             ];
             $nextActivePlayerId = $this->advancePendingInteractionQueue->execute($state, $player, $builtHexId);
+        } elseif ($palace === PalaceAbility::Palace05 && CompetencySupply::availableIds($state) !== []) {
+            $state->pendingInteraction = new PendingInteractionData(
+                PendingInteractionType::ChooseCompetency,
+                $player->playerId,
+                array_values(array_unique(CompetencySupply::availableIds($state))),
+                ['reason' => 'building', 'builtHexId' => $builtHexId],
+            );
+            $nextActivePlayerId = $player->playerId;
         } elseif ($gainedBooks > 0) {
             $state->pendingInteraction = new PendingInteractionData(
                 PendingInteractionType::ChoosePalaceBooks,
