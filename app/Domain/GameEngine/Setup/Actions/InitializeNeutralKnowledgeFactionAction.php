@@ -17,9 +17,14 @@ final class InitializeNeutralKnowledgeFactionAction
 {
     public function execute(GameStateData $state): void
     {
+        if (count($state->turnOrder) !== 2) {
+            $state->neutralKnowledge = null;
+
+            return;
+        }
+
         if ($state->neutralKnowledge !== null
-            || $state->board->variant !== MapVariant::OneToThreePlayers
-            || count($state->players) !== 2) {
+            || $state->board->variant !== MapVariant::OneToThreePlayers) {
             return;
         }
 

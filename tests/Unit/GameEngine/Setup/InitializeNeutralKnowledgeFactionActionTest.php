@@ -31,6 +31,7 @@ class InitializeNeutralKnowledgeFactionActionTest extends TestCase
             RoundScoringTile::GuildMedicine,
         ];
         $state = new GameStateData(
+            turnOrder: [1, 2],
             board: new BoardStateData(variant: MapVariant::OneToThreePlayers),
             players: [
                 $this->player(1, PlayerColor::Yellow),
@@ -58,6 +59,7 @@ class InitializeNeutralKnowledgeFactionActionTest extends TestCase
     public function test_it_does_not_add_the_neutral_faction_on_the_large_map(): void
     {
         $state = new GameStateData(
+            turnOrder: [1, 2],
             board: new BoardStateData(variant: MapVariant::ThreeToFivePlayers),
             players: [
                 $this->player(1, PlayerColor::Yellow),
@@ -81,6 +83,7 @@ class InitializeNeutralKnowledgeFactionActionTest extends TestCase
             $setupPool->roundScoringTiles,
         );
         $state = new GameStateData(
+            turnOrder: [1, 2],
             board: new BoardStateData(variant: MapVariant::OneToThreePlayers),
             players: [
                 $this->player(1, PlayerColor::Yellow),
@@ -92,6 +95,47 @@ class InitializeNeutralKnowledgeFactionActionTest extends TestCase
         (new InitializeNeutralKnowledgeFactionAction())->execute($state);
 
         $this->assertNotNull($state->neutralKnowledge);
+    }
+
+    public function test_it_does_not_create_a_neutral_faction_when_only_two_of_three_players_have_selected_bundles(): void
+    {
+        $state = new GameStateData(
+            turnOrder: [1, 2, 3],
+            board: new BoardStateData(variant: MapVariant::OneToThreePlayers),
+            players: [
+                $this->player(1, PlayerColor::Yellow),
+                $this->player(2, PlayerColor::Red),
+            ],
+            setupPool: (new GameSetupPoolFactory())->createFromSeed(3, 'three-player-neutral-test'),
+        );
+        $action = new InitializeNeutralKnowledgeFactionAction();
+
+        $action->execute($state);
+        $this->assertNull($state->neutralKnowledge);
+
+        $state->players[] = $this->player(3, PlayerColor::Black);
+        $action->execute($state);
+        $this->assertNull($state->neutralKnowledge);
+    }
+
+    public function test_it_removes_an_existing_neutral_faction_in_a_three_player_game(): void
+    {
+        $state = new GameStateData(
+            turnOrder: [1, 2],
+            board: new BoardStateData(variant: MapVariant::OneToThreePlayers),
+            players: [
+                $this->player(1, PlayerColor::Yellow),
+                $this->player(2, PlayerColor::Red),
+            ],
+            setupPool: (new GameSetupPoolFactory())->createFromSeed(2, 'stale-neutral-test'),
+        );
+        $action = new InitializeNeutralKnowledgeFactionAction();
+        $action->execute($state);
+        $this->assertNotNull($state->neutralKnowledge);
+
+        $state->turnOrder[] = 3;
+        $action->execute($state);
+        $this->assertNull($state->neutralKnowledge);
     }
 
     private function player(int $playerId, PlayerColor $color): GamePlayerStateData
