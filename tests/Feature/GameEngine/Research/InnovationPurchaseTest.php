@@ -15,6 +15,7 @@ use App\Domain\GameEngine\Economy\Data\PlayerResourcesData;
 use App\Domain\GameEngine\Enums\GameActionType;
 use App\Domain\GameEngine\Interactions\Enums\PendingInteractionType;
 use App\Domain\GameEngine\PlayerAbilities\Enums\Faction;
+use App\Domain\GameEngine\PlayerAbilities\Enums\PalaceAbility;
 use App\Domain\GameEngine\PlayerAbilities\Enums\RoundBonus;
 use App\Domain\GameEngine\Research\Enums\Competency;
 use App\Domain\GameEngine\Research\Enums\Innovation;
@@ -275,6 +276,7 @@ class InnovationPurchaseTest extends TestCase
     public function test_player_builds_a_neutral_innovation_building_after_any_required_terraforming(
         TerrainType $targetTerrain,
         int $expectedToolCost,
+        ?PalaceAbility $palace = null,
     ): void {
         $user = User::factory()->create();
         $game = Game::factory()->create([
@@ -322,6 +324,7 @@ class InnovationPurchaseTest extends TestCase
                     coins: 10,
                     books: new BookSupplyData(banking: 2, law: 2, medicine: 1),
                 ),
+                palaceId: $palace?->value,
             )],
             round: new RoundStateData(
                 phase: GamePhase::Actions,
@@ -349,18 +352,28 @@ class InnovationPurchaseTest extends TestCase
         $this->assertSame(TerrainType::Forest, $game->state->board->hexes[1]->terrain);
         $this->assertSame(BuildingType::Workshop, $game->state->board->hexes[1]->building?->type);
         $this->assertTrue($game->state->board->hexes[1]->building?->isNeutral);
-        $this->assertSame(22, $game->state->players[0]->victoryPoints);
-        $this->assertSame(2, $game->actions()->sole()->payload['neutral_building']['victory_points']);
+        $expectedVictoryPoints = $palace === PalaceAbility::Palace12 ? 4 : 2;
+        $this->assertSame(20 + $expectedVictoryPoints, $game->state->players[0]->victoryPoints);
+        $this->assertSame($expectedVictoryPoints, $game->actions()->sole()->payload['neutral_building']['victory_points']);
+        if ($palace === PalaceAbility::Palace12) {
+            $this->assertEquals([
+                'source' => 'palace',
+                'id' => PalaceAbility::Palace12->value,
+                'points' => 2,
+            ], collect($game->actions()->sole()->payload['neutral_building']['scoring_sources'])->firstWhere('source', 'palace'));
+        }
         $this->assertSame('1:0', $game->actions()->sole()->payload['neutral_building']['hex_id']);
         $this->assertSame($expectedToolCost, $game->actions()->sole()->payload['neutral_building']['tools']);
     }
 
-    /** @return array<string, array{TerrainType, int}> */
+    /** @return array<string, array{TerrainType, int, PalaceAbility|null}> */
     public static function neutralInnovationBuildingTerrainProvider(): array
     {
         return [
-            'without terraforming' => [TerrainType::Forest, 0],
-            'with terraforming' => [TerrainType::Mountain, 3],
+            'without terraforming' => [TerrainType::Forest, 0, null],
+            'with terraforming' => [TerrainType::Mountain, 3, null],
+            'palace twelve without terraforming' => [TerrainType::Forest, 0, PalaceAbility::Palace12],
+            'palace twelve with terraforming' => [TerrainType::Mountain, 3, PalaceAbility::Palace12],
         ];
     }
 
