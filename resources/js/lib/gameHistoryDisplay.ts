@@ -35,3 +35,9 @@ export function specialActionDescription(
 
     return 'выполнил особое действие';
 }
+export function shouldNotifyAboutPlayerAction(
+    player: { user_id: number | null } | null,
+    currentUserId: number,
+): boolean {
+    return player !== null && player.user_id !== currentUserId;
+}

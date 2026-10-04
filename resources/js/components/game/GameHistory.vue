@@ -9,7 +9,7 @@ import GameHistoryUndoController from '@/actions/App/Http/Controllers/GameHistor
 import Form from '@/components/game/GameActionForm.vue';
 import { Button } from '@/components/ui/button';
 import { playerColorValues, roundBonusNames, terrainNames } from '@/lib/gameDisplay';
-import { specialActionDescription } from '@/lib/gameHistoryDisplay';
+import { shouldNotifyAboutPlayerAction, specialActionDescription } from '@/lib/gameHistoryDisplay';
 import { resourceExchangeDetails } from '@/lib/resourceExchangeHistory';
 import type {
     BookAction,
@@ -108,7 +108,7 @@ watch(
         entries.value = [...entriesById.values()].sort((first, second) => second.sequence - first.sequence);
 
         const newEntries = latestEntries.filter(
-            (entry) => !knownEntryIds.has(entry.id) && entry.player !== null && entry.player.id !== currentUserId,
+            (entry) => !knownEntryIds.has(entry.id) && shouldNotifyAboutPlayerAction(entry.player, currentUserId),
         );
 
         latestEntries.forEach((entry) => knownEntryIds.add(entry.id));
