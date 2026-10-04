@@ -82,7 +82,7 @@ function placeLabel(place: number): string {
 
                 <div class="min-w-0">
                     <div class="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-                        <strong class="truncate text-sm">{{ entry.player.user.name }}</strong>
+                        <strong class="truncate text-sm">{{ entry.player.name }}</strong>
                         <span class="text-[0.625rem] font-bold text-muted-foreground uppercase">
                             {{ placeLabel(entry.place) }}
                         </span>
