@@ -42,8 +42,12 @@ class HandleInertiaRequests extends Middleware
             'name' => config('app.name'),
             'auth' => [
                 'user' => $request->user(),
+                'canAccessAdmin' => $request->user()?->can('access-admin') ?? false,
             ],
             'sidebarOpen' => $request->cookie('sidebar_state') === 'true',
+            'horizonUrl' => fn (): ?string => $request->user()?->can('access-admin')
+                ? route('horizon.index')
+                : null,
         ];
     }
 }

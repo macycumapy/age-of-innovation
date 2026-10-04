@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Http\Controllers\AdminController;
 use App\Http\Controllers\AnnexPlacementController;
 use App\Http\Controllers\BookActionController;
 use App\Http\Controllers\BridgeConfirmationController;
@@ -54,6 +55,10 @@ use Illuminate\Support\Facades\Route;
 Route::redirect('/', '/games')->name('home');
 
 Route::middleware(['auth', 'verified'])->group(function () {
+    Route::prefix('admin')->name('admin.')->middleware('can:access-admin')->group(function () {
+        Route::get('/', AdminController::class)->name('index');
+    });
+
     Route::resource('games', GameController::class)->only(['index', 'store', 'show']);
     Route::get('games/{game}/history', GameHistoryController::class)->name('games.history');
     Route::delete('games/{game}/history/latest', GameHistoryUndoController::class)

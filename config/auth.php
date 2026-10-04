@@ -6,6 +6,8 @@ use App\Models\User;
 
 return [
 
+    'admin_user_id' => env('ADMIN_USER_ID'),
+
     /*
     |--------------------------------------------------------------------------
     | Authentication Defaults

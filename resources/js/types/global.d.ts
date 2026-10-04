@@ -19,6 +19,7 @@ declare module '@inertiajs/core' {
             name: string;
             auth: Auth;
             sidebarOpen: boolean;
+            horizonUrl: string | null;
             [key: string]: unknown;
         };
     }

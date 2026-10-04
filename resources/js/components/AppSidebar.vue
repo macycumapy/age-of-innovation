@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { Link } from '@inertiajs/vue3';
-import { Gamepad2 } from '@lucide/vue';
+import { Link, usePage } from '@inertiajs/vue3';
+import { Activity, Gamepad2, Shield } from '@lucide/vue';
+import { computed } from 'vue';
 import AppLogo from '@/components/AppLogo.vue';
 import FullscreenSidebarButton from '@/components/FullscreenSidebarButton.vue';
 import NavFooter from '@/components/NavFooter.vue';
@@ -17,18 +18,25 @@ import {
     SidebarTrigger,
     useSidebar,
 } from '@/components/ui/sidebar';
+import { index as adminIndex } from '@/routes/admin';
 import { index as gamesIndex } from '@/routes/games';
 import type { NavItem } from '@/types';
 
 const { isMobile, openMobile } = useSidebar();
 
-const mainNavItems: NavItem[] = [
+const page = usePage();
+
+const mainNavItems = computed<NavItem[]>(() => [
     {
         title: 'Игры',
         href: gamesIndex(),
         icon: Gamepad2,
     },
-];
+    ...(page.props.auth.canAccessAdmin ? [{ title: 'Админка', href: adminIndex(), icon: Shield }] : []),
+    ...(page.props.auth.canAccessAdmin && page.props.horizonUrl
+        ? [{ title: 'Horizon', href: page.props.horizonUrl, icon: Activity, external: true }]
+        : []),
+]);
 
 const footerNavItems: NavItem[] = [];
 </script>
