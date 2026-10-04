@@ -165,6 +165,7 @@ export type GamePlayerBoardState = {
     activeAnnexes: number;
     availableAnnexes: number;
     buildingsOnMap: Record<'workshop' | 'guild' | 'school' | 'university' | 'palace', number>;
+    buildingsOnBoard: Record<'workshop' | 'guild' | 'school' | 'university' | 'palace', number>;
     income: {
         tools: number;
         coins: number;

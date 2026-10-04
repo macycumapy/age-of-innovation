@@ -28,11 +28,72 @@ use App\Models\Game;
 use App\Models\GamePlayer;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 class PassBonusesTest extends TestCase
 {
     use RefreshDatabase;
+
+    /** @return array<string, array{BuildingType, int, string|null, string|null}> */
+    public static function neutralBuildingPassRewards(): array
+    {
+        return [
+            'palace' => [BuildingType::Palace, 4, 'round_bonus', RoundBonus::PassPalaceUniversity->value],
+            'university' => [BuildingType::University, 4, 'round_bonus', RoundBonus::PassPalaceUniversity->value],
+            'school' => [BuildingType::School, 3, 'palace', PalaceAbility::Palace07->value],
+            'guild' => [BuildingType::Guild, 2, 'innovation', Innovation::TradeRoutes->value],
+            'workshop has no pass reward' => [BuildingType::Workshop, 0, null, null],
+        ];
+    }
+
+    #[DataProvider('neutralBuildingPassRewards')]
+    public function test_pass_rewards_count_owned_regular_and_neutral_buildings_only(
+        BuildingType $buildingType,
+        int $pointsPerBuilding,
+        ?string $source,
+        ?string $sourceId,
+    ): void {
+        [$game, $user] = $this->gameForPassing();
+        $state = $game->state;
+        $player = $state->players[0];
+        $player->roundBonus = RoundBonus::PassPalaceUniversity;
+        $player->palaceId = PalaceAbility::Palace07->value;
+        $player->inventionIds = [Innovation::TradeRoutes->value];
+        $buildings = [
+            new BuildingStateData($buildingType, $player->playerId),
+            new BuildingStateData($buildingType, $player->playerId, isNeutral: true),
+            new BuildingStateData($buildingType, $state->players[1]->playerId),
+            new BuildingStateData($buildingType, $state->players[1]->playerId, isNeutral: true),
+            null,
+        ];
+        $state->board = new BoardStateData(hexes: array_map(
+            static fn (?BuildingStateData $building, int $index): BoardHexStateData => new BoardHexStateData(
+                id: "{$index}:0",
+                q: $index,
+                r: 0,
+                initialTerrain: TerrainType::Forest,
+                terrain: TerrainType::Forest,
+                building: $building,
+            ),
+            $buildings,
+            array_keys($buildings),
+        ));
+        $pointsBefore = $player->victoryPoints;
+        $game->update(['state' => $state]);
+
+        $this->actingAs($user)->post(route('games.pass', $game))->assertNoContent();
+
+        $game->refresh();
+        $expectedPoints = $pointsPerBuilding * 2;
+        $this->assertSame($pointsBefore + $expectedPoints, $game->state->players[0]->victoryPoints);
+        $action = $game->actions()->sole();
+        $this->assertSame($expectedPoints, $action->payload['victory_points']);
+        $this->assertSame(
+            $expectedPoints === 0 ? [] : [['id' => $sourceId, 'points' => $expectedPoints, 'source' => $source]],
+            $action->payload['scoring_sources'],
+        );
+    }
 
     public function test_pass_awards_victory_points_from_all_pass_bonus_sources(): void
     {

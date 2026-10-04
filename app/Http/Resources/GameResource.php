@@ -242,6 +242,13 @@ class GameResource extends JsonResource
                     )),
                     'availableAnnexes' => $player->availableAnnexes,
                     'buildingsOnMap' => [
+                        'workshop' => $this->buildingCount($player->playerId, BuildingType::Workshop, includeNeutral: true),
+                        'guild' => $this->buildingCount($player->playerId, BuildingType::Guild, includeNeutral: true),
+                        'school' => $this->buildingCount($player->playerId, BuildingType::School, includeNeutral: true),
+                        'university' => $this->buildingCount($player->playerId, BuildingType::University, includeNeutral: true),
+                        'palace' => $this->buildingCount($player->playerId, BuildingType::Palace, includeNeutral: true),
+                    ],
+                    'buildingsOnBoard' => [
                         'workshop' => $this->buildingCount($player->playerId, BuildingType::Workshop),
                         'guild' => $this->buildingCount($player->playerId, BuildingType::Guild),
                         'school' => $this->buildingCount($player->playerId, BuildingType::School),
@@ -524,13 +531,13 @@ class GameResource extends JsonResource
         );
     }
 
-    private function buildingCount(int $playerId, BuildingType $type): int
+    private function buildingCount(int $playerId, BuildingType $type, bool $includeNeutral = false): int
     {
         return count(array_filter(
             $this->state->board->hexes,
             static fn (BoardHexStateData $hex): bool => $hex->building?->ownerPlayerId === $playerId
                 && $hex->building->type === $type
-                && ! $hex->building->isNeutral,
+                && ($includeNeutral || ! $hex->building->isNeutral),
         ));
     }
 

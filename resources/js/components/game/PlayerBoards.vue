@@ -234,9 +234,9 @@ function buildingStyle(slot: BuildingSlot): CSSProperties {
 function isBuildingInSupply(playerId: number, slot: BuildingSlot, slotIndex: number): boolean {
     const typeSlotIndex =
         buildingSlots.slice(0, slotIndex + 1).filter((candidate) => candidate.type === slot.type).length - 1;
-    const buildingsOnMap = playerState(playerId)?.buildingsOnMap[slot.type] ?? 0;
+    const buildingsOnBoard = playerState(playerId)?.buildingsOnBoard[slot.type] ?? 0;
 
-    return typeSlotIndex >= buildingsOnMap;
+    return typeSlotIndex >= buildingsOnBoard;
 }
 
 function factionImage(faction: Faction): string {

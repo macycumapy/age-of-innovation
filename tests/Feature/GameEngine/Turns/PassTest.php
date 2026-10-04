@@ -14,6 +14,7 @@ use App\Domain\GameEngine\Economy\Data\PowerBowlsStateData;
 use App\Domain\GameEngine\Enums\GameActionType;
 use App\Domain\GameEngine\PlayerAbilities\Data\RoundBonusOfferData;
 use App\Domain\GameEngine\PlayerAbilities\Enums\Faction;
+use App\Domain\GameEngine\PlayerAbilities\Enums\PalaceAbility;
 use App\Domain\GameEngine\PlayerAbilities\Enums\RoundBonus;
 use App\Domain\GameEngine\Research\Data\KnowledgeStateData;
 use App\Domain\GameEngine\Research\Enums\KnowledgeDiscipline;
@@ -85,12 +86,13 @@ class PassTest extends TestCase
         );
     }
 
-    public function test_pass_school_round_bonus_advances_knowledge_once_per_school(): void
+    public function test_pass_school_and_palace_bonuses_include_owned_neutral_schools(): void
     {
         [$game, $firstUser] = $this->gameForPassing();
         $state = $game->state;
         $player = $state->players[0];
         $player->roundBonus = RoundBonus::PassSchool;
+        $player->palaceId = PalaceAbility::Palace07->value;
         $player->knowledge = new KnowledgeStateData(banking: 2, law: 4);
         $player->resources->power = new PowerBowlsStateData(bowlOne: 3);
         $state->round->scoringTileId = RoundScoringTile::KnowledgeMedicine->value;
@@ -109,10 +111,25 @@ class PassTest extends TestCase
                 r: 0,
                 initialTerrain: TerrainType::Forest,
                 terrain: TerrainType::Forest,
-                building: new BuildingStateData(BuildingType::School, $player->playerId),
+                building: new BuildingStateData(BuildingType::School, $player->playerId, isNeutral: true),
+            ),
+            new BoardHexStateData(
+                id: '2:0',
+                q: 2,
+                r: 0,
+                initialTerrain: TerrainType::Forest,
+                terrain: TerrainType::Forest,
+                building: new BuildingStateData(BuildingType::School, $state->players[1]->playerId, isNeutral: true),
             ),
         ]);
         $game->update(['state' => $state]);
+
+
+        $this->actingAs($firstUser)->get(route('games.show', $game))->assertInertia(
+            fn (Assert $page) => $page
+                ->where('game.data.playerBoardStates.0.buildingsOnBoard.school', 1)
+                ->where('game.data.playerBoardStates.0.buildingsOnMap.school', 2),
+        );
 
         $this->actingAs($firstUser)->post(route('games.pass', $game), [
             'round_bonus' => RoundBonus::RiverWorkshop->value,
@@ -131,15 +148,19 @@ class PassTest extends TestCase
         $game->refresh();
         $this->assertSame(3, $game->state->players[0]->knowledge->banking);
         $this->assertSame(5, $game->state->players[0]->knowledge->law);
-        $this->assertSame(22, $game->state->players[0]->victoryPoints);
+        $this->assertSame(28, $game->state->players[0]->victoryPoints);
         $this->assertSame(0, $game->state->players[0]->resources->power->bowlOne);
         $this->assertSame(3, $game->state->players[0]->resources->power->bowlTwo);
         $this->assertSame(
             [KnowledgeDiscipline::Banking->value, KnowledgeDiscipline::Law->value],
             $game->actions()->sole()->payload['knowledge_disciplines'],
         );
-        $this->assertSame(2, $game->actions()->sole()->payload['victory_points']);
+        $this->assertSame(8, $game->actions()->sole()->payload['victory_points']);
         $this->assertSame([[
+            'id' => PalaceAbility::Palace07->value,
+            'points' => 6,
+            'source' => 'palace',
+        ], [
             'id' => RoundScoringTile::KnowledgeMedicine->value,
             'points' => 2,
             'source' => 'round_scoring',

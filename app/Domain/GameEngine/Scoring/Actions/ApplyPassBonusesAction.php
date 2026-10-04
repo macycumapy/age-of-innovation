@@ -76,8 +76,7 @@ final class ApplyPassBonusesAction
     {
         $buildings = array_filter(
             $state->board->hexes,
-            static fn (BoardHexStateData $hex): bool => $hex->building?->ownerPlayerId === $playerId
-                && ! $hex->building->isNeutral,
+            static fn (BoardHexStateData $hex): bool => $hex->building?->ownerPlayerId === $playerId,
         );
 
         return [

@@ -104,7 +104,6 @@ final class PassRequest extends FormRequest
         return count(array_filter(
             $game->state->board->hexes,
             static fn (BoardHexStateData $hex): bool => $hex->building?->ownerPlayerId === $player->id
-                && ! $hex->building->isNeutral
                 && $hex->building->type === BuildingType::School,
         ));
     }

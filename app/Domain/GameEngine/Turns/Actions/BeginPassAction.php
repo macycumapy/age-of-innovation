@@ -110,7 +110,6 @@ final class BeginPassAction
         $schoolCount = $player->roundBonus === RoundBonus::PassSchool ? count(array_filter(
             $state->board->hexes,
             static fn (BoardHexStateData $hex): bool => $hex->building?->ownerPlayerId === $player->playerId
-                && ! $hex->building->isNeutral
                 && $hex->building->type === BuildingType::School,
         )) : 0;
 

@@ -363,7 +363,7 @@ const selectableStartingHexIds = computed(() => {
         return state !== undefined &&
             state.tools >= toolCost &&
             state.coins >= coinCost &&
-            state.buildingsOnMap.workshop < 9
+            state.buildingsOnBoard.workshop < 9
             ? pendingWorkshopAfterTerraforming.value.optionIds
             : [];
     }
@@ -846,7 +846,7 @@ const paidTerraformHexIds = computed(() => {
 const buildableWorkshopHexIds = computed(() => {
     const state = currentPlayerState.value;
 
-    if (state === undefined || state.tools < 1 || state.coins < 2 || state.buildingsOnMap.workshop >= 9) {
+    if (state === undefined || state.tools < 1 || state.coins < 2 || state.buildingsOnBoard.workshop >= 9) {
         return [];
     }
 
