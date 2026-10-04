@@ -8,11 +8,12 @@ import GamePlayerRemovalDialog from '@/components/game/GamePlayerRemovalDialog.v
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import type { GamePlayerSummary, GameResource } from '@/types';
+import type { Settings, GamePlayerSummary, GameResource } from '@/types';
 
 defineProps<{
     game: GameResource;
     currentPlayer?: GamePlayerSummary;
+    settings: Settings;
 }>();
 </script>
 
@@ -90,8 +91,14 @@ defineProps<{
                 />
 
                 <GameBotAdditionDialog
-                    v-if="game.data.isOwner && game.data.playersCount < game.data.maxPlayers"
+                    v-if="
+                        settings.bots.enabled &&
+                        settings.bots.available_difficulties.length > 0 &&
+                        game.data.isOwner &&
+                        game.data.playersCount < game.data.maxPlayers
+                    "
                     :game-id="game.data.id"
+                    :difficulties="settings.bots.available_difficulties"
                 />
 
                 <Form

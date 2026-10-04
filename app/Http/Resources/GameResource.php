@@ -57,8 +57,9 @@ class GameResource extends JsonResource
         $playersLoaded = $this->relationLoaded('players');
         $owner = $playersLoaded ? $this->players->firstWhere('seat', 1) : null;
         $isOwner = $owner?->user_id === $request->user()?->id;
+        $canRollbackHistory = $request->user()?->can('access-admin') ?? false;
         $hasActions = $this->relationLoaded('actions') && $this->actions->isNotEmpty();
-        $hasUnsupportedActions = $isOwner && $hasActions && $this->actions()
+        $hasUnsupportedActions = $hasActions && $this->actions()
             ->whereNotIn(
                 'type',
                 array_map(
@@ -68,7 +69,6 @@ class GameResource extends JsonResource
             )
             ->exists();
         $currentPlayerState = collect($this->state->players)->firstWhere('userId', $request->user()?->id);
-        $latestAction = $hasActions ? $this->actions->sortByDesc('sequence')->first() : null;
         $innovationStates = $this->innovationStates($currentPlayerState);
 
         return [
@@ -80,8 +80,7 @@ class GameResource extends JsonResource
             'playersCount' => (int) $this->getAttribute('players_count'),
             'isJoined' => (bool) $this->getAttribute('is_joined'),
             'isOwner' => $isOwner,
-            'canUndoLastAction' => app()->environment('local', 'testing')
-                && $isOwner
+            'canUndoLastAction' => $canRollbackHistory
                 && $hasActions
                 && ! $hasUnsupportedActions,
             'canRestartCurrentTurn' => $this->phase->isActionPhase()

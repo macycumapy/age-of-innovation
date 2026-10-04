@@ -6,6 +6,7 @@ namespace App\Domain\Game\Actions;
 
 use App\Domain\Game\Enums\GameBotDifficulty;
 use App\Domain\Game\Enums\GameStatus;
+use App\Domain\Settings\Services\SettingsService;
 use App\Events\GamePlayersChanged;
 use App\Models\Game;
 use App\Models\GamePlayer;
@@ -16,13 +17,23 @@ use Illuminate\Validation\ValidationException;
 
 final class AddGameBotAction
 {
-    public function __construct(private CreateGamePlayerAction $createGamePlayer)
+    public function __construct(private CreateGamePlayerAction $createGamePlayer, private SettingsService $settings)
     {
     }
 
     public function execute(Game $game, User $owner, GameBotDifficulty $difficulty): GamePlayer
     {
         return DB::transaction(function () use ($game, $owner, $difficulty): GamePlayer {
+            $settings = $this->settings->get();
+
+            if (! $settings->botsEnabled) {
+                throw ValidationException::withMessages(['game' => 'Добавление ботов отключено.']);
+            }
+
+            if (! in_array($difficulty, $settings->botDifficulties, true)) {
+                throw ValidationException::withMessages(['difficulty' => 'Эта сложность бота недоступна.']);
+            }
+
             $lockedGame = Game::query()->lockForUpdate()->findOrFail($game->id);
 
             if ($lockedGame->status !== GameStatus::Lobby) {

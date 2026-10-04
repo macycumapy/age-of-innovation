@@ -301,7 +301,7 @@ class PowerOffersTest extends TestCase
         $this->actingAs($builderUser)
             ->get(route('games.show', $game))
             ->assertInertia(
-                fn (Assert $page) => $page->where('game.data.canUndoLastAction', true),
+                fn (Assert $page) => $page->where('game.data.canUndoLastAction', false),
             );
 
         $this->actingAs($secondNeighborUser)->post(route('games.power-offer', $game), ['accept' => false]);
@@ -324,7 +324,7 @@ class PowerOffersTest extends TestCase
             ->assertInertia(
                 fn (Assert $page) => $page
                     ->where('game.data.canRestartCurrentTurn', false)
-                    ->where('game.data.canUndoLastAction', true),
+                    ->where('game.data.canUndoLastAction', false),
             );
         $this->post(route('games.current-turn.restart', $game))->assertForbidden();
         $coinsAtPowerCheckpoint = $game->state->players[0]->resources->coins;

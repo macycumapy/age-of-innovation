@@ -46,6 +46,7 @@ import { Collapsible, CollapsibleContent } from '@/components/ui/collapsible';
 import { index } from '@/routes/games';
 import type {
     BookActionState,
+    Settings,
     GamePlayerSummary,
     GameResource,
     KnowledgeDiscipline,
@@ -58,6 +59,7 @@ import gameBackgroundImage from '../../../images/background_game.jpg';
 
 const props = defineProps<{
     game: GameResource;
+    settings: Settings;
 }>();
 
 const page = usePage();
@@ -1057,7 +1059,12 @@ defineOptions({
 
     <div class="flex h-full min-w-0 flex-1">
         <div class="flex min-w-0 flex-1 flex-col gap-6 p-4">
-            <GameLobby v-if="game.data.status === 'lobby'" :game="game" :current-player="currentPlayer" />
+            <GameLobby
+                v-if="game.data.status === 'lobby'"
+                :game="game"
+                :current-player="currentPlayer"
+                :settings="settings"
+            />
 
             <CurrentTurnPanel
                 :game="game"

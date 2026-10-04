@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import GameBotController from '@/actions/App/Http/Controllers/GameBotController';
 import Form from '@/components/game/GameActionForm.vue';
 import InputError from '@/components/InputError.vue';
@@ -15,15 +15,28 @@ import {
     DialogTitle,
     DialogTrigger,
 } from '@/components/ui/dialog';
+import type { GameBotDifficulty } from '@/types';
 
-defineProps<{ gameId: number }>();
+const props = defineProps<{ gameId: number; difficulties: GameBotDifficulty[] }>();
 const isOpen = ref(false);
-const difficulty = ref('balanced');
-const difficultyOptions = [
-    { value: 'fast', label: 'Слабый' },
-    { value: 'balanced', label: 'Обычный' },
-    { value: 'strong', label: 'Сильный' },
-];
+const difficulty = ref<GameBotDifficulty>(
+    props.difficulties.includes('balanced') ? 'balanced' : (props.difficulties[0] ?? 'fast'),
+);
+const difficultyOptions = computed(() =>
+    props.difficulties.map((value) => ({
+        value,
+        label: { fast: 'Слабый', balanced: 'Обычный', strong: 'Сильный' }[value],
+    })),
+);
+
+watch(
+    () => props.difficulties,
+    (difficulties) => {
+        if (!difficulties.includes(difficulty.value)) {
+            difficulty.value = difficulties[0] ?? 'fast';
+        }
+    },
+);
 
 function handleSuccess(): void {
     isOpen.value = false;

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Domain\Game\Actions\CreateGameAction;
+use App\Domain\Settings\Services\SettingsService;
 use App\Http\Requests\StoreGameRequest;
 use App\Http\Resources\GameResource;
 use App\Http\Resources\GameSummaryResource;
@@ -30,7 +31,7 @@ class GameController extends Controller
         ]);
     }
 
-    public function show(Request $request, Game $game): Response
+    public function show(Request $request, Game $game, SettingsService $settings): Response
     {
         /** @var User $user */
         $user = $request->user();
@@ -48,6 +49,7 @@ class GameController extends Controller
 
         return Inertia::render('games/Show', [
             'game' => new GameResource($game),
+            'settings' => $settings->get()->toArray(),
         ]);
     }
 
