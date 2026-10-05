@@ -2,7 +2,7 @@
 import Form from '@/components/game/GameActionForm.vue';
 import { router } from '@inertiajs/vue3';
 import { computed, reactive, watch } from 'vue';
-import ResourceExchangeController from '@/actions/App/Http/Controllers/ResourceExchangeController';
+import ResourceExchangeController from '@/actions/App/Http/Controllers/Game/ResourceExchangeController';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
 import {

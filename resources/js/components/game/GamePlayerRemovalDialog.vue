@@ -2,7 +2,7 @@
 import { LogOut, UserMinus } from '@lucide/vue';
 import { router } from '@inertiajs/vue3';
 import { ref } from 'vue';
-import GamePlayerRemovalController from '@/actions/App/Http/Controllers/GamePlayerRemovalController';
+import GamePlayerRemovalController from '@/actions/App/Http/Controllers/Game/GamePlayerRemovalController';
 import Form from '@/components/game/GameActionForm.vue';
 import { Button } from '@/components/ui/button';
 import {

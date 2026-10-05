@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue';
-import RoundBonusChoiceController from '@/actions/App/Http/Controllers/RoundBonusChoiceController';
+import RoundBonusChoiceController from '@/actions/App/Http/Controllers/Game/RoundBonusChoiceController';
 import Form from '@/components/game/GameActionForm.vue';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';

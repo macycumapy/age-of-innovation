@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Form } from '@inertiajs/vue3';
 import { ref } from 'vue';
-import GameController from '@/actions/App/Http/Controllers/GameController';
+import GameController from '@/actions/App/Http/Controllers/Game/GameController';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
 import {

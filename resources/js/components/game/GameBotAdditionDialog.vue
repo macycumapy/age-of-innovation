@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
-import GameBotController from '@/actions/App/Http/Controllers/GameBotController';
+import GameBotController from '@/actions/App/Http/Controllers/Game/GameBotController';
 import Form from '@/components/game/GameActionForm.vue';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import PlanningBundleController from '@/actions/App/Http/Controllers/PlanningBundleController';
+import PlanningBundleController from '@/actions/App/Http/Controllers/Game/PlanningBundleController';
 import Form from '@/components/game/GameActionForm.vue';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';

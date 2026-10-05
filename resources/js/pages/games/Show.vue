@@ -2,10 +2,10 @@
 import { Head, router, useHttp, usePage } from '@inertiajs/vue3';
 import { useEcho } from '@laravel/echo-vue';
 import { computed, ref, watch } from 'vue';
-import BridgeController from '@/actions/App/Http/Controllers/BridgeController';
-import PalaceGuildController from '@/actions/App/Http/Controllers/PalaceGuildController';
-import NeutralInnovationBuildingController from '@/actions/App/Http/Controllers/NeutralInnovationBuildingController';
-import StartingBuildingController from '@/actions/App/Http/Controllers/StartingBuildingController';
+import BridgeController from '@/actions/App/Http/Controllers/Game/BridgeController';
+import PalaceGuildController from '@/actions/App/Http/Controllers/Game/PalaceGuildController';
+import NeutralInnovationBuildingController from '@/actions/App/Http/Controllers/Game/NeutralInnovationBuildingController';
+import StartingBuildingController from '@/actions/App/Http/Controllers/Game/StartingBuildingController';
 import BoardMap from '@/components/game/BoardMap.vue';
 import BookActionDialog from '@/components/game/BookActionDialog.vue';
 import BuildingUpgradeDialog from '@/components/game/BuildingUpgradeDialog.vue';

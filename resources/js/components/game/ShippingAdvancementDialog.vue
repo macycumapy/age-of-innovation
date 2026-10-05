@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import Form from '@/components/game/GameActionForm.vue';
-import ShippingAdvancementController from '@/actions/App/Http/Controllers/ShippingAdvancementController';
+import ShippingAdvancementController from '@/actions/App/Http/Controllers/Game/ShippingAdvancementController';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
 import {

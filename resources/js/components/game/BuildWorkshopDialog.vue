@@ -2,8 +2,8 @@
 import Form from '@/components/game/GameActionForm.vue';
 import { TriangleAlert } from '@lucide/vue';
 import { computed, ref, watch } from 'vue';
-import TerraformWorkshopController from '@/actions/App/Http/Controllers/TerraformWorkshopController';
-import WorkshopController from '@/actions/App/Http/Controllers/WorkshopController';
+import TerraformWorkshopController from '@/actions/App/Http/Controllers/Game/TerraformWorkshopController';
+import WorkshopController from '@/actions/App/Http/Controllers/Game/WorkshopController';
 import InputError from '@/components/InputError.vue';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';

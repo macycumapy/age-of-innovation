@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import Form from '@/components/game/GameActionForm.vue';
 import { computed, reactive, ref, watch } from 'vue';
-import RewardDistributionController from '@/actions/App/Http/Controllers/RewardDistributionController';
+import RewardDistributionController from '@/actions/App/Http/Controllers/Game/RewardDistributionController';
 import CompetencySelector from '@/components/game/CompetencySelector.vue';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';

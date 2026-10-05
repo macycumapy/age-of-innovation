@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import InnovationActionController from '@/actions/App/Http/Controllers/InnovationActionController';
+import InnovationActionController from '@/actions/App/Http/Controllers/Game/InnovationActionController';
 import Form from '@/components/game/GameActionForm.vue';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';

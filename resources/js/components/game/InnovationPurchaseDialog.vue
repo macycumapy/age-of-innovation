@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import Form from '@/components/game/GameActionForm.vue';
 import { computed, reactive, watch } from 'vue';
-import InnovationController from '@/actions/App/Http/Controllers/InnovationController';
+import InnovationController from '@/actions/App/Http/Controllers/Game/InnovationController';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
 import {

@@ -1,0 +1,31 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Http\Controllers\Game;
+
+use App\Domain\GameEngine\Setup\Actions\StartGameAction;
+use App\Http\Controllers\Controller;
+use App\Models\Game;
+use App\Models\User;
+use Illuminate\Http\Request;
+use Illuminate\Http\Response;
+use Inertia\Inertia;
+
+final class GameStartController extends Controller
+{
+    public function __invoke(Request $request, Game $game, StartGameAction $startGame): Response
+    {
+        /** @var User $user */
+        $user = $request->user();
+
+        $startGame->execute($game, $user);
+
+        Inertia::flash('toast', [
+            'type' => 'success',
+            'message' => 'Игра началась.',
+        ]);
+
+        return $this->gameChanged($game);
+    }
+}

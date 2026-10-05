@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import Form from '@/components/game/GameActionForm.vue';
 import { computed, ref, watch } from 'vue';
-import ScholarController from '@/actions/App/Http/Controllers/ScholarController';
+import ScholarController from '@/actions/App/Http/Controllers/Game/ScholarController';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,

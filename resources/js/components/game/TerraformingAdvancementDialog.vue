@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import Form from '@/components/game/GameActionForm.vue';
 import { computed } from 'vue';
-import TerraformingAdvancementController from '@/actions/App/Http/Controllers/TerraformingAdvancementController';
+import TerraformingAdvancementController from '@/actions/App/Http/Controllers/Game/TerraformingAdvancementController';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
 import {

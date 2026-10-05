@@ -2,7 +2,7 @@
 import Form from '@/components/game/GameActionForm.vue';
 import { Check } from '@lucide/vue';
 import { ref } from 'vue';
-import TownController from '@/actions/App/Http/Controllers/TownController';
+import TownController from '@/actions/App/Http/Controllers/Game/TownController';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';

@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import GameBotAdditionDialog from '@/components/game/GameBotAdditionDialog.vue';
-import GamePlayerController from '@/actions/App/Http/Controllers/GamePlayerController';
-import GamePlayerReadinessController from '@/actions/App/Http/Controllers/GamePlayerReadinessController';
-import GameStartController from '@/actions/App/Http/Controllers/GameStartController';
+import GamePlayerController from '@/actions/App/Http/Controllers/Game/GamePlayerController';
+import GamePlayerReadinessController from '@/actions/App/Http/Controllers/Game/GamePlayerReadinessController';
+import GameStartController from '@/actions/App/Http/Controllers/Game/GameStartController';
 import Form from '@/components/game/GameActionForm.vue';
 import GamePlayerRemovalDialog from '@/components/game/GamePlayerRemovalDialog.vue';
 import InputError from '@/components/InputError.vue';

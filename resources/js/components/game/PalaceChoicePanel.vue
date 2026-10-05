@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue';
-import PalaceChoiceController from '@/actions/App/Http/Controllers/PalaceChoiceController';
+import PalaceChoiceController from '@/actions/App/Http/Controllers/Game/PalaceChoiceController';
 import Form from '@/components/game/GameActionForm.vue';
 import PalaceSelector from '@/components/game/PalaceSelector.vue';
 import InputError from '@/components/InputError.vue';

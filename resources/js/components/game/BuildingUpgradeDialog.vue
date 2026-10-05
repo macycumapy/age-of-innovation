@@ -2,8 +2,8 @@
 import Form from '@/components/game/GameActionForm.vue';
 import { ArrowRight, TriangleAlert } from '@lucide/vue';
 import { computed, ref, watch } from 'vue';
-import BuildingUpgradeController from '@/actions/App/Http/Controllers/BuildingUpgradeController';
-import AnnexPlacementController from '@/actions/App/Http/Controllers/AnnexPlacementController';
+import BuildingUpgradeController from '@/actions/App/Http/Controllers/Game/BuildingUpgradeController';
+import AnnexPlacementController from '@/actions/App/Http/Controllers/Game/AnnexPlacementController';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,

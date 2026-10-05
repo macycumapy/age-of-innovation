@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import Form from '@/components/game/GameActionForm.vue';
 import { computed, reactive, ref, watch } from 'vue';
-import BookActionController from '@/actions/App/Http/Controllers/BookActionController';
+import BookActionController from '@/actions/App/Http/Controllers/Game/BookActionController';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
 import {

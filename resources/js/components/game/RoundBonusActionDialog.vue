@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import Form from '@/components/game/GameActionForm.vue';
 import { computed, ref, watch } from 'vue';
-import RoundBonusActionController from '@/actions/App/Http/Controllers/RoundBonusActionController';
+import RoundBonusActionController from '@/actions/App/Http/Controllers/Game/RoundBonusActionController';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
 import {
