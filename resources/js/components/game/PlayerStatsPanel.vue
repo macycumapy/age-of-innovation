@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ChevronRight } from '@lucide/vue';
+import { ChevronDown, ChevronRight } from '@lucide/vue';
 import { computed, ref } from 'vue';
 import type { GameHistoryPage, GamePlayerBoardState, GamePlayerSummary } from '@/types';
 import GameHistory from '@/components/game/GameHistory.vue';
@@ -43,6 +43,13 @@ const props = defineProps<{
 }>();
 
 const isOpen = ref(false);
+const collapsedPlayerIds = ref<number[]>([]);
+
+function togglePlayerStats(playerId: number): void {
+    collapsedPlayerIds.value = collapsedPlayerIds.value.includes(playerId)
+        ? collapsedPlayerIds.value.filter((id) => id !== playerId)
+        : [...collapsedPlayerIds.value, playerId];
+}
 
 const playersWithStats = computed(() => {
     const activePlayerIds = props.players
@@ -282,157 +289,181 @@ function levelCounters(state: GamePlayerBoardState): StatCounter[] {
                     <ChevronRight class="size-3" />
                 </button>
 
-                <div class="grid h-full grid-rows-[auto_1fr] overflow-hidden rounded-lg bg-sidebar/70 shadow-sm">
-                    <div class="grid min-w-0 content-start gap-4 overflow-y-auto p-4">
+                <div class="h-full overflow-hidden rounded-lg bg-sidebar/70 shadow-sm">
+                    <div class="flex h-full min-w-0 flex-col gap-4 overflow-y-auto p-4">
                         <article
                             v-for="entry in playersWithStats"
                             :key="entry.player.id"
-                            class="grid max-w-full min-w-0 gap-3 rounded-lg border border-sidebar-border p-3"
+                            class="grid max-w-full min-w-0 shrink-0 rounded-lg border border-sidebar-border p-3"
                             :style="{ backgroundColor: playerBackgroundColor(entry.player) }"
                         >
-                            <h3 class="flex min-w-0 items-center gap-2 font-semibold">
-                                <span
-                                    v-if="entry.state.passOrder === null"
-                                    class="relative grid size-6 shrink-0 place-items-center rounded-full border border-sidebar-border bg-sidebar/70 text-xs font-bold shadow-sm"
-                                    :class="{ 'ring-2 ring-emerald-400/80': entry.player.id === activePlayerId }"
-                                    :title="
-                                        entry.player.id === activePlayerId
-                                            ? `Сейчас ходит. Порядок хода в текущем раунде: ${entry.turnOrder}`
-                                            : `Порядок хода в текущем раунде: ${entry.turnOrder}`
-                                    "
-                                    :aria-label="
-                                        entry.player.id === activePlayerId
-                                            ? `Сейчас ходит. Порядок хода в текущем раунде: ${entry.turnOrder}`
-                                            : `Порядок хода в текущем раунде: ${entry.turnOrder}`
-                                    "
+                            <h3>
+                                <button
+                                    type="button"
+                                    class="flex w-full min-w-0 cursor-pointer items-center gap-2 rounded-sm text-left font-semibold focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:outline-none"
+                                    :aria-expanded="!collapsedPlayerIds.includes(entry.player.id)"
+                                    :aria-label="`${collapsedPlayerIds.includes(entry.player.id) ? 'Развернуть' : 'Свернуть'} статистику игрока ${entry.player.name}`"
+                                    @click="togglePlayerStats(entry.player.id)"
                                 >
                                     <span
-                                        v-if="entry.player.id === activePlayerId"
-                                        class="absolute inset-0 rounded-full border-2 border-emerald-400/70 motion-safe:animate-ping"
+                                        v-if="entry.state.passOrder === null"
+                                        class="relative grid size-6 shrink-0 place-items-center rounded-full border border-sidebar-border bg-sidebar/70 text-xs font-bold shadow-sm"
+                                        :class="{ 'ring-2 ring-emerald-400/80': entry.player.id === activePlayerId }"
+                                        :title="
+                                            entry.player.id === activePlayerId
+                                                ? `Сейчас ходит. Порядок хода в текущем раунде: ${entry.turnOrder}`
+                                                : `Порядок хода в текущем раунде: ${entry.turnOrder}`
+                                        "
+                                        :aria-label="
+                                            entry.player.id === activePlayerId
+                                                ? `Сейчас ходит. Порядок хода в текущем раунде: ${entry.turnOrder}`
+                                                : `Порядок хода в текущем раунде: ${entry.turnOrder}`
+                                        "
+                                    >
+                                        <span
+                                            v-if="entry.player.id === activePlayerId"
+                                            class="absolute inset-0 rounded-full border-2 border-emerald-400/70 motion-safe:animate-ping"
+                                            aria-hidden="true"
+                                        />
+                                        <span class="relative translate-y-px leading-none">{{ entry.turnOrder }}</span>
+                                    </span>
+                                    <span
+                                        v-else
+                                        class="relative grid size-6 shrink-0 place-items-center"
+                                        :title="`Порядок паса: ${entry.state.passOrder}`"
+                                        :aria-label="`Порядок паса: ${entry.state.passOrder}`"
+                                    >
+                                        <img
+                                            :src="endOfTurnUrl"
+                                            alt=""
+                                            class="absolute size-full object-contain drop-shadow-md"
+                                        />
+                                        <span class="relative z-10 translate-y-px text-xs leading-none font-bold">
+                                            {{ entry.state.passOrder }}
+                                        </span>
+                                    </span>
+                                    <span class="min-w-0 flex-1 truncate" :title="entry.player.name">
+                                        {{ entry.player.name }}
+                                    </span>
+                                    <span
+                                        class="relative grid size-8 shrink-0 place-items-center"
+                                        :title="'Победные очки'"
+                                        :aria-label="`Победные очки: ${entry.state.victoryPoints}`"
+                                    >
+                                        <img
+                                            :src="victoryPointsUrl"
+                                            alt=""
+                                            class="absolute object-contain drop-shadow-md"
+                                        />
+                                        <span class="relative z-10 text-xs font-bold text-white">
+                                            {{ entry.state.victoryPoints }}
+                                        </span>
+                                    </span>
+                                    <ChevronDown
+                                        class="size-4 shrink-0 transition-transform duration-300 ease-in-out motion-reduce:transition-none"
+                                        :class="{ '-rotate-90': collapsedPlayerIds.includes(entry.player.id) }"
                                         aria-hidden="true"
                                     />
-                                    <span class="relative translate-y-px leading-none">{{ entry.turnOrder }}</span>
-                                </span>
-                                <span
-                                    v-else
-                                    class="relative grid size-6 shrink-0 place-items-center"
-                                    :title="`Порядок паса: ${entry.state.passOrder}`"
-                                    :aria-label="`Порядок паса: ${entry.state.passOrder}`"
-                                >
-                                    <img
-                                        :src="endOfTurnUrl"
-                                        alt=""
-                                        class="absolute size-full object-contain drop-shadow-md"
-                                    />
-                                    <span class="relative z-10 translate-y-px text-xs leading-none font-bold">
-                                        {{ entry.state.passOrder }}
-                                    </span>
-                                </span>
-                                <span class="min-w-0 flex-1 truncate" :title="entry.player.name">
-                                    {{ entry.player.name }}
-                                </span>
-                                <span
-                                    class="relative grid size-8 shrink-0 place-items-center"
-                                    :title="'Победные очки'"
-                                    :aria-label="`Победные очки: ${entry.state.victoryPoints}`"
-                                >
-                                    <img
-                                        :src="victoryPointsUrl"
-                                        alt=""
-                                        class="absolute object-contain drop-shadow-md"
-                                    />
-                                    <span class="relative z-10 text-xs font-bold text-white">
-                                        {{ entry.state.victoryPoints }}
-                                    </span>
-                                </span>
+                                </button>
                             </h3>
 
-                            <template v-if="entry.state">
-                                <div class="grid grid-cols-4 gap-1">
-                                    <div
-                                        v-for="counter in balanceCounters(entry.state)"
-                                        :key="counter.label"
-                                        class="relative grid rounded-lg"
-                                        :title="counter.label"
-                                        :aria-label="`${counter.label}: ${counter.value}`"
-                                    >
-                                        <img
-                                            :src="counter.image"
-                                            alt=""
-                                            class="object-contain drop-shadow-md"
-                                            :class="
-                                                counter.label === 'Доступные пристройки'
-                                                    ? 'h-full w-[60%]'
-                                                    : 'h-full w-[50%]'
-                                            "
-                                        />
-                                        <span
-                                            class="absolute top-1/2 right-2 grid min-w-6 -translate-y-1/2 place-items-center rounded-full px-1 text-sm font-bold shadow"
+                            <div
+                                class="grid transition-[grid-template-rows,opacity] duration-300 ease-in-out motion-reduce:transition-none"
+                                :class="
+                                    collapsedPlayerIds.includes(entry.player.id)
+                                        ? 'grid-rows-[0fr] opacity-0'
+                                        : 'grid-rows-[1fr] opacity-100'
+                                "
+                                :aria-hidden="collapsedPlayerIds.includes(entry.player.id)"
+                                :inert="collapsedPlayerIds.includes(entry.player.id)"
+                            >
+                                <div class="min-h-0 overflow-hidden">
+                                    <div class="grid grid-cols-4 gap-1 pt-3">
+                                        <div
+                                            v-for="counter in balanceCounters(entry.state)"
+                                            :key="counter.label"
+                                            class="relative grid rounded-lg"
+                                            :title="counter.label"
+                                            :aria-label="`${counter.label}: ${counter.value}`"
                                         >
-                                            {{ counter.value }}
-                                        </span>
-                                    </div>
+                                            <img
+                                                :src="counter.image"
+                                                alt=""
+                                                class="object-contain drop-shadow-md"
+                                                :class="
+                                                    counter.label === 'Доступные пристройки'
+                                                        ? 'h-full w-[60%]'
+                                                        : 'h-full w-[50%]'
+                                                "
+                                            />
+                                            <span
+                                                class="absolute top-1/2 right-2 grid min-w-6 -translate-y-1/2 place-items-center rounded-full px-1 text-sm font-bold shadow"
+                                            >
+                                                {{ counter.value }}
+                                            </span>
+                                        </div>
 
-                                    <div
-                                        v-for="counter in bookCounters(entry.state)"
-                                        :key="counter.label"
-                                        class="relative grid rounded-lg"
-                                        :title="counter.label"
-                                        :aria-label="`${counter.label}: ${counter.value}`"
-                                    >
-                                        <img
-                                            :src="counter.image"
-                                            alt=""
-                                            class="h-full w-[40%] object-contain drop-shadow-md"
-                                        />
-                                        <span
-                                            class="absolute top-1/2 right-2 grid min-w-6 -translate-y-1/2 place-items-center rounded-full px-1 text-sm font-bold shadow"
-                                            >{{ counter.value }}</span
+                                        <div
+                                            v-for="counter in bookCounters(entry.state)"
+                                            :key="counter.label"
+                                            class="relative grid rounded-lg"
+                                            :title="counter.label"
+                                            :aria-label="`${counter.label}: ${counter.value}`"
                                         >
-                                    </div>
+                                            <img
+                                                :src="counter.image"
+                                                alt=""
+                                                class="h-full w-[40%] object-contain drop-shadow-md"
+                                            />
+                                            <span
+                                                class="absolute top-1/2 right-2 grid min-w-6 -translate-y-1/2 place-items-center rounded-full px-1 text-sm font-bold shadow"
+                                                >{{ counter.value }}</span
+                                            >
+                                        </div>
 
-                                    <div
-                                        v-for="counter in incomeCounters(entry.state)"
-                                        :key="counter.label"
-                                        class="relative -my-2 grid aspect-square rounded-lg"
-                                        :title="counter.label"
-                                        :aria-label="`${counter.label}: ${counter.value}`"
-                                    >
-                                        <img
-                                            :src="handUrl"
-                                            alt=""
-                                            class="absolute bottom-4 w-[50%] object-contain drop-shadow-md"
-                                        />
-                                        <img
-                                            :src="counter.image"
-                                            alt=""
-                                            class="absolute top-5 left-2 h-[25%] w-[25%] object-contain drop-shadow-md"
-                                        />
-                                        <span
-                                            class="absolute top-1/2 right-2 grid min-w-6 -translate-y-1/2 place-items-center rounded-full px-1 text-sm font-bold shadow"
-                                            >{{ counter.value }}</span
+                                        <div
+                                            v-for="counter in incomeCounters(entry.state)"
+                                            :key="counter.label"
+                                            class="relative -my-2 grid aspect-square rounded-lg"
+                                            :title="counter.label"
+                                            :aria-label="`${counter.label}: ${counter.value}`"
                                         >
-                                    </div>
+                                            <img
+                                                :src="handUrl"
+                                                alt=""
+                                                class="absolute bottom-4 w-[50%] object-contain drop-shadow-md"
+                                            />
+                                            <img
+                                                :src="counter.image"
+                                                alt=""
+                                                class="absolute top-5 left-2 h-[25%] w-[25%] object-contain drop-shadow-md"
+                                            />
+                                            <span
+                                                class="absolute top-1/2 right-2 grid min-w-6 -translate-y-1/2 place-items-center rounded-full px-1 text-sm font-bold shadow"
+                                                >{{ counter.value }}</span
+                                            >
+                                        </div>
 
-                                    <div
-                                        v-for="counter in levelCounters(entry.state)"
-                                        :key="counter.label"
-                                        class="relative grid rounded-lg"
-                                        :title="counter.label"
-                                        :aria-label="`${counter.label}: ${counter.value}`"
-                                    >
-                                        <img
-                                            :src="counter.image"
-                                            alt=""
-                                            class="h-full w-[50%] object-contain drop-shadow-md"
-                                        />
-                                        <span
-                                            class="absolute top-1/2 right-2 grid min-w-6 -translate-y-1/2 place-items-center rounded-full px-1 text-sm font-bold shadow"
-                                            >{{ counter.value }}</span
+                                        <div
+                                            v-for="counter in levelCounters(entry.state)"
+                                            :key="counter.label"
+                                            class="relative grid rounded-lg"
+                                            :title="counter.label"
+                                            :aria-label="`${counter.label}: ${counter.value}`"
                                         >
+                                            <img
+                                                :src="counter.image"
+                                                alt=""
+                                                class="h-full w-[50%] object-contain drop-shadow-md"
+                                            />
+                                            <span
+                                                class="absolute top-1/2 right-2 grid min-w-6 -translate-y-1/2 place-items-center rounded-full px-1 text-sm font-bold shadow"
+                                                >{{ counter.value }}</span
+                                            >
+                                        </div>
                                     </div>
                                 </div>
-                            </template>
+                            </div>
                         </article>
                         <GameHistory
                             :game-id="gameId"
