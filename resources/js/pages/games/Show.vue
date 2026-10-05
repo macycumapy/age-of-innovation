@@ -276,7 +276,11 @@ const pendingStartingSpadeHexId = computed(() =>
 );
 const selectedBridgeFromHexId = ref<string | null>(null);
 const pendingBridgeInteraction = computed(() =>
-    props.game.data.pendingInteraction?.type === 'place_bridge' ? props.game.data.pendingInteraction : null,
+    props.game.data.pendingInteraction?.type === 'place_bridge' &&
+    props.game.data.pendingInteraction.playerId === currentPlayer.value?.id &&
+    props.game.data.activePlayerId === page.props.auth.user.id
+        ? props.game.data.pendingInteraction
+        : null,
 );
 const eligibleBridgePairs = computed(() => {
     if (pendingBridgeInteraction.value === null) {
