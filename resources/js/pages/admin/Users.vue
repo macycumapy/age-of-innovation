@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Head, Link } from '@inertiajs/vue3';
 import AdminSectionLayout from '@/components/AdminSectionLayout.vue';
+import AdminUserPasswordDialog from '@/components/AdminUserPasswordDialog.vue';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { index as usersIndex } from '@/routes/admin/users';
@@ -39,6 +40,7 @@ defineOptions({
                                 <th scope="col" class="px-3 py-2 font-medium">Имя</th>
                                 <th scope="col" class="px-3 py-2 font-medium">Email</th>
                                 <th scope="col" class="px-3 py-2 font-medium">Регистрация</th>
+                                <th scope="col" class="px-3 py-2 font-medium">Действия</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -46,6 +48,13 @@ defineOptions({
                                 <td class="px-3 py-3">{{ user.name }}</td>
                                 <td class="px-3 py-3 break-all">{{ user.email }}</td>
                                 <td class="px-3 py-3 whitespace-nowrap">{{ formatDate(user.createdAt) }}</td>
+                                <td class="px-3 py-3">
+                                    <AdminUserPasswordDialog
+                                        :user-id="user.id"
+                                        :user-name="user.name"
+                                        :user-email="user.email"
+                                    />
+                                </td>
                             </tr>
                         </tbody>
                     </table>
