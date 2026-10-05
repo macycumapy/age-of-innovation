@@ -2,10 +2,11 @@
 
 declare(strict_types=1);
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers\Admin;
 
 use App\Domain\User\Actions\UpdateUserPasswordAction;
-use App\Http\Requests\UpdateAdminUserPasswordRequest;
+use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\UpdateAdminUserPasswordRequest;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Inertia\Inertia;

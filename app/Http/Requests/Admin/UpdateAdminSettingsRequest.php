@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Http\Requests;
+namespace App\Http\Requests\Admin;
 
 use App\Domain\Game\Enums\GameBotDifficulty;
 use App\Domain\Settings\Data\SettingsData;

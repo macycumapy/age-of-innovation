@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Head, useForm } from '@inertiajs/vue3';
 import { watch } from 'vue';
-import AdminSettingsController from '@/actions/App/Http/Controllers/AdminSettingsController';
+import AdminSettingsController from '@/actions/App/Http/Controllers/Admin/AdminSettingsController';
 import AdminSectionLayout from '@/components/AdminSectionLayout.vue';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';

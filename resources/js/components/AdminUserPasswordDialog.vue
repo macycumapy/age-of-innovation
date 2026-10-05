@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useForm } from '@inertiajs/vue3';
 import { ref, watch } from 'vue';
-import AdminUserPasswordController from '@/actions/App/Http/Controllers/AdminUserPasswordController';
+import AdminUserPasswordController from '@/actions/App/Http/Controllers/Admin/AdminUserPasswordController';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
 import {

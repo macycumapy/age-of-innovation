@@ -2,10 +2,11 @@
 
 declare(strict_types=1);
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers\Admin;
 
 use App\Domain\Settings\Actions\UpdateSettingsAction;
-use App\Http\Requests\UpdateAdminSettingsRequest;
+use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\UpdateAdminSettingsRequest;
 use Illuminate\Http\RedirectResponse;
 use Inertia\Inertia;
 
