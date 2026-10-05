@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import Form from '@/components/game/GameActionForm.vue';
-import { ArrowRight } from '@lucide/vue';
+import { ArrowRight, TriangleAlert } from '@lucide/vue';
 import { computed, ref, watch } from 'vue';
 import BuildingUpgradeController from '@/actions/App/Http/Controllers/BuildingUpgradeController';
 import AnnexPlacementController from '@/actions/App/Http/Controllers/AnnexPlacementController';
@@ -15,13 +15,17 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import InputError from '@/components/InputError.vue';
-import type { BuildingType, BuildingUpgradeOption, PlayerColor } from '@/types';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import type { BoardState, BuildingType, BuildingUpgradeOption, PlayerColor } from '@/types';
+import { hasAdjacentOpponent } from '@/lib/buildingAdjacency';
 import toolUrl from '../../../images/token_parts/cube.png';
 import coinUrl from '../../../images/token_parts/gold_medallion.png';
 import annexUrl from '../../../images/buildings/white/annex.png';
 
 const props = defineProps<{
     gameId: number;
+    board: BoardState;
+    playerId: number | null;
     hexId: string | null;
     options: BuildingUpgradeOption[];
     playerColor: PlayerColor | null;
@@ -45,6 +49,7 @@ const buildingNames: Record<BuildingType, string> = {
     monument: 'Монумент',
 };
 const selectedOption = computed(() => props.options.find((option) => option.target === selectedTarget.value));
+const hasNeighboringOpponent = computed(() => hasAdjacentOpponent(props.board, props.hexId, props.playerId));
 
 watch(
     () => [props.hexId, props.options] as const,
@@ -156,6 +161,12 @@ function actionSucceeded(): void {
                     <input type="hidden" name="hex_id" :value="hexId ?? ''" />
                     <input type="hidden" name="target" :value="selectedTarget ?? ''" />
                     <InputError :message="errors.building ?? errors.target ?? errors.hex_id" />
+                    <Alert v-if="hasNeighboringOpponent" class="border-amber-400 bg-amber-50 text-amber-950 dark:border-amber-500 dark:bg-amber-950/60 dark:text-amber-100">
+                        <TriangleAlert aria-hidden="true" />
+                        <AlertDescription class="font-medium text-amber-950 dark:text-amber-100">
+                            Если хотя бы один сосед примет Силу, отменить ход будет невозможно.
+                        </AlertDescription>
+                    </Alert>
                     <DialogFooter>
                         <DialogClose as-child>
                             <Button type="button" variant="outline">Отмена</Button>

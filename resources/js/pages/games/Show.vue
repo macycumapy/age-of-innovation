@@ -1429,6 +1429,8 @@ defineOptions({
 
             <BuildWorkshopDialog
                 v-model:open="isBuildWorkshopDialogOpen"
+                :board="game.data.board"
+                :player-id="currentPlayer?.id ?? null"
                 :game-id="game.data.id"
                 :hex-id="selectedBuildWorkshopHexId"
                 :player-color="currentPlayer?.color ?? null"
@@ -1456,6 +1458,8 @@ defineOptions({
 
             <BuildingUpgradeDialog
                 v-model:open="isBuildingUpgradeDialogOpen"
+                :board="game.data.board"
+                :player-id="currentPlayer?.id ?? null"
                 :game-id="game.data.id"
                 :hex-id="selectedBuildingUpgradeHexId"
                 :options="selectedBuildingUpgradeOptions"

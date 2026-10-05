@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import Form from '@/components/game/GameActionForm.vue';
+import { TriangleAlert } from '@lucide/vue';
 import { computed, ref, watch } from 'vue';
 import TerraformWorkshopController from '@/actions/App/Http/Controllers/TerraformWorkshopController';
 import WorkshopController from '@/actions/App/Http/Controllers/WorkshopController';
 import InputError from '@/components/InputError.vue';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
@@ -14,12 +16,15 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
-import type { BoardHexState, PlayerColor } from '@/types';
+import type { BoardHexState, BoardState, PlayerColor } from '@/types';
+import { hasAdjacentOpponent } from '@/lib/buildingAdjacency';
 import toolUrl from '../../../images/token_parts/cube.png';
 import coinUrl from '../../../images/token_parts/gold_medallion.png';
 
 const props = withDefaults(defineProps<{
     gameId: number;
+    board: BoardState;
+    playerId: number | null;
     hexId?: string | null;
     hexIds?: string[];
     hexes?: BoardHexState[];
@@ -44,6 +49,7 @@ const dialogOpen = computed({
     },
 });
 const selectedHexId = ref(props.hexId ?? props.hexIds[0] ?? '');
+const hasNeighboringOpponent = computed(() => hasAdjacentOpponent(props.board, selectedHexId.value, props.playerId));
 const selectedHexes = computed(() => props.hexes.filter((hex) => props.hexIds.includes(hex.id)));
 const workshopImages = import.meta.glob<string>('../../../images/buildings/*/workshop.png', {
     eager: true,
@@ -115,6 +121,13 @@ watch(
                 </div>
 
                 <InputError :message="errors.build ?? errors.building ?? errors.hex_id ?? errors.game" />
+
+                <Alert v-if="hasNeighboringOpponent" class="border-amber-400 bg-amber-50 text-amber-950 dark:border-amber-500 dark:bg-amber-950/60 dark:text-amber-100">
+                    <TriangleAlert aria-hidden="true" />
+                    <AlertDescription class="font-medium text-amber-950 dark:text-amber-100">
+                        Если хотя бы один сосед примет Силу, отменить ход будет невозможно.
+                    </AlertDescription>
+                </Alert>
 
                 <DialogFooter>
                     <DialogClose as-child>
