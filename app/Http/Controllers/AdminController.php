@@ -13,7 +13,7 @@ final class AdminController extends Controller
 {
     public function __invoke(SettingsService $settings): Response
     {
-        return Inertia::render('admin/Index', [
+        return Inertia::render('admin/Settings', [
             'settings' => $settings->get()->toArray(),
             'difficultyOptions' => array_map(
                 fn (GameBotDifficulty $difficulty): array => ['value' => $difficulty->value, 'label' => $difficulty->title()],

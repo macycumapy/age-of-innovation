@@ -2,11 +2,12 @@
 import { Head, useForm } from '@inertiajs/vue3';
 import { watch } from 'vue';
 import AdminSettingsController from '@/actions/App/Http/Controllers/AdminSettingsController';
+import AdminSectionLayout from '@/components/AdminSectionLayout.vue';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
-import { index as adminIndex } from '@/routes/admin';
+import { edit as settingsEdit } from '@/routes/admin/settings';
 import type { GameBotDifficulty, Settings } from '@/types';
 
 const props = defineProps<{
@@ -48,15 +49,14 @@ function cancel(): void {
 
 defineOptions({
     layout: {
-        breadcrumbs: [{ title: 'Админка', href: adminIndex() }],
+        breadcrumbs: [{ title: 'Настройки', href: settingsEdit() }],
     },
 });
 </script>
 
 <template>
-    <div class="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-4 p-4">
-        <Head title="Админка" />
-        <h1 class="text-2xl font-semibold">Админка</h1>
+    <AdminSectionLayout section="settings">
+        <Head title="Настройки — Админка" />
         <Card>
             <CardHeader>
                 <CardTitle>Настройки приложения</CardTitle>
@@ -110,5 +110,5 @@ defineOptions({
                 </form>
             </CardContent>
         </Card>
-    </div>
+    </AdminSectionLayout>
 </template>

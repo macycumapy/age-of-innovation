@@ -20,6 +20,6 @@ final class AdminSettingsController extends Controller
 
         Inertia::flash('toast', ['type' => 'success', 'message' => 'Настройки сохранены.']);
 
-        return to_route('admin.index');
+        return to_route('admin.settings.edit');
     }
 }

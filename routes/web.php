@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\AdminSettingsController;
+use App\Http\Controllers\AdminUserController;
 use App\Http\Controllers\AnnexPlacementController;
 use App\Http\Controllers\BookActionController;
 use App\Http\Controllers\BridgeConfirmationController;
@@ -57,7 +58,9 @@ Route::redirect('/', '/games')->name('home');
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::prefix('admin')->name('admin.')->middleware('can:access-admin')->group(function () {
-        Route::get('/', AdminController::class)->name('index');
+        Route::redirect('/', '/admin/settings')->name('index');
+        Route::get('/settings', AdminController::class)->name('settings.edit');
+        Route::get('/users', AdminUserController::class)->name('users.index');
         Route::put('/settings', AdminSettingsController::class)->name('settings.update');
     });
 

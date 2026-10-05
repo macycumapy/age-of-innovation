@@ -35,8 +35,8 @@ class AdminSettingsTest extends TestCase
         $this->assertFalse(Setting::query()->where('key', SettingKey::BotsEnabled->value)->firstOrFail()->value);
         $this->assertSame(['fast', 'balanced'], Setting::query()->where('key', SettingKey::BotDifficulties->value)->firstOrFail()->value);
 
-        $this->actingAs($admin)->get(route('admin.index'))->assertInertia(fn (Assert $page) => $page
-            ->component('admin/Index')
+        $this->actingAs($admin)->get(route('admin.settings.edit'))->assertInertia(fn (Assert $page) => $page
+            ->component('admin/Settings')
             ->where('settings.bots.enabled', false)
             ->where('settings.bots.available_difficulties', ['fast', 'balanced'])
             ->has('difficultyOptions', 3));
@@ -49,7 +49,7 @@ class AdminSettingsTest extends TestCase
         $this->put(route('admin.settings.update'), [
             'bots_enabled' => true,
             'bot_difficulties' => ['strong'],
-        ])->assertSessionHasNoErrors()->assertRedirect(route('admin.index'));
+        ])->assertSessionHasNoErrors()->assertRedirect(route('admin.settings.edit'));
 
         $this->assertTrue(Setting::query()->where('key', SettingKey::BotsEnabled->value)->firstOrFail()->value);
         $this->assertSame(['strong'], Setting::query()->where('key', SettingKey::BotDifficulties->value)->firstOrFail()->value);
@@ -57,7 +57,7 @@ class AdminSettingsTest extends TestCase
         $this->put(route('admin.settings.update'), [
             'bots_enabled' => false,
             'bot_difficulties' => [],
-        ])->assertSessionHasNoErrors()->assertRedirect(route('admin.index'));
+        ])->assertSessionHasNoErrors()->assertRedirect(route('admin.settings.edit'));
 
         $this->assertFalse(Setting::query()->where('key', SettingKey::BotsEnabled->value)->firstOrFail()->value);
         $this->assertSame([], Setting::query()->where('key', SettingKey::BotDifficulties->value)->firstOrFail()->value);
@@ -173,7 +173,7 @@ class AdminSettingsTest extends TestCase
 
     public function test_saving_settings_invalidates_cached_values(): void
     {
-        $this->actingAs($this->admin())->get(route('admin.index'))->assertInertia(fn (Assert $page) => $page
+        $this->actingAs($this->admin())->get(route('admin.settings.edit'))->assertInertia(fn (Assert $page) => $page
             ->where('settings.bots.enabled', false));
 
         $this->put(route('admin.settings.update'), [
@@ -181,7 +181,7 @@ class AdminSettingsTest extends TestCase
             'bot_difficulties' => ['strong'],
         ])->assertSessionHasNoErrors();
 
-        $this->get(route('admin.index'))->assertInertia(fn (Assert $page) => $page
+        $this->get(route('admin.settings.edit'))->assertInertia(fn (Assert $page) => $page
             ->where('settings.bots.enabled', true)
             ->where('settings.bots.available_difficulties', ['strong']));
     }
