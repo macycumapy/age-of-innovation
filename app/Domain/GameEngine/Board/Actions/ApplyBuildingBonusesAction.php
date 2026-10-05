@@ -72,7 +72,8 @@ final class ApplyBuildingBonusesAction
 
         $palaceAbility = PalaceAbility::tryFrom((string) $playerState->palaceId);
 
-        if ($palaceAbility !== null) {
+        if ($palaceAbility !== null
+            && ! ($palaceAbility === PalaceAbility::Palace17 && $hex->building?->isNeutral === true)) {
             $this->addScoringSource(
                 $sources,
                 'palace',

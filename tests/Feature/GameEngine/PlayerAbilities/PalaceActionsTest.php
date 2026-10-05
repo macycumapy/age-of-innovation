@@ -33,6 +33,29 @@ class PalaceActionsTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_neutral_palace_does_not_score_palace_seventeen_bonus(): void
+    {
+        [$game] = $this->gameForPalaceAction(PalaceAbility::Palace17, BuildingType::Palace);
+        $state = $game->state;
+        $state->board->hexes[0]->building->isNeutral = true;
+        $state->round->scoringTileId = RoundScoringTile::PalaceUniversityBanking->value;
+        $player = $state->players[0];
+        $initialPoints = $player->victoryPoints;
+
+        $bonuses = app(\App\Domain\GameEngine\Board\Actions\ApplyBuildingBonusesAction::class)->execute(
+            $state,
+            $player,
+            $state->board->hexes[0],
+            BuildingType::Palace,
+        );
+
+        $this->assertSame(5, $bonuses['victoryPoints']);
+        $this->assertSame($initialPoints + 5, $player->victoryPoints);
+        $this->assertSame([
+            ['source' => 'round_scoring', 'id' => RoundScoringTile::PalaceUniversityBanking->value, 'points' => 5],
+        ], $bonuses['sources']);
+    }
+
     public function test_palace_competency_choice_excludes_owned_competencies(): void
     {
         [$game, $user] = $this->gameForPalaceAction(PalaceAbility::Palace05, BuildingType::Palace);
