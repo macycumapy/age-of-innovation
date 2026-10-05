@@ -10,10 +10,12 @@ use App\Domain\GameEngine\Board\Data\BoardStateData;
 use App\Domain\GameEngine\Board\Data\BuildingStateData;
 use App\Domain\GameEngine\Board\Enums\BuildingType;
 use App\Domain\GameEngine\Board\Enums\TerrainType;
+use App\Domain\GameEngine\Economy\Actions\ApplyPowerOfferDecisionAction;
 use App\Domain\GameEngine\Economy\Actions\CreatePowerOffersAfterBuildingAction;
 use App\Domain\GameEngine\Economy\Data\PlayerResourcesData;
 use App\Domain\GameEngine\Economy\Data\PowerBowlsStateData;
 use App\Domain\GameEngine\Enums\GameActionType;
+use App\Domain\GameEngine\Interactions\Actions\CreateBuildingFollowUpInteractionAction;
 use App\Domain\GameEngine\Interactions\Data\PendingInteractionData;
 use App\Domain\GameEngine\Interactions\Enums\PendingInteractionType;
 use App\Domain\GameEngine\PlayerAbilities\Enums\Faction;
@@ -33,11 +35,96 @@ use App\Models\GamePlayer;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Inertia\Testing\AssertableInertia as Assert;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 class PowerOffersTest extends TestCase
 {
     use RefreshDatabase;
+
+    #[DataProvider('buildingChoiceAfterPowerProvider')]
+    public function test_all_neighbors_resolve_power_before_building_tile_choice(BuildingType $buildingType, bool $accept): void
+    {
+        $players = array_map(static fn (int $id): GamePlayerStateData => new GamePlayerStateData(
+            playerId: $id,
+            userId: $id,
+            color: PlayerColor::Green,
+            faction: Faction::Blessed,
+            homeland: TerrainType::Forest,
+            roundBonus: RoundBonus::Coins,
+            resources: new PlayerResourcesData(power: new PowerBowlsStateData(bowlOne: 8)),
+        ), [1, 2, 3]);
+        $state = new GameStateData(
+            turnOrder: [1, 2, 3],
+            players: $players,
+            round: new RoundStateData(phase: GamePhase::Actions),
+            board: new BoardStateData(hexes: [
+                new BoardHexStateData(
+                    id: '0:0',
+                    q: 0,
+                    r: 0,
+                    initialTerrain: TerrainType::Forest,
+                    terrain: TerrainType::Forest,
+                    adjacentHexIds: ['1:0', '0:1'],
+                    building: new BuildingStateData($buildingType, 1),
+                ),
+                new BoardHexStateData(
+                    id: '1:0',
+                    q: 1,
+                    r: 0,
+                    initialTerrain: TerrainType::Forest,
+                    terrain: TerrainType::Forest,
+                    adjacentHexIds: ['0:0'],
+                    building: new BuildingStateData(BuildingType::Workshop, 2),
+                ),
+                new BoardHexStateData(
+                    id: '0:1',
+                    q: 0,
+                    r: 1,
+                    initialTerrain: TerrainType::Forest,
+                    terrain: TerrainType::Forest,
+                    adjacentHexIds: ['0:0'],
+                    building: new BuildingStateData(BuildingType::Workshop, 3),
+                ),
+            ]),
+            availablePalaceIds: [PalaceAbility::Palace12->value],
+            availableCompetencyIds: [Competency::Competency05->value],
+        );
+
+        $this->assertSame(2, app(CreateBuildingFollowUpInteractionAction::class)->execute($state, $players[0], '0:0', $buildingType));
+        $this->assertSame(PendingInteractionType::PowerOffer, $state->pendingInteraction?->type);
+        $this->assertSame(3, app(ApplyPowerOfferDecisionAction::class)->execute($state, 2, $accept)['nextActivePlayerId']);
+        $this->assertSame(PendingInteractionType::PowerOffer, $state->pendingInteraction?->type);
+        $this->assertSame(1, app(ApplyPowerOfferDecisionAction::class)->execute($state, 3, $accept)['nextActivePlayerId']);
+        $this->assertSame(
+            $buildingType === BuildingType::Palace ? PendingInteractionType::ChoosePalace : PendingInteractionType::ChooseCompetency,
+            $state->pendingInteraction?->type,
+        );
+        $this->assertSame('0:0', $state->pendingInteraction?->context['builtHexId']);
+        $this->assertSame($accept ? 1 : 0, $players[1]->resources->power->bowlTwo);
+        $this->assertSame($accept ? 1 : 0, $players[2]->resources->power->bowlTwo);
+
+        if ($buildingType === BuildingType::Palace) {
+            app(\App\Domain\GameEngine\PlayerAbilities\Actions\ApplyChoosePalaceAction::class)->execute($state, $players[0], PalaceAbility::Palace12);
+        } else {
+            app(\App\Domain\GameEngine\Research\Actions\ApplyChooseCompetencyAction::class)->execute($state, $players[0], Competency::Competency05);
+        }
+
+        $this->assertNull($state->pendingInteraction);
+    }
+
+    /** @return array<string, array{BuildingType, bool}> */
+    public static function buildingChoiceAfterPowerProvider(): array
+    {
+        return [
+            'school accepted' => [BuildingType::School, true],
+            'school declined' => [BuildingType::School, false],
+            'university accepted' => [BuildingType::University, true],
+            'university declined' => [BuildingType::University, false],
+            'palace accepted' => [BuildingType::Palace, true],
+            'palace declined' => [BuildingType::Palace, false],
+        ];
+    }
 
     public function test_power_offer_sums_all_adjacent_buildings_with_annexes_before_limiting_received_power(): void
     {

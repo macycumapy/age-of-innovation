@@ -57,13 +57,14 @@ final class ApplyChooseCompetencyAction
         $player->victoryPoints += $knowledgeAdvance->victoryPoints;
         $state->pendingInteraction = null;
         $builtHexId = (string) ($interaction->context['builtHexId'] ?? '');
+        $powerOffersResolved = ($interaction->context['powerOffersResolved'] ?? false) === true;
 
         if ($isStartingCompetency) {
             return $this->continueStartingSetup($state, $player, $competency, $knowledgeAdvance->gainedPower, $knowledgeAdvance->victoryPoints);
         }
 
         $awaitsTerraforming = $competency === Competency::Competency05
-            && $this->createTerraformingInteraction($state, $player);
+            && $this->createTerraformingInteraction($state, $player, $builtHexId, $powerOffersResolved);
         $awaitsTowerPlacement = $competency === Competency::Competency10
             && $this->createNeutralBuildingInteraction->execute(
                 $state,
@@ -72,13 +73,14 @@ final class ApplyChooseCompetencyAction
                 [
                     'competency' => $competency->value,
                     'source' => 'competency',
-                    'queuedBuiltHexIds' => $reason === 'building' ? [$builtHexId] : [],
+                    'queuedBuiltHexIds' => $reason === 'building' && ! $powerOffersResolved ? [$builtHexId] : [],
+                    'queuedTownHexIds' => $reason === 'building' && $powerOffersResolved ? [$builtHexId] : [],
                 ],
             );
         $nextActivePlayerId = $awaitsTerraforming || $awaitsTowerPlacement
             ? $player->playerId
             : ($reason === 'building'
-                ? $this->createTownChoiceAfterBuilding->execute($state, $player, $builtHexId)
+                ? $this->createTownChoiceAfterBuilding->execute($state, $player, $builtHexId, powerOffersResolved: $powerOffersResolved)
                 : $player->playerId);
 
         return new ChooseCompetencyResultData(
@@ -164,7 +166,7 @@ final class ApplyChooseCompetencyAction
         return true;
     }
 
-    private function createTerraformingInteraction(GameStateData $state, GamePlayerStateData $player): bool
+    private function createTerraformingInteraction(GameStateData $state, GamePlayerStateData $player, string $builtHexId, bool $powerOffersResolved): bool
     {
         $eligibleHexIds = $this->findEligibleTerraformHexes->execute($state, $player, $player->homeland);
         if ($eligibleHexIds === []) {
@@ -180,6 +182,8 @@ final class ApplyChooseCompetencyAction
                 'spadeCount' => 2,
                 'remainingSpades' => 2,
                 'targetTerrain' => $player->homeland->value,
+                'builtHexId' => $builtHexId,
+                'powerOffersResolved' => $powerOffersResolved,
             ],
         );
 

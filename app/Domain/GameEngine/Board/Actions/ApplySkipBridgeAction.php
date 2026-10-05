@@ -31,6 +31,7 @@ final class ApplySkipBridgeAction
             $state,
             $player,
             (string) ($interaction->context['builtHexId'] ?? ''),
+            ($interaction->context['powerOffersResolved'] ?? false) === true,
         );
     }
 }

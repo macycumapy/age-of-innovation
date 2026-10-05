@@ -19,17 +19,21 @@ final class CreateTownChoiceAfterBuildingAction
     ) {
     }
 
-    /** @param list<string> $queuedBuiltHexIds */
+    /**
+     * @param list<string> $queuedBuiltHexIds
+     * @param list<string> $queuedTownHexIds
+     */
     public function execute(
         GameStateData $state,
         GamePlayerStateData $player,
         string $builtHexId,
         array $queuedBuiltHexIds = [],
         bool $powerOffersResolved = false,
+        array $queuedTownHexIds = [],
     ): int {
         $townBuiltHexId = $builtHexId;
 
-        foreach (array_unique([$builtHexId, ...$queuedBuiltHexIds]) as $candidateHexId) {
+        foreach (array_unique([$builtHexId, ...$queuedBuiltHexIds, ...$queuedTownHexIds]) as $candidateHexId) {
             if ($this->findEligibleTownHexes->execute($state, $player, $candidateHexId) !== []
                 || $this->findPalaceWaterTownOptions->execute($state, $player, $candidateHexId) !== []) {
                 $townBuiltHexId = $candidateHexId;

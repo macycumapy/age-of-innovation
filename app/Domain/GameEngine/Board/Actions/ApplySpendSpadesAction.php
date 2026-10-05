@@ -86,6 +86,7 @@ final class ApplySpendSpadesAction
                     $state,
                     $player,
                     (string) ($interaction->context['builtHexId'] ?? ''),
+                    ($interaction->context['powerOffersResolved'] ?? false) === true,
                 );
             }
         }
@@ -196,7 +197,10 @@ final class ApplySpendSpadesAction
             $state,
             $player,
             $buildableHexIds,
-            ['builtHexId' => (string) ($interaction->context['builtHexId'] ?? '')],
+            [
+                'builtHexId' => (string) ($interaction->context['builtHexId'] ?? ''),
+                'powerOffersResolved' => ($interaction->context['powerOffersResolved'] ?? false) === true,
+            ],
         );
     }
 

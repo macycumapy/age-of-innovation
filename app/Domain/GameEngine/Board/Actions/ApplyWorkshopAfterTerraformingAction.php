@@ -15,6 +15,7 @@ use App\Domain\GameEngine\Interactions\Data\PendingInteractionData;
 use App\Domain\GameEngine\Interactions\Enums\PendingInteractionType;
 use App\Domain\GameEngine\State\Data\GamePlayerStateData;
 use App\Domain\GameEngine\State\Data\GameStateData;
+use App\Domain\GameEngine\Towns\Actions\CreateTownChoiceAfterBuildingAction;
 use App\Domain\GameEngine\Towns\Actions\StartFelineTownBonusAction;
 use Illuminate\Validation\ValidationException;
 
@@ -26,6 +27,7 @@ final class ApplyWorkshopAfterTerraformingAction
         private ApplyBuildingBonusesAction $applyBuildingBonuses,
         private StartFelineTownBonusAction $startFelineTownBonus,
         private AdvancePendingInteractionQueueAction $advancePendingInteractionQueue,
+        private CreateTownChoiceAfterBuildingAction $createTownChoiceAfterBuilding,
     ) {
     }
 
@@ -90,14 +92,19 @@ final class ApplyWorkshopAfterTerraformingAction
                 $nextActivePlayerId = $player->playerId;
             }
         } else {
+            $originalBuiltHexId = (string) ($interaction->context['builtHexId'] ?? '');
+            $powerOffersResolved = ($interaction->context['powerOffersResolved'] ?? false) === true;
             $nextActivePlayerId = $build
                 ? $this->createBuildingFollowUpInteraction->execute(
                     $state,
                     $player,
                     (string) $hexId,
                     BuildingType::Workshop,
+                    queuedTownHexIds: $powerOffersResolved && $originalBuiltHexId !== '' ? [$originalBuiltHexId] : [],
                 )
-                : null;
+                : ($powerOffersResolved && $originalBuiltHexId !== ''
+                    ? $this->createTownChoiceAfterBuilding->execute($state, $player, $originalBuiltHexId, powerOffersResolved: true)
+                    : null);
         }
 
         if ($state->pendingInteraction === null && $state->pendingInteractionQueue !== []) {
@@ -105,6 +112,7 @@ final class ApplyWorkshopAfterTerraformingAction
                 $state,
                 $player,
                 (string) ($interaction->context['builtHexId'] ?? ''),
+                ($interaction->context['powerOffersResolved'] ?? false) === true,
             );
         }
 

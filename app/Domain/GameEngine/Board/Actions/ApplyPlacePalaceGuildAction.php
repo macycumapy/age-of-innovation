@@ -51,6 +51,7 @@ final class ApplyPlacePalaceGuildAction
         }
 
         $palaceBuiltHexId = $interaction->context['palaceBuiltHexId'] ?? null;
+        $powerOffersResolved = ($interaction->context['powerOffersResolved'] ?? false) === true;
         $bonuses = $this->applyBuildingBonuses->execute($state, $player, $hex, BuildingType::Guild);
         $state->pendingInteraction = null;
 
@@ -59,7 +60,8 @@ final class ApplyPlacePalaceGuildAction
                 $state,
                 $player,
                 $hexId,
-                is_string($palaceBuiltHexId) && $palaceBuiltHexId !== '' ? [$palaceBuiltHexId] : [],
+                ! $powerOffersResolved && is_string($palaceBuiltHexId) && $palaceBuiltHexId !== '' ? [$palaceBuiltHexId] : [],
+                queuedTownHexIds: $powerOffersResolved && is_string($palaceBuiltHexId) && $palaceBuiltHexId !== '' ? [$palaceBuiltHexId] : [],
             ),
             palaceBuiltHexId: is_string($palaceBuiltHexId) ? $palaceBuiltHexId : '',
             bonuses: $bonuses,

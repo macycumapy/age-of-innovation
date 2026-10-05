@@ -51,6 +51,7 @@ final class ApplyPlaceBridgeAction
                 $state,
                 $player,
                 (string) ($interaction->context['builtHexId'] ?? ''),
+                ($interaction->context['powerOffersResolved'] ?? false) === true,
             );
 
             return new PlaceBridgeResultData($nextActivePlayerId, $source);

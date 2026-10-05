@@ -42,6 +42,7 @@ final class ApplyChoosePalaceAction
         }
 
         $builtHexId = (string) ($interaction->context['builtHexId'] ?? '');
+        $powerOffersResolved = ($interaction->context['powerOffersResolved'] ?? false) === true;
         $victoryPoints = $palace->buildingVictoryPoints(BuildingType::Palace);
         $player->palaceId = $palace->value;
         $player->victoryPoints += $victoryPoints;
@@ -76,7 +77,7 @@ final class ApplyChoosePalaceAction
             $player->resources->books->unassigned += $gainedBooks;
             $player->unassignedSpades += $gainedSpades;
 
-            $stepContext = ['builtHexId' => $builtHexId];
+            $stepContext = ['builtHexId' => $builtHexId, 'powerOffersResolved' => $powerOffersResolved];
             $state->pendingInteractionQueue = [
                 new PendingInteractionData(
                     PendingInteractionType::ChoosePalaceBooks,
@@ -87,20 +88,20 @@ final class ApplyChoosePalaceAction
                 new PendingInteractionData(PendingInteractionType::PlaceBridge, $player->playerId, context: $stepContext),
                 new PendingInteractionData(PendingInteractionType::PlaceBridge, $player->playerId, context: $stepContext),
             ];
-            $nextActivePlayerId = $this->advancePendingInteractionQueue->execute($state, $player, $builtHexId);
+            $nextActivePlayerId = $this->advancePendingInteractionQueue->execute($state, $player, $builtHexId, $powerOffersResolved);
         } elseif ($palace === PalaceAbility::Palace05 && CompetencySupply::availableIds($state) !== []) {
             $state->pendingInteraction = new PendingInteractionData(
                 PendingInteractionType::ChooseCompetency,
                 $player->playerId,
                 array_values(array_unique(CompetencySupply::availableIds($state))),
-                ['reason' => 'building', 'builtHexId' => $builtHexId],
+                ['reason' => 'building', 'builtHexId' => $builtHexId, 'powerOffersResolved' => $powerOffersResolved],
             );
             $nextActivePlayerId = $player->playerId;
         } elseif ($gainedBooks > 0) {
             $state->pendingInteraction = new PendingInteractionData(
                 PendingInteractionType::ChoosePalaceBooks,
                 $player->playerId,
-                context: ['bookCount' => $gainedBooks, 'source' => 'palace', 'builtHexId' => $builtHexId],
+                context: ['bookCount' => $gainedBooks, 'source' => 'palace', 'builtHexId' => $builtHexId, 'powerOffersResolved' => $powerOffersResolved],
             );
             $nextActivePlayerId = $player->playerId;
         } elseif ($palace === PalaceAbility::Palace11) {
@@ -123,11 +124,11 @@ final class ApplyChoosePalaceAction
                 PendingInteractionType::PlacePalaceGuild,
                 $player->playerId,
                 $eligibleHexIds,
-                ['palaceBuiltHexId' => $builtHexId, 'selectedHexId' => null],
+                ['palaceBuiltHexId' => $builtHexId, 'selectedHexId' => null, 'powerOffersResolved' => $powerOffersResolved],
             );
             $nextActivePlayerId = $player->playerId;
         } else {
-            $nextActivePlayerId = $this->createTownChoiceAfterBuilding->execute($state, $player, $builtHexId);
+            $nextActivePlayerId = $this->createTownChoiceAfterBuilding->execute($state, $player, $builtHexId, powerOffersResolved: $powerOffersResolved);
         }
 
         return new ChoosePalaceResultData(

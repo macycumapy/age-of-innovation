@@ -121,16 +121,21 @@ class CompetencyChoiceTest extends TestCase
         ])->assertNoContent();
 
         $game->refresh();
+        $this->assertSame(PendingInteractionType::PowerOffer, $game->state->pendingInteraction?->type);
+        $this->assertSame($neighborUser->id, $game->active_player_id);
+        $this->actingAs($neighborUser)->post(route('games.power-offer', $game), ['accept' => false])->assertNoContent();
+        $game->refresh();
         $this->assertSame(PendingInteractionType::ChooseCompetency, $game->state->pendingInteraction?->type);
         $this->assertSame([
             'reason' => 'building',
             'builtHexId' => '0:0',
             'buildingType' => $targetBuilding->value,
+            'powerOffersResolved' => true,
         ], $game->state->pendingInteraction?->context);
         $this->assertSame([Competency::Competency04->value], $game->state->pendingInteraction?->optionIds);
         $this->assertSame($user->id, $game->active_player_id);
 
-        $this->post(route('games.rewards', $game), [
+        $this->actingAs($user)->post(route('games.rewards', $game), [
             'competency_id' => Competency::Competency04->value,
         ])->assertNoContent();
 
@@ -140,10 +145,11 @@ class CompetencyChoiceTest extends TestCase
         $this->assertSame(2, $game->state->players[0]->resources->coins);
         $this->assertSame($expectedVictoryPoints, $game->state->players[0]->victoryPoints);
         $this->assertSame(1, $game->state->players[0]->resources->books->banking);
-        $this->assertSame(PendingInteractionType::PowerOffer, $game->state->pendingInteraction?->type);
-        $this->assertSame($neighborUser->id, $game->active_player_id);
+        $this->assertNull($game->state->pendingInteraction);
+        $this->assertSame($user->id, $game->active_player_id);
         $this->assertSame([
             GameActionType::UpgradeBuilding,
+            GameActionType::DeclinePower,
             GameActionType::ChooseCompetency,
         ], $game->actions()->orderBy('sequence')->pluck('type')->all());
         $this->assertSame(3, $game->actions()->latest('sequence')->firstOrFail()->payload['victory_points']);

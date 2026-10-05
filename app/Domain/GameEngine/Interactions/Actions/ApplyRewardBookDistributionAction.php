@@ -42,6 +42,7 @@ final class ApplyRewardBookDistributionAction
                 $state,
                 $player,
                 (string) ($interaction->context['builtHexId'] ?? ''),
+                ($interaction->context['powerOffersResolved'] ?? false) === true,
             );
         }
 

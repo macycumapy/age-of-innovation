@@ -391,6 +391,7 @@ final class ReplayGameHistoryAction
                 $state,
                 $playerState,
                 (string) ($state->pendingInteraction?->context['builtHexId'] ?? ''),
+                ($state->pendingInteraction?->context['powerOffersResolved'] ?? false) === true,
             );
         } elseif (isset($action->payload['palace_bridge'])) {
             // Размещение моста будет восстановлено общим обработчиком ниже.
@@ -723,6 +724,7 @@ final class ReplayGameHistoryAction
         $state = $game->state;
         $isBuildingChoice = ($action->payload['reason'] ?? null) === 'building';
         $isInnovationChoice = ($action->payload['reason'] ?? null) === 'innovation';
+        $powerOffersResolved = ($state->pendingInteraction?->context['powerOffersResolved'] ?? false) === true;
         $competency = Competency::from((string) $action->payload['competency_id']);
         $this->grantCompetency->execute(
             $state,
@@ -752,6 +754,8 @@ final class ReplayGameHistoryAction
                             'spadeCount' => 2,
                             'remainingSpades' => 2,
                             'targetTerrain' => $playerState->homeland->value,
+                            'builtHexId' => (string) ($action->payload['built_hex_id'] ?? ''),
+                            'powerOffersResolved' => $powerOffersResolved,
                         ],
                     );
                     $game->active_game_player_id = $player->id;
@@ -768,7 +772,8 @@ final class ReplayGameHistoryAction
                     $this->playerState($state, $player->id),
                     $player,
                     $action,
-                    [(string) ($action->payload['built_hex_id'] ?? '')],
+                    $powerOffersResolved ? [] : [(string) ($action->payload['built_hex_id'] ?? '')],
+                    $powerOffersResolved ? [(string) ($action->payload['built_hex_id'] ?? '')] : [],
                 );
 
                 return;
@@ -779,6 +784,7 @@ final class ReplayGameHistoryAction
                     $state,
                     $this->playerState($state, $player->id),
                     (string) ($action->payload['built_hex_id'] ?? ''),
+                    powerOffersResolved: $powerOffersResolved,
                 )
                 : $player->id;
             $game->state = $state;
@@ -882,6 +888,10 @@ final class ReplayGameHistoryAction
         $playerState->victoryPoints += (int) ($action->payload['victory_points'] ?? 0);
         $playerState->unassignedSpades += (int) ($action->payload['paid_spade_count'] ?? 0);
         $playerState->unassignedSpades -= (int) ($action->payload['spades_spent'] ?? 1);
+        $buildingContext = [
+            'builtHexId' => (string) ($state->pendingInteraction?->context['builtHexId'] ?? ''),
+            'powerOffersResolved' => ($state->pendingInteraction?->context['powerOffersResolved'] ?? false) === true,
+        ];
         $remainingSpades = (int) ($action->payload['remaining_spades'] ?? 0);
         $interactionPhase = GamePhase::tryFrom((string) ($action->payload['phase'] ?? ''))
             ?? GamePhase::Setup;
@@ -911,6 +921,7 @@ final class ReplayGameHistoryAction
                     'targetTerrain' => $targetTerrain->value,
                     'phase' => $interactionPhase->value,
                     'buildableHexIds' => $action->payload['buildable_hex_ids'] ?? [],
+                    ...$buildingContext,
                     ...((bool) ($action->payload['feline_bonus_pending'] ?? false)
                         ? ['felineBonusPending' => true]
                         : []),
@@ -948,6 +959,7 @@ final class ReplayGameHistoryAction
                                 : []),
                             'toolCost' => $isFreeWorkshop ? 0 : 1,
                             'coinCost' => $isFreeWorkshop ? 0 : 2,
+                            ...$buildingContext,
                             ...($isFreeWorkshop ? ['lizardFreeWorkshop' => true] : []),
                         ],
                     );
@@ -987,6 +999,7 @@ final class ReplayGameHistoryAction
                                 : []),
                             'toolCost' => $isFreeWorkshop ? 0 : 1,
                             'coinCost' => $isFreeWorkshop ? 0 : 2,
+                            ...$buildingContext,
                             ...($isFreeWorkshop ? ['lizardFreeWorkshop' => true] : []),
                         ],
                     ));
@@ -1042,6 +1055,8 @@ final class ReplayGameHistoryAction
         }
 
         $state = $game->state;
+        $originalBuiltHexId = (string) ($state->pendingInteraction?->context['builtHexId'] ?? '');
+        $powerOffersResolved = ($state->pendingInteraction?->context['powerOffersResolved'] ?? false) === true;
         $state->round->hasTakenMainAction = true;
         $playerState = $this->playerState($state, $player->id);
 
@@ -1079,6 +1094,7 @@ final class ReplayGameHistoryAction
                     $playerState,
                     $hex->id,
                     BuildingType::Workshop,
+                    queuedTownHexIds: $powerOffersResolved && $originalBuiltHexId !== '' ? [$originalBuiltHexId] : [],
                 );
             }
         } else {
@@ -1089,6 +1105,15 @@ final class ReplayGameHistoryAction
                     $action,
                 )
                 : null;
+
+            if ($state->pendingInteraction === null && $powerOffersResolved && $originalBuiltHexId !== '') {
+                $game->active_game_player_id = $this->createTownChoiceAfterBuilding->execute(
+                    $state,
+                    $playerState,
+                    $originalBuiltHexId,
+                    powerOffersResolved: true,
+                );
+            }
         }
 
         if ($state->pendingInteraction === null && $state->pendingInteractionQueue !== []) {
@@ -1097,6 +1122,7 @@ final class ReplayGameHistoryAction
                 $state,
                 $playerState,
                 (string) ($nextStep->context['builtHexId'] ?? ''),
+                ($nextStep->context['powerOffersResolved'] ?? false) === true,
             );
         }
 
@@ -1377,6 +1403,7 @@ final class ReplayGameHistoryAction
         $state = $game->state;
         $playerState = $this->playerState($state, $player->id);
         $palace = PalaceAbility::tryFrom((string) ($action->payload['palace_id'] ?? ''));
+        $powerOffersResolved = ($state->pendingInteraction?->context['powerOffersResolved'] ?? false) === true;
 
         if ($palace === null || ! in_array($palace->value, $state->availablePalaceIds, true)) {
             $this->invalidHistory();
@@ -1414,7 +1441,7 @@ final class ReplayGameHistoryAction
         $state->pendingInteraction = null;
 
         if ($palace === PalaceAbility::Palace15) {
-            $stepContext = ['builtHexId' => $builtHexId];
+            $stepContext = ['builtHexId' => $builtHexId, 'powerOffersResolved' => $powerOffersResolved];
             $state->pendingInteractionQueue = [
                 new PendingInteractionData(PendingInteractionType::SpendSpades, $player->id, context: $stepContext),
                 new PendingInteractionData(PendingInteractionType::PlaceBridge, $player->id, context: $stepContext),
@@ -1424,6 +1451,7 @@ final class ReplayGameHistoryAction
                 $state,
                 $playerState,
                 $builtHexId,
+                $powerOffersResolved,
             );
         } elseif ($palace === PalaceAbility::Palace11) {
             $state->pendingInteraction = new PendingInteractionData(
@@ -1449,7 +1477,7 @@ final class ReplayGameHistoryAction
                             && $hex->building === null,
                     ),
                 )),
-                ['palaceBuiltHexId' => $builtHexId, 'selectedHexId' => null],
+                ['palaceBuiltHexId' => $builtHexId, 'selectedHexId' => null, 'powerOffersResolved' => $powerOffersResolved],
             );
             $game->active_game_player_id = $player->id;
         } else {
@@ -1457,6 +1485,7 @@ final class ReplayGameHistoryAction
                 $state,
                 $playerState,
                 $builtHexId,
+                powerOffersResolved: $powerOffersResolved,
             );
         }
         $game->state = $state;
@@ -1477,6 +1506,7 @@ final class ReplayGameHistoryAction
         $state = $game->state;
         $playerState = $this->playerState($state, $player->id);
         $hex->building = new BuildingStateData(BuildingType::Guild, $player->id);
+        $powerOffersResolved = ($state->pendingInteraction?->context['powerOffersResolved'] ?? false) === true;
         $playerState->resources->coins += (int) ($action->payload['bonus_coins'] ?? 0);
         $playerState->victoryPoints += (int) ($action->payload['victory_points'] ?? 0);
         $state->pendingInteraction = null;
@@ -1484,7 +1514,8 @@ final class ReplayGameHistoryAction
             $state,
             $playerState,
             $hex->id,
-            [(string) ($action->payload['palace_built_hex_id'] ?? '')],
+            $powerOffersResolved ? [] : [(string) ($action->payload['palace_built_hex_id'] ?? '')],
+            queuedTownHexIds: $powerOffersResolved ? [(string) ($action->payload['palace_built_hex_id'] ?? '')] : [],
         );
         $game->active_game_player_id = $nextActivePlayerId;
         $game->state = $state;
@@ -1539,7 +1570,10 @@ final class ReplayGameHistoryAction
         $game->state = $state;
     }
 
-    /** @param list<string> $queuedBuiltHexIds */
+    /**
+     * @param list<string> $queuedBuiltHexIds
+     * @param list<string> $queuedTownHexIds
+     */
     private function replayNeutralBuilding(
         Game $game,
         GameStateData $state,
@@ -1547,6 +1581,7 @@ final class ReplayGameHistoryAction
         GamePlayer $player,
         GameAction $action,
         array $queuedBuiltHexIds = [],
+        array $queuedTownHexIds = [],
     ): void {
         $neutralBuilding = (array) ($action->payload['neutral_building'] ?? []);
         $hex = collect($state->board->hexes)->firstWhere('id', $neutralBuilding['hex_id'] ?? null);
@@ -1563,7 +1598,7 @@ final class ReplayGameHistoryAction
         $hex->building = new BuildingStateData($buildingType, $player->id, isNeutral: true);
         $state->pendingInteraction = null;
         $game->active_game_player_id = $buildingType === BuildingType::Tower
-            ? $this->createTownChoiceAfterBuilding->execute($state, $playerState, $hex->id, $queuedBuiltHexIds)
+            ? $this->createTownChoiceAfterBuilding->execute($state, $playerState, $hex->id, $queuedBuiltHexIds, queuedTownHexIds: $queuedTownHexIds)
             : $this->createBuildingFollowUpInteraction->execute($state, $playerState, $hex->id, $buildingType);
         $game->state = $state;
     }
@@ -1879,6 +1914,7 @@ final class ReplayGameHistoryAction
         $fromHexId = $action->payload['from_hex_id'] ?? null;
         $toHexId = $action->payload['to_hex_id'] ?? null;
         $builtHexId = (string) ($state->pendingInteraction?->context['builtHexId'] ?? '');
+        $powerOffersResolved = ($state->pendingInteraction?->context['powerOffersResolved'] ?? false) === true;
 
         if (! is_string($fromHexId) || ! is_string($toHexId)) {
             return null;
@@ -1891,6 +1927,7 @@ final class ReplayGameHistoryAction
                 $state,
                 $this->playerState($state, $playerId),
                 $builtHexId,
+                $powerOffersResolved,
             );
         }
 

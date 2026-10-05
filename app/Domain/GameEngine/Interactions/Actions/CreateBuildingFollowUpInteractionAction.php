@@ -6,6 +6,7 @@ namespace App\Domain\GameEngine\Interactions\Actions;
 
 use App\Domain\GameEngine\Board\Data\BoardHexStateData;
 use App\Domain\GameEngine\Board\Enums\BuildingType;
+use App\Domain\GameEngine\Economy\Actions\CreatePowerOffersAfterBuildingAction;
 use App\Domain\GameEngine\Interactions\Data\PendingInteractionData;
 use App\Domain\GameEngine\Interactions\Enums\PendingInteractionType;
 use App\Domain\GameEngine\State\Data\GamePlayerStateData;
@@ -16,15 +17,30 @@ final class CreateBuildingFollowUpInteractionAction
 {
     public function __construct(
         private CreateTownChoiceAfterBuildingAction $createTownChoiceAfterBuilding,
+        private CreatePowerOffersAfterBuildingAction $createPowerOffersAfterBuilding,
     ) {
     }
 
+    /** @param list<string> $queuedTownHexIds */
     public function execute(
         GameStateData $state,
         GamePlayerStateData $playerState,
         string $builtHexId,
         BuildingType $buildingType,
+        bool $powerOffersResolved = false,
+        array $queuedTownHexIds = [],
     ): int {
+        $nextActivePlayerId = $powerOffersResolved
+            ? null
+            : $this->createPowerOffersAfterBuilding->execute($state, $playerState->playerId, $builtHexId);
+
+        if ($nextActivePlayerId !== null) {
+            $state->pendingInteraction->context['buildingFollowUpType'] = $buildingType->value;
+            $state->pendingInteraction->context['queuedTownHexIds'] = $queuedTownHexIds;
+
+            return $nextActivePlayerId;
+        }
+
         $builtHex = collect($state->board->hexes)->firstWhere('id', $builtHexId);
         $isNeutralUniversity = $buildingType === BuildingType::University
             && $builtHex instanceof BoardHexStateData
@@ -41,6 +57,7 @@ final class CreateBuildingFollowUpInteractionAction
                 [
                     'reason' => 'building',
                     'builtHexId' => $builtHexId,
+                    'powerOffersResolved' => true,
                 ],
             );
 
@@ -64,6 +81,7 @@ final class CreateBuildingFollowUpInteractionAction
                     'reason' => 'building',
                     'builtHexId' => $builtHexId,
                     'buildingType' => $buildingType->value,
+                    'powerOffersResolved' => true,
                 ],
             );
 
@@ -74,6 +92,8 @@ final class CreateBuildingFollowUpInteractionAction
             $state,
             $playerState,
             $builtHexId,
+            powerOffersResolved: true,
+            queuedTownHexIds: $queuedTownHexIds,
         );
     }
 }

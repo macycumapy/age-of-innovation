@@ -22,7 +22,7 @@ final class AdvancePendingInteractionQueueAction
     ) {
     }
 
-    public function execute(GameStateData $state, GamePlayerStateData $player, string $builtHexId): int
+    public function execute(GameStateData $state, GamePlayerStateData $player, string $builtHexId, bool $powerOffersResolved = false): int
     {
         $state->pendingInteraction = null;
 
@@ -58,6 +58,6 @@ final class AdvancePendingInteractionQueueAction
             }
         }
 
-        return $this->createTownChoiceAfterBuilding->execute($state, $player, $builtHexId);
+        return $this->createTownChoiceAfterBuilding->execute($state, $player, $builtHexId, powerOffersResolved: $powerOffersResolved);
     }
 }

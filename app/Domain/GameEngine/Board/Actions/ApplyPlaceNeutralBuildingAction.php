@@ -53,7 +53,13 @@ final class ApplyPlaceNeutralBuildingAction
             'is_string',
         ));
         $nextActivePlayerId = $buildingType === BuildingType::Tower
-            ? $this->createTownChoiceAfterBuilding->execute($state, $player, $hexId, $queuedBuiltHexIds)
+            ? $this->createTownChoiceAfterBuilding->execute(
+                $state,
+                $player,
+                $hexId,
+                $queuedBuiltHexIds,
+                queuedTownHexIds: array_values(array_filter((array) ($interaction->context['queuedTownHexIds'] ?? []), 'is_string')),
+            )
             : $this->createBuildingFollowUpInteraction->execute($state, $player, $hexId, $buildingType);
 
         return new PlaceNeutralBuildingResultData(

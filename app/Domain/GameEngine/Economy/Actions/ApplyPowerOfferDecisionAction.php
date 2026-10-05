@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Domain\GameEngine\Economy\Actions;
 
+use App\Domain\GameEngine\Board\Enums\BuildingType;
+use App\Domain\GameEngine\Interactions\Actions\CreateBuildingFollowUpInteractionAction;
 use App\Domain\GameEngine\Interactions\Data\PendingInteractionData;
 use App\Domain\GameEngine\Interactions\Enums\PendingInteractionType;
 use App\Domain\GameEngine\State\Data\GamePlayerStateData;
@@ -19,6 +21,7 @@ final class ApplyPowerOfferDecisionAction
         private CreateTownChoiceAfterBuildingAction $createTownChoiceAfterBuilding,
         private GainPowerAction $gainPower,
         private StartFelineTownBonusAction $startFelineTownBonus,
+        private CreateBuildingFollowUpInteractionAction $createBuildingFollowUpInteraction,
     ) {
     }
 
@@ -55,6 +58,12 @@ final class ApplyPowerOfferDecisionAction
                     'builtHexId' => (string) $interaction->context['builtHexId'],
                     'powerAmount' => (int) $nextOffer['powerAmount'],
                     'remainingOffers' => $remainingOffers,
+                    ...(isset($interaction->context['queuedTownHexIds'])
+                        ? ['queuedTownHexIds' => $interaction->context['queuedTownHexIds']]
+                        : []),
+                    ...(isset($interaction->context['buildingFollowUpType'])
+                        ? ['buildingFollowUpType' => $interaction->context['buildingFollowUpType']]
+                        : []),
                     ...(isset($interaction->context['queuedBuiltHexIds'])
                         ? ['queuedBuiltHexIds' => $interaction->context['queuedBuiltHexIds']]
                         : []),
@@ -105,7 +114,16 @@ final class ApplyPowerOfferDecisionAction
             }
 
             if ($nextActivePlayerId === null) {
-                if (($interaction->context['felineBonusPending'] ?? false) === true) {
+                if (isset($interaction->context['buildingFollowUpType'])) {
+                    $nextActivePlayerId = $this->createBuildingFollowUpInteraction->execute(
+                        $state,
+                        $buildingPlayer,
+                        (string) $interaction->context['builtHexId'],
+                        BuildingType::from($interaction->context['buildingFollowUpType']),
+                        powerOffersResolved: true,
+                        queuedTownHexIds: (array) ($interaction->context['queuedTownHexIds'] ?? []),
+                    );
+                } elseif (($interaction->context['felineBonusPending'] ?? false) === true) {
                     $this->startFelineTownBonus->execute($state, $buildingPlayer, [
                         'continueBuildingAfterPowerHexId' => (string) $interaction->context['builtHexId'],
                     ]);
