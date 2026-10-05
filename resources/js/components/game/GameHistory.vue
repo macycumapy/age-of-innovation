@@ -694,6 +694,9 @@ function actionDetails(entry: GameHistoryEntry): string | null {
 
     if (typeof entry.payload.neutral_building === 'object' && entry.payload.neutral_building !== null) {
         const neutralBuilding = entry.payload.neutral_building as Record<string, unknown>;
+        if (neutralBuilding.skipped === true) {
+            details.push('отказ от установки нейтрального здания');
+        }
         const victoryPoints = Number(neutralBuilding.victory_points ?? 0);
 
         if (Number.isFinite(victoryPoints) && victoryPoints > 0) {

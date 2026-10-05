@@ -41,6 +41,9 @@ final class RestartCurrentTurnAction
                 ->pluck('id')
                 ->all();
             $restoredState = GameStateData::from($turnStartSnapshot);
+            if ($restoredState->pendingInteraction !== null) {
+                $restoredState->turnStartSnapshot = $turnStartSnapshot;
+            }
             $lockedGame->update([
                 'state' => $restoredState,
                 'version' => $turnStartVersion,

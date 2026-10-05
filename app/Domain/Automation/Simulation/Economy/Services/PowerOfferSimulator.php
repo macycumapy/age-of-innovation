@@ -26,6 +26,9 @@ final class PowerOfferSimulator
         if ($result['advanceTurnCheckpoint']) {
             $simulatedState->round->isCurrentTurnIrrevocable = false;
             $simulatedState->turnStartSnapshot = null;
+            if ($simulatedState->pendingInteraction !== null) {
+                $simulatedState->turnStartSnapshot = $simulatedState->toArray();
+            }
         }
 
         return new GameActionSimulationData($simulatedState, $result['nextActivePlayerId']);

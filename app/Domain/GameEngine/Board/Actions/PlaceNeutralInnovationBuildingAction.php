@@ -31,7 +31,7 @@ final class PlaceNeutralInnovationBuildingAction
     ) {
     }
 
-    public function execute(Game $game, GamePlayer $player, string $hexId): Game
+    public function execute(Game $game, GamePlayer $player, ?string $hexId): Game
     {
         return DB::transaction(function () use ($game, $player, $hexId): Game {
             $lockedGame = Game::query()->lockForUpdate()->findOrFail($game->id);
@@ -50,9 +50,9 @@ final class PlaceNeutralInnovationBuildingAction
                 || $interaction?->type !== PendingInteractionType::PlaceNeutralBuilding
                 || $interaction->playerId !== $player->id
                 || ! $playerState instanceof GamePlayerStateData
-                || ! $hex instanceof BoardHexStateData
                 || $buildingType === null
-                || ! in_array($hexId, $this->findEligibleHexes->execute($state, $playerState), true)) {
+                || ($hexId !== null && (! $hex instanceof BoardHexStateData
+                    || ! in_array($hexId, $this->findEligibleHexes->execute($state, $playerState), true)))) {
                 throw ValidationException::withMessages(['hex_id' => 'На этой клетке нельзя поставить нейтральное здание.']);
             }
 
@@ -79,12 +79,16 @@ final class PlaceNeutralInnovationBuildingAction
                 return $lockedGame->refresh();
             }
 
-            $toolCost = $hex->terrain->spadesTo($playerState->homeland) * max(1, 3 - $playerState->terraformingLevel);
-            $playerState->resources->tools -= $toolCost;
-            $hex->terrain = $playerState->homeland;
-            $hex->building = new BuildingStateData($buildingType, $playerState->playerId, isNeutral: true);
+            $toolCost = 0;
+            $bonuses = ['victoryPoints' => 0, 'coins' => 0, 'sources' => []];
+            if ($hexId !== null) {
+                $toolCost = $hex->terrain->spadesTo($playerState->homeland) * max(1, 3 - $playerState->terraformingLevel);
+                $playerState->resources->tools -= $toolCost;
+                $hex->terrain = $playerState->homeland;
+                $hex->building = new BuildingStateData($buildingType, $playerState->playerId, isNeutral: true);
+                $bonuses = $this->applyBuildingBonuses->execute($state, $playerState, $hex, $buildingType);
+            }
             $state->pendingInteraction = null;
-            $bonuses = $this->applyBuildingBonuses->execute($state, $playerState, $hex, $buildingType);
             $nextPhase = $lockedGame->phase;
             $incomeReceipts = [];
 
@@ -135,7 +139,7 @@ final class PlaceNeutralInnovationBuildingAction
         Game $game,
         GamePlayer $player,
         array $context,
-        string $hexId,
+        ?string $hexId,
         BuildingType $buildingType,
         int $toolCost,
         int $victoryPoints,
@@ -164,13 +168,16 @@ final class PlaceNeutralInnovationBuildingAction
             'victory_points' => $victoryPoints,
             'bonus_coins' => $bonusCoins,
             'scoring_sources' => $scoringSources,
+            ...($hexId === null ? ['skipped' => true] : []),
         ];
         $payload['income_receipts'] = array_map(
             static fn (IncomeReceiptData $receipt): array => $receipt->toArray(),
             $incomeReceipts,
         );
         $events = $sourceAction->events ?? [];
-        $events[] = ['type' => GameEventType::NeutralBuildingBuilt->value, 'player_id' => $player->id, 'hex_id' => $hexId];
+        if ($hexId !== null) {
+            $events[] = ['type' => GameEventType::NeutralBuildingBuilt->value, 'player_id' => $player->id, 'hex_id' => $hexId];
+        }
         $sourceAction->update([
             'payload' => $payload,
             'events' => $events,

@@ -15,7 +15,7 @@ final class FindEligibleNeutralBuildingHexesAction
     }
 
     /** @return list<string> */
-    public function execute(GameStateData $state, GamePlayerStateData $player): array
+    public function execute(GameStateData $state, GamePlayerStateData $player, bool $ignoreResourceCost = false): array
     {
         $reachableHexIds = $this->findReachableLandHexes->execute($state, $player);
         $toolCostPerSpade = max(1, 3 - $player->terraformingLevel);
@@ -24,7 +24,7 @@ final class FindEligibleNeutralBuildingHexesAction
             ->filter(static fn (BoardHexStateData $hex): bool => in_array($hex->id, $reachableHexIds, true)
                 && $hex->building === null
                 && $hex->terrain->isHomeland()
-                && $hex->terrain->spadesTo($player->homeland) * $toolCostPerSpade <= $player->resources->tools)
+                && ($ignoreResourceCost || $hex->terrain->spadesTo($player->homeland) * $toolCostPerSpade <= $player->resources->tools))
             ->pluck('id')
             ->values()
             ->all();

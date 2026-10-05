@@ -45,6 +45,9 @@ final class ResolvePowerOfferAction
                 $state->round->isCurrentTurnIrrevocable = false;
                 $state->turnStartSnapshot = null;
                 $state->round->turnStartVersion = $stateVersionAfter;
+                if ($state->pendingInteraction !== null) {
+                    $state->turnStartSnapshot = $state->toArray();
+                }
             }
 
             $lockedGame->update([

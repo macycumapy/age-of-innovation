@@ -76,7 +76,7 @@ class PlaceNeutralBuildingSimulatorTest extends TestCase
             static fn ($option): bool => $option instanceof PlaceNeutralBuildingOptionData,
         ));
 
-        $this->assertCount(1, $options);
+        $this->assertCount(2, $options);
         $this->assertSame(GameActionOptionType::PlaceNeutralBuilding, $options[0]->type());
         $this->assertSame('1:0', $options[0]->hexId);
         $simulation = app(GameActionSimulator::class)->execute($state, 1, $options[0]);
@@ -88,5 +88,22 @@ class PlaceNeutralBuildingSimulatorTest extends TestCase
         $this->assertSame(TerrainType::Forest, $simulation->state->board->hexes[1]->terrain);
         $this->assertSame(0, $simulation->state->players[0]->resources->tools);
         $this->assertSame(1, $simulation->nextActivePlayerId);
+
+        $this->assertNull($options[1]->hexId);
+        $refusal = app(GameActionSimulator::class)->execute($state, 1, $options[1]);
+        $this->assertNull($refusal->state->pendingInteraction);
+        $this->assertNull($refusal->state->board->hexes[1]->building);
+        $this->assertSame(3, $refusal->state->players[0]->resources->tools);
+
+        $state->players[0]->resources->tools = 0;
+        $unaffordableOptions = array_values(array_filter(
+            app(GameActionOptionFinder::class)->execute($state, 1),
+            static fn ($option): bool => $option instanceof PlaceNeutralBuildingOptionData,
+        ));
+        $this->assertCount(1, $unaffordableOptions);
+        $this->assertNull($unaffordableOptions[0]->hexId);
+        $simulation = app(GameActionSimulator::class)->execute($state, 1, $unaffordableOptions[0]);
+        $this->assertNull($simulation->state->pendingInteraction);
+        $this->assertNull($simulation->state->board->hexes[1]->building);
     }
 }

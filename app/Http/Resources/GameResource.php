@@ -86,6 +86,8 @@ class GameResource extends JsonResource
             'canRestartCurrentTurn' => $this->phase->isActionPhase()
                 && $this->active_player_id === $request->user()?->id
                 && $this->state->turnStartSnapshot !== null
+                && $this->state->round->turnStartVersion !== null
+                && $this->version > $this->state->round->turnStartVersion
                 && $this->state->pendingInteraction?->type !== PendingInteractionType::PowerOffer,
             'canFinishCurrentTurn' => $this->phase->isActionPhase()
                 && $this->active_player_id === $request->user()?->id

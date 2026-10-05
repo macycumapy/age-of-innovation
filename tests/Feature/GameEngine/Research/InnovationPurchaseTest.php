@@ -277,6 +277,7 @@ class InnovationPurchaseTest extends TestCase
         TerrainType $targetTerrain,
         int $expectedToolCost,
         ?PalaceAbility $palace = null,
+        bool $skip = false,
     ): void {
         $user = User::factory()->create();
         $game = Game::factory()->create([
@@ -320,7 +321,7 @@ class InnovationPurchaseTest extends TestCase
                 homeland: TerrainType::Forest,
                 roundBonus: RoundBonus::Coins,
                 resources: new PlayerResourcesData(
-                    tools: 3,
+                    tools: $skip ? 0 : 3,
                     coins: 10,
                     books: new BookSupplyData(banking: 2, law: 2, medicine: 1),
                 ),
@@ -341,7 +342,57 @@ class InnovationPurchaseTest extends TestCase
 
         $game->refresh();
         $this->assertSame(PendingInteractionType::PlaceNeutralBuilding, $game->state->pendingInteraction?->type);
-        $this->assertSame(['1:0'], $game->state->pendingInteraction?->optionIds);
+        $this->assertSame($skip ? [] : ['1:0'], $game->state->pendingInteraction?->optionIds);
+
+        if ($skip) {
+            $this->post(route('games.innovation.neutral-building', $game), ['hex_id' => '1:0'])
+                ->assertSessionHasErrors('hex_id');
+            $this->assertSame(PendingInteractionType::PlaceNeutralBuilding, $game->fresh()->state->pendingInteraction?->type);
+
+            $this->post(route('games.innovation.neutral-building', $game), ['skip' => 1])->assertNoContent();
+            $game->refresh();
+            $this->assertNull($game->state->pendingInteraction);
+            $this->assertNull($game->state->board->hexes[1]->building);
+            $this->assertSame(TerrainType::Mountain, $game->state->board->hexes[1]->terrain);
+            $this->assertSame(0, $game->state->players[0]->resources->tools);
+            $this->assertSame(20, $game->state->players[0]->victoryPoints);
+            $this->assertTrue($game->actions()->sole()->payload['neutral_building']['skipped']);
+            $this->assertSame(0, $game->actions()->sole()->payload['neutral_building']['victory_points']);
+
+            $game->actions()->create([
+                'sequence' => 0,
+                'type' => GameActionType::PhaseCheckpoint,
+                'payload' => [
+                    'game' => [
+                        'status' => GameStatus::Active->value,
+                        'round' => 1,
+                        'phase' => GamePhase::Actions->value,
+                        'active_player_id' => $user->id,
+                        'active_game_player_id' => $player->id,
+                        'version' => 0,
+                        'state' => $game->state->turnStartSnapshot,
+                        'started_at' => null,
+                        'finished_at' => null,
+                    ],
+                    'players' => [['id' => $player->id]],
+                ],
+                'events' => [],
+                'state_version_before' => 0,
+                'state_version_after' => 0,
+            ]);
+            app(\App\Domain\GameEngine\History\Actions\ReplayGameHistoryAction::class)->execute($game, $game->actions()->orderBy('sequence')->get());
+            $game->refresh();
+            $this->assertNull($game->state->pendingInteraction);
+            $this->assertNull($game->state->board->hexes[1]->building);
+            $this->assertSame(0, $game->state->players[0]->resources->tools);
+
+            $this->post(route('games.current-turn.restart', $game))->assertNoContent();
+            $game->refresh();
+            $this->assertSame([], $game->state->players[0]->inventionIds);
+            $this->assertSame(0, $game->actions()->count());
+
+            return;
+        }
 
         $this->post(route('games.innovation.neutral-building', $game), ['hex_id' => '1:0'])
             ->assertNoContent();
@@ -366,14 +417,15 @@ class InnovationPurchaseTest extends TestCase
         $this->assertSame($expectedToolCost, $game->actions()->sole()->payload['neutral_building']['tools']);
     }
 
-    /** @return array<string, array{TerrainType, int, PalaceAbility|null}> */
+    /** @return array<string, array{TerrainType, int, PalaceAbility|null, bool}> */
     public static function neutralInnovationBuildingTerrainProvider(): array
     {
         return [
-            'without terraforming' => [TerrainType::Forest, 0, null],
-            'with terraforming' => [TerrainType::Mountain, 3, null],
-            'palace twelve without terraforming' => [TerrainType::Forest, 0, PalaceAbility::Palace12],
-            'palace twelve with terraforming' => [TerrainType::Mountain, 3, PalaceAbility::Palace12],
+            'without terraforming' => [TerrainType::Forest, 0, null, false],
+            'with terraforming' => [TerrainType::Mountain, 3, null, false],
+            'palace twelve without terraforming' => [TerrainType::Forest, 0, PalaceAbility::Palace12, false],
+            'palace twelve with terraforming' => [TerrainType::Mountain, 3, PalaceAbility::Palace12, false],
+            'explicit refusal without tools' => [TerrainType::Mountain, 3, null, true],
         ];
     }
 

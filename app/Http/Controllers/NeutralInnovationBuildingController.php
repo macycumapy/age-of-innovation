@@ -23,7 +23,7 @@ final class NeutralInnovationBuildingController extends Controller
         /** @var User $user */
         $user = $request->user();
         $player = $game->players()->whereBelongsTo($user)->firstOrFail();
-        $placeNeutralBuilding->execute($game, $player, $request->string('hex_id')->toString());
+        $placeNeutralBuilding->execute($game, $player, $request->boolean('skip') ? null : $request->string('hex_id')->toString());
 
         return $this->gameChanged($game);
     }

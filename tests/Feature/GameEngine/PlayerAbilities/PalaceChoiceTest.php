@@ -150,6 +150,7 @@ class PalaceChoiceTest extends TestCase
         $this->assertSame([
             'reason' => 'building',
             'builtHexId' => '0:0',
+            'powerOffersResolved' => true,
         ], $game->state->pendingInteraction?->context);
         $this->assertSame([
             PalaceAbility::Palace01->value,

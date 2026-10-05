@@ -7,6 +7,7 @@ import BridgeSkipController from '@/actions/App/Http/Controllers/BridgeSkipContr
 import PalaceGuildConfirmationController from '@/actions/App/Http/Controllers/PalaceGuildConfirmationController';
 import PalaceGuildController from '@/actions/App/Http/Controllers/PalaceGuildController';
 import PowerOfferController from '@/actions/App/Http/Controllers/PowerOfferController';
+import NeutralInnovationBuildingController from '@/actions/App/Http/Controllers/NeutralInnovationBuildingController';
 import StartingBuildingController from '@/actions/App/Http/Controllers/StartingBuildingController';
 import StartingBuildingTurnController from '@/actions/App/Http/Controllers/StartingBuildingTurnController';
 import StartingSpadeController from '@/actions/App/Http/Controllers/StartingSpadeController';
@@ -299,7 +300,11 @@ function scrollToPageTop(event: MouseEvent): void {
                 }}
             </template>
             <template v-else-if="game.data.pendingInteraction?.type === 'place_neutral_building'">
-                Выберите подсвеченную ячейку для нейтрального здания.
+                {{
+                    game.data.pendingInteraction.optionIds.length === 0
+                        ? 'Не хватает ресурсов для установки нейтрального здания. Обменяйте ресурсы или откажитесь от установки.'
+                        : 'Выберите подсвеченную ячейку для нейтрального здания или откажитесь от установки.'
+                }}
             </template>
             <template v-else-if="game.data.pendingInteraction?.type === 'place_bridge'">
                 {{
@@ -354,6 +359,15 @@ function scrollToPageTop(event: MouseEvent): void {
             :selected-water-hex-id="selectedPalaceWaterHexId"
             @reset-selection="emit('resetPalaceWaterSelection')"
         />
+
+        <Form
+            v-else-if="isCurrentUsersTurn && game.data.pendingInteraction?.type === 'place_neutral_building'"
+            v-bind="NeutralInnovationBuildingController.form(game.data.id)"
+            #default="{ processing }"
+        >
+            <input type="hidden" name="skip" value="1" />
+            <Button type="submit" variant="outline" :disabled="processing">Отказаться от установки</Button>
+        </Form>
 
         <CurrentTurnRestartDialog
             v-else-if="

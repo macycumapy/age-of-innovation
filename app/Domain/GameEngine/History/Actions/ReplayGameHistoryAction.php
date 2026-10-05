@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Domain\GameEngine\History\Actions;
 
 use App\Domain\Game\Enums\GameStatus;
+use App\Domain\GameEngine\Board\Actions\ApplyPlaceNeutralBuildingAction;
 use App\Domain\GameEngine\Board\Actions\FindEligibleMoleTunnelHexesAction;
 use App\Domain\GameEngine\Board\Actions\FindEligiblePalaceFlightHexesAction;
 use App\Domain\GameEngine\Board\Actions\FindEligibleTerraformHexesAction;
@@ -134,6 +135,7 @@ final class ReplayGameHistoryAction
         private StartLizardTownBonusAction $startLizardTownBonus,
         private CreateTownChoiceAfterBuildingAction $createTownChoiceAfterBuilding,
         private CreateBuildingFollowUpInteractionAction $createBuildingFollowUpInteraction,
+        private ApplyPlaceNeutralBuildingAction $applyPlaceNeutralBuilding,
         private CreatePowerOffersAfterBuildingAction $createPowerOffersAfterBuilding,
         private ApplyPowerOfferDecisionAction $applyPowerOfferDecision,
         private AdvanceDevelopmentTrackAction $advanceDevelopmentTrack,
@@ -1584,6 +1586,24 @@ final class ReplayGameHistoryAction
         array $queuedTownHexIds = [],
     ): void {
         $neutralBuilding = (array) ($action->payload['neutral_building'] ?? []);
+        if (($neutralBuilding['skipped'] ?? false) === true) {
+            $buildingType = BuildingType::from((string) $neutralBuilding['type']);
+            $state->pendingInteraction = new PendingInteractionData(
+                PendingInteractionType::PlaceNeutralBuilding,
+                $player->id,
+                context: [
+                    'buildingType' => $buildingType->value,
+                    'innovation' => $action->payload['innovation'] ?? null,
+                    'queuedBuiltHexIds' => $queuedBuiltHexIds,
+                    'queuedTownHexIds' => $queuedTownHexIds,
+                ],
+            );
+            $result = $this->applyPlaceNeutralBuilding->execute($state, $playerState, null, $buildingType);
+            $game->active_game_player_id = $result->nextActivePlayerId;
+            $game->state = $state;
+
+            return;
+        }
         $hex = collect($state->board->hexes)->firstWhere('id', $neutralBuilding['hex_id'] ?? null);
         $buildingType = BuildingType::tryFrom((string) ($neutralBuilding['type'] ?? ''));
 
@@ -1665,6 +1685,9 @@ final class ReplayGameHistoryAction
             $state->round->isCurrentTurnIrrevocable = false;
             $state->turnStartSnapshot = null;
             $state->round->turnStartVersion = $action->state_version_after;
+            if ($state->pendingInteraction !== null) {
+                $state->turnStartSnapshot = $state->toArray();
+            }
         }
 
         $game->active_game_player_id = $result['nextActivePlayerId'];

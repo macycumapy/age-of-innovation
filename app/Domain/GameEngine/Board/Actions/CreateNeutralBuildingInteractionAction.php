@@ -25,7 +25,7 @@ final class CreateNeutralBuildingInteractionAction
     ): bool {
         $eligibleHexIds = $this->findEligibleHexes->execute($state, $playerState);
 
-        if ($eligibleHexIds === []) {
+        if ($eligibleHexIds === [] && $this->findEligibleHexes->execute($state, $playerState, ignoreResourceCost: true) === []) {
             return false;
         }
 

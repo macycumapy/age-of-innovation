@@ -29,6 +29,9 @@ final class PlaceNeutralInnovationBuildingRequest extends FormRequest
      */
     public function rules(): array
     {
-        return ['hex_id' => ['required', 'string']];
+        return [
+            'skip' => ['sometimes', 'boolean'],
+            'hex_id' => ['required_unless:skip,1', 'nullable', 'string', 'prohibited_if:skip,1'],
+        ];
     }
 }

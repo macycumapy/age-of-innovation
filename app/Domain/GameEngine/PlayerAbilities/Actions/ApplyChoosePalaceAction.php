@@ -70,6 +70,10 @@ final class ApplyChoosePalaceAction
             static fn (string $palaceId): bool => $palaceId !== $palace->value,
         ));
         $state->pendingInteraction = null;
+        $availableCompetencyIds = array_values(array_unique(array_diff(
+            CompetencySupply::availableIds($state),
+            $player->competencyIds,
+        )));
 
         if ($palace === PalaceAbility::Palace15) {
             $gainedBooks = 2;
@@ -89,11 +93,11 @@ final class ApplyChoosePalaceAction
                 new PendingInteractionData(PendingInteractionType::PlaceBridge, $player->playerId, context: $stepContext),
             ];
             $nextActivePlayerId = $this->advancePendingInteractionQueue->execute($state, $player, $builtHexId, $powerOffersResolved);
-        } elseif ($palace === PalaceAbility::Palace05 && CompetencySupply::availableIds($state) !== []) {
+        } elseif ($palace === PalaceAbility::Palace05 && $availableCompetencyIds !== []) {
             $state->pendingInteraction = new PendingInteractionData(
                 PendingInteractionType::ChooseCompetency,
                 $player->playerId,
-                array_values(array_unique(CompetencySupply::availableIds($state))),
+                $availableCompetencyIds,
                 ['reason' => 'building', 'builtHexId' => $builtHexId, 'powerOffersResolved' => $powerOffersResolved],
             );
             $nextActivePlayerId = $player->playerId;

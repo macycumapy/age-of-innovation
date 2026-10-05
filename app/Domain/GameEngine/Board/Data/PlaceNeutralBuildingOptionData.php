@@ -12,7 +12,7 @@ use Spatie\LaravelData\Data;
 final class PlaceNeutralBuildingOptionData extends Data implements GameActionOption
 {
     public function __construct(
-        public string $hexId,
+        public ?string $hexId,
         public BuildingType $buildingType,
     ) {
     }

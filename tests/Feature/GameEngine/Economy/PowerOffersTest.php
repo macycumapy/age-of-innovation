@@ -42,6 +42,92 @@ class PowerOffersTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_restart_after_neutral_tower_restores_competency_choice_without_reverting_accepted_power(): void
+    {
+        $builderUser = User::factory()->create();
+        $neighborUser = User::factory()->create();
+        $game = Game::factory()->create(['status' => GameStatus::Active, 'phase' => GamePhase::Actions]);
+        $builder = GamePlayer::factory()->create(['game_id' => $game->id, 'user_id' => $builderUser->id, 'seat' => 1]);
+        $neighbor = GamePlayer::factory()->create(['game_id' => $game->id, 'user_id' => $neighborUser->id, 'seat' => 2]);
+        $state = new GameStateData(
+            turnOrder: [$builder->id, $neighbor->id],
+            players: array_map(static fn (GamePlayer $player): GamePlayerStateData => new GamePlayerStateData(
+                playerId: $player->id,
+                userId: $player->user_id,
+                color: PlayerColor::Green,
+                faction: Faction::Blessed,
+                homeland: TerrainType::Forest,
+                roundBonus: RoundBonus::Coins,
+                resources: new PlayerResourcesData(tools: 3, power: new PowerBowlsStateData(bowlOne: 8)),
+            ), [$builder, $neighbor]),
+            round: new RoundStateData(phase: GamePhase::Actions, turnStartVersion: 0, hasTakenMainAction: true),
+            board: new BoardStateData(hexes: [
+                new BoardHexStateData(
+                    id: '0:0',
+                    q: 0,
+                    r: 0,
+                    initialTerrain: TerrainType::Forest,
+                    terrain: TerrainType::Forest,
+                    adjacentHexIds: ['1:0', '-1:0'],
+                    building: new BuildingStateData(BuildingType::School, $builder->id)
+                ),
+                new BoardHexStateData(
+                    id: '1:0',
+                    q: 1,
+                    r: 0,
+                    initialTerrain: TerrainType::Forest,
+                    terrain: TerrainType::Forest,
+                    adjacentHexIds: ['0:0'],
+                    building: new BuildingStateData(BuildingType::Guild, $neighbor->id)
+                ),
+                new BoardHexStateData(
+                    id: '-1:0',
+                    q: -1,
+                    r: 0,
+                    initialTerrain: TerrainType::Mountain,
+                    terrain: TerrainType::Mountain,
+                    adjacentHexIds: ['0:0']
+                ),
+            ]),
+            availableCompetencyIds: [Competency::Competency10->value],
+        );
+        $nextPlayerId = app(CreateBuildingFollowUpInteractionAction::class)->execute($state, $state->players[0], '0:0', BuildingType::School);
+        $game->update(['state' => $state, 'active_game_player_id' => $nextPlayerId, 'version' => 1]);
+
+        $this->actingAs($neighborUser)->post(route('games.power-offer', $game), ['accept' => true])->assertNoContent();
+        $game->refresh();
+        $checkpoint = $game->state->turnStartSnapshot;
+        $this->assertIsArray($checkpoint);
+        $this->assertSame(PendingInteractionType::ChooseCompetency, $game->state->pendingInteraction?->type);
+        $this->actingAs($builderUser)->get(route('games.show', $game))
+            ->assertInertia(fn (Assert $page) => $page->where('game.data.canRestartCurrentTurn', false));
+        $this->actingAs($builderUser)->post(route('games.rewards', $game), ['competency_id' => Competency::Competency10->value])->assertNoContent();
+        $this->post(route('games.innovation.neutral-building', $game), ['hex_id' => '-1:0'])->assertNoContent();
+        $game->refresh();
+        $this->assertSame(BuildingType::Tower, $game->state->board->hexes[2]->building?->type);
+        $this->assertSame(0, $game->state->players[0]->resources->tools);
+        $this->get(route('games.show', $game))->assertInertia(fn (Assert $page) => $page->where('game.data.canRestartCurrentTurn', true));
+
+        $this->post(route('games.current-turn.restart', $game))->assertNoContent();
+        $game->refresh();
+        $restoredCheckpoint = GameStateData::from($checkpoint);
+        $restoredCheckpoint->turnStartSnapshot = $checkpoint;
+        $this->assertEquals($restoredCheckpoint->toArray(), $game->state->toArray());
+        $this->assertSame(BuildingType::School, $game->state->board->hexes[0]->building?->type);
+        $this->assertNull($game->state->board->hexes[2]->building);
+        $this->assertSame(19, $game->state->players[1]->victoryPoints);
+        $this->assertSame([GameActionType::AcceptPower], $game->actions()->pluck('type')->all());
+        $this->get(route('games.show', $game))
+            ->assertInertia(fn (Assert $page) => $page->where('game.data.canRestartCurrentTurn', false));
+
+        $this->post(route('games.rewards', $game), ['competency_id' => Competency::Competency10->value])->assertNoContent();
+        $this->post(route('games.innovation.neutral-building', $game), ['skip' => 1])->assertNoContent();
+        $this->post(route('games.current-turn.restart', $game))->assertNoContent();
+        $this->post(route('games.rewards', $game), ['competency_id' => Competency::Competency10->value])->assertNoContent();
+        $this->post(route('games.innovation.neutral-building', $game), ['skip' => 1])->assertNoContent();
+        $this->post(route('games.current-turn.finish', $game))->assertNoContent();
+    }
+
     #[DataProvider('buildingChoiceAfterPowerProvider')]
     public function test_all_neighbors_resolve_power_before_building_tile_choice(BuildingType $buildingType, bool $accept): void
     {

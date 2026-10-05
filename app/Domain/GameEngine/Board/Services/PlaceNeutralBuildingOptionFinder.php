@@ -29,12 +29,12 @@ final class PlaceNeutralBuildingOptionFinder
             return [];
         }
 
-        return array_map(
+        return [...array_map(
             static fn (string $hexId): PlaceNeutralBuildingOptionData => new PlaceNeutralBuildingOptionData(
                 $hexId,
                 $buildingType,
             ),
             $this->findEligibleHexes->execute($state, $player),
-        );
+        ), new PlaceNeutralBuildingOptionData(null, $buildingType)];
     }
 }

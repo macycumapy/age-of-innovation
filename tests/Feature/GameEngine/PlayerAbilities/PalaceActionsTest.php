@@ -10,10 +10,12 @@ use App\Domain\GameEngine\Board\Data\BoardStateData;
 use App\Domain\GameEngine\Board\Data\BuildingStateData;
 use App\Domain\GameEngine\Board\Enums\BuildingType;
 use App\Domain\GameEngine\Board\Enums\TerrainType;
+use App\Domain\GameEngine\Interactions\Data\PendingInteractionData;
 use App\Domain\GameEngine\Interactions\Enums\PendingInteractionType;
 use App\Domain\GameEngine\PlayerAbilities\Enums\Faction;
 use App\Domain\GameEngine\PlayerAbilities\Enums\PalaceAbility;
 use App\Domain\GameEngine\PlayerAbilities\Enums\RoundBonus;
+use App\Domain\GameEngine\Research\Enums\Competency;
 use App\Domain\GameEngine\Research\Enums\KnowledgeDiscipline;
 use App\Domain\GameEngine\Scoring\Enums\RoundScoringTile;
 use App\Domain\GameEngine\State\Data\GamePlayerStateData;
@@ -30,6 +32,53 @@ use Tests\TestCase;
 class PalaceActionsTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_palace_competency_choice_excludes_owned_competencies(): void
+    {
+        [$game, $user] = $this->gameForPalaceAction(PalaceAbility::Palace05, BuildingType::Palace);
+        $state = $game->state;
+        $player = $state->players[0];
+        $player->palaceId = null;
+        $player->competencyIds = [Competency::Competency07->value];
+        $state->availablePalaceIds = [PalaceAbility::Palace05->value];
+        $state->availableCompetencyIds = [Competency::Competency07->value, Competency::Competency07->value, Competency::Competency04->value, Competency::Competency04->value];
+        $state->pendingInteraction = new PendingInteractionData(
+            PendingInteractionType::ChoosePalace,
+            $player->playerId,
+            [PalaceAbility::Palace05->value],
+            ['builtHexId' => '0:0', 'powerOffersResolved' => true],
+        );
+        $game->update(['state' => $state]);
+
+        $this->actingAs($user)->post(route('games.palace-choice', $game), ['palace_id' => PalaceAbility::Palace05->value])->assertNoContent();
+        $game->refresh();
+        $this->assertSame(PendingInteractionType::ChooseCompetency, $game->state->pendingInteraction?->type);
+        $this->assertSame([Competency::Competency04->value], $game->state->pendingInteraction?->optionIds);
+        $this->post(route('games.rewards', $game), ['competency_id' => Competency::Competency07->value])->assertSessionHasErrors('competency_id');
+        $this->post(route('games.rewards', $game), ['competency_id' => Competency::Competency04->value])->assertNoContent();
+        $this->assertSame([Competency::Competency07->value, Competency::Competency04->value], $game->fresh()->state->players[0]->competencyIds);
+    }
+
+    public function test_palace_does_not_offer_competency_choice_when_only_owned_competencies_remain(): void
+    {
+        [$game] = $this->gameForPalaceAction(PalaceAbility::Palace05, BuildingType::Palace);
+        $state = $game->state;
+        $player = $state->players[0];
+        $player->palaceId = null;
+        $player->competencyIds = [Competency::Competency07->value];
+        $state->availableCompetencyIds = [Competency::Competency07->value];
+        $state->pendingInteraction = new PendingInteractionData(
+            PendingInteractionType::ChoosePalace,
+            $player->playerId,
+            [PalaceAbility::Palace05->value],
+            ['builtHexId' => '0:0', 'powerOffersResolved' => true],
+        );
+
+        app(\App\Domain\GameEngine\PlayerAbilities\Actions\ApplyChoosePalaceAction::class)->execute($state, $player, PalaceAbility::Palace05);
+
+        $this->assertNull($state->pendingInteraction);
+        $this->assertSame(PalaceAbility::Palace05->value, $player->palaceId);
+    }
 
     public function test_palace_resource_action_can_be_confirmed_only_once_and_restarted(): void
     {
