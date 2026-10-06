@@ -340,6 +340,58 @@ class PlayAutomatedTurnActionTest extends TestCase
         );
     }
 
+    public function test_changing_active_player_dispatches_automated_turn_for_bot_during_income_distribution(): void
+    {
+        Queue::fake();
+
+        $game = Game::factory()->create([
+            'status' => GameStatus::Active,
+            'phase' => GamePhase::Income,
+        ]);
+        $botPlayer = GamePlayer::factory()->bot(GameBotDifficulty::Balanced)->create([
+            'game_id' => $game->id,
+            'user_id' => null,
+            'seat' => 1,
+        ]);
+        $botState = $this->playerState($botPlayer);
+        $botState->resources->books->unassigned = 1;
+        $game->update(['state' => new GameStateData(
+            turnOrder: [$botPlayer->id],
+            players: [$botState],
+            round: new RoundStateData(
+                phase: GamePhase::Income,
+                incomeTurnIndex: 1,
+                incomeOrder: [$botPlayer->id],
+            ),
+            pendingInteraction: new PendingInteractionData(
+                PendingInteractionType::ChooseStartingResources,
+                $botPlayer->id,
+                context: ['bookCount' => 1, 'knowledgeStepCount' => 0],
+            ),
+        )]);
+
+        $game->update(['active_game_player_id' => $botPlayer->id]);
+
+        Queue::assertPushed(
+            PlayAutomatedTurnJob::class,
+            fn (PlayAutomatedTurnJob $job): bool => $job->gameId === $game->id
+                && $job->gamePlayerId === $botPlayer->id
+                && $job->queue === PlayAutomatedTurnJob::QUEUE,
+        );
+
+        (new PlayAutomatedTurnJob($game->id, $botPlayer->id))
+            ->handle(app(PlayAutomatedTurnAction::class));
+
+        $game->refresh();
+        $this->assertSame(GamePhase::Actions, $game->phase);
+        $this->assertNull($game->state->pendingInteraction);
+        $this->assertSame(0, $game->state->players[0]->resources->books->unassigned);
+        $this->assertSame(
+            GameActionType::ChooseIncomeResources,
+            $game->actions()->where('type', GameActionType::ChooseIncomeResources)->sole()->type,
+        );
+    }
+
     public function test_bot_without_user_selects_a_planning_bundle_and_hands_control_to_human(): void
     {
         Queue::fake();

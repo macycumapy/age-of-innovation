@@ -17,7 +17,7 @@ final class GameObserver
         if (! $game->wasChanged('active_game_player_id')
             || $game->active_game_player_id === null
             || $game->status !== GameStatus::Active
-            || (! $game->phase->isActionPhase() && ! $this->supportsSetupDecision($game))) {
+            || ! $this->supportsAutomatedDecision($game)) {
             return;
         }
 
@@ -26,6 +26,19 @@ final class GameObserver
         if ($player instanceof GamePlayer && $player->bot_difficulty !== null) {
             PlayAutomatedTurnJob::dispatch($game->id, $player->id);
         }
+    }
+
+    private function supportsAutomatedDecision(Game $game): bool
+    {
+        if ($game->phase->isActionPhase()) {
+            return true;
+        }
+
+        if ($game->state->pendingInteraction?->playerId === $game->active_game_player_id) {
+            return true;
+        }
+
+        return $this->supportsSetupDecision($game);
     }
 
     private function supportsSetupDecision(Game $game): bool
