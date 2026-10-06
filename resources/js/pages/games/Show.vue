@@ -879,9 +879,9 @@ const availableActionsBeforePass = computed(() => {
         actions.push('действие за Силу');
     }
 
-    const maximumBooks = Math.max(state.books.banking, state.books.law, state.books.engineering, state.books.medicine);
+    const availableBooks = state.books.banking + state.books.law + state.books.engineering + state.books.medicine;
 
-    if (props.game.data.bookActionStates.some((action) => !action.isUsed && action.cost <= maximumBooks)) {
+    if (props.game.data.bookActionStates.some((action) => !action.isUsed && action.cost <= availableBooks)) {
         actions.push('действие за книги');
     }
 
