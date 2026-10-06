@@ -12,6 +12,7 @@ use App\Domain\Automation\Services\GameActionRanker;
 use App\Domain\GameEngine\Board\Data\BoardHexStateData;
 use App\Domain\GameEngine\Board\Data\BuildingStateData;
 use App\Domain\GameEngine\Board\Data\BuildWorkshopOptionData;
+use App\Domain\GameEngine\Board\Data\PaidTerraformingOptionData;
 use App\Domain\GameEngine\Board\Enums\BuildingType;
 use App\Domain\GameEngine\Board\Enums\TerrainType;
 use App\Domain\GameEngine\Economy\Data\BookSupplyData;
@@ -591,6 +592,45 @@ class GameActionRankerTest extends TestCase
         );
     }
 
+    public function test_board_position_strongly_values_an_upgrade_towards_a_town(): void
+    {
+        $before = $this->state();
+        $before->board->hexes = [
+            $this->buildingHex('a', 1, ['b']),
+            $this->buildingHex('b', 1, ['a', 'c']),
+            $this->buildingHex('c', 1, ['b', 'd']),
+            $this->buildingHex('d', 1, ['c']),
+        ];
+        $after = $before->deepCopy();
+        $after->board->hexes[0]->building->type = BuildingType::Guild;
+
+        $this->assertSame(
+            72,
+            app(BoardPositionProgressEvaluator::class)->execute($before, $after, 1),
+        );
+    }
+
+    public function test_board_position_does_not_value_power_beyond_the_standard_town_requirement(): void
+    {
+        $before = $this->state();
+        $before->board->hexes = [
+            $this->buildingHex('a', 1, ['b']),
+            $this->buildingHex('b', 1, ['a', 'c']),
+            $this->buildingHex('c', 1, ['b', 'd']),
+            $this->buildingHex('d', 1, ['c']),
+        ];
+        foreach ($before->board->hexes as $hex) {
+            $hex->building->type = BuildingType::Guild;
+        }
+        $after = $before->deepCopy();
+        $after->board->hexes[0]->building->type = BuildingType::Palace;
+
+        $this->assertSame(
+            0,
+            app(BoardPositionProgressEvaluator::class)->execute($before, $after, 1),
+        );
+    }
+
     public function test_board_position_priority_values_new_reachable_homeland(): void
     {
         $before = $this->state();
@@ -663,6 +703,66 @@ class GameActionRankerTest extends TestCase
             5,
             app(BoardPositionProgressEvaluator::class)->execute($before, $after, 1),
         );
+    }
+
+    public function test_board_position_priority_values_positions_one_expansion_from_an_opponent(): void
+    {
+        $before = $this->state();
+        $before->board->hexes = [
+            $this->buildingHex('own', 1, ['middle']),
+            $this->emptyHex('middle', ['own']),
+            $this->buildingHex('opponent', 2, []),
+        ];
+        $after = $before->deepCopy();
+        $after->board->hexes[1]->adjacentHexIds = ['own', 'opponent'];
+        $after->board->hexes[2]->adjacentHexIds = ['middle'];
+
+        $this->assertSame(
+            6,
+            app(BoardPositionProgressEvaluator::class)->execute($before, $after, 1),
+        );
+    }
+
+    public function test_board_position_penalizes_completed_terraforming_when_no_workshop_is_available(): void
+    {
+        $before = $this->state();
+        $before->board->hexes = [$this->emptyHex('target', [], TerrainType::Mountain)];
+        for ($index = 0; $index < BuildingType::Workshop->supplyLimit(); $index++) {
+            $before->board->hexes[] = $this->buildingHex('workshop-'.$index, 1, []);
+        }
+        $after = $before->deepCopy();
+        $after->board->hexes[0]->terrain = $after->players[0]->homeland;
+
+        $this->assertLessThan(
+            0,
+            app(BoardPositionProgressEvaluator::class)->execute($before, $after, 1),
+        );
+    }
+
+    public function test_bot_does_not_pay_to_finish_terraforming_when_no_workshop_is_available(): void
+    {
+        $state = $this->state();
+        $state->turnOrder = [1];
+        $state->players[0]->resources = new PlayerResourcesData(coins: 20, tools: 10);
+        $state->board->hexes = [
+            $this->emptyHex('target', ['workshop-0'], TerrainType::Mountain),
+        ];
+        for ($index = 0; $index < BuildingType::Workshop->supplyLimit(); $index++) {
+            $state->board->hexes[] = $this->buildingHex(
+                'workshop-'.$index,
+                1,
+                $index === 0 ? ['target'] : [],
+            );
+        }
+
+        $ranked = app(GameActionRanker::class)->execute(
+            $state,
+            1,
+            depth: 1,
+            auxiliaryActionsRemaining: 0,
+        );
+
+        $this->assertNotInstanceOf(PaidTerraformingOptionData::class, $ranked[0]->option);
     }
 
     public function test_final_scoring_priority_values_improved_projected_rank(): void

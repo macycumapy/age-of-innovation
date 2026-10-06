@@ -6,6 +6,7 @@ namespace App\Domain\Automation\Evaluation\Services;
 
 use App\Domain\GameEngine\Board\Actions\FindReachableLandHexesAction;
 use App\Domain\GameEngine\Board\Data\BoardHexStateData;
+use App\Domain\GameEngine\Board\Enums\BuildingType;
 use App\Domain\GameEngine\State\Data\GamePlayerStateData;
 use App\Domain\GameEngine\State\Data\GameStateData;
 
@@ -13,7 +14,9 @@ class BoardPositionProgressEvaluator
 {
     private const int REACHABLE_HOMELAND_WEIGHT = 3;
 
-    private const int TOWN_COHESION_WEIGHT = 2;
+    private const int TOWN_COHESION_WEIGHT = 8;
+
+    private const int STANDARD_TOWN_POWER = 7;
 
     private const int NETWORK_COHESION_WEIGHT = 10;
 
@@ -21,13 +24,19 @@ class BoardPositionProgressEvaluator
 
     private const int CONTESTED_POSITION_WEIGHT = 5;
 
+    private const int NEARBY_OPPONENT_WEIGHT = 6;
+
+    private const int STRANDED_TERRAFORMING_PENALTY = 40;
+
     public function __construct(private FindReachableLandHexesAction $findReachableLandHexes)
     {
     }
 
     public function execute(GameStateData $before, GameStateData $after, int $playerId): int
     {
-        return $this->positionScore($after, $playerId) - $this->positionScore($before, $playerId);
+        return $this->positionScore($after, $playerId)
+            - $this->positionScore($before, $playerId)
+            - $this->strandedTerraformingPenalty($before, $after, $playerId);
     }
 
     private function positionScore(GameStateData $state, int $playerId): int
@@ -50,7 +59,7 @@ class BoardPositionProgressEvaluator
                     $component,
                 ));
 
-                return $power ** 2;
+                return min(self::STANDARD_TOWN_POWER, $power) ** 2;
             },
             $townComponents,
         ));
@@ -58,8 +67,42 @@ class BoardPositionProgressEvaluator
         return ($this->reachableHomelandCount($state, $player) * self::REACHABLE_HOMELAND_WEIGHT)
             + $this->expansionOpportunityScore($state, $player)
             + ($this->contestedPositionCount($state, $playerId) * self::CONTESTED_POSITION_WEIGHT)
+            + ($this->nearbyOpponentCount($state, $playerId) * self::NEARBY_OPPONENT_WEIGHT)
             + ($townCohesion * self::TOWN_COHESION_WEIGHT)
             + ($networkCohesion * self::NETWORK_COHESION_WEIGHT);
+    }
+
+    private function strandedTerraformingPenalty(GameStateData $before, GameStateData $after, int $playerId): int
+    {
+        $player = collect($after->players)->firstWhere('playerId', $playerId);
+        if (! $player instanceof GamePlayerStateData) {
+            return 0;
+        }
+
+        $workshopsOnMap = count(array_filter(
+            $after->board->hexes,
+            static fn (BoardHexStateData $hex): bool => $hex->building?->ownerPlayerId === $playerId
+                && $hex->building->type === BuildingType::Workshop
+                && ! $hex->building->isNeutral,
+        ));
+        if ($workshopsOnMap < BuildingType::Workshop->supplyLimit()) {
+            return 0;
+        }
+
+        $beforeHexes = collect($before->board->hexes)->keyBy('id');
+        $strandedHexCount = count(array_filter(
+            $after->board->hexes,
+            static function (BoardHexStateData $hex) use ($beforeHexes, $player): bool {
+                $beforeHex = $beforeHexes->get($hex->id);
+
+                return $beforeHex instanceof BoardHexStateData
+                    && $beforeHex->terrain !== $player->homeland
+                    && $hex->terrain === $player->homeland
+                    && $hex->building === null;
+            },
+        ));
+
+        return $strandedHexCount * self::STRANDED_TERRAFORMING_PENALTY;
     }
 
     private function reachableHomelandCount(GameStateData $state, GamePlayerStateData $player): int
@@ -123,6 +166,37 @@ class BoardPositionProgressEvaluator
                         $ownerPlayerId = $hexesById->get($adjacentHexId)?->building?->ownerPlayerId;
 
                         return $ownerPlayerId !== null && $ownerPlayerId !== $playerId;
+                    },
+                );
+            },
+        ));
+    }
+
+    private function nearbyOpponentCount(GameStateData $state, int $playerId): int
+    {
+        $hexesById = collect($state->board->hexes)->keyBy('id');
+
+        return count(array_filter(
+            $state->board->hexes,
+            static function (BoardHexStateData $hex) use ($hexesById, $playerId): bool {
+                if ($hex->building?->ownerPlayerId !== $playerId) {
+                    return false;
+                }
+
+                return collect($hex->adjacentHexIds)->contains(
+                    static function (string $adjacentHexId) use ($hexesById, $playerId): bool {
+                        $adjacentHex = $hexesById->get($adjacentHexId);
+                        if (! $adjacentHex instanceof BoardHexStateData || $adjacentHex->building !== null) {
+                            return false;
+                        }
+
+                        return collect($adjacentHex->adjacentHexIds)->contains(
+                            static function (string $nearbyHexId) use ($hexesById, $playerId): bool {
+                                $ownerPlayerId = $hexesById->get($nearbyHexId)?->building?->ownerPlayerId;
+
+                                return $ownerPlayerId !== null && $ownerPlayerId !== $playerId;
+                            },
+                        );
                     },
                 );
             },
