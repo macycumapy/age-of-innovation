@@ -12,7 +12,6 @@ final class GameChannel
     public function join(User $user, int $gameId): bool
     {
         return Game::query()
-            ->availableTo($user)
             ->whereKey($gameId)
             ->exists();
     }

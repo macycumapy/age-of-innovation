@@ -19,17 +19,32 @@ final class GameHistoryBroadcastTest extends TestCase
 {
     use LazilyRefreshDatabase;
 
-    public function test_visible_game_can_be_subscribed_to_and_hidden_game_cannot(): void
+    public function test_player_can_subscribe_to_game_updates(): void
     {
         $user = User::factory()->create();
         $joinedGame = Game::factory()->active()->create();
-        $hiddenGame = Game::factory()->active()->create();
         GamePlayer::factory()->for($joinedGame)->for($user)->create();
 
         $channel = app(GameChannel::class);
 
         $this->assertTrue($channel->join($user, $joinedGame->id));
-        $this->assertFalse($channel->join($user, $hiddenGame->id));
+    }
+
+    public function test_spectator_can_subscribe_to_active_game_updates(): void
+    {
+        $spectator = User::factory()->create();
+        $game = Game::factory()->active()->create();
+        GamePlayer::factory()->for($game)->create();
+
+        $this->assertFalse($game->players()->where('user_id', $spectator->id)->exists());
+        $this->assertTrue(app(GameChannel::class)->join($spectator, $game->id));
+    }
+
+    public function test_nonexistent_game_cannot_be_subscribed_to(): void
+    {
+        $user = User::factory()->create();
+
+        $this->assertFalse(app(GameChannel::class)->join($user, 0));
     }
 
     public function test_appending_history_dispatches_realtime_update(): void
