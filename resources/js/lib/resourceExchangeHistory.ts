@@ -1,3 +1,9 @@
+function exchangeCount(value: unknown): number {
+    const count = typeof value === 'string' && /^\d+$/.test(value) ? Number(value) : value;
+
+    return typeof count === 'number' && Number.isSafeInteger(count) && count > 0 ? count : 0;
+}
+
 export function resourceExchangeDetails(exchanges: unknown, disciplineNames: Record<string, string>): string[] {
     if (typeof exchanges !== 'object' || exchanges === null || Array.isArray(exchanges)) {
         return [];
@@ -12,11 +18,9 @@ export function resourceExchangeDetails(exchanges: unknown, disciplineNames: Rec
         ['tool_to_coin', 1, 'инстр.', 'золота'],
     ];
     const details = scalarExchanges.flatMap(([key, cost, source, target]) => {
-        const count = counts[key];
+        const count = exchangeCount(counts[key]);
 
-        return typeof count === 'number' && Number.isInteger(count) && count > 0
-            ? [`потрачено ${count * cost} ${source} → получено ${count} ${target}`]
-            : [];
+        return count > 0 ? [`потрачено ${count * cost} ${source} → получено ${count} ${target}`] : [];
     });
 
     for (const key of ['power_to_book', 'book_to_coin']) {
@@ -26,8 +30,9 @@ export function resourceExchangeDetails(exchanges: unknown, disciplineNames: Rec
             continue;
         }
 
-        for (const [discipline, count] of Object.entries(books)) {
-            if (typeof count !== 'number' || !Number.isInteger(count) || count <= 0) {
+        for (const [discipline, value] of Object.entries(books)) {
+            const count = exchangeCount(value);
+            if (count === 0) {
                 continue;
             }
 
