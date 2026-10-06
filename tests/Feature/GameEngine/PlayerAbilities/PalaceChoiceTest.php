@@ -31,6 +31,7 @@ use App\Models\GamePlayer;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Inertia\Testing\AssertableInertia as Assert;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 class PalaceChoiceTest extends TestCase
@@ -320,7 +321,8 @@ class PalaceChoiceTest extends TestCase
         $this->assertNull($game->state->pendingInteraction);
     }
 
-    public function test_palace_fifteen_grants_spades_and_books_when_chosen(): void
+    #[DataProvider('palaceRewardOrders')]
+    public function test_palace_fifteen_grants_spades_and_books_when_chosen(string $firstReward): void
     {
         $user = User::factory()->create();
         $game = Game::factory()->create([
@@ -395,6 +397,11 @@ class PalaceChoiceTest extends TestCase
             ),
         )]);
 
+        $initialState = $game->state;
+        $initialState->round->turnStartVersion = $game->version;
+        $initialState->turnStartSnapshot = $initialState->toArray();
+        $game->update(['state' => $initialState]);
+
         $this->actingAs($user)->post(route('games.palace-choice', $game), [
             'palace_id' => PalaceAbility::Palace15->value,
         ])->assertNoContent();
@@ -413,14 +420,46 @@ class PalaceChoiceTest extends TestCase
         $this->assertSame(1, $game->state->players[0]->resources->books->engineering);
         $this->assertSame(1, $game->state->players[0]->resources->books->medicine);
         $this->assertSame(0, $game->state->players[0]->resources->books->unassigned);
-        $this->assertSame(PendingInteractionType::SpendSpades, $game->state->pendingInteraction?->type);
+        $this->assertSame(PendingInteractionType::ChoosePalaceRewardOrder, $game->state->pendingInteraction?->type);
+        $this->assertSame(['spades', 'bridges'], $game->state->pendingInteraction?->optionIds);
+        $this->post(route('games.palace-reward-order', $game), ['first_reward' => 'books'])->assertSessionHasErrors('first_reward');
+        $otherUser = User::factory()->create();
+        $this->actingAs($otherUser)->post(route('games.palace-reward-order', $game), ['first_reward' => $firstReward])->assertForbidden();
+        $options = app(\App\Domain\GameEngine\Interactions\Services\GameActionOptionFinder::class)->execute($game->state, $player->id);
+        $orderOptions = array_values(array_filter($options, static fn ($option): bool => $option instanceof \App\Domain\GameEngine\PlayerAbilities\Data\ChoosePalaceRewardOrderOptionData));
+        $this->assertCount(2, $orderOptions);
+        $option = collect($orderOptions)->firstWhere('firstReward', $firstReward);
+        $simulation = app(\App\Domain\Automation\Services\GameActionSimulator::class)->execute($game->state, $player->id, $option);
+        $this->actingAs($user);
+        if ($firstReward === 'bridges') {
+            app(\App\Domain\GameEngine\Interactions\Actions\PerformGameActionOptionAction::class)->execute($game, $player, $option);
+        } else {
+            $this->post(route('games.palace-reward-order', $game), ['first_reward' => $firstReward])->assertNoContent();
+        }
+        $game->refresh();
+        $this->assertEquals($simulation->state->toArray(), $game->state->toArray());
+        $this->assertSame($firstReward, $game->actions()->sole()->payload['first_reward']);
+        $this->assertSame($firstReward === 'spades' ? PendingInteractionType::SpendSpades : PendingInteractionType::PlaceBridge, $game->state->pendingInteraction?->type);
         $this->assertSame([
             PendingInteractionType::PlaceBridge,
-            PendingInteractionType::PlaceBridge,
+            $firstReward === 'spades' ? PendingInteractionType::PlaceBridge : PendingInteractionType::SpendSpades,
         ], array_map(
             static fn (PendingInteractionData $interaction): PendingInteractionType => $interaction->type,
             $game->state->pendingInteractionQueue,
         ));
+        $this->post(route('games.current-turn.restart', $game))->assertNoContent();
+        $game->refresh();
+        $this->assertSame(PendingInteractionType::ChoosePalace, $game->state->pendingInteraction?->type);
+        $this->assertNull($game->state->players[0]->palaceId);
+        $this->assertSame(0, $game->state->players[0]->unassignedSpades);
+        $this->assertSame(0, $game->state->players[0]->resources->books->engineering);
+        $this->assertSame(0, $game->actions()->count());
+    }
+
+    /** @return array<string, array{string}> */
+    public static function palaceRewardOrders(): array
+    {
+        return ['spades first' => ['spades'], 'bridges first' => ['bridges']];
     }
 
     public function test_palace_sixteen_places_a_free_guild_on_any_empty_homeland_hex(): void

@@ -43,11 +43,13 @@ use App\Domain\GameEngine\Enums\GameActionOptionType;
 use App\Domain\GameEngine\Enums\GameActionType;
 use App\Domain\GameEngine\Interactions\Data\RewardDistributionOptionData;
 use App\Domain\GameEngine\PlayerAbilities\Actions\ChoosePalaceAction;
+use App\Domain\GameEngine\PlayerAbilities\Actions\ChoosePalaceRewardOrderAction;
 use App\Domain\GameEngine\PlayerAbilities\Actions\PerformCompetencyAction;
 use App\Domain\GameEngine\PlayerAbilities\Actions\PerformFactionAction;
 use App\Domain\GameEngine\PlayerAbilities\Actions\PerformPalaceAction;
 use App\Domain\GameEngine\PlayerAbilities\Actions\PerformRoundBonusAction;
 use App\Domain\GameEngine\PlayerAbilities\Data\ChoosePalaceOptionData;
+use App\Domain\GameEngine\PlayerAbilities\Data\ChoosePalaceRewardOrderOptionData;
 use App\Domain\GameEngine\PlayerAbilities\Data\PalaceActionOptionData;
 use App\Domain\GameEngine\PlayerAbilities\Data\PlayerSpecialActionOptionData;
 use App\Domain\GameEngine\Research\Actions\ChooseCompetencyAction;
@@ -81,6 +83,7 @@ use DomainException;
 final class PerformGameActionOptionAction
 {
     public function __construct(
+        private ChoosePalaceRewardOrderAction $choosePalaceRewardOrder,
         private ChoosePlanningBundleAction $choosePlanningBundle,
         private FinishStartingBuildingTurnAction $finishStartingBuildingTurn,
         private PerformBookActionAction $performBookAction,
@@ -146,6 +149,7 @@ final class PerformGameActionOptionAction
                 $player,
                 $option->accept,
             ),
+            $option instanceof ChoosePalaceRewardOrderOptionData => $this->choosePalaceRewardOrder->execute($game, $player, $option->firstReward),
             $option instanceof ChoosePalaceOptionData => $this->choosePalace->execute(
                 $game,
                 $player,

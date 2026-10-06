@@ -420,6 +420,12 @@ export type PendingInteraction =
           };
       }
     | {
+          type: 'choose_palace_reward_order';
+          playerId: number;
+          optionIds: Array<'spades' | 'bridges'>;
+          context: { builtHexId: string; powerOffersResolved?: boolean };
+      }
+    | {
           type: 'place_neutral_building';
           playerId: number;
           optionIds: string[];

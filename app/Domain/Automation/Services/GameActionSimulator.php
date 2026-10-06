@@ -52,6 +52,7 @@ use App\Domain\GameEngine\Economy\Data\ResourceExchangeOptionData;
 use App\Domain\GameEngine\Economy\Data\SacrificePowerOptionData;
 use App\Domain\GameEngine\Interactions\Data\RewardDistributionOptionData;
 use App\Domain\GameEngine\PlayerAbilities\Data\ChoosePalaceOptionData;
+use App\Domain\GameEngine\PlayerAbilities\Data\ChoosePalaceRewardOrderOptionData;
 use App\Domain\GameEngine\PlayerAbilities\Data\PalaceActionOptionData;
 use App\Domain\GameEngine\PlayerAbilities\Data\PlayerSpecialActionOptionData;
 use App\Domain\GameEngine\Research\Data\ChooseCompetencyOptionData;
@@ -131,7 +132,8 @@ final class GameActionSimulator
             $option instanceof ChooseTownOptionData => $this->chooseTownSimulator->execute($state, $playerId, $option),
             $option instanceof WorkshopAfterTerraformingOptionData => $this->workshopAfterTerraformingSimulator->execute($state, $playerId, $option),
             $option instanceof PalaceWaterTownOptionData => $this->palaceWaterTownSimulator->execute($state, $playerId, $option),
-            $option instanceof ChoosePalaceOptionData => $this->choosePalaceSimulator->execute($state, $playerId, $option),
+            $option instanceof ChoosePalaceOptionData,
+            $option instanceof ChoosePalaceRewardOrderOptionData => $this->choosePalaceSimulator->execute($state, $playerId, $option),
             $option instanceof ChooseCompetencyOptionData => $this->chooseCompetencySimulator->execute($state, $playerId, $option),
             $option instanceof PlaceNeutralBuildingOptionData => $this->placeNeutralBuildingSimulator->execute($state, $playerId, $option),
             $option instanceof PlaceBridgeOptionData => $this->placeBridgeSimulator->execute($state, $playerId, $option),

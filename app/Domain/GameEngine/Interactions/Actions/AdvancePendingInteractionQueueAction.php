@@ -51,7 +51,7 @@ final class AdvancePendingInteractionQueueAction
                 $step->context = [...$step->context, 'pairs' => $pairs, 'source' => BridgeSource::Palace15->value];
             }
 
-            if ($step->type === PendingInteractionType::ChoosePalaceBooks || $step->optionIds !== []) {
+            if (in_array($step->type, [PendingInteractionType::ChoosePalaceBooks, PendingInteractionType::ChoosePalaceRewardOrder], true) || $step->optionIds !== []) {
                 $state->pendingInteraction = $step;
 
                 return $player->playerId;

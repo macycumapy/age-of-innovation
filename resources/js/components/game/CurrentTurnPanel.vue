@@ -17,6 +17,7 @@ import Form from '@/components/game/GameActionForm.vue';
 import CurrentTurnRestartDialog from '@/components/game/CurrentTurnRestartDialog.vue';
 import CurrentTurnTimer from '@/components/game/CurrentTurnTimer.vue';
 import PalaceWaterTownForm from '@/components/game/PalaceWaterTownForm.vue';
+import PalaceRewardOrderForm from '@/components/game/PalaceRewardOrderForm.vue';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import type { GamePlayerBoardState, GamePlayerSummary, GameResource } from '@/types';
@@ -306,6 +307,9 @@ function scrollToPageTop(event: MouseEvent): void {
                         : 'Выберите подсвеченную ячейку для нейтрального здания или откажитесь от установки.'
                 }}
             </template>
+            <template v-else-if="game.data.pendingInteraction?.type === 'choose_palace_reward_order'">
+                Выберите, что выполнить сначала: установить два моста или использовать две лопаты.
+            </template>
             <template v-else-if="game.data.pendingInteraction?.type === 'place_bridge'">
                 {{
                     game.data.pendingInteraction.context.selectedFromHexId
@@ -352,6 +356,11 @@ function scrollToPageTop(event: MouseEvent): void {
                 <Button type="submit" :disabled="processing">Принять Силу</Button>
             </Form>
         </div>
+
+        <PalaceRewardOrderForm
+            v-else-if="isCurrentUsersTurn && game.data.pendingInteraction?.type === 'choose_palace_reward_order'"
+            :game-id="game.data.id"
+        />
 
         <PalaceWaterTownForm
             v-else-if="canResolvePalaceWaterTown"

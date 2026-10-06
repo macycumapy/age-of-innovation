@@ -19,6 +19,7 @@ use App\Domain\GameEngine\Economy\Services\PowerActionOptionFinder;
 use App\Domain\GameEngine\Economy\Services\PowerOfferOptionFinder;
 use App\Domain\GameEngine\Economy\Services\ResourceConversionOptionFinder;
 use App\Domain\GameEngine\Interactions\Enums\PendingInteractionType;
+use App\Domain\GameEngine\PlayerAbilities\Data\ChoosePalaceRewardOrderOptionData;
 use App\Domain\GameEngine\PlayerAbilities\Services\ChoosePalaceOptionFinder;
 use App\Domain\GameEngine\PlayerAbilities\Services\PalaceActionOptionFinder;
 use App\Domain\GameEngine\PlayerAbilities\Services\PlayerSpecialActionOptionFinder;
@@ -129,6 +130,7 @@ final class GameActionOptionFinder
             PendingInteractionType::BuildWorkshopAfterTerraforming => $this->workshopAfterTerraformingOptionFinder->execute($state, $player),
             PendingInteractionType::OfferPalaceWaterTown => $this->palaceWaterTownOptionFinder->execute($state, $player->playerId),
             PendingInteractionType::ChoosePalace => $this->choosePalaceOptionFinder->execute($state, $player),
+            PendingInteractionType::ChoosePalaceRewardOrder => array_map(static fn (string $reward): ChoosePalaceRewardOrderOptionData => new ChoosePalaceRewardOrderOptionData($reward), $state->pendingInteraction->optionIds),
             PendingInteractionType::ChooseCompetency => $this->chooseCompetencyOptionFinder->execute($state, $player),
             PendingInteractionType::PlaceNeutralBuilding => $this->placeNeutralBuildingOptionFinder->execute($state, $player),
             PendingInteractionType::PlaceBridge => $this->placeBridgeOptionFinder->execute($state, $player),

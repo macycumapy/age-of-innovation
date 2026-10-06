@@ -88,6 +88,7 @@ final class ApplyChoosePalaceAction
                     $player->playerId,
                     context: ['bookCount' => $gainedBooks, 'source' => 'palace', ...$stepContext],
                 ),
+                new PendingInteractionData(PendingInteractionType::ChoosePalaceRewardOrder, $player->playerId, ['spades', 'bridges'], $stepContext),
                 new PendingInteractionData(PendingInteractionType::SpendSpades, $player->playerId, context: $stepContext),
                 new PendingInteractionData(PendingInteractionType::PlaceBridge, $player->playerId, context: $stepContext),
                 new PendingInteractionData(PendingInteractionType::PlaceBridge, $player->playerId, context: $stepContext),

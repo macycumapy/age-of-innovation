@@ -1449,6 +1449,20 @@ final class ReplayGameHistoryAction
                 new PendingInteractionData(PendingInteractionType::PlaceBridge, $player->id, context: $stepContext),
                 new PendingInteractionData(PendingInteractionType::PlaceBridge, $player->id, context: $stepContext),
             ];
+            if (($action->payload['choose_reward_order'] ?? false) === true) {
+                if (! array_key_exists('reward_book_counts', $action->payload)) {
+                    array_unshift(
+                        $state->pendingInteractionQueue,
+                        new PendingInteractionData(PendingInteractionType::ChoosePalaceBooks, $player->id, context: ['bookCount' => 2, 'source' => 'palace', ...$stepContext]),
+                        new PendingInteractionData(PendingInteractionType::ChoosePalaceRewardOrder, $player->id, ['spades', 'bridges'], $stepContext),
+                    );
+                } elseif (! isset($action->payload['first_reward'])) {
+                    array_unshift($state->pendingInteractionQueue, new PendingInteractionData(PendingInteractionType::ChoosePalaceRewardOrder, $player->id, ['spades', 'bridges'], $stepContext));
+                } elseif ($action->payload['first_reward'] === 'bridges') {
+                    $spades = array_shift($state->pendingInteractionQueue);
+                    $state->pendingInteractionQueue[] = $spades;
+                }
+            }
             $game->active_game_player_id = $this->advancePendingInteractionQueue->execute(
                 $state,
                 $playerState,

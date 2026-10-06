@@ -33,6 +33,7 @@ use App\Http\Controllers\Game\PalaceActionController;
 use App\Http\Controllers\Game\PalaceChoiceController;
 use App\Http\Controllers\Game\PalaceGuildConfirmationController;
 use App\Http\Controllers\Game\PalaceGuildController;
+use App\Http\Controllers\Game\PalaceRewardOrderController;
 use App\Http\Controllers\Game\PalaceWaterTownController;
 use App\Http\Controllers\Game\PassController;
 use App\Http\Controllers\Game\PlanningBundleController;
@@ -126,6 +127,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('games.competency-action');
     Route::post('games/{game}/palace-action', PalaceActionController::class)
         ->name('games.palace-action');
+    Route::post('games/{game}/palace-reward-order', PalaceRewardOrderController::class)
+        ->name('games.palace-reward-order');
     Route::post('games/{game}/pass', PassController::class)
         ->name('games.pass');
     Route::post('games/{game}/round-bonus-choice', RoundBonusChoiceController::class)

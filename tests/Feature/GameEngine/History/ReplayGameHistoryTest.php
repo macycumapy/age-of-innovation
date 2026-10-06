@@ -31,6 +31,7 @@ use App\Models\GamePlayer;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Queue;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 class ReplayGameHistoryTest extends TestCase
@@ -172,7 +173,8 @@ class ReplayGameHistoryTest extends TestCase
         $this->assertSame(4, $game->state->players[1]->resources->coins);
     }
 
-    public function test_palace_fifteen_mixed_bridge_choices_are_replayed(): void
+    #[DataProvider('palaceRewardOrderProvider')]
+    public function test_palace_fifteen_mixed_bridge_choices_are_replayed(bool $bridgesFirst): void
     {
         $user = User::factory()->create();
         $game = Game::factory()->create([
@@ -295,6 +297,12 @@ class ReplayGameHistoryTest extends TestCase
             'book_counts' => ['banking' => 1, 'law' => 1, 'engineering' => 0, 'medicine' => 0],
         ])->assertNoContent();
 
+        $this->post(route('games.palace-reward-order', $game), ['first_reward' => $bridgesFirst ? 'bridges' : 'spades'])->assertNoContent();
+        if ($bridgesFirst) {
+            $this->post(route('games.bridge.store', $game), ['from_hex_id' => '8:5', 'to_hex_id' => '7:7'])->assertNoContent();
+            $this->post(route('games.bridge.confirm', $game))->assertNoContent();
+            $this->post(route('games.bridge.skip', $game))->assertNoContent();
+        }
         $this->post(route('games.paid-terraforming', $game), [
             'hex_id' => '9:5',
             'use_available' => false,
@@ -307,12 +315,14 @@ class ReplayGameHistoryTest extends TestCase
             'build' => false,
             'hex_id' => '9:5',
         ])->assertNoContent();
-        $this->post(route('games.bridge.store', $game), [
-            'from_hex_id' => '8:5',
-            'to_hex_id' => '7:7',
-        ])->assertNoContent();
-        $this->post(route('games.bridge.confirm', $game))->assertNoContent();
-        $this->post(route('games.bridge.skip', $game))->assertNoContent();
+        if (! $bridgesFirst) {
+            $this->post(route('games.bridge.store', $game), [
+                'from_hex_id' => '8:5',
+                'to_hex_id' => '7:7',
+            ])->assertNoContent();
+            $this->post(route('games.bridge.confirm', $game))->assertNoContent();
+            $this->post(route('games.bridge.skip', $game))->assertNoContent();
+        }
 
         $game->refresh();
         $expectedState = $game->state;
@@ -344,6 +354,12 @@ class ReplayGameHistoryTest extends TestCase
         $this->assertSame($expectedState->players[0]->unassignedSpades, $game->state->players[0]->unassignedSpades);
         $this->assertNull($game->state->pendingInteraction);
         $this->assertSame([], $game->state->pendingInteractionQueue);
+    }
+
+    /** @return array<string, array{bool}> */
+    public static function palaceRewardOrderProvider(): array
+    {
+        return ['spades first' => [false], 'bridges first' => [true]];
     }
 
     /**

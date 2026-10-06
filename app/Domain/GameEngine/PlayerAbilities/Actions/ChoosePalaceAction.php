@@ -62,6 +62,7 @@ final class ChoosePalaceAction
                     'gained_books' => $result->gainedBooks,
                     'gained_spades' => $result->gainedSpades,
                     'shipping_reward' => $result->shippingReward,
+                    ...($palace === PalaceAbility::Palace15 ? ['choose_reward_order' => true] : []),
                 ],
                 [[
                     'type' => GameEventType::PalaceChosen->value,
