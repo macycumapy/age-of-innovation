@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ChevronDown, ChevronRight } from '@lucide/vue';
+import { ChevronDown, ChevronLeft, ChevronRight } from '@lucide/vue';
 import { computed, ref } from 'vue';
 import type { GameHistoryPage, GamePlayerBoardState, GamePlayerSummary } from '@/types';
 import GameHistory from '@/components/game/GameHistory.vue';
@@ -270,6 +270,9 @@ function levelCounters(state: GamePlayerBoardState): StatCounter[] {
                         </span>
                     </div>
                 </TransitionGroup>
+                <span class="mt-auto shrink-0" title="Развернуть статистику игроков">
+                    <ChevronLeft class="size-6" aria-hidden="true" />
+                </span>
             </button>
 
             <div

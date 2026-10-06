@@ -13,6 +13,16 @@ const source = readFileSync(
 );
 const { descriptor } = parse(source);
 
+test('collapsed sidebar shows an expansion icon at the bottom without an extra button', () => {
+    const collapsedSidebar = descriptor.template.content.slice(
+        descriptor.template.content.indexOf('<button'),
+        descriptor.template.content.indexOf('</button>') + '</button>'.length,
+    );
+    assert.match(collapsedSidebar, /<span class="mt-auto shrink-0" title="Развернуть статистику игроков">/);
+    assert.match(collapsedSidebar, /<ChevronLeft class="size-6" aria-hidden="true"/);
+    assert.equal(collapsedSidebar.match(/<button\b/g).length, 1);
+});
+
 test('history fills remaining panel height while retaining its previous minimum height', () => {
     const historySource = readFileSync(
         new URL('../../resources/js/components/game/GameHistory.vue', import.meta.url),
@@ -67,10 +77,16 @@ test('player panels collapse independently and can be expanded again', async () 
             }),
         });
         app.component('ChevronRight', { render: () => Vue.h('span') });
-        app.component('ChevronDown', { render: () => Vue.h('span') });
+        app.component('ChevronDown', {
+            setup(_props, { attrs }) {
+                return () => Vue.h('span', attrs);
+            },
+        });
         return renderToString(app);
     }
-    assert.equal((await render()).match(/aria-label="Инструменты: 3"/g).length, 2);
+    const expandedHtml = await render();
+    assert.equal(expandedHtml.match(/aria-label="Инструменты: 3"/g).length, 2);
+    assert.equal(expandedHtml.includes('title="Развернуть статистику"'), false);
     togglePlayerStats(1);
     const html = await render();
     assert.equal(html.match(/aria-label="Инструменты: 3"/g).length, 2);
@@ -82,6 +98,7 @@ test('player panels collapse independently and can be expanded again', async () 
     assert.match(html, /Победные очки: 21/);
     assert.match(html, /Порядок хода в текущем раунде: 1/);
     assert.match(html, /Игрок 1/);
+    assert.equal(html.match(/<button\b/g).length, 2);
     togglePlayerStats(2);
     assert.equal((await render()).match(/grid-rows-\[0fr\] opacity-0/g).length, 2);
     togglePlayerStats(1);
