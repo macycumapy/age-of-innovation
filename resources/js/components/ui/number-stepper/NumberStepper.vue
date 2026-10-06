@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { Minus, Plus } from '@lucide/vue';
+import Minus from "@lucide/vue/dist/esm/icons/minus.mjs";
+import Plus from "@lucide/vue/dist/esm/icons/plus.mjs";
 import { computed } from 'vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';

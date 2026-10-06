@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Clock3 } from '@lucide/vue';
+import Clock3 from "@lucide/vue/dist/esm/icons/clock-3.mjs";
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 
 const props = defineProps<{

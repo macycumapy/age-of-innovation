@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { HTMLAttributes } from "vue"
-import { Loader2Icon } from "@lucide/vue"
+import Loader2Icon from "@lucide/vue/dist/esm/icons/loader-circle.mjs";
 import { cn } from "@/lib/utils"
 
 const props = defineProps<{

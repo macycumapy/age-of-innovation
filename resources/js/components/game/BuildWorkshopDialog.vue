@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import Form from '@/components/game/GameActionForm.vue';
-import { TriangleAlert } from '@lucide/vue';
+import TriangleAlert from "@lucide/vue/dist/esm/icons/triangle-alert.mjs";
 import { computed, ref, watch } from 'vue';
 import TerraformWorkshopController from '@/actions/App/Http/Controllers/Game/TerraformWorkshopController';
 import WorkshopController from '@/actions/App/Http/Controllers/Game/WorkshopController';

@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { Eye, EyeOff } from '@lucide/vue';
+import Eye from "@lucide/vue/dist/esm/icons/eye.mjs";
+import EyeOff from "@lucide/vue/dist/esm/icons/eye-off.mjs";
 import { ref, useTemplateRef } from 'vue';
 import type { HTMLAttributes } from 'vue';
 import { Input } from '@/components/ui/input';

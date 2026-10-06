@@ -1,5 +1,7 @@
 <script setup lang="ts">
-import { Monitor, Moon, Sun } from '@lucide/vue';
+import Monitor from "@lucide/vue/dist/esm/icons/monitor.mjs";
+import Moon from "@lucide/vue/dist/esm/icons/moon.mjs";
+import Sun from "@lucide/vue/dist/esm/icons/sun.mjs";
 import { useAppearance } from '@/composables/useAppearance';
 
 const { appearance, updateAppearance } = useAppearance();

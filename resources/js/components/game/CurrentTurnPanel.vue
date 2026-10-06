@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useHttp } from '@inertiajs/vue3';
-import { Check, RotateCcw } from '@lucide/vue';
+import Check from "@lucide/vue/dist/esm/icons/check.mjs";
+import RotateCcw from "@lucide/vue/dist/esm/icons/rotate-ccw.mjs";
 import { computed } from 'vue';
 import BridgeConfirmationController from '@/actions/App/Http/Controllers/Game/BridgeConfirmationController';
 import BridgeSkipController from '@/actions/App/Http/Controllers/Game/BridgeSkipController';

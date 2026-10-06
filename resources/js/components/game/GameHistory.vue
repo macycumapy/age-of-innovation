@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { useHttp, usePage } from '@inertiajs/vue3';
-import { History, LoaderCircle, RotateCcw } from '@lucide/vue';
+import History from "@lucide/vue/dist/esm/icons/rotate-ccw-clock.mjs";
+import LoaderCircle from "@lucide/vue/dist/esm/icons/loader-circle.mjs";
+import RotateCcw from "@lucide/vue/dist/esm/icons/rotate-ccw.mjs";
 import { computed, ref, watch } from 'vue';
 import { toast } from 'vue-sonner';
 import GameHistoryController from '@/actions/App/Http/Controllers/Game/GameHistoryController';

@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { LogOut, UserMinus } from '@lucide/vue';
+import LogOut from "@lucide/vue/dist/esm/icons/log-out.mjs";
+import UserMinus from "@lucide/vue/dist/esm/icons/user-minus.mjs";
 import { router } from '@inertiajs/vue3';
 import { ref } from 'vue';
 import GamePlayerRemovalController from '@/actions/App/Http/Controllers/Game/GamePlayerRemovalController';

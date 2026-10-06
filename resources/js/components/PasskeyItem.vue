@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { KeyRound, Trash2 } from '@lucide/vue';
+import KeyRound from "@lucide/vue/dist/esm/icons/key-round.mjs";
+import Trash2 from "@lucide/vue/dist/esm/icons/trash-2.mjs";
 import { ref } from 'vue';
 import { Button } from '@/components/ui/button';
 import {

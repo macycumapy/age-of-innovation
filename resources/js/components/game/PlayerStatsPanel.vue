@@ -1,5 +1,7 @@
 <script setup lang="ts">
-import { ChevronDown, ChevronLeft, ChevronRight } from '@lucide/vue';
+import ChevronDown from "@lucide/vue/dist/esm/icons/chevron-down.mjs";
+import ChevronLeft from "@lucide/vue/dist/esm/icons/chevron-left.mjs";
+import ChevronRight from "@lucide/vue/dist/esm/icons/chevron-right.mjs";
 import { computed, ref } from 'vue';
 import type { GameHistoryPage, GamePlayerBoardState, GamePlayerSummary } from '@/types';
 import GameHistory from '@/components/game/GameHistory.vue';

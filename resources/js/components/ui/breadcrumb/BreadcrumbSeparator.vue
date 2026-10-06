@@ -1,6 +1,6 @@
 <script lang="ts" setup>
 import type { HTMLAttributes } from "vue"
-import { ChevronRight } from "@lucide/vue"
+import ChevronRight from "@lucide/vue/dist/esm/icons/chevron-right.mjs";
 import { cn } from "@/lib/utils"
 
 const props = defineProps<{

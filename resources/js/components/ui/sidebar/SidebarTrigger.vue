@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { HTMLAttributes } from "vue"
-import { PanelLeftClose, PanelLeftOpen } from "@lucide/vue"
+import PanelLeftClose from "@lucide/vue/dist/esm/icons/panel-left-close.mjs";
+import PanelLeftOpen from "@lucide/vue/dist/esm/icons/panel-left-open.mjs";
 import { cn } from "@/lib/utils"
 import { Button } from '@/components/ui/button'
 import { useSidebar } from "./utils"

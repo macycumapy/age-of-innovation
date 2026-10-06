@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { Link, usePage } from '@inertiajs/vue3';
-import { Activity, Gamepad2, Shield } from '@lucide/vue';
+import Activity from "@lucide/vue/dist/esm/icons/activity.mjs";
+import Gamepad2 from "@lucide/vue/dist/esm/icons/gamepad-2.mjs";
+import Shield from "@lucide/vue/dist/esm/icons/shield.mjs";
 import { computed } from 'vue';
 import AppLogo from '@/components/AppLogo.vue';
 import FullscreenSidebarButton from '@/components/FullscreenSidebarButton.vue';

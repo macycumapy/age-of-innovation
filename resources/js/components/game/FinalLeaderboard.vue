@@ -1,5 +1,7 @@
 <script setup lang="ts">
-import { Crown, Medal, Trophy } from '@lucide/vue';
+import Crown from "@lucide/vue/dist/esm/icons/crown.mjs";
+import Medal from "@lucide/vue/dist/esm/icons/medal.mjs";
+import Trophy from "@lucide/vue/dist/esm/icons/trophy.mjs";
 import { computed } from 'vue';
 import { factionNames, playerColorValues } from '@/lib/gameDisplay';
 import type { GamePlayerBoardState, GamePlayerSummary } from '@/types';

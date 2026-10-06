@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { RotateCcw } from '@lucide/vue';
+import RotateCcw from "@lucide/vue/dist/esm/icons/rotate-ccw.mjs";
 import PalaceWaterTownController from '@/actions/App/Http/Controllers/Game/PalaceWaterTownController';
 import Form from '@/components/game/GameActionForm.vue';
 import { Button } from '@/components/ui/button';

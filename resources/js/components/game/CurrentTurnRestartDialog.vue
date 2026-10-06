@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue';
-import { RotateCcw } from '@lucide/vue';
+import RotateCcw from "@lucide/vue/dist/esm/icons/rotate-ccw.mjs";
 import CurrentTurnRestartController from '@/actions/App/Http/Controllers/Game/CurrentTurnRestartController';
 import Form from '@/components/game/GameActionForm.vue';
 import { Button } from '@/components/ui/button';

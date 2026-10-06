@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Link, router } from '@inertiajs/vue3';
-import { LogOut, Settings } from '@lucide/vue';
+import LogOut from "@lucide/vue/dist/esm/icons/log-out.mjs";
+import Settings from "@lucide/vue/dist/esm/icons/settings.mjs";
 import {
     DropdownMenuGroup,
     DropdownMenuItem,

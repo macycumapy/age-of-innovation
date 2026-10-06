@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import Form from '@/components/game/GameActionForm.vue';
-import { ArrowRight, TriangleAlert } from '@lucide/vue';
+import ArrowRight from "@lucide/vue/dist/esm/icons/arrow-right.mjs";
+import TriangleAlert from "@lucide/vue/dist/esm/icons/triangle-alert.mjs";
 import { computed, ref, watch } from 'vue';
 import BuildingUpgradeController from '@/actions/App/Http/Controllers/Game/BuildingUpgradeController';
 import AnnexPlacementController from '@/actions/App/Http/Controllers/Game/AnnexPlacementController';

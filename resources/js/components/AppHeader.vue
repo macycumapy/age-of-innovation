@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Link, usePage } from '@inertiajs/vue3';
-import { Gamepad2, Menu } from '@lucide/vue';
+import Gamepad2 from "@lucide/vue/dist/esm/icons/gamepad-2.mjs";
+import Menu from "@lucide/vue/dist/esm/icons/menu.mjs";
 import { computed } from 'vue';
 import AppLogo from '@/components/AppLogo.vue';
 import AppLogoIcon from '@/components/AppLogoIcon.vue';
