@@ -70,8 +70,12 @@ final class FindEligibleBridgePairsAction
         $betweenHexIds = $this->betweenHexIds($fromHex, $toHex);
 
         return count($betweenHexIds) === 2
-            && collect($betweenHexIds)->every(
+            && collect($betweenHexIds)->contains(
                 static fn (string $hexId): bool => $hexesById->get($hexId)?->terrain === TerrainType::Water,
+            )
+            && collect($betweenHexIds)->every(
+                static fn (string $hexId): bool => ! $hexesById->has($hexId)
+                    || $hexesById->get($hexId)?->terrain === TerrainType::Water,
             );
     }
 

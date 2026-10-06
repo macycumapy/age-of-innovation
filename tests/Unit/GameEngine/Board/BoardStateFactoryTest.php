@@ -81,6 +81,15 @@ class BoardStateFactoryTest extends TestCase
         $this->assertSame(['7:7'], $largeBank->riverConnectedHexIds);
     }
 
+    public function test_small_map_connects_river_banks_at_the_map_edge(): void
+    {
+        $board = app(BoardStateFactory::class)->create(MapVariant::OneToThreePlayers);
+        $hexes = collect($board->hexes)->keyBy('id');
+
+        $this->assertContains('9:0', $hexes->get('10:1')->riverConnectedHexIds);
+        $this->assertContains('10:1', $hexes->get('9:0')->riverConnectedHexIds);
+    }
+
     public function test_large_map_contains_declared_river_bank_hexes(): void
     {
         $board = (new BoardStateFactory())->create(MapVariant::ThreeToFivePlayers);

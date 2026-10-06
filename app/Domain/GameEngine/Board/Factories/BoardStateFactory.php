@@ -117,8 +117,12 @@ final class BoardStateFactory
         $betweenHexIds = array_values(array_intersect($fromNeighbours, $toNeighbours));
 
         return count($betweenHexIds) === 2
-            && collect($betweenHexIds)->every(
+            && collect($betweenHexIds)->contains(
                 static fn (string $hexId): bool => ($terrainByCoordinate[$hexId] ?? null) === TerrainType::Water,
+            )
+            && collect($betweenHexIds)->every(
+                static fn (string $hexId): bool => ! isset($terrainByCoordinate[$hexId])
+                    || $terrainByCoordinate[$hexId] === TerrainType::Water,
             );
     }
 

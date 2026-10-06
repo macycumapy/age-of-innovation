@@ -93,6 +93,65 @@ class BridgeActionsTest extends TestCase
         );
     }
 
+    public function test_power_bridge_can_be_built_from_a_river_bank_at_the_map_edge(): void
+    {
+        [$game, $user] = $this->gameForBridgeAction();
+        $state = $game->state;
+        $playerId = $state->players[0]->playerId;
+        $state->board->hexes = [
+            new BoardHexStateData(
+                id: '10:1',
+                q: 10,
+                r: 1,
+                initialTerrain: TerrainType::Forest,
+                terrain: TerrainType::Forest,
+                building: new BuildingStateData(BuildingType::Workshop, $playerId),
+            ),
+            new BoardHexStateData(
+                id: '9:1',
+                q: 9,
+                r: 1,
+                initialTerrain: TerrainType::Water,
+                terrain: TerrainType::Water,
+            ),
+            new BoardHexStateData(
+                id: '9:0',
+                q: 9,
+                r: 0,
+                initialTerrain: TerrainType::Plains,
+                terrain: TerrainType::Plains,
+            ),
+        ];
+        $state->board->riverBankHexIds = ['10:1', '9:0'];
+        $game->update(['state' => $state]);
+
+        $this->actingAs($user)->post(route('games.power-action', $game), [
+            'action' => PowerAction::BuildBridge->value,
+            'sacrifice_amount' => 0,
+        ])->assertNoContent();
+
+        $game->refresh();
+        $pairs = $game->state->pendingInteraction?->context['pairs'] ?? [];
+        $this->assertTrue(
+            collect($pairs)->contains(
+                static fn (array $pair): bool => $pair['fromHexId'] === '10:1'
+                    && $pair['toHexId'] === '9:0',
+            ),
+            json_encode($pairs, JSON_THROW_ON_ERROR),
+        );
+
+        $this->post(route('games.bridge.store', $game), [
+            'from_hex_id' => '10:1',
+            'to_hex_id' => '9:0',
+        ])->assertNoContent();
+        $this->post(route('games.bridge.confirm', $game))->assertNoContent();
+
+        $game->refresh();
+        $this->assertCount(1, $game->state->board->bridges);
+        $this->assertSame('10:1', $game->state->board->bridges[0]->fromHexId);
+        $this->assertSame('9:0', $game->state->board->bridges[0]->toHexId);
+    }
+
     public function test_palace_fifteen_bridges_can_be_skipped_independently(): void
     {
         [$game, $user] = $this->gameForBridgeAction();
