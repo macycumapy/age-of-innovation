@@ -14,6 +14,8 @@ use App\Domain\GameEngine\Economy\Data\IncomeReceiptData;
 use App\Domain\GameEngine\Economy\Data\PlayerResourcesData;
 use App\Domain\GameEngine\Economy\Data\PowerBowlsStateData;
 use App\Domain\GameEngine\Economy\Services\PlayerIncomeCalculator;
+use App\Domain\GameEngine\Interactions\Data\PendingInteractionData;
+use App\Domain\GameEngine\Interactions\Enums\PendingInteractionType;
 use App\Domain\GameEngine\PlayerAbilities\Enums\Faction;
 use App\Domain\GameEngine\PlayerAbilities\Enums\PalaceAbility;
 use App\Domain\GameEngine\PlayerAbilities\Enums\RoundBonus;
@@ -23,13 +25,59 @@ use App\Domain\GameEngine\Research\Enums\Innovation;
 use App\Domain\GameEngine\State\Data\GamePlayerStateData;
 use App\Domain\GameEngine\State\Data\GameStateData;
 use App\Domain\GameEngine\State\Enums\PlayerColor;
+use App\Domain\GameEngine\Turns\Enums\GamePhase;
+use App\Http\Resources\GameResource;
+use App\Models\Game;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Request;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 class IncomeTest extends TestCase
 {
     use RefreshDatabase;
+
+    #[DataProvider('forecastRoundBonusProvider')]
+    public function test_income_forecast_includes_round_bonus_only_after_passing_and_choosing(
+        bool $hasPassed,
+        ?int $choosingPlayerId,
+        int $expectedCoins,
+    ): void {
+        $player = new GamePlayerStateData(
+            playerId: 15,
+            userId: 25,
+            color: PlayerColor::Green,
+            faction: Faction::Blessed,
+            homeland: TerrainType::Forest,
+            roundBonus: RoundBonus::Coins,
+        );
+        $state = new GameStateData(
+            players: [$player],
+            passedPlayerIds: $hasPassed ? [15] : [],
+            pendingInteraction: $choosingPlayerId === null ? null : new PendingInteractionData(
+                PendingInteractionType::ChooseRoundBonus,
+                $choosingPlayerId,
+                [],
+            ),
+        );
+        $game = Game::factory()->create(['state' => $state, 'phase' => GamePhase::Actions]);
+
+        $data = (new GameResource($game))->resolve(Request::create('/'));
+
+        $this->assertSame($expectedCoins, $data['playerBoardStates'][0]['income']['coins']);
+        $this->assertSame(1, $data['playerBoardStates'][0]['income']['tools']);
+    }
+
+    /** @return array<string, array{bool, ?int, int}> */
+    public static function forecastRoundBonusProvider(): array
+    {
+        return [
+            'has not passed' => [false, null, 0],
+            'choosing a replacement' => [true, 15, 0],
+            'has chosen a replacement' => [true, null, 6],
+            'another player is choosing' => [true, 16, 6],
+        ];
+    }
 
     public function test_player_income_is_calculated_from_buildings_and_owned_tiles(): void
     {
@@ -93,6 +141,19 @@ class IncomeTest extends TestCase
             'knowledgeSteps' => 1,
             'victoryPoints' => 3,
         ], $income->resourceAmounts());
+
+        $forecast = PlayerIncomeCalculator::calculate($playerState, $board, includeRoundBonus: false);
+
+        $this->assertSame([
+            'tools' => 8,
+            'coins' => 20,
+            'scholars' => 1,
+            'power' => 13,
+            'books' => 1,
+            'knowledgeSteps' => 1,
+            'victoryPoints' => 3,
+        ], $forecast->resourceAmounts());
+        $this->assertSame(RoundBonus::PowerCoins, $playerState->roundBonus);
     }
 
     #[DataProvider('guildPowerIncomeProvider')]

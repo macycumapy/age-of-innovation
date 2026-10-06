@@ -18,8 +18,11 @@ use App\Domain\GameEngine\State\Enums\PlayerColor;
 
 final class PlayerIncomeCalculator
 {
-    public static function calculate(GamePlayerStateData $player, BoardStateData $board): IncomeReceiptData
-    {
+    public static function calculate(
+        GamePlayerStateData $player,
+        BoardStateData $board,
+        bool $includeRoundBonus = true,
+    ): IncomeReceiptData {
         $income = new IncomeReceiptData(
             playerId: $player->playerId,
             tools: 1,
@@ -54,7 +57,9 @@ final class PlayerIncomeCalculator
             self::addPowerCoins($income, 2, 2);
         }
 
-        self::addRoundBonusIncome($income, $player->roundBonus);
+        if ($includeRoundBonus) {
+            self::addRoundBonusIncome($income, $player->roundBonus);
+        }
 
         foreach ($player->competencyIds as $competencyId) {
             self::addCompetencyIncome($income, Competency::from($competencyId));

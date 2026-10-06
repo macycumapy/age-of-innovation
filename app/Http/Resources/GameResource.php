@@ -436,7 +436,16 @@ class GameResource extends JsonResource
     /** @return array{tools: int, coins: int, scholars: int, power: int, books: int, knowledgeSteps: int, victoryPoints: int} */
     private function income(GamePlayerStateData $player): array
     {
-        return PlayerIncomeCalculator::calculate($player, $this->state->board)->resourceAmounts();
+        $isChoosingRoundBonus = $this->state->pendingInteraction?->type === PendingInteractionType::ChooseRoundBonus
+            && $this->state->pendingInteraction->playerId === $player->playerId;
+        $includeRoundBonus = in_array($player->playerId, $this->state->passedPlayerIds, true)
+            && ! $isChoosingRoundBonus;
+
+        return PlayerIncomeCalculator::calculate(
+            $player,
+            $this->state->board,
+            includeRoundBonus: $includeRoundBonus,
+        )->resourceAmounts();
     }
 
     /**
