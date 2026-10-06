@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import PlanningBundleController from '@/actions/App/Http/Controllers/Game/PlanningBundleController';
 import Form from '@/components/game/GameActionForm.vue';
+import TerrainCircle from '@/components/game/TerrainCircle.vue';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
 import {
@@ -207,5 +208,6 @@ function selectedCompetency(homeland: TerrainType): Competency | undefined {
                 </DialogContent>
             </Dialog>
         </Form>
+        <TerrainCircle :players="game.data.players" />
     </div>
 </template>
