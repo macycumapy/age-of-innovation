@@ -228,6 +228,7 @@ class PlanningTest extends TestCase
                         PlayerIncomeCalculator::calculate(
                             $game->state->players[0],
                             $game->state->board,
+                            includeRoundBonus: false,
                         )->resourceAmounts(),
                     )
                     ->where(

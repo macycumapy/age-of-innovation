@@ -17,12 +17,15 @@ use App\Domain\Automation\Evaluation\Services\GameStateEvaluator;
 use App\Domain\Automation\Evaluation\Services\PassValueEvaluator;
 use App\Domain\Automation\Evaluation\Services\PlayerEconomicNeedsEvaluator;
 use App\Domain\Automation\Evaluation\Services\RoundScoringProgressEvaluator;
+use App\Domain\GameEngine\Board\Services\PlaceNeutralBuildingOptionFinder;
+use App\Domain\GameEngine\Board\Services\PlacePalaceGuildOptionFinder;
 use App\Domain\GameEngine\Board\Services\SpendSpadesOptionFinder;
 use App\Domain\GameEngine\Board\Services\WorkshopAfterTerraformingOptionFinder;
 use App\Domain\GameEngine\Contracts\GameActionOption;
 use App\Domain\GameEngine\Enums\GameActionOptionType;
 use App\Domain\GameEngine\Interactions\Enums\PendingInteractionType;
 use App\Domain\GameEngine\Interactions\Services\GameActionOptionFinder;
+use App\Domain\GameEngine\Interactions\Services\RewardDistributionOptionFinder;
 use App\Domain\GameEngine\PlayerAbilities\Services\ChoosePalaceOptionFinder;
 use App\Domain\GameEngine\Research\Services\ChooseCompetencyOptionFinder;
 use App\Domain\GameEngine\State\Data\GamePlayerStateData;
@@ -45,6 +48,8 @@ final class GameActionRanker
 
     private const int FINAL_SCORING_PRIORITY_WEIGHT = 10;
 
+    private const int HORIZON_PLACEMENT_BRANCH_LIMIT = 4;
+
     public function __construct(
         private GameActionOptionFinder $gameActionOptionFinder,
         private GameActionSimulator $gameActionSimulator,
@@ -59,6 +64,9 @@ final class GameActionRanker
         private ChooseCompetencyOptionFinder $chooseCompetencyOptionFinder,
         private ChoosePalaceOptionFinder $choosePalaceOptionFinder,
         private ChooseTownOptionFinder $chooseTownOptionFinder,
+        private PlacePalaceGuildOptionFinder $placePalaceGuildOptionFinder,
+        private PlaceNeutralBuildingOptionFinder $placeNeutralBuildingOptionFinder,
+        private RewardDistributionOptionFinder $rewardDistributionOptionFinder,
         private ApplyFinishActionTurnAction $applyFinishActionTurn,
     ) {
     }
@@ -134,7 +142,7 @@ final class GameActionRanker
             ];
         }
 
-        for ($searchDepth = 1; $searchDepth <= $depth && ! $context->isExhausted(); $searchDepth++) {
+        for ($searchDepth = 0; $searchDepth <= $depth && ! $context->isExhausted(); $searchDepth++) {
             $iterationActions = [];
             foreach ($candidates as $candidate) {
                 if ($context->isExhausted()) {
@@ -147,7 +155,7 @@ final class GameActionRanker
                 $searchScore = $this->search(
                     new GameActionSimulationData($simulation->state->deepCopy(), $simulation->nextActivePlayerId),
                     $playerId,
-                    $this->remainingDepthAfter($state, $option, $searchDepth),
+                    $searchDepth === 0 ? 0 : $this->remainingDepthAfter($state, $option, $searchDepth),
                     $this->auxiliaryActionsAfter($option, $auxiliaryActionsRemaining),
                     $branchLimit,
                     $context,
@@ -365,9 +373,17 @@ final class GameActionRanker
         $options = match ($interaction->type) {
             PendingInteractionType::SpendSpades => $this->spendSpadesOptionFinder->execute($state, $player),
             PendingInteractionType::BuildWorkshopAfterTerraforming => $this->workshopAfterTerraformingOptionFinder->execute($state, $player),
-            PendingInteractionType::ChooseCompetency => $isBuildingReward ? $this->chooseCompetencyOptionFinder->execute($state, $player) : [],
+            PendingInteractionType::ChooseCompetency => $this->chooseCompetencyOptionFinder->execute($state, $player),
             PendingInteractionType::ChoosePalace => $isBuildingReward ? $this->choosePalaceOptionFinder->execute($state, $player) : [],
             PendingInteractionType::ChooseTown => $this->chooseTownOptionFinder->execute($state, $player->playerId),
+            PendingInteractionType::PlacePalaceGuild => $this->placePalaceGuildOptionFinder->execute($state, $player),
+            PendingInteractionType::PlaceNeutralBuilding => $this->placeNeutralBuildingOptionFinder->execute($state, $player),
+            PendingInteractionType::ChooseTownBooks,
+            PendingInteractionType::ChooseFelineTownBonus,
+            PendingInteractionType::ChooseShippingBooks,
+            PendingInteractionType::ChooseTerraformingBooks,
+            PendingInteractionType::ChoosePalaceBooks,
+            PendingInteractionType::ChooseInnovationReward => $this->rewardDistributionOptionFinder->execute($state, $player),
             default => [],
         };
         $context->timings->optionFindingNanoseconds += hrtime(true) - $optionsStartedAt;
@@ -378,9 +394,10 @@ final class GameActionRanker
         $bestScore = null;
         $maximizing = $player->playerId === $rootPlayerId;
         $context->visitedNodes++;
+        $candidates = [];
 
         foreach ($options as $option) {
-            if ($bestScore !== null && $context->isExhausted()) {
+            if ($candidates !== [] && $context->isExhausted()) {
                 break;
             }
 
@@ -393,12 +410,29 @@ final class GameActionRanker
                 $stateScore = $this->evaluateState($simulation->state, $rootPlayerId, $context)->total();
                 $score = $stateScore;
             }
-            if (in_array($simulation->state->pendingInteraction?->type, [
-                PendingInteractionType::SpendSpades,
-                PendingInteractionType::BuildWorkshopAfterTerraforming,
-                PendingInteractionType::ChooseTown,
-            ], true)) {
-                $score += $this->horizonScore($simulation->state, $rootPlayerId, $context) - $stateScore;
+            $candidates[] = ['simulation' => $simulation, 'stateScore' => $stateScore, 'score' => $score];
+        }
+
+        if (in_array($interaction->type, [
+            PendingInteractionType::SpendSpades,
+            PendingInteractionType::BuildWorkshopAfterTerraforming,
+            PendingInteractionType::PlacePalaceGuild,
+            PendingInteractionType::PlaceNeutralBuilding,
+        ], true)) {
+            usort($candidates, static fn (array $left, array $right): int => $maximizing
+                ? $right['score'] <=> $left['score']
+                : $left['score'] <=> $right['score']);
+            $candidates = array_slice($candidates, 0, self::HORIZON_PLACEMENT_BRANCH_LIMIT);
+        }
+
+        foreach ($candidates as $candidate) {
+            if ($bestScore !== null && $context->isExhausted()) {
+                break;
+            }
+            $simulation = $candidate['simulation'];
+            $score = $candidate['score'];
+            if ($simulation->state->pendingInteraction !== null) {
+                $score += $this->horizonScore($simulation->state, $rootPlayerId, $context) - $candidate['stateScore'];
             }
             $bestScore = $bestScore === null ? $score : ($maximizing ? max($bestScore, $score) : min($bestScore, $score));
         }

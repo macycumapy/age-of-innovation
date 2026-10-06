@@ -6,6 +6,7 @@ namespace Tests\Feature\Automation;
 
 use App\Domain\Automation\Actions\CreateAutomatedGameAction;
 use App\Domain\Automation\Actions\PlayAutomatedTurnAction;
+use App\Domain\Automation\Data\AutomatedGameSimulationResultData;
 use App\Domain\Automation\Enums\AutomatedGamePassReason;
 use App\Domain\Automation\Services\AutomatedGameSimulator;
 use App\Domain\Automation\Services\GameActionSimulator;
@@ -137,6 +138,33 @@ class PlayAutomatedTurnActionTest extends TestCase
         $this->assertSame(1, $summary['games']);
         $this->assertSame(1, $summary['decisions']);
         $this->assertSame(0, $summary['completed_games']);
+        $this->assertSame(0, $summary['scored_players']);
+        $this->assertNull($summary['average_final_score']);
+    }
+
+    public function test_benchmark_average_includes_only_scores_from_completed_games(): void
+    {
+        Queue::fake();
+        Storage::fake('local');
+        $simulator = $this->createMock(AutomatedGameSimulator::class);
+        $simulator->expects($this->exactly(3))->method('execute')->willReturnOnConsecutiveCalls(
+            new AutomatedGameSimulationResultData(true, [], 1, [1 => 101, 2 => 115]),
+            new AutomatedGameSimulationResultData(true, [], 1, [3 => 92, 4 => 139]),
+            new AutomatedGameSimulationResultData(false, [], 1, [5 => 500, 6 => 500], 'time_limit'),
+        );
+        $this->instance(AutomatedGameSimulator::class, $simulator);
+
+        $exitCode = Artisan::call('game:benchmark-bots', [
+            '--games' => 3,
+            '--difficulty' => GameBotDifficulty::Balanced->value,
+            '--seed' => 'score-summary',
+        ]);
+
+        $summary = json_decode(Storage::disk('local')->get('bot-reports/batches/score-summary/summary.json'), true, flags: JSON_THROW_ON_ERROR);
+        $this->assertSame(1, $exitCode);
+        $this->assertSame(2, $summary['completed_games']);
+        $this->assertSame(4, $summary['scored_players']);
+        $this->assertSame(111.75, $summary['average_final_score']);
     }
 
     public function test_automated_game_simulator_completes_a_final_round_and_collects_diagnostics(): void

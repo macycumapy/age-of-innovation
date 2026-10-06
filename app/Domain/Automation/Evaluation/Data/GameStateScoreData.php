@@ -13,12 +13,13 @@ final readonly class GameStateScoreData
         public int $buildings,
         public int $futureIncome,
         public int $opponent = 0,
+        public int $projectedFinalScoring = 0,
     ) {
     }
 
     public function total(): int
     {
         return $this->victoryPoints + $this->resources + $this->development
-            + $this->buildings + $this->futureIncome - $this->opponent;
+            + $this->buildings + $this->futureIncome + $this->projectedFinalScoring - $this->opponent;
     }
 }

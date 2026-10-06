@@ -89,6 +89,7 @@ class BenchmarkAutomatedGamesCommand extends Command
         $this->table(['Показатель', 'Значение'], [
             ['Партий', $gameCount],
             ['Завершено', $summary['completed_games']],
+            ['Средний результат, ПО', $summary['average_final_score'] ?? '—'],
             ['Ошибок', count($errors)],
             ['Решений', $summary['decisions']],
             ['Среднее решение, мс', $summary['average_decision_milliseconds']],
@@ -120,12 +121,20 @@ class BenchmarkAutomatedGamesCommand extends Command
         $decisions = collect($results)->flatMap(
             static fn (AutomatedGameSimulationResultData $result): array => $result->decisions,
         );
+        $finalScores = [];
+        foreach ($results as $result) {
+            if ($result->completed) {
+                array_push($finalScores, ...array_values($result->finalScores));
+            }
+        }
 
         return [
             'seed' => $seed,
             'difficulty' => $difficulty->value,
             'player_count' => $playerCount,
             'games' => count($results) + count($errors),
+            'scored_players' => count($finalScores),
+            'average_final_score' => $finalScores === [] ? null : array_sum($finalScores) / count($finalScores),
             'completed_games' => collect($results)->filter(
                 static fn (AutomatedGameSimulationResultData $result): bool => $result->completed,
             )->count(),

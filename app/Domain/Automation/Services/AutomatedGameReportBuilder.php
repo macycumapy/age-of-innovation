@@ -42,6 +42,7 @@ final class AutomatedGameReportBuilder
                                 'development' => $candidate->scoreBreakdown->state->development,
                                 'buildings' => $candidate->scoreBreakdown->state->buildings,
                                 'future_income' => $candidate->scoreBreakdown->state->futureIncome,
+                                'projected_final_scoring' => $candidate->scoreBreakdown->state->projectedFinalScoring,
                                 'opponent' => -$candidate->scoreBreakdown->state->opponent,
                                 'round_scoring' => $candidate->scoreBreakdown->roundScoring,
                                 'final_scoring' => $candidate->scoreBreakdown->finalScoring,

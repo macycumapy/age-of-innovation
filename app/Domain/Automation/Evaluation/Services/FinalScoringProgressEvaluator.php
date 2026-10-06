@@ -22,7 +22,7 @@ class FinalScoringProgressEvaluator
         return $this->projectedScore($after, $playerId) - $this->projectedScore($before, $playerId);
     }
 
-    private function projectedScore(GameStateData $state, int $playerId): int
+    public function projectedScore(GameStateData $state, int $playerId): int
     {
         if (! collect($state->players)->contains(
             static fn (GamePlayerStateData $player): bool => $player->playerId === $playerId,
