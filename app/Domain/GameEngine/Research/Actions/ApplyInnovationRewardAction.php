@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Domain\GameEngine\Research\Actions;
 
 use App\Domain\GameEngine\Board\Data\BoardHexStateData;
-use App\Domain\GameEngine\Board\Data\BridgeStateData;
 use App\Domain\GameEngine\Board\Enums\BuildingType;
+use App\Domain\GameEngine\Board\Services\BridgeSupply;
 use App\Domain\GameEngine\Research\Enums\Innovation;
 use App\Domain\GameEngine\Research\Enums\KnowledgeDiscipline;
 use App\Domain\GameEngine\Scoring\Actions\ApplyDevelopmentTrackRoundScoringAction;
@@ -19,6 +19,7 @@ class ApplyInnovationRewardAction
         private AdvanceKnowledgeAction $advanceKnowledge,
         private AdvanceDevelopmentTrackAction $advanceDevelopmentTrack,
         private ApplyDevelopmentTrackRoundScoringAction $applyDevelopmentTrackRoundScoring,
+        private BridgeSupply $bridgeSupply,
     ) {
     }
 
@@ -104,7 +105,7 @@ class ApplyInnovationRewardAction
                 6,
             ),
             Innovation::Steel => $this->thresholdVictoryPoints(
-                $this->eligibleBridgeCount($state, $player),
+                BridgeSupply::SUPPLY_LIMIT - $this->bridgeSupply->remaining($state, $player),
                 1,
                 2,
                 3,
@@ -165,17 +166,6 @@ class ApplyInnovationRewardAction
         rsort($levels);
 
         return $levels[0] + $levels[1];
-    }
-
-    private function eligibleBridgeCount(GameStateData $state, GamePlayerStateData $player): int
-    {
-        $ownedBuildingHexIds = array_fill_keys($this->ownedBuildingHexIds($state, $player), true);
-
-        return count(array_filter(
-            $state->board->bridges,
-            static fn (BridgeStateData $bridge): bool => $bridge->ownerPlayerId === $player->playerId
-                && isset($ownedBuildingHexIds[$bridge->fromHexId], $ownedBuildingHexIds[$bridge->toHexId]),
-        ));
     }
 
     private function settlementAreaCount(GameStateData $state, GamePlayerStateData $player): int

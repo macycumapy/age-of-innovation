@@ -9,7 +9,7 @@ use App\Domain\GameEngine\State\Data\GameStateData;
 
 final class BridgeSupply
 {
-    private const int SUPPLY_LIMIT = 3;
+    public const int SUPPLY_LIMIT = 3;
 
     public function remaining(GameStateData $state, GamePlayerStateData $player): int
     {

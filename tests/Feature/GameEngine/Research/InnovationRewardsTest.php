@@ -31,6 +31,47 @@ class InnovationRewardsTest extends TestCase
 {
     use RefreshDatabase;
 
+    #[DataProvider('steelBridgeCountProvider')]
+    public function test_steel_scores_installed_bridges_without_requiring_owned_buildings(
+        int $installedBridgeCount,
+        int $expectedVictoryPoints,
+    ): void {
+        $player = new GamePlayerStateData(
+            playerId: 15,
+            userId: 25,
+            color: PlayerColor::Green,
+            faction: Faction::Blessed,
+            homeland: TerrainType::Forest,
+            roundBonus: RoundBonus::Coins,
+        );
+        $bridges = [new BridgeStateData('other:0', 'other:1', 16)];
+
+        for ($index = 0; $index < $installedBridgeCount; $index++) {
+            $bridges[] = new BridgeStateData($index.':0', $index.':1', 15);
+        }
+
+        $state = new GameStateData(
+            board: new BoardStateData(bridges: $bridges),
+            players: [$player],
+        );
+
+        $reward = app(ApplyInnovationRewardAction::class)->execute($state, $player, Innovation::Steel);
+
+        $this->assertSame($expectedVictoryPoints, $reward['victoryPoints']);
+        $this->assertSame(20 + $expectedVictoryPoints, $player->victoryPoints);
+    }
+
+    /** @return array<string, array{int, int}> */
+    public static function steelBridgeCountProvider(): array
+    {
+        return [
+            'three bridges remaining' => [0, 0],
+            'two bridges remaining' => [1, 8],
+            'one bridge remaining' => [2, 12],
+            'no bridges remaining' => [3, 18],
+        ];
+    }
+
     public function test_palace_innovation_adds_two_new_power_tokens_directly_to_bowl_three(): void
     {
         $playerState = new GamePlayerStateData(
