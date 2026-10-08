@@ -20,9 +20,9 @@ final class PlayerEconomicNeedsEvaluator
 
     private const int NEEDED_COIN_WEIGHT = 20;
 
-    private const int USEFUL_DEVELOPMENT_WEIGHT = 15;
+    private const int USEFUL_DEVELOPMENT_WEIGHT = 3;
 
-    private const int MAX_SCHOLAR_BONUS = 120;
+    private const int MAX_SCHOLAR_BONUS = 40;
 
     public function __construct(
         private BuildWorkshopOptionFinder $buildWorkshopOptionFinder,
@@ -111,9 +111,7 @@ final class PlayerEconomicNeedsEvaluator
             || $playerAfter->terraformingLevel > $playerBefore->terraformingLevel;
 
         if ($developed) {
-            $progress = max(0, $this->boardPositionProgressEvaluator->execute($before, $after, $playerBefore->playerId));
-
-            return min(self::MAX_SCHOLAR_BONUS, $progress * self::USEFUL_DEVELOPMENT_WEIGHT);
+            return 0;
         }
 
         if (($scholarsBefore > 0) === ($scholarsAfter > 0)) {

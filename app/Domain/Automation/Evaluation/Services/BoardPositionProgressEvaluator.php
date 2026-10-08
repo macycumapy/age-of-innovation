@@ -28,6 +28,8 @@ class BoardPositionProgressEvaluator
 
     private const int STRANDED_TERRAFORMING_PENALTY = 40;
 
+    private const int MAX_FORECAST_EXPANSION_TARGETS = 3;
+
     public function __construct(private FindReachableLandHexesAction $findReachableLandHexes)
     {
     }
@@ -62,6 +64,19 @@ class BoardPositionProgressEvaluator
                 return min(self::STANDARD_TOWN_POWER, $power) ** 2;
             },
             $townComponents,
+        ));
+        $completedTownPower = [];
+        foreach ($state->board->hexes as $hex) {
+            if ($hex->building?->ownerPlayerId !== $playerId || $hex->townId === null) {
+                continue;
+            }
+
+            $completedTownPower[$hex->townId] = ($completedTownPower[$hex->townId] ?? 0)
+                + $hex->building->type->powerValue() + (int) $hex->building->hasAnnex;
+        }
+        $townCohesion += array_sum(array_map(
+            static fn (int $power): int => min(self::STANDARD_TOWN_POWER, $power) ** 2,
+            $completedTownPower,
         ));
 
         return ($this->reachableHomelandCount($state, $player) * self::REACHABLE_HOMELAND_WEIGHT)
@@ -109,12 +124,12 @@ class BoardPositionProgressEvaluator
     {
         $reachableHexIds = array_fill_keys($this->findReachableLandHexes->execute($state, $player), true);
 
-        return count(array_filter(
+        return min(self::MAX_FORECAST_EXPANSION_TARGETS, count(array_filter(
             $state->board->hexes,
             static fn (BoardHexStateData $hex): bool => isset($reachableHexIds[$hex->id])
                 && $hex->building === null
                 && $hex->terrain === $player->homeland,
-        ));
+        )));
     }
 
     private function expansionOpportunityScore(GameStateData $state, GamePlayerStateData $player): int
@@ -122,7 +137,7 @@ class BoardPositionProgressEvaluator
         $hexesById = collect($state->board->hexes)->keyBy('id');
         $reachableHexIds = $this->findReachableLandHexes->execute($state, $player);
         $toolCostPerSpade = max(1, 3 - $player->terraformingLevel);
-        $score = 0;
+        $targetScores = [];
 
         foreach ($reachableHexIds as $hexId) {
             $hex = $hexesById->get($hexId);
@@ -132,7 +147,7 @@ class BoardPositionProgressEvaluator
             }
 
             $terraformingToolCost = $hex->terrain->spadesTo($player->homeland) * $toolCostPerSpade;
-            $score += max(0, 10 - $terraformingToolCost);
+            $targetScore = max(0, 10 - $terraformingToolCost);
 
             $openDirections = count(array_filter(
                 $hex->adjacentHexIds,
@@ -144,10 +159,12 @@ class BoardPositionProgressEvaluator
                         && $adjacentHex->terrain->isHomeland();
                 },
             ));
-            $score += min(3, $openDirections) * self::OPEN_DIRECTION_WEIGHT;
+            $targetScores[] = $targetScore + min(3, $openDirections) * self::OPEN_DIRECTION_WEIGHT;
         }
 
-        return $score;
+        rsort($targetScores, SORT_NUMERIC);
+
+        return array_sum(array_slice($targetScores, 0, self::MAX_FORECAST_EXPANSION_TARGETS));
     }
 
     private function contestedPositionCount(GameStateData $state, int $playerId): int

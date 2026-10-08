@@ -33,7 +33,7 @@ final class CompetencyEvaluator
         $futureRounds = $state->round->phase === GamePhase::Setup ? 6 : max(0, 6 - $state->round->number);
         $currentRoundAvailable = $state->round->phase !== GamePhase::Setup
             && $state->round->phase !== GamePhase::ScienceBonus
-            && ! in_array($player->playerId, $state->round->passOrder, true);
+            && ! in_array($player->playerId, $state->passedPlayerIds, true);
         $passes = $futureRounds + (int) $currentRoundAvailable;
         $score = 0;
         foreach ($player->competencyIds as $id) {

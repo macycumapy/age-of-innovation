@@ -17,7 +17,7 @@ final class PlayAutomatedTurnAction
 {
     private const int MAX_DECISIONS = 32;
 
-    private const int MAX_AUXILIARY_ACTIONS_PER_TURN = 1;
+    private const int MAX_AUXILIARY_ACTIONS_PER_TURN = 2;
 
     public function __construct(
         private GameActionSelector $gameActionSelector,

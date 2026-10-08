@@ -17,22 +17,16 @@ use App\Domain\Automation\Evaluation\Services\GameStateEvaluator;
 use App\Domain\Automation\Evaluation\Services\PassValueEvaluator;
 use App\Domain\Automation\Evaluation\Services\PlayerEconomicNeedsEvaluator;
 use App\Domain\Automation\Evaluation\Services\RoundScoringProgressEvaluator;
-use App\Domain\GameEngine\Board\Services\PlaceNeutralBuildingOptionFinder;
-use App\Domain\GameEngine\Board\Services\PlacePalaceGuildOptionFinder;
-use App\Domain\GameEngine\Board\Services\SpendSpadesOptionFinder;
-use App\Domain\GameEngine\Board\Services\WorkshopAfterTerraformingOptionFinder;
+use App\Domain\GameEngine\Board\Enums\BuildingType;
 use App\Domain\GameEngine\Contracts\GameActionOption;
 use App\Domain\GameEngine\Enums\GameActionOptionType;
 use App\Domain\GameEngine\Interactions\Enums\PendingInteractionType;
 use App\Domain\GameEngine\Interactions\Services\GameActionOptionFinder;
-use App\Domain\GameEngine\Interactions\Services\RewardDistributionOptionFinder;
-use App\Domain\GameEngine\PlayerAbilities\Services\ChoosePalaceOptionFinder;
-use App\Domain\GameEngine\Research\Services\ChooseCompetencyOptionFinder;
 use App\Domain\GameEngine\State\Data\GamePlayerStateData;
 use App\Domain\GameEngine\State\Data\GameStateData;
-use App\Domain\GameEngine\Towns\Services\ChooseTownOptionFinder;
 use App\Domain\GameEngine\Turns\Actions\ApplyFinishActionTurnAction;
 use InvalidArgumentException;
+use Spatie\LaravelData\Data;
 
 final class GameActionRanker
 {
@@ -42,7 +36,7 @@ final class GameActionRanker
 
     private ?GameActionSearchTimingsData $lastSearchTimings = null;
 
-    private const int MAX_AUXILIARY_ACTIONS_PER_TURN = 1;
+    private const int MAX_AUXILIARY_ACTIONS_PER_TURN = 2;
 
     private const int ROUND_SCORING_PRIORITY_WEIGHT = 10;
 
@@ -59,14 +53,6 @@ final class GameActionRanker
         private BoardPositionProgressEvaluator $boardPositionProgressEvaluator,
         private PassValueEvaluator $passValueEvaluator,
         private PlayerEconomicNeedsEvaluator $playerEconomicNeedsEvaluator,
-        private WorkshopAfterTerraformingOptionFinder $workshopAfterTerraformingOptionFinder,
-        private SpendSpadesOptionFinder $spendSpadesOptionFinder,
-        private ChooseCompetencyOptionFinder $chooseCompetencyOptionFinder,
-        private ChoosePalaceOptionFinder $choosePalaceOptionFinder,
-        private ChooseTownOptionFinder $chooseTownOptionFinder,
-        private PlacePalaceGuildOptionFinder $placePalaceGuildOptionFinder,
-        private PlaceNeutralBuildingOptionFinder $placeNeutralBuildingOptionFinder,
-        private RewardDistributionOptionFinder $rewardDistributionOptionFinder,
         private ApplyFinishActionTurnAction $applyFinishActionTurn,
     ) {
     }
@@ -142,9 +128,16 @@ final class GameActionRanker
             ];
         }
 
+        $rewardForecastIndexes = array_keys($candidates);
+        usort($rewardForecastIndexes, fn (int $left, int $right): int =>
+            $this->rewardForecastPriority($candidates[$left]['simulation']->state)
+                <=> $this->rewardForecastPriority($candidates[$right]['simulation']->state)
+                    ?: $left <=> $right);
+
         for ($searchDepth = 0; $searchDepth <= $depth && ! $context->isExhausted(); $searchDepth++) {
             $iterationActions = [];
-            foreach ($candidates as $candidate) {
+            foreach ($searchDepth === 0 ? $rewardForecastIndexes : array_keys($candidates) as $candidateIndex) {
+                $candidate = $candidates[$candidateIndex];
                 if ($context->isExhausted()) {
                     break;
                 }
@@ -172,7 +165,7 @@ final class GameActionRanker
                     passPenalty: $initialBreakdown->passPenalty,
                     searchAdjustment: $searchScore - $initialBreakdown->state->total(),
                 );
-                $iterationActions[] = [
+                $iterationActions[$candidateIndex] = [
                     'evaluation' => new EvaluatedGameActionData(
                         $option,
                         $simulation,
@@ -183,6 +176,9 @@ final class GameActionRanker
                     'isAuxiliary' => $this->isAuxiliaryOption($option),
                     'isPass' => $option->type() === GameActionOptionType::Pass,
                 ];
+                if ($searchDepth === 0 && ! $context->isExhausted()) {
+                    $rankedActions[$candidateIndex] = $iterationActions[$candidateIndex];
+                }
             }
 
             if ($context->isExhausted() || count($iterationActions) !== count($candidates)) {
@@ -210,6 +206,26 @@ final class GameActionRanker
     public function lastVisitedNodes(): int
     {
         return $this->lastVisitedNodes;
+    }
+
+    private function rewardForecastPriority(GameStateData $state): int
+    {
+        $interaction = $state->pendingInteraction;
+        if ($interaction?->type === PendingInteractionType::PowerOffer
+            && in_array($interaction->context['buildingFollowUpType'] ?? null, [
+                BuildingType::Palace->value, BuildingType::School->value, BuildingType::University->value,
+            ], true)) {
+            return 0;
+        }
+
+        return match ($interaction?->type) {
+            PendingInteractionType::ChoosePalace,
+            PendingInteractionType::ChooseCompetency,
+            PendingInteractionType::ChooseTown => 0,
+            PendingInteractionType::PowerOffer => 1,
+            null => 3,
+            default => 2,
+        };
     }
 
     public function lastBudgetExhausted(): bool
@@ -363,31 +379,44 @@ final class GameActionRanker
             return $this->evaluateState($state, $rootPlayerId, $context)->total();
         }
 
+        $cacheKey = $this->cacheKey($state, $interaction->playerId, $rootPlayerId, 0, 0);
+        if (isset($context->cachedScores[$cacheKey])) {
+            return $context->cachedScores[$cacheKey];
+        }
+
         $player = $this->playerById($state, $interaction->playerId);
         if ($player === null) {
             return $this->evaluateState($state, $rootPlayerId, $context)->total();
         }
 
-        $isBuildingReward = ($interaction->context['reason'] ?? null) === 'building';
-        $optionsStartedAt = hrtime(true);
-        $options = match ($interaction->type) {
-            PendingInteractionType::SpendSpades => $this->spendSpadesOptionFinder->execute($state, $player),
-            PendingInteractionType::BuildWorkshopAfterTerraforming => $this->workshopAfterTerraformingOptionFinder->execute($state, $player),
-            PendingInteractionType::ChooseCompetency => $this->chooseCompetencyOptionFinder->execute($state, $player),
-            PendingInteractionType::ChoosePalace => $isBuildingReward ? $this->choosePalaceOptionFinder->execute($state, $player) : [],
-            PendingInteractionType::ChooseTown => $this->chooseTownOptionFinder->execute($state, $player->playerId),
-            PendingInteractionType::PlacePalaceGuild => $this->placePalaceGuildOptionFinder->execute($state, $player),
-            PendingInteractionType::PlaceNeutralBuilding => $this->placeNeutralBuildingOptionFinder->execute($state, $player),
+        if (! in_array($interaction->type, [
+            PendingInteractionType::PowerOffer,
+            PendingInteractionType::SpendSpades,
+            PendingInteractionType::BuildWorkshopAfterTerraforming,
+            PendingInteractionType::ChooseCompetency,
+            PendingInteractionType::ChoosePalace,
+            PendingInteractionType::ChoosePalaceRewardOrder,
+            PendingInteractionType::ChooseTown,
+            PendingInteractionType::OfferPalaceWaterTown,
+            PendingInteractionType::PlacePalaceGuild,
+            PendingInteractionType::PlaceNeutralBuilding,
+            PendingInteractionType::PlaceBridge,
             PendingInteractionType::ChooseTownBooks,
             PendingInteractionType::ChooseFelineTownBonus,
             PendingInteractionType::ChooseShippingBooks,
             PendingInteractionType::ChooseTerraformingBooks,
             PendingInteractionType::ChoosePalaceBooks,
-            PendingInteractionType::ChooseInnovationReward => $this->rewardDistributionOptionFinder->execute($state, $player),
-            default => [],
-        };
-        $context->timings->optionFindingNanoseconds += hrtime(true) - $optionsStartedAt;
-        $context->timings->optionFindingCalls++;
+            PendingInteractionType::ChooseInnovationReward,
+            PendingInteractionType::ChooseRoundBonus,
+        ], true)) {
+            return $this->evaluateState($state, $rootPlayerId, $context)->total();
+        }
+
+        $options = array_values(array_filter(
+            $this->findOptions($state, $player->playerId, $context),
+            fn (GameActionOption $option): bool => ! $this->isAuxiliaryOption($option)
+                && $option->type() !== GameActionOptionType::PaidTerraforming,
+        ));
         if ($options === []) {
             return $this->evaluateState($state, $rootPlayerId, $context)->total();
         }
@@ -402,7 +431,13 @@ final class GameActionRanker
             }
 
             $simulation = $this->simulate($state, $player->playerId, $option, $context);
-            if (in_array($interaction->type, [PendingInteractionType::SpendSpades, PendingInteractionType::BuildWorkshopAfterTerraforming], true)) {
+            if (in_array($interaction->type, [
+                PendingInteractionType::SpendSpades,
+                PendingInteractionType::BuildWorkshopAfterTerraforming,
+                PendingInteractionType::PlacePalaceGuild,
+                PendingInteractionType::PlaceNeutralBuilding,
+                PendingInteractionType::PlaceBridge,
+            ], true)) {
                 $breakdown = $this->scoreBreakdown($state, $simulation->state, $rootPlayerId, 0, $context);
                 $stateScore = $breakdown->state->total();
                 $score = $breakdown->total();
@@ -418,6 +453,7 @@ final class GameActionRanker
             PendingInteractionType::BuildWorkshopAfterTerraforming,
             PendingInteractionType::PlacePalaceGuild,
             PendingInteractionType::PlaceNeutralBuilding,
+            PendingInteractionType::PlaceBridge,
         ], true)) {
             usort($candidates, static fn (array $left, array $right): int => $maximizing
                 ? $right['score'] <=> $left['score']
@@ -435,6 +471,10 @@ final class GameActionRanker
                 $score += $this->horizonScore($simulation->state, $rootPlayerId, $context) - $candidate['stateScore'];
             }
             $bestScore = $bestScore === null ? $score : ($maximizing ? max($bestScore, $score) : min($bestScore, $score));
+        }
+
+        if (! $context->isExhausted()) {
+            $context->cachedScores[$cacheKey] = $bestScore;
         }
 
         return $bestScore;
@@ -469,7 +509,7 @@ final class GameActionRanker
             * self::ROUND_SCORING_PRIORITY_WEIGHT;
         $context->timings->roundScoringNanoseconds += hrtime(true) - $startedAt;
         $startedAt = hrtime(true);
-        $finalScoring = $this->finalScoringProgressEvaluator->execute($before, $after, $playerId)
+        $finalScoring = $before->round->number < 5 ? 0 : $this->finalScoringProgressEvaluator->execute($before, $after, $playerId)
             * self::FINAL_SCORING_PRIORITY_WEIGHT;
         $context->timings->finalScoringNanoseconds += hrtime(true) - $startedAt;
         $startedAt = hrtime(true);
@@ -553,7 +593,7 @@ final class GameActionRanker
         GameActionOption $option,
         bool $hasNonPassOption,
     ): int {
-        return $hasNonPassOption && $option->type() === GameActionOptionType::Pass
+        return $state->round->number < 6 && $hasNonPassOption && $option->type() === GameActionOptionType::Pass
             ? $this->passValueEvaluator->execute($state, $playerId)
             : 0;
     }
@@ -566,12 +606,24 @@ final class GameActionRanker
         int $auxiliaryActionsRemaining,
     ): string {
         return hash('xxh128', serialize([
-            'state' => $state,
+            'state' => $this->cacheStateValue($state),
             'nextActivePlayerId' => $nextActivePlayerId,
             'rootPlayerId' => $rootPlayerId,
             'remainingDepth' => $remainingDepth,
             'auxiliaryActionsRemaining' => $auxiliaryActionsRemaining,
         ]));
+    }
+
+    private function cacheStateValue(mixed $value): mixed
+    {
+        if ($value instanceof Data) {
+            $value = get_object_vars($value);
+        }
+        if (is_array($value)) {
+            return array_map($this->cacheStateValue(...), $value);
+        }
+
+        return $value;
     }
 
     private function playerById(GameStateData $state, ?int $playerId): ?GamePlayerStateData

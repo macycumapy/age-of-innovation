@@ -21,7 +21,7 @@ final class PalaceAbilityEvaluator
 
     private const int BOOK_WEIGHT = 25;
 
-    private const int KNOWLEDGE_STEP_WEIGHT = 30;
+    private const int KNOWLEDGE_STEP_WEIGHT = 10;
 
     private const float FUTURE_ACTION_DISCOUNT = 0.5;
 
@@ -34,7 +34,7 @@ final class PalaceAbilityEvaluator
 
         $currentRoundAvailable = $state->round->phase !== GamePhase::Setup
             && $state->round->phase !== GamePhase::ScienceBonus
-            && ! in_array($player->playerId, $state->round->passOrder, true);
+            && ! in_array($player->playerId, $state->passedPlayerIds, true);
         $hasUnusedSpecialAction = $currentRoundAvailable && $palace->hasSpecialAction()
             && ! in_array($palace->specialActionId(), $player->usedSpecialActionIds, true);
         $workshopCount = $this->buildingCount($state, $player->playerId, BuildingType::Workshop);

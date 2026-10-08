@@ -22,7 +22,7 @@ final class GameActionSelector
         GameStateData $state,
         int $playerId,
         GameBotDifficulty $difficulty = GameBotDifficulty::Balanced,
-        int $auxiliaryActionsRemaining = 1,
+        int $auxiliaryActionsRemaining = 2,
     ): ?EvaluatedGameActionData {
         return $this->selectWithDiagnostics(
             $state,
@@ -36,7 +36,7 @@ final class GameActionSelector
         GameStateData $state,
         int $playerId,
         GameBotDifficulty $difficulty = GameBotDifficulty::Balanced,
-        int $auxiliaryActionsRemaining = 1,
+        int $auxiliaryActionsRemaining = 2,
     ): GameActionSelectionDiagnosticsData {
         $parameters = $difficulty->searchParameters();
         $startedAt = hrtime(true);

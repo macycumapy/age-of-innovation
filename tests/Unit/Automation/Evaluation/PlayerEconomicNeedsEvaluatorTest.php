@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Automation\Evaluation;
 
+use App\Domain\Automation\Evaluation\Services\BoardPositionProgressEvaluator;
 use App\Domain\Automation\Evaluation\Services\PlayerEconomicNeedsEvaluator;
 use App\Domain\GameEngine\Board\Data\BoardHexStateData;
 use App\Domain\GameEngine\Board\Data\BuildingStateData;
@@ -86,6 +87,30 @@ class PlayerEconomicNeedsEvaluatorTest extends TestCase
         $after->players[0]->resources->scholars = 0;
 
         $this->assertSame(0, app(PlayerEconomicNeedsEvaluator::class)->execute($before, $after, 1));
+    }
+
+    public function test_completed_shipping_does_not_receive_a_second_bonus_for_the_same_frontier(): void
+    {
+        $before = $this->shippingState();
+        $before->players[0]->resources->scholars = 1;
+        $after = $before->deepCopy();
+        $after->players[0]->shippingLevel = 1;
+        $after->players[0]->resources->scholars = 0;
+        $after->players[0]->resources->coins -= 4;
+
+        $this->assertGreaterThan(0, app(BoardPositionProgressEvaluator::class)->execute($before, $after, 1));
+        $this->assertSame(0, app(PlayerEconomicNeedsEvaluator::class)->execute($before, $after, 1));
+    }
+
+    public function test_a_development_reserve_does_not_value_one_scholar_as_three_scholars(): void
+    {
+        $before = $this->shippingState();
+        $after = $before->deepCopy();
+        $after->players[0]->resources->scholars = 1;
+        $reserve = app(PlayerEconomicNeedsEvaluator::class)->execute($before, $after, 1);
+
+        $this->assertGreaterThan(0, $reserve);
+        $this->assertLessThanOrEqual(40, $reserve);
     }
 
     public function test_it_does_not_penalize_sending_a_scholar_when_another_remains(): void

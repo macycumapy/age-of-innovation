@@ -973,6 +973,7 @@ class PlayAutomatedTurnActionTest extends TestCase
         ]);
         $setupPool = app(GameSetupPoolFactory::class)->create(2);
         $setupPool->bookActions = [BookAction::GainCoins];
+        $setupPool->availableRoundBonuses = [new RoundBonusOfferData(RoundBonus::RiverWorkshop, 0)];
         $game->update(['state' => new GameStateData(
             turnOrder: [$botPlayer->id, $opponentPlayer->id],
             players: [
@@ -1031,7 +1032,7 @@ class PlayAutomatedTurnActionTest extends TestCase
         $game = Game::factory()->create([
             'status' => GameStatus::Active,
             'phase' => GamePhase::Actions,
-            'version' => 1,
+            'version' => 2,
         ]);
         $botPlayer = GamePlayer::factory()->bot(GameBotDifficulty::Fast)->create([
             'game_id' => $game->id,
@@ -1049,6 +1050,7 @@ class PlayAutomatedTurnActionTest extends TestCase
                 )],
                 round: new RoundStateData(
                     phase: GamePhase::Actions,
+                    number: 6,
                     turnStartVersion: 0,
                 ),
                 setupPool: $setupPool,
@@ -1063,6 +1065,15 @@ class PlayAutomatedTurnActionTest extends TestCase
             'state_version_before' => 0,
             'state_version_after' => 1,
         ]);
+        GameAction::factory()->create([
+            'game_id' => $game->id,
+            'sequence' => 2,
+            'player_id' => null,
+            'game_player_id' => $botPlayer->id,
+            'type' => GameActionType::ExchangeResources,
+            'state_version_before' => 1,
+            'state_version_after' => 2,
+        ]);
 
         app(PlayAutomatedTurnAction::class)->execute(
             $game,
@@ -1072,7 +1083,7 @@ class PlayAutomatedTurnActionTest extends TestCase
         );
 
         $this->assertSame(
-            [GameActionType::ExchangeResources, GameActionType::BookAction],
+            [GameActionType::ExchangeResources, GameActionType::ExchangeResources, GameActionType::BookAction],
             $game->actions()->orderBy('sequence')->pluck('type')->all(),
         );
     }

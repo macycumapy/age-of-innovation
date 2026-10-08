@@ -29,6 +29,7 @@ class CompetencyEvaluatorTest extends TestCase
         $player->townTileIds = ['town-1', 'town-2'];
         $this->assertSame(120, app(CompetencyEvaluator::class)->execute($state, $player));
         $state->round->passOrder = [1];
+        $state->passedPlayerIds = [1];
         $this->assertSame(80, app(CompetencyEvaluator::class)->execute($state, $player));
         $player->competencyIds = [Competency::Competency12->value];
         $player->knowledge->banking = 5;

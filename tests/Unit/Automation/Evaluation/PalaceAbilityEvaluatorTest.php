@@ -46,6 +46,7 @@ class PalaceAbilityEvaluatorTest extends TestCase
         $this->assertSame(360, app(PalaceAbilityEvaluator::class)->execute($state, $player));
 
         $state->round->passOrder = [1];
+        $state->passedPlayerIds = [1];
         $this->assertSame(300, app(PalaceAbilityEvaluator::class)->execute($state, $player));
     }
 
@@ -91,6 +92,28 @@ class PalaceAbilityEvaluatorTest extends TestCase
         $this->assertSame(90, app(PalaceAbilityEvaluator::class)->execute($state, $player));
         $state->board->hexes = [];
         $this->assertSame(0, app(PalaceAbilityEvaluator::class)->execute($state, $player));
+    }
+
+    public function test_knowledge_action_uses_the_calibrated_value_of_optional_future_steps(): void
+    {
+        [$state, $player] = $this->state(PalaceAbility::Palace06, round: 2);
+        $evaluator = app(PalaceAbilityEvaluator::class);
+
+        $this->assertSame(60, $evaluator->execute($state, $player));
+        $player->usedSpecialActionIds = [PalaceAbility::Palace06->specialActionId()];
+        $this->assertSame(40, $evaluator->execute($state, $player));
+        $state->round->phase = GamePhase::Finished;
+        $this->assertSame(0, $evaluator->execute($state, $player));
+    }
+
+    public function test_previous_round_pass_order_does_not_hide_available_palace_actions(): void
+    {
+        [$state, $player] = $this->state(PalaceAbility::Palace01, round: 2);
+        $state->round->passOrder = [1];
+
+        $this->assertSame(180, app(PalaceAbilityEvaluator::class)->execute($state, $player));
+        $state->passedPlayerIds = [1];
+        $this->assertSame(120, app(PalaceAbilityEvaluator::class)->execute($state, $player));
     }
 
     /**
