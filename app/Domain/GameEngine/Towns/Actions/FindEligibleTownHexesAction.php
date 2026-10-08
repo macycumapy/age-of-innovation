@@ -65,9 +65,12 @@ final class FindEligibleTownHexesAction
             }
 
             if (! $hex instanceof BoardHexStateData
-                || $hex->building?->ownerPlayerId !== $player->playerId
-                || $hex->townId !== null) {
+                || $hex->building?->ownerPlayerId !== $player->playerId) {
                 continue;
+            }
+
+            if ($hex->townId !== null) {
+                return [];
             }
 
             $componentIds[] = $hexId;

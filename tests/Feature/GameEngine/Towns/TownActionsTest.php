@@ -41,6 +41,72 @@ class TownActionsTest extends TestCase
 {
     use RefreshDatabase;
 
+    #[DataProvider('existingTownConnectionProvider')]
+    public function test_connected_existing_town_prevents_founding_another_town(
+        bool $connectedByBridge,
+        int $townOwnerId,
+        bool $canFoundTown,
+    ): void {
+        $player = new GamePlayerStateData(
+            playerId: 15,
+            userId: 25,
+            color: PlayerColor::Green,
+            faction: Faction::Blessed,
+            homeland: TerrainType::Forest,
+            roundBonus: RoundBonus::Coins,
+        );
+        $hexes = [];
+        for ($index = 0; $index < 4; $index++) {
+            $hexes[] = new BoardHexStateData(
+                id: $index.':0',
+                q: $index,
+                r: 0,
+                initialTerrain: TerrainType::Forest,
+                terrain: TerrainType::Forest,
+                adjacentHexIds: [($index - 1).':0', ($index + 1).':0'],
+                building: new BuildingStateData(BuildingType::Guild, 15),
+            );
+        }
+        $hexes[] = new BoardHexStateData(
+            id: '8:0',
+            q: 8,
+            r: 0,
+            initialTerrain: TerrainType::Forest,
+            terrain: TerrainType::Forest,
+            adjacentHexIds: $connectedByBridge ? [] : ['3:0'],
+            building: new BuildingStateData(BuildingType::Workshop, $townOwnerId),
+            townId: 'existing-town',
+        );
+        if (! $connectedByBridge) {
+            $hexes[3]->adjacentHexIds[] = '8:0';
+        }
+        $state = new GameStateData(
+            players: [$player],
+            board: new BoardStateData(
+                hexes: $hexes,
+                bridges: $connectedByBridge ? [new BridgeStateData('3:0', '8:0', 15)] : [],
+            ),
+        );
+
+        $eligibleHexes = app(FindEligibleTownHexesAction::class)->execute($state, $player, '0:0');
+
+        $this->assertSame($canFoundTown ? ['0:0', '1:0', '2:0', '3:0'] : [], $eligibleHexes);
+        $hexes[4]->building = null;
+        $hexes[4]->townId = null;
+        $this->assertCount(4, app(FindEligibleTownHexesAction::class)->execute($state, $player, '0:0'));
+    }
+
+    /** @return array<string, array{bool, int, bool}> */
+    public static function existingTownConnectionProvider(): array
+    {
+        return [
+            'adjacent own town' => [false, 15, false],
+            'own town connected by bridge' => [true, 15, false],
+            'adjacent opponent town' => [false, 16, true],
+            'opponent town connected by bridge' => [true, 16, true],
+        ];
+    }
+
     #[DataProvider('universityTownCompetencyProvider')]
     public function test_university_upgrade_offers_a_town_for_four_connected_hexes_with_seven_power_after_competency_choice(Competency $competency): void
     {
