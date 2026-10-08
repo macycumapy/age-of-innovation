@@ -28,7 +28,7 @@ class RoundScoringProgressEvaluator
             return 0;
         }
 
-        return match ($tile->goal()) {
+        $progress = match ($tile->goal()) {
             RoundScoringGoal::Workshop => $this->buildingGain(
                 $before,
                 $after,
@@ -75,6 +75,45 @@ class RoundScoringProgressEvaluator
                 count($playerAfter->inventionIds) - count($playerBefore->inventionIds),
             ) * 5,
         };
+
+        return $progress - $this->earlyUpgradeOpportunityCost($before, $after, $playerId, $tile);
+    }
+
+    private function earlyUpgradeOpportunityCost(
+        GameStateData $before,
+        GameStateData $after,
+        int $playerId,
+        RoundScoringTile $currentTile,
+    ): int {
+        if ($before->round->number >= 6 || $after->round->number !== $before->round->number) {
+            return 0;
+        }
+
+        $nextTile = $before->setupPool->roundScoringTiles[$before->round->number] ?? null;
+        if (is_string($nextTile)) {
+            $nextTile = RoundScoringTile::tryFrom($nextTile);
+        }
+        if (! $nextTile instanceof RoundScoringTile) {
+            return 0;
+        }
+
+        $beforeHexes = collect($before->board->hexes)->keyBy('id');
+        $cost = 0;
+        foreach ($after->board->hexes as $hex) {
+            $previous = $beforeHexes->get($hex->id);
+            if ($hex->building?->ownerPlayerId !== $playerId
+                || $hex->building->isNeutral
+                || ! $previous instanceof BoardHexStateData
+                || $previous->building?->ownerPlayerId !== $playerId
+                || ! in_array($hex->building->type, $previous->building->type->upgradeOptions(), true)
+                || $currentTile->buildingVictoryPoints($hex->building->type) > 0) {
+                continue;
+            }
+
+            $cost += $nextTile->buildingVictoryPoints($hex->building->type);
+        }
+
+        return $cost;
     }
 
     /** @param list<BuildingType> $types */

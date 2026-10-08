@@ -65,6 +65,25 @@ class CompetencyEvaluatorTest extends TestCase
         $this->assertSame(0, app(CompetencyEvaluator::class)->execute($state, $player));
     }
 
+    public function test_scholar_rewards_do_not_forecast_income_from_an_empty_pool(): void
+    {
+        [$state, $player] = $this->state(Competency::Competency09);
+        $state->round->number = 3;
+        $state->board->hexes = [new BoardHexStateData(
+            id: 'school',
+            q: 0,
+            r: 0,
+            initialTerrain: TerrainType::Forest,
+            terrain: TerrainType::Forest,
+            adjacentHexIds: [],
+            building: new BuildingStateData(type: BuildingType::School, ownerPlayerId: 1),
+        )];
+        $player->resources->scholars = 0;
+        $player->scholarPoolSize = 0;
+
+        $this->assertSame(0, app(CompetencyEvaluator::class)->execute($state, $player));
+    }
+
     public function test_scholar_forecast_uses_permanent_income_not_the_current_round_bonus(): void
     {
         [$state, $player] = $this->state(Competency::Competency09);

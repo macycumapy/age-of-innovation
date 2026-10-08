@@ -7,6 +7,7 @@ namespace App\Domain\Automation\Evaluation\Services;
 use App\Domain\GameEngine\Board\Actions\FindEligibleTerraformHexesAction;
 use App\Domain\GameEngine\Board\Data\BoardHexStateData;
 use App\Domain\GameEngine\Board\Enums\BuildingType;
+use App\Domain\GameEngine\Economy\Services\PlayerIncomeCalculator;
 use App\Domain\GameEngine\Research\Enums\Innovation;
 use App\Domain\GameEngine\Research\Services\InnovationVictoryPointCalculator;
 use App\Domain\GameEngine\State\Data\GamePlayerStateData;
@@ -22,6 +23,7 @@ final class InnovationEvaluator
     public function __construct(
         private FindEligibleTerraformHexesAction $findEligibleTerraformHexes,
         private InnovationVictoryPointCalculator $innovationVictoryPointCalculator,
+        private IncomeValueEvaluator $incomeValueEvaluator,
     ) {
     }
 
@@ -57,7 +59,8 @@ final class InnovationEvaluator
                             ? $this->resourceWeight(40, 2, $state->round->number) : 0);
                 }
                 for ($actionRound = 7 - $remainingRounds; $actionRound <= 6; $actionRound++) {
-                    $score += 3 * self::VICTORY_POINT_WEIGHT + $this->resourceWeight(40, 2, $actionRound);
+                    $score += 3 * self::VICTORY_POINT_WEIGHT
+                        + ($player->scholarPoolSize > 0 ? $this->resourceWeight(40, 2, $actionRound) : 0);
                 }
             } elseif ($innovation === Innovation::DeusExMachina
                 && $this->findEligibleTerraformHexes->execute($state, $player, $player->homeland) !== []) {
@@ -77,10 +80,8 @@ final class InnovationEvaluator
             + $this->execute($state, $potentialPlayer);
 
         return $score + match ($innovation) {
-            Innovation::Workshop => $this->futureResourceIncome(20, 2, $remainingRounds) * 3,
-            Innovation::Guild => $this->futureResourceIncome(20, 2, $remainingRounds) * 5,
-            Innovation::University => $remainingRounds * 2 * self::VICTORY_POINT_WEIGHT,
-            Innovation::Palace => 24 + $this->futureResourceIncome(7, 1, $remainingRounds) * 4,
+            Innovation::Workshop, Innovation::Guild, Innovation::University => $this->buildingIncomePotential($state, $player, $innovation, $remainingRounds),
+            Innovation::Palace => 24 + $this->buildingIncomePotential($state, $player, $innovation, $remainingRounds),
             Innovation::School => $state->availableCompetencyIds !== [] ? 100 : 0,
             Innovation::DeusExMachina => 25 + 4 * 10,
             Innovation::SteamEngine => 40 + ($player->shippingLevel < 3 ? 50 : 0)
@@ -89,11 +90,22 @@ final class InnovationEvaluator
         };
     }
 
-    private function futureResourceIncome(int $earlyWeight, int $finalWeight, int $remainingRounds): int
+    private function buildingIncomePotential(GameStateData $state, GamePlayerStateData $player, Innovation $innovation, int $remainingRounds): int
     {
+        $before = PlayerIncomeCalculator::calculate($player, $state->board, includeRoundBonus: false);
+        $before->scholars = min($before->scholars, $player->scholarPoolSize);
+        $after = clone $before;
+        match ($innovation) {
+            Innovation::Workshop => $after->tools += 3,
+            Innovation::Guild => $after->coins += 5,
+            Innovation::University => $after->victoryPoints += 2,
+            Innovation::Palace => $after->power += 4,
+            default => null,
+        };
         $score = 0;
         for ($incomeRound = 7 - $remainingRounds; $incomeRound <= 6; $incomeRound++) {
-            $score += $this->resourceWeight($earlyWeight, $finalWeight, $incomeRound);
+            $score += $this->incomeValueEvaluator->execute($after, $incomeRound)
+                - $this->incomeValueEvaluator->execute($before, $incomeRound);
         }
 
         return $score;

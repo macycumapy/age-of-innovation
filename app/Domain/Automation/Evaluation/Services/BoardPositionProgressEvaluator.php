@@ -7,14 +7,18 @@ namespace App\Domain\Automation\Evaluation\Services;
 use App\Domain\GameEngine\Board\Actions\FindReachableLandHexesAction;
 use App\Domain\GameEngine\Board\Data\BoardHexStateData;
 use App\Domain\GameEngine\Board\Enums\BuildingType;
+use App\Domain\GameEngine\PlayerAbilities\Enums\PalaceAbility;
 use App\Domain\GameEngine\State\Data\GamePlayerStateData;
 use App\Domain\GameEngine\State\Data\GameStateData;
+use App\Domain\GameEngine\Turns\Enums\GamePhase;
 
 class BoardPositionProgressEvaluator
 {
     private const int REACHABLE_HOMELAND_WEIGHT = 3;
 
     private const int TOWN_COHESION_WEIGHT = 8;
+
+    private const int USEFUL_TOWN_ANNEX_WEIGHT = 25;
 
     private const int STANDARD_TOWN_POWER = 7;
 
@@ -50,41 +54,206 @@ class BoardPositionProgressEvaluator
         }
 
         $networkComponents = $this->buildingComponents($state, $playerId);
-        $townComponents = $this->buildingComponents($state, $playerId, excludeTowns: true);
+        $townComponents = [];
+        $completedTownHexIds = [];
+        $blockedTownExpansionHexIds = [];
+        foreach ($networkComponents as $component) {
+            if (! array_any($component, static fn (BoardHexStateData $hex): bool => $hex->townId !== null)) {
+                $townComponents[] = $component;
+
+                continue;
+            }
+            foreach ($component as $hex) {
+                $completedTownHexIds[$hex->id] = true;
+                foreach ($hex->adjacentHexIds as $adjacentHexId) {
+                    $blockedTownExpansionHexIds[$adjacentHexId] = true;
+                }
+            }
+        }
+        foreach ($state->board->bridges as $bridge) {
+            if ($bridge->ownerPlayerId !== $playerId) {
+                continue;
+            }
+            if (isset($completedTownHexIds[$bridge->fromHexId])) {
+                $blockedTownExpansionHexIds[$bridge->toHexId] = true;
+            }
+            if (isset($completedTownHexIds[$bridge->toHexId])) {
+                $blockedTownExpansionHexIds[$bridge->fromHexId] = true;
+            }
+        }
         $ownedBuildingCount = array_sum(array_map('count', $networkComponents));
         $networkCohesion = max(0, $ownedBuildingCount - count($networkComponents));
+        $hasUniversity = array_any($state->board->hexes, static fn (BoardHexStateData $hex): bool =>
+            $hex->building?->ownerPlayerId === $playerId && $hex->building->type === BuildingType::University);
         $townCohesion = array_sum(array_map(
-            static function (array $component): int {
+            function (array $component) use ($state, $player, $hasUniversity, $blockedTownExpansionHexIds): int {
                 $power = array_sum(array_map(
                     static fn (BoardHexStateData $hex): int => ($hex->building?->type->powerValue() ?? 0)
                         + ($hex->building?->hasAnnex === true ? 1 : 0),
                     $component,
                 ));
+                if (! $this->hasTownExpansionSpace($state, $component, $player, $hasUniversity, $blockedTownExpansionHexIds)) {
+                    $power = min($power, count($component));
+                }
+                $annexes = count(array_filter($component, static fn (BoardHexStateData $hex): bool => $hex->building->hasAnnex));
+                $minimumBuildings = $this->minimumTownBuildings($component);
 
-                return min(self::STANDARD_TOWN_POWER, $power) ** 2;
+                return intdiv(min(self::STANDARD_TOWN_POWER, $power) ** 2
+                    * min($minimumBuildings, count($component) + $annexes), $minimumBuildings);
             },
             $townComponents,
         ));
-        $completedTownPower = [];
+        $completedTownHexes = [];
         foreach ($state->board->hexes as $hex) {
             if ($hex->building?->ownerPlayerId !== $playerId || $hex->townId === null) {
                 continue;
             }
 
-            $completedTownPower[$hex->townId] = ($completedTownPower[$hex->townId] ?? 0)
-                + $hex->building->type->powerValue() + (int) $hex->building->hasAnnex;
+            $completedTownHexes[$hex->townId][] = $hex;
+        }
+        $completedTownPower = [];
+        $completedTownAnnexes = 0;
+        $requiredPower = $player->palaceId === PalaceAbility::Palace08->value ? 6 : self::STANDARD_TOWN_POWER;
+        foreach ($completedTownHexes as $component) {
+            $basePower = array_sum(array_map(
+                static fn (BoardHexStateData $hex): int => $hex->building->type->powerValue(),
+                $component,
+            ));
+            $annexes = count(array_filter($component, static fn (BoardHexStateData $hex): bool => $hex->building->hasAnnex));
+            $neededAnnexes = max(0, $requiredPower - $basePower, $this->minimumTownBuildings($component) - count($component));
+            $completedTownAnnexes += min($annexes, $neededAnnexes);
+            $completedTownPower[] = $basePower + $annexes;
         }
         $townCohesion += array_sum(array_map(
             static fn (int $power): int => min(self::STANDARD_TOWN_POWER, $power) ** 2,
             $completedTownPower,
         ));
+        $unfinishedTownAnnexes = array_sum(array_map(
+            static fn (array $component): int => count(array_filter(
+                $component,
+                static fn (BoardHexStateData $hex): bool => $hex->building->hasAnnex,
+            )),
+            $townComponents,
+        ));
+        $annexWeight = $state->round->phase === GamePhase::Setup
+            ? self::USEFUL_TOWN_ANNEX_WEIGHT
+            : intdiv(self::USEFUL_TOWN_ANNEX_WEIGHT * max(0, min(2, 6 - $state->round->number)), 2);
 
         return ($this->reachableHomelandCount($state, $player) * self::REACHABLE_HOMELAND_WEIGHT)
             + $this->expansionOpportunityScore($state, $player)
             + ($this->contestedPositionCount($state, $playerId) * self::CONTESTED_POSITION_WEIGHT)
             + ($this->nearbyOpponentCount($state, $playerId) * self::NEARBY_OPPONENT_WEIGHT)
             + ($townCohesion * self::TOWN_COHESION_WEIGHT)
+            + (($unfinishedTownAnnexes + $completedTownAnnexes) * $annexWeight)
+            + $this->annexTownPotential($townComponents, $player)
             + ($networkCohesion * self::NETWORK_COHESION_WEIGHT);
+    }
+
+    /** @param list<BoardHexStateData> $component */
+    private function minimumTownBuildings(array $component): int
+    {
+        $minimumBuildings = 4;
+        foreach ($component as $hex) {
+            $minimumBuildings = min($minimumBuildings, match ($hex->building->type) {
+                BuildingType::University => 3,
+                BuildingType::Monument => 2,
+                default => 4,
+            });
+        }
+
+        return $minimumBuildings;
+    }
+
+    /**
+     * @param list<BoardHexStateData> $component
+     * @param array<string, true> $blockedTownExpansionHexIds
+     */
+    private function hasTownExpansionSpace(GameStateData $state, array $component, GamePlayerStateData $player, bool $hasUniversity, array $blockedTownExpansionHexIds): bool
+    {
+        $minimumBuildings = $hasUniversity ? 4 : 3;
+        $placedAnnexes = 0;
+        $frontier = [];
+        foreach ($component as $hex) {
+            $placedAnnexes += (int) $hex->building->hasAnnex;
+            $minimumBuildings = min($minimumBuildings, match ($hex->building->type) {
+                BuildingType::University => 3,
+                BuildingType::Monument => 2,
+                default => 4,
+            });
+            $frontier = [...$frontier, ...$hex->adjacentHexIds];
+        }
+        $missingBuildings = $minimumBuildings - count($component) - $placedAnnexes
+            - min($player->availableAnnexes, count($component) - $placedAnnexes);
+        if ($missingBuildings <= 0) {
+            return true;
+        }
+
+        $hexesById = collect($state->board->hexes)->keyBy('id');
+        $visited = [];
+        while ($frontier !== []) {
+            $hexId = array_pop($frontier);
+            if (isset($visited[$hexId])) {
+                continue;
+            }
+            $visited[$hexId] = true;
+            $hex = $hexesById->get($hexId);
+            if (! $hex instanceof BoardHexStateData || $hex->building !== null || ! $hex->terrain->isHomeland()
+                || isset($blockedTownExpansionHexIds[$hexId])) {
+                continue;
+            }
+            $missingBuildings--;
+            if ($missingBuildings <= 0) {
+                return true;
+            }
+            $frontier = [...$frontier, ...$hex->adjacentHexIds];
+        }
+
+        return false;
+    }
+
+    /** @param list<list<BoardHexStateData>> $components */
+    private function annexTownPotential(array $components, GamePlayerStateData $player): int
+    {
+        if ($player->availableAnnexes === 0) {
+            return 0;
+        }
+
+        $requiredPower = $player->palaceId === PalaceAbility::Palace08->value ? 6 : self::STANDARD_TOWN_POWER;
+        $opportunities = [];
+        foreach ($components as $component) {
+            $power = 0;
+            $annexes = 0;
+            $minimumBuildings = 4;
+            foreach ($component as $hex) {
+                $power += $hex->building->type->powerValue() + (int) $hex->building->hasAnnex;
+                $annexes += (int) $hex->building->hasAnnex;
+                $minimumBuildings = min($minimumBuildings, match ($hex->building->type) {
+                    BuildingType::University => 3,
+                    BuildingType::Monument => 2,
+                    default => 4,
+                });
+            }
+            $neededAnnexes = max(0, $requiredPower - $power, $minimumBuildings - $annexes - count($component));
+            if ($neededAnnexes === 0 || $neededAnnexes > count($component) - $annexes) {
+                continue;
+            }
+            $opportunities[] = [
+                'annexes' => $neededAnnexes,
+                'score' => (min(self::STANDARD_TOWN_POWER, $power + $neededAnnexes) ** 2 - intdiv(min(self::STANDARD_TOWN_POWER, $power) ** 2
+                    * min($minimumBuildings, count($component) + $annexes), $minimumBuildings)) * self::TOWN_COHESION_WEIGHT,
+            ];
+        }
+        usort($opportunities, static fn (array $left, array $right): int => $right['score'] <=> $left['score']);
+        $remainingAnnexes = $player->availableAnnexes;
+        $score = 0;
+        foreach ($opportunities as $opportunity) {
+            if ($opportunity['annexes'] <= $remainingAnnexes) {
+                $remainingAnnexes -= $opportunity['annexes'];
+                $score += $opportunity['score'];
+            }
+        }
+
+        return $score;
     }
 
     private function strandedTerraformingPenalty(GameStateData $before, GameStateData $after, int $playerId): int
@@ -221,11 +390,10 @@ class BoardPositionProgressEvaluator
     }
 
     /** @return list<list<BoardHexStateData>> */
-    private function buildingComponents(GameStateData $state, int $playerId, bool $excludeTowns = false): array
+    private function buildingComponents(GameStateData $state, int $playerId): array
     {
         $ownedHexes = collect($state->board->hexes)
-            ->filter(static fn (BoardHexStateData $hex): bool => $hex->building?->ownerPlayerId === $playerId
-                && (! $excludeTowns || $hex->townId === null))
+            ->filter(static fn (BoardHexStateData $hex): bool => $hex->building?->ownerPlayerId === $playerId)
             ->keyBy('id')
             ->all();
         $bridgeConnections = [];

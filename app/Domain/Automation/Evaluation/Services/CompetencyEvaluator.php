@@ -45,7 +45,7 @@ final class CompetencyEvaluator
                     min(array_map(static fn (KnowledgeDiscipline $discipline): int => $player->knowledge->{$discipline->value}, KnowledgeDiscipline::cases())),
                 ) * $passes * self::VICTORY_POINT_WEIGHT,
                 Competency::Competency09 => (int) round((($currentRoundAvailable ? $player->resources->scholars : 0)
-                    + PlayerIncomeCalculator::calculate($player, $state->board, includeRoundBonus: false)->scholars * $futureRounds)
+                    + min($player->scholarPoolSize, PlayerIncomeCalculator::calculate($player, $state->board, includeRoundBonus: false)->scholars) * $futureRounds)
                     * 2 * self::VICTORY_POINT_WEIGHT * self::FUTURE_ACTION_DISCOUNT),
                 Competency::Competency11 => $this->edgeScore($state, $player, $passes),
                 default => 0,

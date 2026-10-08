@@ -8,6 +8,7 @@ use App\Domain\Automation\Evaluation\Data\GameStateScoreData;
 use App\Domain\GameEngine\Board\Data\BoardHexStateData;
 use App\Domain\GameEngine\Board\Enums\BuildingType;
 use App\Domain\GameEngine\Board\Enums\TerrainType;
+use App\Domain\GameEngine\Board\Services\BuildingAdjacencyChecker;
 use App\Domain\GameEngine\Economy\Data\IncomeReceiptData;
 use App\Domain\GameEngine\Economy\Enums\PowerAction;
 use App\Domain\GameEngine\Economy\Services\PlayerIncomeCalculator;
@@ -28,10 +29,6 @@ final class GameStateEvaluator
     private const int COIN_WEIGHT = 10;
 
     private const int COIN_WORKING_RESERVE = 12;
-
-    private const int COIN_INCOME_WEIGHT = 20;
-
-    private const int TOOL_INCOME_WEIGHT = 20;
 
     private const int TOOL_WEIGHT = 30;
 
@@ -59,11 +56,7 @@ final class GameStateEvaluator
 
     private const int COMPETENCY_WEIGHT = 50;
 
-    private const int PLACED_SCHOLAR_WEIGHT = 40;
-
     private const int BUILDING_POWER_WEIGHT = 40;
-
-    private const int PLACED_ANNEX_WEIGHT = 25;
 
     public function __construct(
         private InnovationPurchaseCostCalculator $innovationPurchaseCostCalculator,
@@ -72,6 +65,7 @@ final class GameStateEvaluator
         private InnovationEvaluator $innovationEvaluator,
         private ScienceBonusEvaluator $scienceBonusEvaluator,
         private FinalScoringProgressEvaluator $finalScoringProgressEvaluator,
+        private IncomeValueEvaluator $incomeValueEvaluator,
     ) {
     }
 
@@ -140,9 +134,8 @@ final class GameStateEvaluator
         $score += $this->innovationReadinessScore($state, $player);
         $score += $this->palaceAbilityEvaluator->execute($state, $player);
         $score += $this->competencyEvaluator->execute($state, $player);
-        $score += $this->roundBonusPassScore($state, $player);
+        $score += $this->roundBonusOpportunityScore($state, $player);
         $score += $this->innovationEvaluator->execute($state, $player);
-        $score += count($player->scholarDisciplineIds) * $this->resourceWeight($state, self::PLACED_SCHOLAR_WEIGHT, 0);
         $developmentScore = $score;
         $score = 0;
 
@@ -151,8 +144,9 @@ final class GameStateEvaluator
                 continue;
             }
 
-            $score += $hex->building->type->powerValue() * $this->resourceWeight($state, self::BUILDING_POWER_WEIGHT, 0);
-            $score += $hex->building->hasAnnex ? $this->resourceWeight($state, self::PLACED_ANNEX_WEIGHT, 0) : 0;
+            if (BuildingAdjacencyChecker::hasOpponent($state->board, $hex, $player->playerId)) {
+                $score += $hex->building->type->powerValue() * $this->resourceWeight($state, self::BUILDING_POWER_WEIGHT, 0);
+            }
         }
 
         return new GameStateScoreData(
@@ -267,13 +261,17 @@ final class GameStateEvaluator
         }
 
         $income = PlayerIncomeCalculator::calculate($player, $state->board, includeRoundBonus: false);
+        $income->scholars = min($income->scholars, $player->scholarPoolSize);
         $incomeState = clone $state;
         $incomeState->round = clone $state->round;
         $incomeState->round->phase = GamePhase::Income;
+        $firstIncome = clone $income;
+        $firstIncome->scholars = min($income->scholars, $this->scholarIncomeCapacity($state, $player));
+        $firstIncomeRound = 7 - $remainingIncomePhases;
         $score = 0;
-        for ($incomeRound = 7 - $remainingIncomePhases; $incomeRound <= 6; $incomeRound++) {
+        for ($incomeRound = $firstIncomeRound; $incomeRound <= 6; $incomeRound++) {
             $incomeState->round->number = $incomeRound;
-            $score += $this->incomeScore($income, $incomeState);
+            $score += $this->incomeScore($incomeRound === $firstIncomeRound ? $firstIncome : $income, $incomeState);
         }
 
         $isChoosingNextBonus = $state->pendingInteraction?->type === PendingInteractionType::ChooseRoundBonus
@@ -285,7 +283,8 @@ final class GameStateEvaluator
             || $state->round->phase === GamePhase::ScienceBonus
             || ($state->round->phase === GamePhase::Actions && $hasSelectedNextBonus)) {
             $incomeWithBonus = PlayerIncomeCalculator::calculate($player, $state->board);
-            $score += $this->roundBonusIncomeScore($incomeWithBonus, $state) - $this->roundBonusIncomeScore($income, $state);
+            $incomeWithBonus->scholars = min($incomeWithBonus->scholars, $player->scholarPoolSize);
+            $score += $this->roundBonusIncomeScore($incomeWithBonus, $state, $player) - $this->roundBonusIncomeScore($income, $state, $player);
         } elseif (in_array($state->round->phase, [GamePhase::Actions, GamePhase::Income], true)) {
             $score += $this->nextRoundBonusPotential($state, $player, $income);
         }
@@ -299,34 +298,47 @@ final class GameStateEvaluator
         $forecastState->round = clone $state->round;
         $forecastState->round->phase = GamePhase::ScienceBonus;
         $bestScore = 0;
-        $baseIncomeScore = $this->roundBonusIncomeScore($income, $state);
+        $baseIncomeScore = $this->roundBonusIncomeScore($income, $state, $player);
 
         foreach ($state->setupPool->availableRoundBonuses ?? [] as $offer) {
             $forecastPlayer = clone $player;
             $forecastPlayer->roundBonus = $offer->roundBonus;
             $bonusIncome = PlayerIncomeCalculator::calculate($forecastPlayer, $state->board);
-            $bestScore = max($bestScore, $this->roundBonusIncomeScore($bonusIncome, $state) - $baseIncomeScore
-                + $this->roundBonusPassScore($forecastState, $forecastPlayer));
+            $bonusIncome->scholars = min($bonusIncome->scholars, $player->scholarPoolSize);
+            $bestScore = max($bestScore, $this->roundBonusIncomeScore($bonusIncome, $state, $player) - $baseIncomeScore
+                + $this->roundBonusOpportunityScore($forecastState, $forecastPlayer));
         }
 
         return $bestScore;
     }
 
-    private function roundBonusPassScore(GameStateData $state, GamePlayerStateData $player): int
+    private function roundBonusOpportunityScore(GameStateData $state, GamePlayerStateData $player): int
     {
-        if ($player->roundBonus !== RoundBonus::PassPalaceUniversity || $state->round->phase === GamePhase::Finished) {
+        if (! in_array($player->roundBonus, [RoundBonus::PassPalaceUniversity, RoundBonus::SendScholar], true)
+            || $state->round->phase === GamePhase::Finished) {
             return 0;
         }
 
         $hasPassed = in_array($player->playerId, $state->passedPlayerIds, true);
         $isChoosingNextBonus = $state->pendingInteraction?->type === PendingInteractionType::ChooseRoundBonus
             && $state->pendingInteraction->playerId === $player->playerId;
-        $currentBonusAvailable = ! $hasPassed && $state->round->phase !== GamePhase::ScienceBonus;
-        $nextBonusAvailable = $state->round->number < 6
-            && ($state->round->phase === GamePhase::ScienceBonus || ($hasPassed && ! $isChoosingNextBonus));
+        $currentBonusAvailable = ! $hasPassed
+            && ! in_array($state->round->phase, [GamePhase::Setup, GamePhase::ScienceBonus], true);
+        $nextBonusAvailable = $state->round->phase === GamePhase::Setup
+            || ($state->round->number < 6
+                && ($state->round->phase === GamePhase::ScienceBonus || ($hasPassed && ! $isChoosingNextBonus)));
 
         if (! $currentBonusAvailable && ! $nextBonusAvailable) {
             return 0;
+        }
+
+        if ($player->roundBonus === RoundBonus::SendScholar) {
+            $scholars = $currentBonusAvailable ? $player->resources->scholars : min(
+                $player->scholarPoolSize,
+                $player->resources->scholars + PlayerIncomeCalculator::calculate($player, $state->board)->scholars,
+            );
+
+            return $scholars * 2 * self::VICTORY_POINT_WEIGHT;
         }
 
         $buildingCount = count(array_filter(
@@ -338,17 +350,20 @@ final class GameStateEvaluator
         return $player->roundBonus->passVictoryPoints($buildingCount) * self::VICTORY_POINT_WEIGHT;
     }
 
-    private function roundBonusIncomeScore(IncomeReceiptData $income, GameStateData $state): int
+    private function roundBonusIncomeScore(IncomeReceiptData $income, GameStateData $state, GamePlayerStateData $player): int
     {
         $incomeState = clone $state;
         $incomeState->round = clone $state->round;
         $incomeState->round->number = $state->round->phase === GamePhase::Setup ? 1 : $state->round->number + 1;
         $incomeState->round->phase = GamePhase::Income;
+        $workingCoins = min($income->coins, max(0, self::COIN_WORKING_RESERVE - $player->resources->coins));
+        $scholars = min($income->scholars, $this->scholarIncomeCapacity($state, $player));
 
         return $income->victoryPoints * self::VICTORY_POINT_WEIGHT
-            + $income->coins * $this->resourceWeight($incomeState, self::COIN_WEIGHT, 2)
+            + $workingCoins * $this->resourceWeight($incomeState, self::COIN_WEIGHT, 2)
+            + ($income->coins - $workingCoins) * 2
             + $income->tools * $this->resourceWeight($incomeState, self::TOOL_WEIGHT, 2)
-            + $income->scholars * $this->resourceWeight($incomeState, self::SCHOLAR_WEIGHT, 2)
+            + $scholars * $this->resourceWeight($incomeState, self::SCHOLAR_WEIGHT, 2)
             + $income->books * $this->resourceWeight($incomeState, self::BOOK_WEIGHT, 2)
             + $income->power * $this->resourceWeight($incomeState, self::BOWL_TWO_POWER_WEIGHT, 1)
             + $income->knowledgeSteps * $this->resourceWeight($incomeState, self::KNOWLEDGE_STEP_WEIGHT, 0);
@@ -356,12 +371,14 @@ final class GameStateEvaluator
 
     private function incomeScore(IncomeReceiptData $income, GameStateData $state): int
     {
-        return ($income->victoryPoints * self::VICTORY_POINT_WEIGHT)
-            + ($income->coins * $this->resourceWeight($state, self::COIN_INCOME_WEIGHT, 2))
-            + ($income->tools * $this->resourceWeight($state, self::TOOL_INCOME_WEIGHT, 2))
-            + ($income->scholars * $this->resourceWeight($state, self::SCHOLAR_WEIGHT, 2))
-            + ($income->books * $this->resourceWeight($state, self::BOOK_WEIGHT, 2))
-            + ($income->power * $this->resourceWeight($state, self::BOWL_TWO_POWER_WEIGHT, 1))
-            + ($income->knowledgeSteps * $this->resourceWeight($state, self::KNOWLEDGE_STEP_WEIGHT, 0));
+        return $this->incomeValueEvaluator->execute($income, $state->round->number);
+    }
+
+    private function scholarIncomeCapacity(GameStateData $state, GamePlayerStateData $player): int
+    {
+        return in_array($state->round->phase, [GamePhase::Setup, GamePhase::ScienceBonus], true)
+            || in_array($player->playerId, $state->passedPlayerIds, true)
+                ? max(0, $player->scholarPoolSize - $player->resources->scholars)
+                : $player->scholarPoolSize;
     }
 }

@@ -60,6 +60,15 @@ class InnovationEvaluatorTest extends TestCase
         $this->assertSame(0, $evaluator->execute($state, $player));
     }
 
+    public function test_professor_keeps_its_points_but_cannot_forecast_scholars_with_an_empty_pool(): void
+    {
+        [$state, $player] = $this->state(Innovation::Professor);
+        $player->scholarPoolSize = 0;
+
+        $this->assertSame(150, app(InnovationEvaluator::class)->execute($state, $player));
+        $this->assertSame(0, $player->scholarPoolSize);
+    }
+
     public function test_immediate_rewards_and_recurring_income_are_not_counted_again(): void
     {
         $evaluator = app(InnovationEvaluator::class);
@@ -87,7 +96,7 @@ class InnovationEvaluatorTest extends TestCase
         $this->assertSame(293, $evaluator->purchasePotential($state, $player, Innovation::Professor));
         $this->assertSame(100, $evaluator->purchasePotential($state, $player, Innovation::Architecture));
         $this->assertSame(0, $evaluator->purchasePotential($state, $player, Innovation::Steel));
-        $this->assertSame(265, $evaluator->purchasePotential($state, $player, Innovation::Guild));
+        $this->assertSame(175, $evaluator->purchasePotential($state, $player, Innovation::Guild));
         $this->assertSame([Innovation::Professor->value], $player->inventionIds);
     }
 

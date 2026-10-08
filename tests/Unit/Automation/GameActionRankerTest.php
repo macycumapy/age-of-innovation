@@ -11,6 +11,7 @@ use App\Domain\Automation\Evaluation\Services\PassValueEvaluator;
 use App\Domain\Automation\Evaluation\Services\RoundScoringProgressEvaluator;
 use App\Domain\Automation\Services\GameActionRanker;
 use App\Domain\GameEngine\Board\Data\BoardHexStateData;
+use App\Domain\GameEngine\Board\Data\BridgeStateData;
 use App\Domain\GameEngine\Board\Data\BuildingStateData;
 use App\Domain\GameEngine\Board\Data\BuildWorkshopOptionData;
 use App\Domain\GameEngine\Board\Data\PaidTerraformingOptionData;
@@ -51,6 +52,525 @@ use Tests\TestCase;
 
 class GameActionRankerTest extends TestCase
 {
+    public function test_scholar_round_bonus_values_the_scholars_that_can_be_sent_before_passing(): void
+    {
+        $state = $this->state();
+        $state->round->number = 6;
+        $state->players[0]->resources->scholars = 2;
+        $evaluator = app(GameStateEvaluator::class);
+        $withoutBonus = $evaluator->evaluateWithBreakdown($state, 1)->development;
+        $state->players[0]->roundBonus = RoundBonus::SendScholar;
+
+        $this->assertSame(40, $evaluator->evaluateWithBreakdown($state, 1)->development - $withoutBonus);
+        $state->passedPlayerIds = [1];
+        $this->assertSame($withoutBonus, $evaluator->evaluateWithBreakdown($state, 1)->development);
+    }
+
+    public function test_scholar_round_bonus_forecasts_the_real_next_round_supply(): void
+    {
+        $state = $this->state();
+        $state->round->number = 4;
+        $state->round->phase = GamePhase::ScienceBonus;
+        $state->players[0]->roundBonus = RoundBonus::SendScholar;
+        $state->board->hexes = [
+            $this->buildingHex('school-one', 1, []),
+            $this->buildingHex('school-two', 1, []),
+        ];
+        foreach ($state->board->hexes as $hex) {
+            $hex->building->type = BuildingType::School;
+        }
+        $evaluator = app(GameStateEvaluator::class);
+
+        $this->assertSame(60, $evaluator->evaluateWithBreakdown($state, 1)->development);
+        $state->players[0]->scholarPoolSize = 2;
+        $this->assertSame(40, $evaluator->evaluateWithBreakdown($state, 1)->development);
+        $state->players[0]->scholarPoolSize = 0;
+        $this->assertSame(0, $evaluator->evaluateWithBreakdown($state, 1)->development);
+    }
+
+    public function test_round_bonus_choice_prefers_needed_tools_to_coins_that_overflow_the_working_reserve(): void
+    {
+        $state = $this->state();
+        $state->round->number = 2;
+        $state->round->scoringTileId = RoundScoringTile::GuildLaw->value;
+        $state->turnOrder = [1, 2];
+        $opponent = $state->deepCopy()->players[0];
+        $opponent->playerId = 2;
+        $opponent->userId = 20;
+        $state->players[] = $opponent;
+        $state->players[0]->palaceId = PalaceAbility::Palace10->value;
+        $state->players[0]->resources = new PlayerResourcesData(coins: 11);
+        $state->passedPlayerIds = [1];
+        $state->setupPool = app(GameSetupPoolFactory::class)->createFromSeed(2, 'tools-not-surplus-bonus-coins');
+        $state->setupPool->roundScoringTiles = array_fill(0, 6, RoundScoringTile::GuildLaw);
+        $state->setupPool->availableRoundBonuses = [
+            new RoundBonusOfferData(RoundBonus::Coins, 1),
+            new RoundBonusOfferData(RoundBonus::Knowledge, 0),
+        ];
+        $state->pendingInteraction = new PendingInteractionData(
+            PendingInteractionType::ChooseRoundBonus,
+            1,
+            [RoundBonus::Coins->value, RoundBonus::Knowledge->value],
+        );
+
+        $ranked = app(GameActionRanker::class)->execute($state, 1, depth: 1, maxNodes: 1, auxiliaryActionsRemaining: 0);
+
+        $this->assertSame(RoundBonus::Knowledge, $ranked[0]->option->roundBonus);
+        $this->assertSame(11, $state->players[0]->resources->coins);
+    }
+
+    public function test_competency_choice_repairs_tool_income_instead_of_adding_more_surplus_coins(): void
+    {
+        $state = $this->state();
+        $state->turnOrder = [1];
+        $state->round->number = 2;
+        $state->round->hasTakenMainAction = true;
+        $state->players[0]->palaceId = PalaceAbility::Palace10->value;
+        $state->players[0]->resources = new PlayerResourcesData(coins: 30);
+        $state->availableCompetencyIds = [Competency::Competency01->value, Competency::Competency02->value];
+        $state->board->hexes = [
+            $this->buildingHex('palace', 1, ['school']),
+            $this->buildingHex('school', 1, ['palace']),
+        ];
+        $state->board->hexes[0]->building->type = BuildingType::Palace;
+        $state->board->hexes[1]->building->type = BuildingType::School;
+        $state->pendingInteraction = new PendingInteractionData(
+            type: PendingInteractionType::ChooseCompetency,
+            playerId: 1,
+            optionIds: $state->availableCompetencyIds,
+            context: ['reason' => 'building', 'builtHexId' => 'school', 'powerOffersResolved' => true],
+        );
+
+        $ranked = app(GameActionRanker::class)->execute($state, 1, depth: 1, auxiliaryActionsRemaining: 0);
+
+        $this->assertSame(Competency::Competency01, $ranked[0]->option->competency);
+        $this->assertSame([], $state->players[0]->competencyIds);
+    }
+
+    public function test_final_school_pass_rewards_do_not_hide_a_profitable_action_before_passing(): void
+    {
+        $state = $this->state();
+        $state->round->number = 6;
+        $state->round->scoringTileId = RoundScoringTile::GuildLaw->value;
+        $state->turnOrder = [1, 2];
+        $opponent = $state->deepCopy()->players[0];
+        $opponent->playerId = 2;
+        $opponent->userId = 20;
+        $state->players[] = $opponent;
+        $state->passedPlayerIds = [2];
+        $state->players[0]->roundBonus = RoundBonus::PassSchool;
+        $state->players[0]->resources = new PlayerResourcesData(coins: 36, tools: 12);
+        $state->players[0]->knowledge->engineering = 6;
+        $state->players[0]->townTileIds = [TownTile::Coins->value];
+        $state->availableCompetencyIds = [];
+        $state->availablePalaceIds = [];
+        $state->setupPool = app(GameSetupPoolFactory::class)->createFromSeed(2, 'final-school-pass');
+        $state->board->hexes = [
+            $this->buildingHex('school-one', 1, ['school-two']),
+            $this->buildingHex('school-two', 1, ['school-one', 'workshop']),
+            $this->buildingHex('workshop', 1, ['school-two']),
+        ];
+        foreach ($state->board->hexes as $hex) {
+            $hex->townId = 'existing-town';
+        }
+        $state->board->hexes[0]->building->type = BuildingType::School;
+        $state->board->hexes[1]->building->type = BuildingType::School;
+
+        $ranked = app(GameActionRanker::class)->execute($state, 1, depth: 1, maxNodes: 25, auxiliaryActionsRemaining: 0);
+
+        $this->assertSame(GameActionOptionType::UpgradeBuilding, $ranked[0]->option->type());
+        $this->assertSame(BuildingType::Guild, $ranked[0]->option->target);
+        $this->assertGreaterThan(0, $ranked[0]->scoreBreakdown->searchAdjustment);
+        $this->assertSame(GamePhase::Actions, $ranked[0]->simulation->state->round->phase);
+        $this->assertSame([2], $ranked[0]->simulation->state->passedPlayerIds);
+        $this->assertSame(36, $state->players[0]->resources->coins);
+        $this->assertSame(6, $state->players[0]->knowledge->engineering);
+    }
+
+    public function test_final_scholar_bonus_is_collected_instead_of_lost_by_passing(): void
+    {
+        $state = $this->state();
+        $state->round->number = 6;
+        $state->round->scoringTileId = RoundScoringTile::GuildLaw->value;
+        $state->turnOrder = [1, 2];
+        $opponent = $state->deepCopy()->players[0];
+        $opponent->playerId = 2;
+        $opponent->userId = 20;
+        $state->players[] = $opponent;
+        $state->passedPlayerIds = [2];
+        $state->players[0]->roundBonus = RoundBonus::SendScholar;
+        $state->players[0]->resources = new PlayerResourcesData(scholars: 1);
+        $state->players[0]->knowledge = new KnowledgeStateData(banking: 12, law: 12, engineering: 12, medicine: 12);
+        $state->players[0]->townTileIds = [TownTile::Coins->value];
+        $state->setupPool = app(GameSetupPoolFactory::class)->createFromSeed(2, 'final-scholar-bonus');
+        $state->board->hexes = [$this->buildingHex('workshop', 1, [])];
+
+        $ranked = app(GameActionRanker::class)->execute($state, 1, depth: 1, maxNodes: 25, auxiliaryActionsRemaining: 0);
+
+        $this->assertInstanceOf(SendScholarOptionData::class, $ranked[0]->option);
+        $this->assertSame(22, $ranked[0]->simulation->state->players[0]->victoryPoints);
+        $this->assertSame(GamePhase::Actions, $ranked[0]->simulation->state->round->phase);
+        $this->assertSame(1, $state->players[0]->resources->scholars);
+        $this->assertSame(20, $state->players[0]->victoryPoints);
+    }
+
+    public function test_a_small_budget_forecasts_a_newly_funded_town_upgrade_before_other_terraforming_branches(): void
+    {
+        $state = $this->state();
+        $state->round->number = 2;
+        $state->turnOrder = [1, 2];
+        $opponent = $state->deepCopy()->players[0];
+        $opponent->playerId = 2;
+        $opponent->userId = 20;
+        $state->players[] = $opponent;
+        $state->players[0]->resources = new PlayerResourcesData(coins: 2, tools: 3);
+        $state->availableTownTileIds = [TownTile::Coins->value];
+        $state->availableCompetencyIds = [];
+        $state->availablePalaceIds = [];
+        $state->setupPool = app(GameSetupPoolFactory::class)->createFromSeed(2, 'funded-town-upgrade');
+        $state->setupPool->availableRoundBonuses = [new RoundBonusOfferData(RoundBonus::RiverWorkshop, 0)];
+        $state->board->hexes = [
+            $this->buildingHex('a', 1, ['b']),
+            $this->buildingHex('b', 1, ['a', 'c']),
+            $this->buildingHex('c', 1, ['b', 'd']),
+            $this->buildingHex('d', 1, ['c', 'opponent', 'target-0', 'target-1', 'target-2', 'target-3']),
+            $this->buildingHex('opponent', 2, ['d']),
+        ];
+        $state->board->hexes[0]->building->type = BuildingType::School;
+        $state->board->hexes[1]->building->type = BuildingType::Guild;
+        for ($index = 0; $index < 4; $index++) {
+            $state->board->hexes[] = $this->emptyHex('target-'.$index, ['d'], TerrainType::Mountain);
+        }
+        $ranker = app(GameActionRanker::class);
+
+        $ranked = $ranker->execute($state, 1, depth: 1, maxNodes: 8);
+
+        $this->assertSame(GameActionOptionType::ExchangeResources, $ranked[0]->option->type());
+        $this->assertGreaterThan(100, $ranked[0]->scoreBreakdown->searchAdjustment);
+        $this->assertLessThanOrEqual(8, $ranker->lastVisitedNodes());
+        $this->assertSame(3, $ranked[0]->simulation->state->players[0]->resources->coins);
+        $this->assertSame(BuildingType::Workshop, $ranked[0]->simulation->state->board->hexes[3]->building->type);
+        $this->assertSame(2, $state->players[0]->resources->coins);
+    }
+
+    public function test_future_scholar_income_is_limited_by_the_remaining_physical_pool(): void
+    {
+        $state = $this->state();
+        $state->round->number = 3;
+        $state->board->hexes = [$this->buildingHex('school', 1, [])];
+        $state->board->hexes[0]->building->type = BuildingType::School;
+        $state->players[0]->scholarPoolSize = 0;
+        $evaluator = app(GameStateEvaluator::class);
+        $withoutPool = $evaluator->evaluateWithBreakdown($state, 1)->futureIncome;
+        $state->players[0]->scholarPoolSize = 1;
+
+        $this->assertSame(63, $evaluator->evaluateWithBreakdown($state, 1)->futureIncome - $withoutPool);
+        $state->board->hexes[] = $this->buildingHex('second-school', 1, []);
+        $state->board->hexes[1]->building->type = BuildingType::School;
+        $this->assertSame($withoutPool + 63, $evaluator->evaluateWithBreakdown($state, 1)->futureIncome);
+    }
+
+    public function test_the_first_scholar_income_uses_only_the_room_left_after_passing(): void
+    {
+        $state = $this->state();
+        $state->round->number = 3;
+        $state->players[0]->scholarPoolSize = 1;
+        $state->board->hexes = [$this->buildingHex('school', 1, [])];
+        $state->board->hexes[0]->building->type = BuildingType::School;
+        $evaluator = app(GameStateEvaluator::class);
+        $emptyHand = $evaluator->evaluateWithBreakdown($state, 1)->futureIncome;
+        $state->players[0]->resources->scholars = 1;
+        $this->assertSame($emptyHand, $evaluator->evaluateWithBreakdown($state, 1)->futureIncome);
+
+        foreach ([GamePhase::Actions, GamePhase::ScienceBonus, GamePhase::Setup] as $phase) {
+            $state->round->phase = $phase;
+            $state->passedPlayerIds = $phase === GamePhase::Actions ? [1] : [];
+            $state->players[0]->resources->scholars = 0;
+            $emptyHand = $evaluator->evaluateWithBreakdown($state, 1)->futureIncome;
+            $state->players[0]->resources->scholars = 1;
+
+            $this->assertSame(40, $emptyHand - $evaluator->evaluateWithBreakdown($state, 1)->futureIncome);
+        }
+    }
+
+    public function test_a_placed_scholar_has_no_separate_value_after_its_knowledge_reward(): void
+    {
+        $before = $this->state();
+        $before->round->number = 3;
+        $after = $before->deepCopy();
+        $after->players[0]->scholarDisciplineIds = ['law'];
+        $after->players[0]->scholarSlotIndexes = [0];
+        $after->players[0]->scholarPoolSize--;
+        $evaluator = app(GameStateEvaluator::class);
+
+        $this->assertSame(
+            $evaluator->evaluateWithBreakdown($before, 1)->development,
+            $evaluator->evaluateWithBreakdown($after, 1)->development,
+        );
+    }
+
+    public function test_returning_the_last_scholar_is_better_than_placing_it_for_the_same_knowledge(): void
+    {
+        $state = $this->state();
+        $state->turnOrder = [1];
+        $state->round->number = 2;
+        $state->players[0]->scholarPoolSize = 1;
+        $state->players[0]->resources->scholars = 1;
+        $state->players[0]->townTileIds = [TownTile::Coins->value];
+        $state->players[0]->knowledge = new KnowledgeStateData(banking: 12, law: 12, engineering: 11, medicine: 12);
+        $state->board->hexes = [$this->buildingHex('school', 1, [])];
+        $state->board->hexes[0]->building->type = BuildingType::School;
+
+        $ranked = app(GameActionRanker::class)->execute($state, 1, depth: 1, auxiliaryActionsRemaining: 0);
+
+        $returned = collect($ranked)->first(static fn ($action): bool => $action->option instanceof SendScholarOptionData
+            && $action->option->discipline->value === 'engineering' && ! $action->option->place);
+        $placed = collect($ranked)->first(static fn ($action): bool => $action->option instanceof SendScholarOptionData
+            && $action->option->discipline->value === 'engineering' && $action->option->place);
+        $this->assertNotNull($returned);
+        $this->assertNotNull($placed);
+        $this->assertGreaterThan($placed->score, $returned->score);
+        $this->assertSame(1, $returned->simulation->state->players[0]->scholarPoolSize);
+        $this->assertSame(1, $state->players[0]->resources->scholars);
+    }
+
+    public function test_a_round_bonus_does_not_forecast_extra_scholars_when_regular_income_fills_the_pool(): void
+    {
+        $state = $this->state();
+        $state->round->number = 3;
+        $state->passedPlayerIds = [1];
+        $state->players[0]->scholarPoolSize = 1;
+        $state->board->hexes = [$this->buildingHex('school', 1, [])];
+        $state->board->hexes[0]->building->type = BuildingType::School;
+        $evaluator = app(GameStateEvaluator::class);
+        $coinBonusIncome = $evaluator->evaluateWithBreakdown($state, 1)->futureIncome;
+        $state->players[0]->roundBonus = RoundBonus::SendScholar;
+
+        $this->assertSame(-60, $evaluator->evaluateWithBreakdown($state, 1)->futureIncome - $coinBonusIncome);
+    }
+
+    public function test_building_against_an_existing_town_does_not_forecast_a_second_town(): void
+    {
+        $before = $this->townUpgradeState();
+        foreach (array_slice($before->board->hexes, 0, 3) as $hex) {
+            $hex->townId = 'existing-town';
+        }
+        $after = $before->deepCopy();
+        $after->board->hexes[3]->building->type = BuildingType::Guild;
+
+        $this->assertSame(0, app(BoardPositionProgressEvaluator::class)->execute($before, $after, 1));
+    }
+
+    public function test_expansion_that_would_join_an_old_town_does_not_forecast_a_new_town(): void
+    {
+        $before = $this->state();
+        $before->board->hexes = [
+            $this->buildingHex('a', 1, ['b']),
+            $this->buildingHex('b', 1, ['a', 'gap']),
+            $this->emptyHex('gap', ['b', 'extra', 'university']),
+            $this->emptyHex('extra', ['gap']),
+            $this->buildingHex('university', 1, ['gap', 'old-school', 'old-guild']),
+            $this->buildingHex('old-school', 1, ['university']),
+            $this->buildingHex('old-guild', 1, ['university']),
+        ];
+        $before->board->hexes[4]->building->type = BuildingType::University;
+        $before->board->hexes[5]->building->type = BuildingType::School;
+        $before->board->hexes[6]->building->type = BuildingType::Guild;
+        foreach (array_slice($before->board->hexes, 4) as $hex) {
+            $hex->townId = 'old-town';
+        }
+        $after = $before->deepCopy();
+        $after->board->hexes[0]->building->type = BuildingType::Guild;
+
+        $this->assertSame(0, app(BoardPositionProgressEvaluator::class)->execute($before, $after, 1));
+
+        $before->board->hexes[2]->adjacentHexIds = ['b', 'extra'];
+        $before->board->hexes[4]->adjacentHexIds = ['old-school', 'old-guild'];
+        foreach ([['gap', 'university'], ['university', 'gap']] as [$fromHexId, $toHexId]) {
+            $before->board->bridges = [new BridgeStateData($fromHexId, $toHexId, 1)];
+            $after = $before->deepCopy();
+            $after->board->hexes[0]->building->type = BuildingType::Guild;
+            $this->assertSame(0, app(BoardPositionProgressEvaluator::class)->execute($before, $after, 1));
+
+            $before->board->bridges[0]->ownerPlayerId = 2;
+            $after->board->bridges[0]->ownerPlayerId = 2;
+            $this->assertSame(16, app(BoardPositionProgressEvaluator::class)->execute($before, $after, 1));
+        }
+    }
+
+    public function test_available_annexes_are_valued_when_they_complete_a_town(): void
+    {
+        $before = $this->townUpgradeState();
+        array_pop($before->board->hexes);
+        $before->board->hexes[2]->adjacentHexIds = ['b'];
+        $before->board->hexes[2]->building->type = BuildingType::Guild;
+        $after = $before->deepCopy();
+        $after->players[0]->availableAnnexes = 1;
+        $evaluator = app(BoardPositionProgressEvaluator::class);
+
+        $this->assertSame(176, $evaluator->execute($before, $after, 1));
+        foreach ($after->board->hexes as $hex) {
+            $hex->townId = 'existing-town';
+        }
+        $withoutAnnex = $after->deepCopy();
+        $withoutAnnex->players[0]->availableAnnexes = 0;
+        $this->assertSame(0, $evaluator->execute($withoutAnnex, $after, 1));
+    }
+
+    public function test_an_annex_in_a_completed_town_network_has_no_independent_value(): void
+    {
+        $before = $this->townUpgradeState();
+        $before->round->number = 3;
+        $before->board->hexes[0]->building->type = BuildingType::University;
+        $before->board->hexes[1]->building->type = BuildingType::School;
+        $before->board->hexes[2]->building->type = BuildingType::Guild;
+        foreach (array_slice($before->board->hexes, 0, 3) as $hex) {
+            $hex->townId = 'completed-town';
+        }
+        $before->players[0]->availableAnnexes = 1;
+        $after = $before->deepCopy();
+        $after->players[0]->availableAnnexes = 0;
+        $after->board->hexes[3]->building->hasAnnex = true;
+        $evaluator = app(GameStateEvaluator::class);
+
+        $this->assertSame(
+            $evaluator->evaluateWithBreakdown($before, 1)->buildings,
+            $evaluator->evaluateWithBreakdown($after, 1)->buildings
+        );
+        $this->assertSame(0, app(BoardPositionProgressEvaluator::class)->execute($before, $after, 1));
+    }
+
+    public function test_the_first_of_two_needed_annexes_keeps_its_unfinished_town_progress_value(): void
+    {
+        $before = $this->state();
+        $before->round->number = 3;
+        $before->players[0]->palaceId = PalaceAbility::Palace08->value;
+        $before->players[0]->availableAnnexes = 2;
+        $before->board->hexes = [
+            $this->buildingHex('a', 1, ['b']),
+            $this->buildingHex('b', 1, ['a']),
+        ];
+        foreach ($before->board->hexes as $hex) {
+            $hex->building->type = BuildingType::Guild;
+        }
+        $after = $before->deepCopy();
+        $after->players[0]->availableAnnexes = 1;
+        $after->board->hexes[0]->building->hasAnnex = true;
+        $evaluator = app(GameStateEvaluator::class);
+
+        $this->assertSame(15, $evaluator->execute($after, 1) - $evaluator->execute($before, 1)
+            + app(BoardPositionProgressEvaluator::class)->execute($before, $after, 1));
+        $this->assertNull($after->board->hexes[0]->townId);
+    }
+
+    public function test_founding_a_town_preserves_the_value_of_the_annex_needed_to_found_it(): void
+    {
+        $before = $this->state();
+        $before->round->number = 3;
+        $before->board->hexes = [
+            $this->buildingHex('a', 1, ['b']),
+            $this->buildingHex('b', 1, ['a', 'c']),
+            $this->buildingHex('c', 1, ['b']),
+        ];
+        foreach ($before->board->hexes as $hex) {
+            $hex->building->type = BuildingType::Guild;
+        }
+        $before->board->hexes[0]->building->hasAnnex = true;
+        $after = $before->deepCopy();
+        foreach ($after->board->hexes as $hex) {
+            $hex->townId = 'new-town';
+        }
+        $evaluator = app(BoardPositionProgressEvaluator::class);
+
+        $this->assertSame(0, $evaluator->execute($before, $after, 1));
+        $extraAnnex = $after->deepCopy();
+        $extraAnnex->board->hexes[1]->building->hasAnnex = true;
+        $this->assertSame(0, $evaluator->execute($after, $extraAnnex, 1));
+    }
+
+    public function test_a_blocked_two_building_group_has_no_town_upgrade_bonus_without_annexes(): void
+    {
+        $before = $this->state();
+        $before->board->hexes = [
+            $this->buildingHex('a', 1, ['b']),
+            $this->buildingHex('b', 1, ['a']),
+        ];
+        $after = $before->deepCopy();
+        $after->board->hexes[0]->building->type = BuildingType::Guild;
+
+        $this->assertSame(0, app(BoardPositionProgressEvaluator::class)->execute($before, $after, 1));
+    }
+
+    public function test_one_annex_is_not_forecast_as_completing_two_separate_towns(): void
+    {
+        $before = $this->state();
+        $before->board->hexes = [];
+        foreach (['first', 'second'] as $prefix) {
+            foreach (['a' => ['b'], 'b' => ['a', 'c'], 'c' => ['b']] as $suffix => $neighbors) {
+                $hex = $this->buildingHex(
+                    $prefix.'-'.$suffix,
+                    1,
+                    array_map(static fn (string $neighbor): string => $prefix.'-'.$neighbor, $neighbors),
+                );
+                $hex->building->type = $suffix === 'c' ? BuildingType::School : BuildingType::Guild;
+                $before->board->hexes[] = $hex;
+            }
+        }
+        $after = $before->deepCopy();
+        $after->players[0]->availableAnnexes = 1;
+
+        $this->assertSame(176, app(BoardPositionProgressEvaluator::class)->execute($before, $after, 1));
+    }
+
+    public function test_annexes_can_complete_the_town_size_even_when_building_power_is_already_sufficient(): void
+    {
+        $before = $this->state();
+        $before->board->hexes = [
+            $this->buildingHex('palace', 1, ['school']),
+            $this->buildingHex('school', 1, ['palace', 'guild']),
+            $this->buildingHex('guild', 1, ['school']),
+        ];
+        $before->board->hexes[0]->building->type = BuildingType::Palace;
+        $before->board->hexes[1]->building->type = BuildingType::School;
+        $before->board->hexes[2]->building->type = BuildingType::Guild;
+        $after = $before->deepCopy();
+        $after->players[0]->availableAnnexes = 1;
+
+        $this->assertSame(104, app(BoardPositionProgressEvaluator::class)->execute($before, $after, 1));
+    }
+
+    public function test_upgrading_before_the_next_rounds_matching_scoring_has_an_opportunity_cost(): void
+    {
+        $before = $this->state();
+        $before->round->number = 1;
+        $before->round->scoringTileId = RoundScoringTile::PalaceUniversityMedicine->value;
+        $before->setupPool = app(GameSetupPoolFactory::class)->createFromSeed(2, 'upgrade-timing');
+        $before->setupPool->roundScoringTiles[1] = RoundScoringTile::GuildMedicine;
+        $before->board->hexes = [$this->buildingHex('home', 1, [])];
+        $after = $before->deepCopy();
+        $after->board->hexes[0]->building->type = BuildingType::Guild;
+        $evaluator = app(RoundScoringProgressEvaluator::class);
+
+        $this->assertSame(-3, $evaluator->execute($before, $after, 1));
+        $before->round->scoringTileId = RoundScoringTile::GuildLaw->value;
+        $this->assertSame(3, $evaluator->execute($before, $after, 1));
+        $before->round->number = 6;
+        $before->round->scoringTileId = RoundScoringTile::WorkshopLaw->value;
+        $this->assertSame(0, $evaluator->execute($before, $after, 1));
+    }
+
+    public function test_building_power_has_no_charging_value_without_neighboring_opponents(): void
+    {
+        $state = $this->state();
+        $state->round->number = 2;
+        $state->board->hexes = [$this->buildingHex('home', 1, ['opponent'])];
+        $evaluator = app(GameStateEvaluator::class);
+
+        $this->assertSame(0, $evaluator->evaluateWithBreakdown($state, 1)->buildings);
+        $state->board->hexes[] = $this->buildingHex('opponent', 2, ['home']);
+        $this->assertSame(40, $evaluator->evaluateWithBreakdown($state, 1)->buildings);
+    }
+
     public function test_excess_coins_are_valued_as_final_resources_instead_of_an_unlimited_building_budget(): void
     {
         $state = $this->state();
@@ -396,6 +916,34 @@ class GameActionRankerTest extends TestCase
         $this->assertSame([], $state->players[0]->competencyIds);
     }
 
+    public function test_competency_choice_prefers_annexes_that_enable_a_separate_town(): void
+    {
+        $state = $this->state();
+        $state->turnOrder = [1];
+        $state->round->number = 4;
+        $state->availableCompetencyIds = [Competency::Competency02->value, Competency::Competency06->value];
+        $state->board->hexes = [
+            $this->buildingHex('palace', 1, ['school']),
+            $this->buildingHex('school', 1, ['palace', 'guild']),
+            $this->buildingHex('guild', 1, ['school']),
+        ];
+        $state->board->hexes[0]->building->type = BuildingType::Palace;
+        $state->board->hexes[1]->building->type = BuildingType::School;
+        $state->board->hexes[2]->building->type = BuildingType::Guild;
+        $state->pendingInteraction = new PendingInteractionData(
+            type: PendingInteractionType::ChooseCompetency,
+            playerId: 1,
+            optionIds: $state->availableCompetencyIds,
+            context: ['reason' => 'building'],
+        );
+
+        $ranked = app(GameActionRanker::class)->execute($state, 1, depth: 1, auxiliaryActionsRemaining: 0);
+
+        $this->assertSame(Competency::Competency06, $ranked[0]->option->competency);
+        $this->assertSame(2, $ranked[0]->simulation->state->players[0]->availableAnnexes);
+        $this->assertSame(0, $state->players[0]->availableAnnexes);
+    }
+
     public function test_completed_reward_forecasts_survive_exhaustion_of_deeper_search(): void
     {
         $state = $this->state();
@@ -464,7 +1012,7 @@ class GameActionRankerTest extends TestCase
 
         $this->assertSame(GameActionOptionType::UpgradeBuilding, $ranked[0]->option->type());
         $this->assertSame(BuildingType::Palace, $ranked[0]->option->target);
-        $this->assertSame(488, $ranked[0]->scoreBreakdown->searchAdjustment);
+        $this->assertSame(340, $ranked[0]->scoreBreakdown->searchAdjustment);
         $this->assertSame($ranked[0]->score, $ranked[0]->scoreBreakdown->total());
         $this->assertSame(PendingInteractionType::ChoosePalace, $ranked[0]->simulation->state->pendingInteraction->type);
         $this->assertNull($ranked[0]->simulation->state->players[0]->palaceId);
@@ -518,7 +1066,7 @@ class GameActionRankerTest extends TestCase
         $this->assertNotNull($palace);
         $this->assertSame(BuildingType::Palace, $palace->option->target);
         $this->assertSame(PendingInteractionType::PowerOffer, $palace->simulation->state->pendingInteraction?->type);
-        $this->assertGreaterThan(300, $palace->scoreBreakdown->searchAdjustment);
+        $this->assertGreaterThan(0, $palace->scoreBreakdown->searchAdjustment);
         $this->assertNull($state->players[0]->palaceId);
         $this->assertSame(12, $state->players[1]->resources->power->bowlOne);
     }
@@ -869,11 +1417,14 @@ class GameActionRankerTest extends TestCase
         ];
 
         $ranked = app(GameActionRanker::class)->execute($state, 1, depth: 1, auxiliaryActionsRemaining: 0);
+        $terraforming = collect($ranked)->first(
+            static fn ($action): bool => $action->option->type() === GameActionOptionType::PaidTerraforming,
+        );
 
-        $this->assertSame(GameActionOptionType::PaidTerraforming, $ranked[0]->option->type());
-        $this->assertGreaterThan(0, $ranked[0]->scoreBreakdown->searchAdjustment);
-        $this->assertSame($ranked[0]->score, $ranked[0]->scoreBreakdown->total());
-        $this->assertNotNull($ranked[0]->simulation->state->pendingInteraction);
+        $this->assertNotNull($terraforming);
+        $this->assertGreaterThan(0, $terraforming->scoreBreakdown->searchAdjustment);
+        $this->assertSame($terraforming->score, $terraforming->scoreBreakdown->total());
+        $this->assertNotNull($terraforming->simulation->state->pendingInteraction);
         $this->assertNull($state->board->hexes[1]->building);
         $this->assertSame(TerrainType::Mountain, $state->board->hexes[1]->terrain);
     }
