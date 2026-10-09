@@ -15,6 +15,7 @@ final class ResourceExchangeOptionData extends Data implements GameActionOption
     public function __construct(
         public ResourceExchange $exchange,
         public ?KnowledgeDiscipline $discipline = null,
+        public int $amount = 1,
     ) {
     }
 

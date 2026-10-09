@@ -10,13 +10,20 @@ use App\Domain\Automation\Data\GameActionSelectionDiagnosticsData;
 use App\Domain\Automation\Enums\GameActionSelectionReason;
 use App\Domain\Game\Enums\GameBotDifficulty;
 use App\Domain\GameEngine\Contracts\GameActionOption;
+use App\Domain\GameEngine\Economy\Data\ResourceExchangeBatchOptionData;
+use App\Domain\GameEngine\Economy\Data\ResourceExchangeOptionData;
+use App\Domain\GameEngine\Economy\Data\SacrificePowerOptionData;
 use App\Domain\GameEngine\State\Data\GameStateData;
 use App\Domain\GameEngine\Turns\Enums\GamePhase;
+use Illuminate\Validation\ValidationException;
+use InvalidArgumentException;
 
 final class GameActionSelector
 {
-    public function __construct(private GameActionRanker $gameActionRanker)
-    {
+    public function __construct(
+        private GameActionRanker $gameActionRanker,
+        private GameActionSimulator $gameActionSimulator,
+    ) {
     }
 
     public function execute(
@@ -73,6 +80,11 @@ final class GameActionSelector
             }
         }
 
+        $selectedOption = $selected?->option;
+        if ($selected !== null) {
+            $selected = $this->combineConsecutiveConversions($selected, $playerId);
+        }
+
         return new GameActionSelectionDiagnosticsData(
             selected: $selected,
             candidates: array_map(
@@ -81,9 +93,9 @@ final class GameActionSelector
                     score: $action->score,
                     rank: $index + 1,
                     scoreDelta: $selected === null ? 0 : $selected->score - $action->score,
-                    selected: $selected !== null && $action->option === $selected->option,
+                    selected: $action->option === $selectedOption,
                     scoreBreakdown: $action->scoreBreakdown,
-                    option: $action->option,
+                    option: $action->option === $selectedOption ? $selected->option : $action->option,
                 ),
                 $rankedActions,
                 array_keys($rankedActions),
@@ -97,6 +109,54 @@ final class GameActionSelector
             durationMilliseconds: (int) ((hrtime(true) - $startedAt) / 1_000_000),
             budgetExhausted: $this->gameActionRanker->lastBudgetExhausted(),
             searchTimings: $this->gameActionRanker->lastSearchTimings(),
+        );
+    }
+
+    private function combineConsecutiveConversions(EvaluatedGameActionData $selected, int $playerId): EvaluatedGameActionData
+    {
+        $option = $selected->option;
+        if (! $option instanceof ResourceExchangeOptionData && ! $option instanceof SacrificePowerOptionData) {
+            return $selected;
+        }
+        $amount = $option->amount;
+        $exchanges = $option instanceof ResourceExchangeOptionData ? [$option] : [];
+        $hasDifferentExchanges = false;
+        $simulation = $selected->simulation;
+        $combinedCount = 0;
+        foreach ($selected->continuation as $next) {
+            $matches = ($option instanceof ResourceExchangeOptionData && $next instanceof ResourceExchangeOptionData)
+                || ($option instanceof SacrificePowerOptionData && $next instanceof SacrificePowerOptionData);
+            if (! $matches) {
+                break;
+            }
+            try {
+                $simulation = $this->gameActionSimulator->execute($simulation->state, $playerId, $next);
+            } catch (ValidationException|InvalidArgumentException) {
+                break;
+            }
+            $amount += $next->amount;
+            if ($option instanceof ResourceExchangeOptionData && $next instanceof ResourceExchangeOptionData) {
+                $exchanges[] = $next;
+                $hasDifferentExchanges = $hasDifferentExchanges || $option->exchange !== $next->exchange
+                    || $option->discipline !== $next->discipline;
+            }
+            $combinedCount++;
+        }
+        if ($combinedCount === 0) {
+            return $selected;
+        }
+
+        $combined = $option instanceof ResourceExchangeOptionData
+            ? ($hasDifferentExchanges ? new ResourceExchangeBatchOptionData($exchanges)
+                : new ResourceExchangeOptionData($option->exchange, $option->discipline, $amount))
+            : new SacrificePowerOptionData($amount);
+
+        return new EvaluatedGameActionData(
+            $combined,
+            $simulation,
+            $selected->score,
+            $selected->scoreBreakdown,
+            array_slice($selected->continuation, $combinedCount),
         );
     }
 }

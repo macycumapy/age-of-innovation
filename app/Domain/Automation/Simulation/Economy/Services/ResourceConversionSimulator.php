@@ -7,6 +7,7 @@ namespace App\Domain\Automation\Simulation\Economy\Services;
 use App\Domain\Automation\Data\GameActionSimulationData;
 use App\Domain\GameEngine\Economy\Actions\ApplyResourceExchangeAction;
 use App\Domain\GameEngine\Economy\Actions\ApplySacrificePowerAction;
+use App\Domain\GameEngine\Economy\Data\ResourceExchangeBatchOptionData;
 use App\Domain\GameEngine\Economy\Data\ResourceExchangeOptionData;
 use App\Domain\GameEngine\Economy\Data\SacrificePowerOptionData;
 use App\Domain\GameEngine\Economy\Enums\ResourceExchange;
@@ -28,8 +29,17 @@ final class ResourceConversionSimulator
     public function execute(
         GameStateData $state,
         int $playerId,
-        ResourceExchangeOptionData|SacrificePowerOptionData $option,
+        ResourceExchangeOptionData|ResourceExchangeBatchOptionData|SacrificePowerOptionData $option,
     ): GameActionSimulationData {
+        if ($option instanceof ResourceExchangeBatchOptionData) {
+            $option->counts();
+            $result = new GameActionSimulationData($state, $playerId);
+            foreach ($option->exchanges as $exchange) {
+                $result = $this->execute($result->state, $playerId, $exchange);
+            }
+
+            return $result;
+        }
         $simulatedState = $state->deepCopy();
         $player = collect($simulatedState->players)->firstWhere('playerId', $playerId);
         if (! $player instanceof GamePlayerStateData) {
@@ -40,11 +50,11 @@ final class ResourceConversionSimulator
             static fn (ResourceExchangeOptionData|SacrificePowerOptionData $candidate): bool => match (true) {
                 $candidate instanceof ResourceExchangeOptionData && $option instanceof ResourceExchangeOptionData => $candidate->exchange === $option->exchange
                     && $candidate->discipline === $option->discipline,
-                $candidate instanceof SacrificePowerOptionData && $option instanceof SacrificePowerOptionData => $candidate->amount === $option->amount,
+                $candidate instanceof SacrificePowerOptionData && $option instanceof SacrificePowerOptionData => $option->amount > 0,
                 default => false,
             },
         );
-        if (! $isAvailable) {
+        if (! $isAvailable || ($option instanceof ResourceExchangeOptionData && $option->amount < 1)) {
             throw new InvalidArgumentException('Недопустимое преобразование ресурсов.');
         }
 
@@ -69,12 +79,12 @@ final class ResourceConversionSimulator
             if ($option->discipline === null) {
                 throw new InvalidArgumentException('Для обмена книги нужна дисциплина.');
             }
-            $powerToBook[$option->discipline->value] = 1;
+            $powerToBook[$option->discipline->value] = $option->amount;
         } elseif ($option->exchange === ResourceExchange::BookToCoin) {
             if ($option->discipline === null) {
                 throw new InvalidArgumentException('Для обмена книги нужна дисциплина.');
             }
-            $bookToCoin[$option->discipline->value] = 1;
+            $bookToCoin[$option->discipline->value] = $option->amount;
         }
 
         $payload = [
@@ -88,7 +98,7 @@ final class ResourceConversionSimulator
         ];
 
         if (! in_array($option->exchange, [ResourceExchange::PowerToBook, ResourceExchange::BookToCoin], true)) {
-            $payload[$option->exchange->value] = 1;
+            $payload[$option->exchange->value] = $option->amount;
         }
 
         return $payload;

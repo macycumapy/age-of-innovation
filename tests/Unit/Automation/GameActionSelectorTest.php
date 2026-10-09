@@ -10,7 +10,9 @@ use App\Domain\Game\Enums\GameBotDifficulty;
 use App\Domain\GameEngine\Board\Data\BuildWorkshopOptionData;
 use App\Domain\GameEngine\Board\Enums\TerrainType;
 use App\Domain\GameEngine\Economy\Data\PlayerResourcesData;
+use App\Domain\GameEngine\Economy\Data\ResourceExchangeBatchOptionData;
 use App\Domain\GameEngine\Economy\Data\ResourceExchangeOptionData;
+use App\Domain\GameEngine\Economy\Data\SacrificePowerOptionData;
 use App\Domain\GameEngine\Economy\Enums\ResourceExchange;
 use App\Domain\GameEngine\Interactions\Data\PendingInteractionData;
 use App\Domain\GameEngine\Interactions\Data\RewardDistributionOptionData;
@@ -19,6 +21,7 @@ use App\Domain\GameEngine\PlayerAbilities\Enums\Faction;
 use App\Domain\GameEngine\PlayerAbilities\Enums\RoundBonus;
 use App\Domain\GameEngine\Research\Data\ChooseCompetencyOptionData;
 use App\Domain\GameEngine\Research\Enums\Competency;
+use App\Domain\GameEngine\Research\Enums\KnowledgeDiscipline;
 use App\Domain\GameEngine\Setup\Data\PlanningBundleData;
 use App\Domain\GameEngine\Setup\Data\PlayerPlanningSelectionData;
 use App\Domain\GameEngine\State\Data\GamePlayerStateData;
@@ -30,6 +33,128 @@ use Tests\TestCase;
 
 class GameActionSelectorTest extends TestCase
 {
+    public function test_it_combines_consecutive_identical_exchanges_from_a_plan(): void
+    {
+        $state = $this->state();
+        $state->round->phase = GamePhase::Actions;
+        $state->turnOrder = [1];
+        $state->players[0]->resources->tools = 4;
+        $exchange = new ResourceExchangeOptionData(ResourceExchange::ToolToCoin);
+        $build = new BuildWorkshopOptionData('target');
+
+        $result = app(GameActionSelector::class)->selectWithDiagnostics(
+            $state,
+            1,
+            GameBotDifficulty::Fast,
+            plannedOptions: [$exchange, clone $exchange, clone $exchange, $build]
+        );
+
+        $this->assertSame(3, $result->selected->option->amount);
+        $this->assertSame([$build], $result->selected->continuation);
+        $this->assertSame(1, $result->selected->simulation->state->players[0]->resources->tools);
+        $this->assertSame(3, $result->selected->simulation->state->players[0]->resources->coins);
+        $this->assertSame(4, $state->players[0]->resources->tools);
+        $candidate = collect($result->candidates)->firstWhere('selected', true);
+        $this->assertSame(3, $candidate->option->amount);
+    }
+
+    public function test_it_combines_sacrifices_but_stops_before_a_different_action(): void
+    {
+        $state = $this->state();
+        $state->round->phase = GamePhase::Actions;
+        $state->turnOrder = [1];
+        $state->players[0]->resources->power->bowlTwo = 6;
+        $sacrifice = new SacrificePowerOptionData();
+        $exchange = new ResourceExchangeOptionData(ResourceExchange::PowerToCoin);
+
+        $result = app(GameActionSelector::class)->selectWithDiagnostics(
+            $state,
+            1,
+            GameBotDifficulty::Fast,
+            plannedOptions: [$sacrifice, clone $sacrifice, $exchange, clone $sacrifice]
+        );
+
+        $this->assertInstanceOf(SacrificePowerOptionData::class, $result->selected->option);
+        $this->assertSame(2, $result->selected->option->amount);
+        $this->assertSame(2, $result->selected->simulation->state->players[0]->resources->power->bowlTwo);
+        $this->assertSame(2, $result->selected->simulation->state->players[0]->resources->power->bowlThree);
+        $this->assertCount(2, $result->selected->continuation);
+        $this->assertSame($exchange, $result->selected->continuation[0]);
+    }
+
+    public function test_it_does_not_combine_an_unaffordable_follow_up_exchange(): void
+    {
+        $state = $this->state();
+        $state->round->phase = GamePhase::Actions;
+        $state->turnOrder = [1];
+        $state->players[0]->resources->tools = 1;
+        $exchange = new ResourceExchangeOptionData(ResourceExchange::ToolToCoin);
+
+        $result = app(GameActionSelector::class)->selectWithDiagnostics(
+            $state,
+            1,
+            GameBotDifficulty::Fast,
+            plannedOptions: [$exchange, clone $exchange]
+        );
+
+        $this->assertSame(1, $result->selected->option->amount);
+        $this->assertCount(1, $result->selected->continuation);
+    }
+
+    public function test_it_combines_exchanges_of_different_book_disciplines(): void
+    {
+        $state = $this->state();
+        $state->round->phase = GamePhase::Actions;
+        $state->turnOrder = [1];
+        $state->players[0]->resources->books->law = 1;
+        $state->players[0]->resources->books->banking = 1;
+        $law = new ResourceExchangeOptionData(ResourceExchange::BookToCoin, KnowledgeDiscipline::Law);
+        $banking = new ResourceExchangeOptionData(ResourceExchange::BookToCoin, KnowledgeDiscipline::Banking);
+
+        $result = app(GameActionSelector::class)->selectWithDiagnostics(
+            $state,
+            1,
+            GameBotDifficulty::Fast,
+            plannedOptions: [$law, $banking]
+        );
+
+        $this->assertInstanceOf(ResourceExchangeBatchOptionData::class, $result->selected->option);
+        $this->assertSame([$law->toArray(), $banking->toArray()], array_map(
+            static fn (ResourceExchangeOptionData $exchange): array => $exchange->toArray(),
+            $result->selected->option->exchanges,
+        ));
+        $this->assertSame([], $result->selected->continuation);
+        $this->assertSame(2, $result->selected->simulation->state->players[0]->resources->coins);
+        $counts = $result->selected->option->counts();
+        $this->assertSame(1, $counts[ResourceExchange::BookToCoin->value]['law']);
+        $this->assertSame(1, $counts[ResourceExchange::BookToCoin->value]['banking']);
+    }
+
+    public function test_it_batches_dependent_exchanges_without_crossing_a_sacrifice(): void
+    {
+        $state = $this->state();
+        $state->round->phase = GamePhase::Actions;
+        $state->turnOrder = [1];
+        $state->players[0]->resources->power->bowlThree = 3;
+        $state->players[0]->resources->power->bowlTwo = 2;
+        $power = new ResourceExchangeOptionData(ResourceExchange::PowerToTool);
+        $tool = new ResourceExchangeOptionData(ResourceExchange::ToolToCoin);
+        $sacrifice = new SacrificePowerOptionData();
+
+        $result = app(GameActionSelector::class)->selectWithDiagnostics(
+            $state,
+            1,
+            GameBotDifficulty::Fast,
+            plannedOptions: [$power, $tool, $sacrifice, new ResourceExchangeOptionData(ResourceExchange::PowerToCoin)]
+        );
+
+        $this->assertInstanceOf(ResourceExchangeBatchOptionData::class, $result->selected->option);
+        $this->assertSame(1, $result->selected->simulation->state->players[0]->resources->coins);
+        $this->assertSame(0, $result->selected->simulation->state->players[0]->resources->tools);
+        $this->assertCount(2, $result->selected->continuation);
+        $this->assertSame($sacrifice, $result->selected->continuation[0]);
+    }
+
     public function test_it_follows_a_legal_plan_and_keeps_its_remaining_actions(): void
     {
         $state = $this->state();

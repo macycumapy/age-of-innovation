@@ -36,6 +36,7 @@ use App\Domain\GameEngine\Economy\Actions\SacrificePowerAction;
 use App\Domain\GameEngine\Economy\Data\BookActionOptionData;
 use App\Domain\GameEngine\Economy\Data\PowerActionOptionData;
 use App\Domain\GameEngine\Economy\Data\PowerOfferOptionData;
+use App\Domain\GameEngine\Economy\Data\ResourceExchangeBatchOptionData;
 use App\Domain\GameEngine\Economy\Data\ResourceExchangeOptionData;
 use App\Domain\GameEngine\Economy\Data\SacrificePowerOptionData;
 use App\Domain\GameEngine\Economy\Enums\ResourceExchange;
@@ -203,6 +204,11 @@ final class PerformGameActionOptionAction
                 $option->hexId,
             ),
             $option instanceof PlayerSpecialActionOptionData => $this->performPlayerSpecialAction($game, $player, $option),
+            $option instanceof ResourceExchangeBatchOptionData => $this->exchangeResources->execute(
+                $game,
+                $player,
+                $option->counts(),
+            ),
             $option instanceof ResourceExchangeOptionData => $this->exchangeResources->execute(
                 $game,
                 $player,
@@ -328,10 +334,10 @@ final class PerformGameActionOptionAction
 
         if ($option->discipline instanceof KnowledgeDiscipline) {
             $disciplineCounts = $bookCounts;
-            $disciplineCounts[$option->discipline->value] = 1;
+            $disciplineCounts[$option->discipline->value] = $option->amount;
             $exchanges[$option->exchange->value] = $disciplineCounts;
         } else {
-            $exchanges[$option->exchange->value] = 1;
+            $exchanges[$option->exchange->value] = $option->amount;
         }
 
         return $exchanges;

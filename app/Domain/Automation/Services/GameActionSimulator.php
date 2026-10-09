@@ -48,6 +48,7 @@ use App\Domain\GameEngine\Contracts\GameActionOption;
 use App\Domain\GameEngine\Economy\Data\BookActionOptionData;
 use App\Domain\GameEngine\Economy\Data\PowerActionOptionData;
 use App\Domain\GameEngine\Economy\Data\PowerOfferOptionData;
+use App\Domain\GameEngine\Economy\Data\ResourceExchangeBatchOptionData;
 use App\Domain\GameEngine\Economy\Data\ResourceExchangeOptionData;
 use App\Domain\GameEngine\Economy\Data\SacrificePowerOptionData;
 use App\Domain\GameEngine\Interactions\Data\RewardDistributionOptionData;
@@ -126,6 +127,7 @@ final class GameActionSimulator
             $option instanceof PalaceActionOptionData => $this->palaceActionSimulator->execute($state, $playerId, $option),
             $option instanceof PlayerSpecialActionOptionData => $this->playerSpecialActionSimulator->execute($state, $playerId, $option),
             $option instanceof ResourceExchangeOptionData,
+            $option instanceof ResourceExchangeBatchOptionData,
             $option instanceof SacrificePowerOptionData => $this->resourceConversionSimulator->execute($state, $playerId, $option),
             $option instanceof PlaceAnnexOptionData => $this->placeAnnexSimulator->execute($state, $playerId, $option),
             $option instanceof PowerOfferOptionData => $this->powerOfferSimulator->execute($state, $playerId, $option),

@@ -8,6 +8,7 @@ use App\Domain\Automation\Services\GameActionSimulator;
 use App\Domain\GameEngine\Board\Enums\TerrainType;
 use App\Domain\GameEngine\Economy\Data\PlayerResourcesData;
 use App\Domain\GameEngine\Economy\Data\PowerBowlsStateData;
+use App\Domain\GameEngine\Economy\Data\ResourceExchangeBatchOptionData;
 use App\Domain\GameEngine\Economy\Data\ResourceExchangeOptionData;
 use App\Domain\GameEngine\Economy\Data\SacrificePowerOptionData;
 use App\Domain\GameEngine\Economy\Enums\ResourceExchange;
@@ -21,11 +22,41 @@ use App\Domain\GameEngine\State\Data\GameStateData;
 use App\Domain\GameEngine\State\Enums\PlayerColor;
 use App\Domain\GameEngine\Turns\Data\RoundStateData;
 use App\Domain\GameEngine\Turns\Enums\GamePhase;
+use Illuminate\Validation\ValidationException;
 use InvalidArgumentException;
 use Tests\TestCase;
 
 class ResourceConversionSimulatorTest extends TestCase
 {
+    public function test_it_simulates_dependent_exchanges_in_a_serialized_batch(): void
+    {
+        $state = $this->state();
+        $batch = unserialize(serialize(new ResourceExchangeBatchOptionData([
+            new ResourceExchangeOptionData(ResourceExchange::PowerToTool),
+            new ResourceExchangeOptionData(ResourceExchange::ToolToCoin),
+        ])));
+        $result = app(GameActionSimulator::class)->execute($state, 1, $batch);
+        $this->assertSame(1, $result->state->players[0]->resources->coins);
+        $this->assertSame(0, $result->state->players[0]->resources->tools);
+        $this->assertSame(2, $result->state->players[0]->resources->power->bowlThree);
+        $this->assertSame(5, $state->players[0]->resources->power->bowlThree);
+    }
+
+    public function test_it_rejects_an_unaffordable_exchange_inside_a_batch(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        app(GameActionSimulator::class)->execute($this->state(), 1, new ResourceExchangeBatchOptionData([
+            new ResourceExchangeOptionData(ResourceExchange::PowerToCoin),
+            new ResourceExchangeOptionData(ResourceExchange::ToolToCoin),
+        ]));
+    }
+
+    public function test_it_rejects_an_empty_batch(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        app(GameActionSimulator::class)->execute($this->state(), 1, new ResourceExchangeBatchOptionData([]));
+    }
+
     public function test_it_enumerates_and_simulates_an_atomic_resource_exchange(): void
     {
         $state = $this->state();
@@ -106,10 +137,52 @@ class ResourceConversionSimulatorTest extends TestCase
         ));
     }
 
-    public function test_it_rejects_a_sacrifice_amount_not_offered_by_the_finder(): void
+    public function test_it_simulates_a_combined_sacrifice(): void
+    {
+        $state = $this->state();
+        $result = app(GameActionSimulator::class)->execute($state, 1, new SacrificePowerOptionData(amount: 2));
+        $this->assertSame(0, $result->state->players[0]->resources->power->bowlTwo);
+        $this->assertSame(7, $result->state->players[0]->resources->power->bowlThree);
+        $this->assertSame(4, $state->players[0]->resources->power->bowlTwo);
+    }
+
+    public function test_it_simulates_multiple_books_of_the_same_discipline(): void
+    {
+        $state = $this->state();
+        $state->players[0]->resources->power->bowlThree = 10;
+        $result = app(GameActionSimulator::class)->execute(
+            $state,
+            1,
+            new ResourceExchangeOptionData(ResourceExchange::PowerToBook, KnowledgeDiscipline::Law, amount: 2)
+        );
+        $this->assertSame(2, $result->state->players[0]->resources->books->law);
+        $this->assertSame(0, $result->state->players[0]->resources->power->bowlThree);
+    }
+
+    public function test_it_rejects_an_unaffordable_combined_exchange(): void
+    {
+        $this->expectException(ValidationException::class);
+        app(GameActionSimulator::class)->execute(
+            $this->state(),
+            1,
+            new ResourceExchangeOptionData(ResourceExchange::PowerToCoin, amount: 6)
+        );
+    }
+
+    public function test_it_rejects_an_unaffordable_combined_sacrifice(): void
+    {
+        $this->expectException(ValidationException::class);
+        app(GameActionSimulator::class)->execute($this->state(), 1, new SacrificePowerOptionData(amount: 3));
+    }
+
+    public function test_it_rejects_a_zero_exchange(): void
     {
         $this->expectException(InvalidArgumentException::class);
-        app(GameActionSimulator::class)->execute($this->state(), 1, new SacrificePowerOptionData(amount: 2));
+        app(GameActionSimulator::class)->execute(
+            $this->state(),
+            1,
+            new ResourceExchangeOptionData(ResourceExchange::PowerToCoin, amount: 0)
+        );
     }
 
     private function state(): GameStateData
