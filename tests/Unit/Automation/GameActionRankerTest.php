@@ -580,7 +580,7 @@ class GameActionRankerTest extends TestCase
         $after->players[0]->availableAnnexes = 1;
         $evaluator = app(BoardPositionProgressEvaluator::class);
 
-        $this->assertSame(176, $evaluator->execute($before, $after, 1));
+        $this->assertSame(336, $evaluator->execute($before, $after, 1));
         foreach ($after->board->hexes as $hex) {
             $hex->townId = 'existing-town';
         }
@@ -615,6 +615,7 @@ class GameActionRankerTest extends TestCase
     public function test_the_first_of_two_needed_annexes_keeps_its_unfinished_town_progress_value(): void
     {
         $before = $this->state();
+        $before->availableTownTileIds = [TownTile::Coins->value];
         $before->round->number = 3;
         $before->players[0]->palaceId = PalaceAbility::Palace08->value;
         $before->players[0]->availableAnnexes = 2;
@@ -638,6 +639,7 @@ class GameActionRankerTest extends TestCase
     public function test_founding_a_town_preserves_the_value_of_the_annex_needed_to_found_it(): void
     {
         $before = $this->state();
+        $before->availableTownTileIds = [TownTile::Coins->value];
         $before->round->number = 3;
         $before->board->hexes = [
             $this->buildingHex('a', 1, ['b']),
@@ -676,6 +678,7 @@ class GameActionRankerTest extends TestCase
     public function test_one_annex_is_not_forecast_as_completing_two_separate_towns(): void
     {
         $before = $this->state();
+        $before->availableTownTileIds = [TownTile::Coins->value, TownTile::Tools->value];
         $before->board->hexes = [];
         foreach (['first', 'second'] as $prefix) {
             foreach (['a' => ['b'], 'b' => ['a', 'c'], 'c' => ['b']] as $suffix => $neighbors) {
@@ -691,12 +694,13 @@ class GameActionRankerTest extends TestCase
         $after = $before->deepCopy();
         $after->players[0]->availableAnnexes = 1;
 
-        $this->assertSame(176, app(BoardPositionProgressEvaluator::class)->execute($before, $after, 1));
+        $this->assertSame(336, app(BoardPositionProgressEvaluator::class)->execute($before, $after, 1));
     }
 
     public function test_annexes_can_complete_the_town_size_even_when_building_power_is_already_sufficient(): void
     {
         $before = $this->state();
+        $before->availableTownTileIds = [TownTile::Coins->value];
         $before->board->hexes = [
             $this->buildingHex('palace', 1, ['school']),
             $this->buildingHex('school', 1, ['palace', 'guild']),
@@ -708,7 +712,7 @@ class GameActionRankerTest extends TestCase
         $after = $before->deepCopy();
         $after->players[0]->availableAnnexes = 1;
 
-        $this->assertSame(104, app(BoardPositionProgressEvaluator::class)->execute($before, $after, 1));
+        $this->assertSame(264, app(BoardPositionProgressEvaluator::class)->execute($before, $after, 1));
     }
 
     public function test_upgrading_before_the_next_rounds_matching_scoring_has_an_opportunity_cost(): void
@@ -1092,6 +1096,7 @@ class GameActionRankerTest extends TestCase
     public function test_competency_choice_prefers_annexes_that_enable_a_separate_town(): void
     {
         $state = $this->state();
+        $state->availableTownTileIds = [TownTile::Coins->value];
         $state->turnOrder = [1];
         $state->round->number = 4;
         $state->availableCompetencyIds = [Competency::Competency02->value, Competency::Competency06->value];
