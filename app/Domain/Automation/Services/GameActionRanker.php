@@ -10,20 +10,32 @@ use App\Domain\Automation\Data\GameActionSearchTimingsData;
 use App\Domain\Automation\Data\GameActionSimulationData;
 use App\Domain\Automation\Data\GameActionSimulationTimingsData;
 use App\Domain\Automation\Data\GameTreeSearchContext;
+use App\Domain\Automation\Data\StrategicPlanData;
 use App\Domain\Automation\Evaluation\Data\GameStateScoreData;
+use App\Domain\Automation\Evaluation\Services\AnnexOpportunityEvaluator;
 use App\Domain\Automation\Evaluation\Services\BoardPositionProgressEvaluator;
+use App\Domain\Automation\Evaluation\Services\BridgeOpportunityEvaluator;
+use App\Domain\Automation\Evaluation\Services\CoinSpendingOpportunityEvaluator;
 use App\Domain\Automation\Evaluation\Services\FinalScoringProgressEvaluator;
 use App\Domain\Automation\Evaluation\Services\GameStateEvaluator;
 use App\Domain\Automation\Evaluation\Services\PassValueEvaluator;
 use App\Domain\Automation\Evaluation\Services\PlayerEconomicNeedsEvaluator;
 use App\Domain\Automation\Evaluation\Services\RoundScoringProgressEvaluator;
+use App\Domain\GameEngine\Board\Actions\FindEligibleBridgePairsAction;
+use App\Domain\GameEngine\Board\Data\PlaceAnnexOptionData;
+use App\Domain\GameEngine\Board\Data\PlaceBridgeOptionData;
+use App\Domain\GameEngine\Board\Data\SkipBridgeOptionData;
 use App\Domain\GameEngine\Board\Enums\BuildingType;
 use App\Domain\GameEngine\Contracts\GameActionOption;
 use App\Domain\GameEngine\Economy\Data\PowerActionOptionData;
+use App\Domain\GameEngine\Economy\Enums\PowerAction;
 use App\Domain\GameEngine\Enums\GameActionOptionType;
 use App\Domain\GameEngine\Interactions\Enums\PendingInteractionType;
 use App\Domain\GameEngine\Interactions\Services\GameActionOptionFinder;
+use App\Domain\GameEngine\PlayerAbilities\Data\PlayerSpecialActionOptionData;
 use App\Domain\GameEngine\PlayerAbilities\Enums\RoundBonus;
+use App\Domain\GameEngine\Research\Data\ChooseCompetencyOptionData;
+use App\Domain\GameEngine\Research\Enums\Competency;
 use App\Domain\GameEngine\State\Data\GamePlayerStateData;
 use App\Domain\GameEngine\State\Data\GameStateData;
 use App\Domain\GameEngine\Turns\Actions\ApplyFinishActionTurnAction;
@@ -59,6 +71,11 @@ final class GameActionRanker
         private PlayerEconomicNeedsEvaluator $playerEconomicNeedsEvaluator,
         private ApplyFinishActionTurnAction $applyFinishActionTurn,
         private PassOptionFinder $passOptionFinder,
+        private AnnexOpportunityEvaluator $annexOpportunityEvaluator,
+        private StrategicPlanner $strategicPlanner,
+        private BridgeOpportunityEvaluator $bridgeOpportunityEvaluator,
+        private FindEligibleBridgePairsAction $findBridgePairs,
+        private CoinSpendingOpportunityEvaluator $coinSpendingOpportunityEvaluator,
     ) {
     }
 
@@ -72,6 +89,7 @@ final class GameActionRanker
         int $maxTimeMilliseconds = 20_000,
         int $auxiliaryActionsRemaining = self::MAX_AUXILIARY_ACTIONS_PER_TURN,
         ?GameActionOption $requiredRootOption = null,
+        ?StrategicPlanData $strategicPlan = null,
     ): array {
         if ($depth < 1
             || $branchLimit < 1
@@ -82,7 +100,7 @@ final class GameActionRanker
             throw new InvalidArgumentException('Глубина, ширина и бюджеты поиска должны быть положительными.');
         }
 
-        $context = new GameTreeSearchContext($maxNodes, $maxTimeMilliseconds);
+        $context = new GameTreeSearchContext($maxNodes, $maxTimeMilliseconds, $strategicPlan, $playerId);
         if ($depth > 1) {
             $context->fundingForecastNodeLimit = max(1, intdiv($maxNodes, 3));
         }
@@ -220,6 +238,7 @@ final class GameActionRanker
                     passPenalty: $initialBreakdown->passPenalty,
                     searchAdjustment: $searchScore - $initialBreakdown->state->total()
                         - ($fundingPlan !== null ? max(0, $initialBreakdown->economicNeeds) : 0),
+                    strategicPlan: $initialBreakdown->strategicPlan,
                 );
                 $iterationActions[$candidateIndex] = [
                     'evaluation' => new EvaluatedGameActionData(
@@ -268,6 +287,7 @@ final class GameActionRanker
                     economicNeeds: $breakdown->economicNeeds,
                     passPenalty: $breakdown->passPenalty,
                     searchAdjustment: $breakdown->searchAdjustment + $bestDirectScore - 1 - $evaluation->score,
+                    strategicPlan: $breakdown->strategicPlan,
                 );
                 $action['evaluation'] = new EvaluatedGameActionData($evaluation->option, $evaluation->simulation, $score->total(), $score);
             }
@@ -277,7 +297,7 @@ final class GameActionRanker
         usort(
             $rankedActions,
             static fn (array $left, array $right): int => $right['evaluation']->score <=> $left['evaluation']->score
-                ?: $left['isPass'] <=> $right['isPass']
+                ?: $right['isPass'] <=> $left['isPass']
                 ?: $left['isAuxiliary'] <=> $right['isAuxiliary']
                 ?: $left['index'] <=> $right['index'],
         );
@@ -645,7 +665,12 @@ final class GameActionRanker
             * self::FINAL_SCORING_PRIORITY_WEIGHT;
         $context->timings->finalScoringNanoseconds += hrtime(true) - $startedAt;
         $startedAt = hrtime(true);
-        $boardPosition = $this->boardPositionProgressEvaluator->execute($before, $after, $playerId);
+        $boardPosition = $this->boardPositionProgressEvaluator->execute(
+            $before,
+            $after,
+            $playerId,
+            $context->rootPlayerId === $playerId ? $context->strategicPlan : null
+        );
         $context->timings->boardPositionNanoseconds += hrtime(true) - $startedAt;
         $startedAt = hrtime(true);
         $economicNeeds = $this->playerEconomicNeedsEvaluator->execute($before, $after, $playerId);
@@ -658,6 +683,8 @@ final class GameActionRanker
             boardPosition: $boardPosition,
             economicNeeds: $economicNeeds,
             passPenalty: $passPenalty,
+            strategicPlan: $context->strategicPlan === null ? 0
+                : $this->strategicPlanner->actionAdjustment($before, $after, $playerId, $context->strategicPlan),
         );
     }
 
@@ -666,6 +693,74 @@ final class GameActionRanker
     {
         $startedAt = hrtime(true);
         $options = $this->gameActionOptionFinder->execute($state, $playerId);
+        $player = $this->playerById($state, $playerId);
+        if ($player !== null && $state->round->number < 6
+            && PowerAction::GainCoins->victoryPoints($player->faction, count($state->players)) === 0
+            && array_any($options, static fn (GameActionOption $option): bool =>
+                $option instanceof PowerActionOptionData && $option->action === PowerAction::GainCoins)
+            && ! $this->coinSpendingOpportunityEvaluator->execute(
+                $state,
+                $player,
+                $context->rootPlayerId === $playerId ? $context->strategicPlan : null
+            )) {
+            $options = array_values(array_filter($options, static fn (GameActionOption $option): bool =>
+                ! ($option instanceof PowerActionOptionData && $option->action === PowerAction::GainCoins)));
+        }
+        if ($player !== null && array_any($options, static fn (GameActionOption $option): bool =>
+            $option instanceof PlaceBridgeOptionData || ($option instanceof PowerActionOptionData && $option->action === PowerAction::BuildBridge)
+            || ($option instanceof PlayerSpecialActionOptionData && $option->type() === GameActionOptionType::UseRoundBonusAction
+                && $player->roundBonus === RoundBonus::Bridge))) {
+            $usefulPairs = array_filter(
+                $this->findBridgePairs->execute(
+                    $state,
+                    $playerId,
+                    canBuildAcrossTerrain: ($state->pendingInteraction?->context['source'] ?? null) === 'faction'
+                ),
+                fn (array $pair): bool => $this->bridgeOpportunityEvaluator->execute($state, $player, $pair['fromHexId'], $pair['toHexId'])
+            );
+            $hasSkip = array_any($options, static fn (GameActionOption $option): bool => $option instanceof SkipBridgeOptionData);
+            $options = array_values(array_filter($options, function (GameActionOption $option) use ($state, $player, $usefulPairs, $hasSkip): bool {
+                if ($option instanceof PlaceBridgeOptionData) {
+                    return isset($state->pendingInteraction?->context['selectedFromHexId'], $state->pendingInteraction?->context['selectedToHexId'])
+                        || ($usefulPairs === [] && ! $hasSkip)
+                        || $this->bridgeOpportunityEvaluator->execute($state, $player, $option->fromHexId, $option->toHexId);
+                }
+                if ($option instanceof PowerActionOptionData && $option->action === PowerAction::BuildBridge) {
+                    return $usefulPairs !== [] || $option->action->victoryPoints($player->faction, count($state->players)) > 0;
+                }
+                if ($option instanceof PlayerSpecialActionOptionData && $option->type() === GameActionOptionType::UseRoundBonusAction
+                    && $player->roundBonus === RoundBonus::Bridge) {
+                    return $usefulPairs !== [];
+                }
+
+                return true;
+            }));
+        }
+        if (array_any($options, static fn (GameActionOption $option): bool => $option instanceof PlaceAnnexOptionData
+            || ($option instanceof ChooseCompetencyOptionData && $option->competency === Competency::Competency06))) {
+            $player = collect($state->players)->firstWhere('playerId', $playerId);
+            if ($player instanceof GamePlayerStateData) {
+                $planning = $this->annexOpportunityEvaluator->execute($state, $player);
+                $hasOtherCompetency = array_any($options, static fn (GameActionOption $option): bool =>
+                    $option instanceof ChooseCompetencyOptionData && $option->competency !== Competency::Competency06);
+                $canUseAdditionalAnnexes = true;
+                if ($hasOtherCompetency) {
+                    $withAnnexes = clone $player;
+                    $withAnnexes->availableAnnexes += 2;
+                    $additional = $this->annexOpportunityEvaluator->execute($state, $withAnnexes);
+                    $canUseAdditionalAnnexes = $additional->requiredAnnexes > 0
+                        && ($additional->projectedTowns > $planning->projectedTowns || $additional->score > $planning->score);
+                }
+                $options = array_values(array_filter($options, static function (GameActionOption $option) use ($planning, $hasOtherCompetency, $canUseAdditionalAnnexes): bool {
+                    if ($option instanceof PlaceAnnexOptionData) {
+                        return in_array($option->hexId, $planning->annexCandidateHexIds, true);
+                    }
+
+                    return ! ($hasOtherCompetency && ! $canUseAdditionalAnnexes
+                        && $option instanceof ChooseCompetencyOptionData && $option->competency === Competency::Competency06);
+                }));
+            }
+        }
         $context->timings->optionFindingNanoseconds += hrtime(true) - $startedAt;
         $context->timings->optionFindingCalls++;
 
@@ -869,6 +964,7 @@ final class GameActionRanker
                     economicNeeds: $breakdown->economicNeeds,
                     passPenalty: $breakdown->passPenalty,
                     searchAdjustment: $score - $breakdown->total(),
+                    strategicPlan: $breakdown->strategicPlan,
                 );
                 $bestScore = new EvaluatedGameActionData($option, $simulation, $score, $forecastBreakdown);
             }
@@ -896,7 +992,8 @@ final class GameActionRanker
                 if ($score !== null) {
                     $auxiliaryBreakdown = $this->scoreBreakdown($state, $simulation->state, $playerId, 0, $context);
                     $progress = $auxiliaryBreakdown->boardPosition + $auxiliaryBreakdown->roundScoring
-                        + $auxiliaryBreakdown->finalScoring + min(0, $auxiliaryBreakdown->economicNeeds);
+                        + $auxiliaryBreakdown->finalScoring + min(0, $auxiliaryBreakdown->economicNeeds)
+                        + min(0, $auxiliaryBreakdown->strategicPlan);
                     $planScore = $score->score + $progress;
                     if ($bestScore === null || $planScore > $bestScore->score) {
                         $breakdown = $score->scoreBreakdown;
@@ -908,6 +1005,7 @@ final class GameActionRanker
                             economicNeeds: $breakdown->economicNeeds,
                             passPenalty: $breakdown->passPenalty,
                             searchAdjustment: $breakdown->searchAdjustment + $progress,
+                            strategicPlan: $breakdown->strategicPlan,
                         );
                         $bestScore = new EvaluatedGameActionData(
                             $score->option,

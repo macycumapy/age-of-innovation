@@ -24,6 +24,28 @@ use Tests\TestCase;
 
 class NetworkBlockingRiskEvaluatorTest extends TestCase
 {
+    public function test_partial_digging_is_penalized_when_it_funds_an_opponents_capture(): void
+    {
+        $before = $this->state();
+        $before->board->hexes[1]->terrain = TerrainType::Plains;
+        $before->players[1]->homeland = TerrainType::Swamp;
+        $before->players[1]->resources = new PlayerResourcesData(tools: 1, coins: 2);
+        $after = $before->deepCopy();
+        $after->board->hexes[1]->terrain = TerrainType::Swamp;
+        $evaluator = app(NetworkBlockingRiskEvaluator::class);
+
+        $this->assertSame(-40, $evaluator->execute($before, $after, 1));
+        $after->players[1]->resources->tools = 0;
+        $this->assertSame(0, $evaluator->execute($before, $after, 1));
+        $after->players[1]->resources->tools = 1;
+        $after->passedPlayerIds = [2];
+        $this->assertSame(0, $evaluator->execute($before, $after, 1));
+        $after->passedPlayerIds = [];
+        $after->board->hexes[1]->building = new BuildingStateData(BuildingType::Workshop, 1);
+        $this->assertGreaterThanOrEqual(0, $evaluator->execute($before, $after, 1));
+        $this->assertSame(TerrainType::Plains, $before->board->hexes[1]->terrain);
+    }
+
     public function test_claiming_a_contested_exit_preserves_future_expansion(): void
     {
         $before = $this->state();

@@ -6,6 +6,7 @@ namespace App\Domain\Automation\Services;
 
 use App\Domain\Automation\Actions\PlayAutomatedTurnAction;
 use App\Domain\Automation\Data\AutomatedGameDecisionData;
+use App\Domain\Automation\Data\AutomatedGamePlayerSummaryData;
 use App\Domain\Automation\Data\AutomatedGameResourcesData;
 use App\Domain\Automation\Data\AutomatedGameSimulationResultData;
 use App\Domain\Automation\Data\GameActionSearchBudgetData;
@@ -13,6 +14,7 @@ use App\Domain\Automation\Data\GameActionSelectionDiagnosticsData;
 use App\Domain\Automation\Enums\AutomatedGamePassReason;
 use App\Domain\Automation\Enums\GameActionSelectionReason;
 use App\Domain\Game\Enums\GameStatus;
+use App\Domain\GameEngine\Board\Services\LargestNetworkSizeCalculator;
 use App\Domain\GameEngine\Enums\GameActionOptionType;
 use App\Domain\GameEngine\Enums\GameActionType;
 use App\Domain\GameEngine\Interactions\Services\GameActionAvailabilityEvaluator;
@@ -145,6 +147,7 @@ class AutomatedGameSimulator
                 durationMilliseconds: $durationMilliseconds,
                 budgetExhausted: $budgetExhausted,
                 searchTimings: $diagnostics?->searchTimings,
+                strategicPlan: $diagnostics?->strategicPlan,
                 selectionReason: $selectionReason,
                 passReason: $actionType === GameActionType::Pass
                     ? match ($selectionReason) {
@@ -176,6 +179,23 @@ class AutomatedGameSimulator
                 static fn ($player): array => [$player->playerId => $player->victoryPoints],
             )->all(),
             stoppedReason: $stoppedReason,
+            playerSummaries: array_map(static function (GamePlayerStateData $player) use ($game, $decisions): AutomatedGamePlayerSummaryData {
+                $resources = null;
+                foreach ($decisions as $decision) {
+                    if ($decision->gamePlayerId === $player->playerId && $decision->actionType === GameActionType::Pass) {
+                        $resources = $decision->remainingResources;
+                    }
+                }
+
+                return new AutomatedGamePlayerSummaryData(
+                    $player->playerId,
+                    count($player->townTileIds),
+                    $player->shippingLevel,
+                    $player->terraformingLevel,
+                    LargestNetworkSizeCalculator::calculate($player, $game->state->board),
+                    $resources
+                );
+            }, $game->state->players),
         );
     }
 

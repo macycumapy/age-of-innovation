@@ -8,6 +8,7 @@ use App\Domain\Automation\Data\EvaluatedGameActionData;
 use App\Domain\Automation\Data\GameActionCandidateDiagnosticsData;
 use App\Domain\Automation\Data\GameActionSearchBudgetData;
 use App\Domain\Automation\Data\GameActionSelectionDiagnosticsData;
+use App\Domain\Automation\Data\StrategicPlanData;
 use App\Domain\Automation\Enums\GameActionSelectionReason;
 use App\Domain\Game\Enums\GameBotDifficulty;
 use App\Domain\GameEngine\Contracts\GameActionOption;
@@ -49,6 +50,7 @@ final class GameActionSelector
         int $auxiliaryActionsRemaining = 3,
         array $plannedOptions = [],
         ?GameActionSearchBudgetData $searchBudget = null,
+        ?StrategicPlanData $strategicPlan = null,
     ): GameActionSelectionDiagnosticsData {
         $parameters = $difficulty->searchParameters();
         $startedAt = hrtime(true);
@@ -62,8 +64,8 @@ final class GameActionSelector
             maxTimeMilliseconds: $searchBudget !== null ? $searchBudget->maxTimeMilliseconds : $parameters['maxTimeMilliseconds'],
             auxiliaryActionsRemaining: $auxiliaryActionsRemaining,
             requiredRootOption: $plannedOptions[0] ?? null,
+            strategicPlan: $strategicPlan,
         );
-
         $selected = $rankedActions[0] ?? null;
         $plannedOption = $plannedOptions[0] ?? null;
         $isPlannedContinuation = false;
@@ -103,15 +105,17 @@ final class GameActionSelector
                 $rankedActions,
                 array_keys($rankedActions),
             ),
-            selectionReason: $isPlannedContinuation ? GameActionSelectionReason::PlannedContinuation : match (count($rankedActions)) {
-                0 => GameActionSelectionReason::NoLegalActions,
-                1 => GameActionSelectionReason::OnlyLegalAction,
+            selectionReason: $isPlannedContinuation ? GameActionSelectionReason::PlannedContinuation : match (true) {
+                $selected !== null && $selected->scoreBreakdown->strategicPlan !== 0 => GameActionSelectionReason::StrategicPlan,
+                count($rankedActions) === 0 => GameActionSelectionReason::NoLegalActions,
+                count($rankedActions) === 1 => GameActionSelectionReason::OnlyLegalAction,
                 default => GameActionSelectionReason::HighestScore,
             },
             visitedNodes: $this->gameActionRanker->lastVisitedNodes(),
             durationMilliseconds: (int) ((hrtime(true) - $startedAt) / 1_000_000),
             budgetExhausted: $this->gameActionRanker->lastBudgetExhausted(),
             searchTimings: $this->gameActionRanker->lastSearchTimings(),
+            strategicPlan: $strategicPlan,
         );
     }
 

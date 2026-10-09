@@ -31,6 +31,7 @@ final readonly class AutomatedGameDecisionData
         public ?AutomatedGameResourcesData $remainingResources = null,
         public array $actionAvailability = [],
         public ?GameActionSearchTimingsData $searchTimings = null,
+        public ?StrategicPlanData $strategicPlan = null,
     ) {
     }
 }

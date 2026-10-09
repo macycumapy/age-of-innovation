@@ -30,6 +30,10 @@ final class GameStateEvaluator
 
     private const int COIN_WORKING_RESERVE = 12;
 
+    private const int BUILDING_COINS_PER_TOOL = 3;
+
+    private const int COIN_LIQUIDITY_RESERVE = 6;
+
     private const int TOOL_WEIGHT = 30;
 
     private const int SCHOLAR_WEIGHT = 40;
@@ -40,17 +44,13 @@ final class GameStateEvaluator
 
     private const int BOWL_TWO_POWER_WEIGHT = 7;
 
-    private const int POWER_CAPACITY_PER_ROUND_WEIGHT = 10;
+    private const int POWER_CAPACITY_PER_ROUND_WEIGHT = 2;
 
     private const int BOWL_THREE_POWER_WEIGHT = self::COIN_WEIGHT + self::BOWL_ONE_POWER_WEIGHT + 1;
 
     private const int KNOWLEDGE_STEP_WEIGHT = 10;
 
-    private const int DEVELOPMENT_STEP_WEIGHT = 50;
-
     private const int SPADE_WEIGHT = 30;
-
-    private const int AVAILABLE_ANNEX_WEIGHT = 10;
 
     private const int TOWN_WEIGHT = 80;
 
@@ -103,7 +103,7 @@ final class GameStateEvaluator
     {
         $books = $player->resources->books;
         $power = $player->resources->power;
-        $workingCoins = min($player->resources->coins, self::COIN_WORKING_RESERVE);
+        $workingCoins = min($player->resources->coins, $this->workingCoinCapacity($state, $player));
         $score = $workingCoins * $this->resourceWeight($state, self::COIN_WEIGHT, 2)
             + max(0, $player->resources->coins - $workingCoins) * 2;
         $score += $player->resources->tools * $this->resourceWeight($state, self::TOOL_WEIGHT, 2);
@@ -119,7 +119,6 @@ final class GameStateEvaluator
             PowerAction::TerraformTwoSpades->cost($player->faction),
         ) * $remainingRounds * self::POWER_CAPACITY_PER_ROUND_WEIGHT;
         $score += $player->unassignedSpades * $this->resourceWeight($state, self::SPADE_WEIGHT, 0);
-        $score += $player->availableAnnexes * $this->resourceWeight($state, self::AVAILABLE_ANNEX_WEIGHT, 0);
         $resourceScore = $score;
         $score = $player->knowledge->unassignedSteps * $this->resourceWeight($state, self::KNOWLEDGE_STEP_WEIGHT, 0);
 
@@ -128,7 +127,6 @@ final class GameStateEvaluator
             $score += $level * $this->resourceWeight($state, self::KNOWLEDGE_STEP_WEIGHT, 0);
         }
 
-        $score += ($player->shippingLevel + $player->terraformingLevel) * $this->resourceWeight($state, self::DEVELOPMENT_STEP_WEIGHT, 0);
         $score += count($player->townTileIds) * $this->resourceWeight($state, self::TOWN_WEIGHT, 0);
         $score += count($player->competencyIds) * $this->resourceWeight($state, self::COMPETENCY_WEIGHT, 0);
         $score += $this->innovationReadinessScore($state, $player);
@@ -267,6 +265,10 @@ final class GameStateEvaluator
         $incomeState->round->phase = GamePhase::Income;
         $firstIncomeRound = 7 - $remainingIncomePhases;
         $score = 0;
+        $forecastCoins = max(0, $player->resources->coins - max(
+            self::COIN_WORKING_RESERVE,
+            ($player->resources->tools + $income->tools) * self::BUILDING_COINS_PER_TOOL + self::COIN_LIQUIDITY_RESERVE,
+        ));
         for ($incomeRound = $firstIncomeRound; $incomeRound <= 6; $incomeRound++) {
             $incomeState->round->number = $incomeRound;
             $projectedIncome = clone $income;
@@ -275,7 +277,10 @@ final class GameStateEvaluator
                 : max(0, $player->scholarPoolSize - $this->scienceBonusEvaluator->scholarReward($state, $player, $incomeRound - 1));
             $projectedIncome->scholars = min($income->scholars, $capacity);
             $projectedIncome->power = min($income->power, $this->scienceBonusEvaluator->powerIncomeCapacity($state, $player, $incomeRound));
-            $score += $this->incomeScore($projectedIncome, $incomeState);
+            $value = $this->incomeValueEvaluator->execute($projectedIncome, $incomeRound, $forecastCoins);
+            $forecastCoins = max(0, $forecastCoins - $projectedIncome->tools * self::BUILDING_COINS_PER_TOOL);
+            $value += $this->competencyEvaluator->incomeScoreAdjustment($state, $player, $income, $projectedIncome, $incomeRound);
+            $score += $value;
         }
 
         $isChoosingNextBonus = $state->pendingInteraction?->type === PendingInteractionType::ChooseRoundBonus
@@ -360,13 +365,25 @@ final class GameStateEvaluator
         $incomeState->round = clone $state->round;
         $incomeState->round->number = $state->round->phase === GamePhase::Setup ? 1 : $state->round->number + 1;
         $incomeState->round->phase = GamePhase::Income;
-        $workingCoins = min($income->coins, max(0, self::COIN_WORKING_RESERVE - $player->resources->coins));
+        $workingCoins = min($income->coins, max(
+            0,
+            min(self::COIN_WORKING_RESERVE, max(
+                self::COIN_LIQUIDITY_RESERVE,
+                ($player->resources->tools + $income->tools) * self::BUILDING_COINS_PER_TOOL
+            ))
+                - $player->resources->coins
+        ));
+        $releasedCoins = min(
+            max(0, $player->resources->coins - $player->resources->tools * self::BUILDING_COINS_PER_TOOL),
+            $income->tools * self::BUILDING_COINS_PER_TOOL
+        );
         $scholars = min($income->scholars, $this->scholarIncomeCapacity($state, $player));
         $power = min($income->power, $this->scienceBonusEvaluator->powerIncomeCapacity($state, $player, $incomeState->round->number));
 
         return $income->victoryPoints * self::VICTORY_POINT_WEIGHT
             + $workingCoins * $this->resourceWeight($incomeState, self::COIN_WEIGHT, 2)
             + ($income->coins - $workingCoins) * 2
+            + $releasedCoins * ($this->resourceWeight($incomeState, self::COIN_WEIGHT, 2) - 2)
             + $income->tools * $this->resourceWeight($incomeState, self::TOOL_WEIGHT, 2)
             + $scholars * $this->resourceWeight($incomeState, self::SCHOLAR_WEIGHT, 2)
             + $income->books * $this->resourceWeight($incomeState, self::BOOK_WEIGHT, 2)
@@ -374,9 +391,14 @@ final class GameStateEvaluator
             + $income->knowledgeSteps * $this->resourceWeight($incomeState, self::KNOWLEDGE_STEP_WEIGHT, 0);
     }
 
-    private function incomeScore(IncomeReceiptData $income, GameStateData $state): int
+    private function workingCoinCapacity(GameStateData $state, GamePlayerStateData $player): int
     {
-        return $this->incomeValueEvaluator->execute($income, $state->round->number);
+        $tools = $player->resources->tools;
+        if ($state->round->phase === GamePhase::Setup) {
+            $tools += PlayerIncomeCalculator::calculate($player, $state->board, includeRoundBonus: false)->tools;
+        }
+
+        return min(self::COIN_WORKING_RESERVE, max(self::COIN_LIQUIDITY_RESERVE, $tools * self::BUILDING_COINS_PER_TOOL));
     }
 
     private function scholarIncomeCapacity(GameStateData $state, GamePlayerStateData $player): int

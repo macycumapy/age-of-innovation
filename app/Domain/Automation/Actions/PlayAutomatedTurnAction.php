@@ -5,15 +5,19 @@ declare(strict_types=1);
 namespace App\Domain\Automation\Actions;
 
 use App\Domain\Automation\Data\GameActionSearchBudgetData;
+use App\Domain\Automation\Data\StrategicPlanData;
 use App\Domain\Automation\Services\GameActionSelector;
+use App\Domain\Automation\Services\StrategicPlanner;
 use App\Domain\Game\Enums\GameBotDifficulty;
 use App\Domain\GameEngine\Contracts\GameActionOption;
 use App\Domain\GameEngine\Enums\GameActionType;
 use App\Domain\GameEngine\Interactions\Actions\PerformGameActionOptionAction;
+use App\Domain\GameEngine\State\Data\GamePlayerStateData;
 use App\Domain\GameEngine\Turns\Actions\FinishActionTurnAction;
 use App\Models\Game;
 use App\Models\GamePlayer;
 use DomainException;
+use Illuminate\Support\Facades\DB;
 
 final class PlayAutomatedTurnAction
 {
@@ -25,6 +29,7 @@ final class PlayAutomatedTurnAction
         private GameActionSelector $gameActionSelector,
         private PerformGameActionOptionAction $performGameActionOption,
         private FinishActionTurnAction $finishActionTurn,
+        private StrategicPlanner $strategicPlanner,
     ) {
     }
 
@@ -50,6 +55,7 @@ final class PlayAutomatedTurnAction
             }
 
             $state = $game->state;
+            $strategicPlan = $this->strategicPlanner->execute($state, $player->id);
 
             if ($state->pendingInteraction === null && $state->round->hasTakenMainAction) {
                 return $this->finishActionTurn->execute($game, $player);
@@ -62,6 +68,7 @@ final class PlayAutomatedTurnAction
                 $this->auxiliaryActionsRemaining($game, $player),
                 $plannedOptions,
                 $searchBudget,
+                $strategicPlan,
             );
             $onDecisionSelected?->__invoke($diagnostics);
             $selection = $diagnostics->selected;
@@ -71,7 +78,8 @@ final class PlayAutomatedTurnAction
             }
             $plannedOptions = $selection->continuation;
 
-            $game = $this->performGameActionOption->execute($game, $player, $selection->option);
+            $strategicPlan ??= $this->strategicPlanner->execute($selection->simulation->state, $player->id);
+            $game = $this->performWithStrategicPlan($game, $player, $selection->option, $strategicPlan);
 
             if ($singleDecision) {
                 return $game;
@@ -79,6 +87,24 @@ final class PlayAutomatedTurnAction
         }
 
         throw new DomainException('Автоматический игрок превысил лимит решений за ход.');
+    }
+
+    private function performWithStrategicPlan(Game $game, GamePlayer $player, GameActionOption $option, ?StrategicPlanData $plan): Game
+    {
+        return DB::transaction(function () use ($game, $player, $option, $plan): Game {
+            $lockedGame = Game::query()->lockForUpdate()->findOrFail($game->id);
+            if ($lockedGame->version !== $game->version || $lockedGame->active_game_player_id !== $player->id) {
+                throw new DomainException('Состояние партии изменилось во время выбора действия бота.');
+            }
+            $state = $lockedGame->state;
+            $playerState = collect($state->players)->firstWhere('playerId', $player->id);
+            if ($playerState instanceof GamePlayerStateData) {
+                $playerState->strategicPlan = $plan;
+                $lockedGame->update(['state' => $state]);
+            }
+
+            return $this->performGameActionOption->execute($lockedGame, $player, $option);
+        });
     }
 
     private function auxiliaryActionsRemaining(Game $game, GamePlayer $player): int

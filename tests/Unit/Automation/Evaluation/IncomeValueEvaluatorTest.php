@@ -32,6 +32,23 @@ class IncomeValueEvaluatorTest extends TestCase
         $this->assertSame(80, app(IncomeValueEvaluator::class)->execute($this->income(tools: 1, coins: 3), 4));
     }
 
+    public function test_existing_gold_covers_construction_before_new_coin_income(): void
+    {
+        $evaluator = app(IncomeValueEvaluator::class);
+        $income = $this->income(tools: 1, coins: 3);
+
+        $this->assertSame(80, $evaluator->execute($income, 4, availableCoins: 25));
+        $this->assertSame(80, $evaluator->execute($income, 4, availableCoins: 1));
+        $this->assertSame(2, $evaluator->execute($this->income(tools: 1, coins: 4), 4, availableCoins: 25)
+            - $evaluator->execute($income, 4, availableCoins: 25));
+        $this->assertSame(80, $evaluator->execute($income, 4));
+        $this->assertSame(3, $income->coins);
+        $this->assertSame(2, $evaluator->execute($this->income(tools: 1, coins: 2), 4, availableCoins: 25)
+            - $evaluator->execute($this->income(tools: 1, coins: 1), 4, availableCoins: 25));
+        $this->assertSame(20, $evaluator->execute($this->income(tools: 1, coins: 2), 4)
+            - $evaluator->execute($this->income(tools: 1, coins: 1), 4));
+    }
+
     public function test_income_without_tools_does_not_forecast_building_capacity(): void
     {
         $this->assertSame(16, app(IncomeValueEvaluator::class)->execute($this->income(tools: 0, coins: 8), 4));

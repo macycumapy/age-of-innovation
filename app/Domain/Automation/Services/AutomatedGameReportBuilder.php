@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace App\Domain\Automation\Services;
 
 use App\Domain\Automation\Data\AutomatedGameDecisionData;
+use App\Domain\Automation\Data\AutomatedGamePlayerSummaryData;
 use App\Domain\Automation\Data\AutomatedGameSimulationResultData;
 use App\Domain\Automation\Data\GameActionCandidateDiagnosticsData;
 use App\Domain\Automation\Data\GameActionSimulationTimingsData;
+use App\Domain\GameEngine\Enums\GameActionOptionType;
 use App\Domain\GameEngine\Interactions\Data\GameActionAvailabilityData;
 use App\Domain\GameEngine\Interactions\Enums\GameActionAvailabilityReason;
 
@@ -21,6 +23,23 @@ final class AutomatedGameReportBuilder
             'stopped_reason' => $result->stoppedReason,
             'duration_milliseconds' => $result->durationMilliseconds,
             'final_scores' => $result->finalScores,
+            'player_summaries' => array_map(fn (AutomatedGamePlayerSummaryData $summary): array => [
+                'game_player_id' => $summary->playerId,
+                'towns' => $summary->towns,
+                'shipping_level' => $summary->shippingLevel,
+                'terraforming_level' => $summary->terraformingLevel,
+                'largest_network' => $summary->largestNetwork,
+                'resources_at_last_pass' => $summary->resourcesAtLastPass,
+                'shipping_upgrades_without_position_gain' => $this->upgradesWithoutPositionGain($result, $summary->playerId, GameActionOptionType::AdvanceShipping),
+                'terraforming_upgrades_without_position_gain' => $this->upgradesWithoutPositionGain($result, $summary->playerId, GameActionOptionType::AdvanceTerraforming),
+                'building_upgrades_without_position_gain' => $this->upgradesWithoutPositionGain($result, $summary->playerId, GameActionOptionType::UpgradeBuilding),
+                'strategic_plan_decisions' => count(array_filter($result->decisions, static fn (AutomatedGameDecisionData $decision): bool =>
+                    $decision->gamePlayerId === $summary->playerId && $decision->strategicPlan !== null)),
+                'strategic_progress_actions' => count(array_filter($result->decisions, static fn (AutomatedGameDecisionData $decision): bool =>
+                    $decision->gamePlayerId === $summary->playerId && array_any($decision->candidates, static fn (GameActionCandidateDiagnosticsData $candidate): bool =>
+                        $candidate->selected && $candidate->scoreBreakdown->strategicPlan > 0))),
+                'strategic_plan_switches' => $this->strategicPlanSwitches($result, $summary->playerId),
+            ], $result->playerSummaries),
             'decisions' => array_map(
                 static fn (AutomatedGameDecisionData $decision): array => [
                     'game_player_id' => $decision->gamePlayerId,
@@ -28,6 +47,7 @@ final class AutomatedGameReportBuilder
                     'phase' => $decision->phase->value,
                     'action_type' => $decision->actionType?->value,
                     'selected_score' => $decision->selectedScore,
+                    'strategic_plan' => $decision->strategicPlan?->toArray(),
                     'candidates' => array_map(
                         static fn (GameActionCandidateDiagnosticsData $candidate): array => [
                             'type' => $candidate->type->value,
@@ -50,6 +70,7 @@ final class AutomatedGameReportBuilder
                                 'economic_needs' => $candidate->scoreBreakdown->economicNeeds,
                                 'pass_penalty' => -$candidate->scoreBreakdown->passPenalty,
                                 'search_adjustment' => $candidate->scoreBreakdown->searchAdjustment,
+                                'strategic_plan' => $candidate->scoreBreakdown->strategicPlan,
                             ],
                         ],
                         $decision->candidates,
@@ -113,5 +134,42 @@ final class AutomatedGameReportBuilder
                 $result->decisions,
             ),
         ];
+    }
+
+    private function strategicPlanSwitches(AutomatedGameSimulationResultData $result, int $playerId): int
+    {
+        $previous = null;
+        $switches = 0;
+        foreach ($result->decisions as $decision) {
+            if ($decision->gamePlayerId !== $playerId || $decision->strategicPlan === null) {
+                continue;
+            }
+            $anchors = $decision->strategicPlan->anchorHexIds;
+            sort($anchors, SORT_STRING);
+            if ($previous !== null && array_intersect($previous, $anchors) === []) {
+                $switches++;
+            }
+            $previous = $anchors;
+        }
+
+        return $switches;
+    }
+
+    private function upgradesWithoutPositionGain(AutomatedGameSimulationResultData $result, int $playerId, GameActionOptionType $type): int
+    {
+        $count = 0;
+        foreach ($result->decisions as $decision) {
+            if ($decision->gamePlayerId !== $playerId) {
+                continue;
+            }
+            foreach ($decision->candidates as $candidate) {
+                if ($candidate->selected && $candidate->type === $type && $candidate->scoreBreakdown->boardPosition <= 0
+                    && $candidate->scoreBreakdown->economicNeeds <= 0) {
+                    $count++;
+                }
+            }
+        }
+
+        return $count;
     }
 }

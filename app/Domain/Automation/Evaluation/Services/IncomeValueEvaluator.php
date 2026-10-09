@@ -11,13 +11,15 @@ final class IncomeValueEvaluator
     /** Even an undiscounted guild costs at most three coins per tool. */
     private const int BUILDING_COINS_PER_TOOL = 3;
 
-    public function execute(IncomeReceiptData $income, int $receivingRound): int
+    public function execute(IncomeReceiptData $income, int $receivingRound, int $availableCoins = 0): int
     {
-        $workingCoins = min($income->coins, $income->tools * self::BUILDING_COINS_PER_TOOL);
+        $workingCoins = min($income->coins, max(0, $income->tools * self::BUILDING_COINS_PER_TOOL - $availableCoins));
+        $releasedCoins = min($availableCoins, $income->tools * self::BUILDING_COINS_PER_TOOL);
 
         return $income->victoryPoints * 10
             + $workingCoins * $this->resourceWeight(20, 2, $receivingRound)
             + ($income->coins - $workingCoins) * 2
+            + $releasedCoins * ($this->resourceWeight(20, 2, $receivingRound) - 2)
             + $income->tools * $this->resourceWeight(20, 2, $receivingRound)
             + $income->scholars * $this->resourceWeight(40, 2, $receivingRound)
             + $income->books * $this->resourceWeight(25, 2, $receivingRound)

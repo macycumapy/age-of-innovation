@@ -4,9 +4,13 @@ declare(strict_types=1);
 
 namespace App\Domain\Automation\Evaluation\Services;
 
+use App\Domain\GameEngine\Board\Actions\FindEligibleNeutralBuildingHexesAction;
 use App\Domain\GameEngine\Board\Actions\FindReachableLandHexesAction;
+use App\Domain\GameEngine\Board\Data\BoardHexStateData;
 use App\Domain\GameEngine\Board\Enums\BuildingType;
+use App\Domain\GameEngine\Economy\Data\IncomeReceiptData;
 use App\Domain\GameEngine\Economy\Services\PlayerIncomeCalculator;
+use App\Domain\GameEngine\Interactions\Enums\PendingInteractionType;
 use App\Domain\GameEngine\Research\Enums\Competency;
 use App\Domain\GameEngine\Research\Enums\KnowledgeDiscipline;
 use App\Domain\GameEngine\State\Data\GamePlayerStateData;
@@ -20,8 +24,13 @@ final class CompetencyEvaluator
     /** Optional future actions are not guaranteed rewards. */
     private const float FUTURE_ACTION_DISCOUNT = 0.5;
 
-    public function __construct(private FindReachableLandHexesAction $findReachableLandHexes)
-    {
+    private const int UNPLACED_TOWER_INCOME_DIVISOR = 5;
+
+    public function __construct(
+        private FindReachableLandHexesAction $findReachableLandHexes,
+        private FindEligibleNeutralBuildingHexesAction $findEligibleNeutralBuildingHexes,
+        private IncomeValueEvaluator $incomeValueEvaluator,
+    ) {
     }
 
     public function execute(GameStateData $state, GamePlayerStateData $player): int
@@ -53,6 +62,36 @@ final class CompetencyEvaluator
         }
 
         return $score;
+    }
+
+    public function incomeScoreAdjustment(GameStateData $state, GamePlayerStateData $player, IncomeReceiptData $income, IncomeReceiptData $projectedIncome, int $incomeRound): int
+    {
+        if (! $this->shouldDiscountTowerIncome($state, $player)) {
+            return 0;
+        }
+        $withoutTower = clone $projectedIncome;
+        $withoutTower->coins = max(0, $income->coins - 2);
+        $withoutTower->power = min(max(0, $income->power - 2), $projectedIncome->power);
+        $value = $this->incomeValueEvaluator->execute($projectedIncome, $incomeRound);
+        $withoutTowerValue = $this->incomeValueEvaluator->execute($withoutTower, $incomeRound);
+        $towerValue = $value - $withoutTowerValue;
+
+        return intdiv($towerValue, self::UNPLACED_TOWER_INCOME_DIVISOR) - $towerValue;
+    }
+
+    private function shouldDiscountTowerIncome(GameStateData $state, GamePlayerStateData $player): bool
+    {
+        if (! in_array(Competency::Competency10->value, $player->competencyIds, true)
+            || array_any($state->board->hexes, static fn (BoardHexStateData $hex): bool => $hex->building?->ownerPlayerId === $player->playerId
+                && $hex->building->type === BuildingType::Tower)) {
+            return false;
+        }
+        $interaction = $state->pendingInteraction;
+
+        return $interaction?->type !== PendingInteractionType::PlaceNeutralBuilding
+            || $interaction->playerId !== $player->playerId
+            || ($interaction->context['buildingType'] ?? null) !== BuildingType::Tower->value
+            || $this->findEligibleNeutralBuildingHexes->execute($state, $player) === [];
     }
 
     private function powerScore(GamePlayerStateData $player, int $futureRounds, bool $currentRoundAvailable): int

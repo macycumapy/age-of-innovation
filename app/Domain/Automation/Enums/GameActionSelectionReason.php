@@ -10,4 +10,5 @@ enum GameActionSelectionReason: string
     case OnlyLegalAction = 'only_legal_action';
     case HighestScore = 'highest_score';
     case PlannedContinuation = 'planned_continuation';
+    case StrategicPlan = 'strategic_plan';
 }

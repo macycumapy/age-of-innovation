@@ -99,6 +99,91 @@ class PlayAutomatedTurnActionTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_a_confirmed_bot_action_persists_its_intention_in_the_existing_state(): void
+    {
+        Queue::fake();
+        $game = Game::factory()->create(['status' => GameStatus::Active, 'phase' => GamePhase::Actions]);
+        $bot = GamePlayer::factory()->bot(GameBotDifficulty::Fast)->create(['game_id' => $game->id, 'user_id' => null, 'seat' => 1]);
+        $player = $this->playerState($bot);
+        $player->availableAnnexes = 1;
+        $hexes = [];
+        foreach (range(0, 2) as $index) {
+            $hexes[] = new BoardHexStateData(
+                'town-'.$index,
+                $index,
+                0,
+                TerrainType::Forest,
+                TerrainType::Forest,
+                adjacentHexIds: array_values(array_filter(['town-'.($index - 1), 'town-'.($index + 1)], static fn (string $id): bool => in_array($id, ['town-0', 'town-1', 'town-2'], true))),
+                building: new BuildingStateData(BuildingType::Guild, $bot->id)
+            );
+        }
+        $game->update(['active_game_player_id' => $bot->id, 'state' => new GameStateData(
+            players: [$player],
+            turnOrder: [$bot->id],
+            board: new BoardStateData(hexes: $hexes),
+            round: new RoundStateData(6, GamePhase::Actions),
+            availableTownTileIds: [TownTile::Coins->value],
+        )]);
+        app(PlayAutomatedTurnAction::class)->execute($game, $bot, GameBotDifficulty::Fast, singleDecision: true);
+
+        $game->refresh();
+        $this->assertNotNull($game->state->players[0]->strategicPlan);
+        $this->assertSame(['town-0', 'town-1', 'town-2'], $game->state->players[0]->strategicPlan->anchorHexIds);
+        $this->assertSame([GameActionType::PlaceAnnex], $game->actions()->pluck('type')->all());
+        $snapshot = GameStateData::from($game->state->turnStartSnapshot);
+        $this->assertSame($game->state->players[0]->strategicPlan->toArray(), $snapshot->players[0]->strategicPlan?->toArray());
+        $this->assertSame(1, $snapshot->players[0]->availableAnnexes);
+    }
+
+    public function test_a_failed_bot_action_does_not_persist_a_new_intention(): void
+    {
+        Queue::fake();
+        $game = Game::factory()->create(['status' => GameStatus::Active, 'phase' => GamePhase::Actions]);
+        $bot = GamePlayer::factory()->bot(GameBotDifficulty::Fast)->create(['game_id' => $game->id, 'user_id' => null, 'seat' => 1]);
+        $player = $this->playerState($bot);
+        $player->availableAnnexes = 1;
+        $player->resources->tools = 1;
+        $player->resources->coins = 2;
+        $hexes = [];
+        foreach (range(0, 2) as $index) {
+            $hexes[] = new BoardHexStateData(
+                'town-'.$index,
+                $index,
+                0,
+                TerrainType::Forest,
+                TerrainType::Forest,
+                adjacentHexIds: array_values(array_filter(['town-'.($index - 1), 'town-'.($index + 1)], static fn (string $id): bool => in_array($id, ['town-0', 'town-1', 'town-2'], true))),
+                building: new BuildingStateData(BuildingType::Guild, $bot->id)
+            );
+        }
+        $game->update(['active_game_player_id' => $bot->id, 'state' => new GameStateData(
+            players: [$player],
+            turnOrder: [$bot->id],
+            board: new BoardStateData(hexes: $hexes),
+            round: new RoundStateData(6, GamePhase::Actions),
+            availableTownTileIds: [TownTile::Coins->value],
+        )]);
+        $original = $game->state->toArray();
+        $originalDispatcher = GameAction::getEventDispatcher();
+        $this->assertNotNull($originalDispatcher);
+        $dispatcher = clone $originalDispatcher;
+        $dispatcher->listen('eloquent.creating: '.GameAction::class, static function (): never {
+            throw new DomainException('failed action');
+        });
+        GameAction::setEventDispatcher($dispatcher);
+        try {
+            app(PlayAutomatedTurnAction::class)->execute($game, $bot, GameBotDifficulty::Fast, singleDecision: true);
+            $this->fail('Expected the action to fail.');
+        } catch (DomainException $exception) {
+            $this->assertSame('failed action', $exception->getMessage());
+        } finally {
+            GameAction::setEventDispatcher($originalDispatcher);
+        }
+        $this->assertSame($original, $game->refresh()->state->toArray());
+        $this->assertSame(0, $game->actions()->count());
+    }
+
     public function test_it_creates_reproducible_automated_games_from_a_seed(): void
     {
         Queue::fake();
@@ -131,6 +216,15 @@ class PlayAutomatedTurnActionTest extends TestCase
         $this->assertSame(1, $exitCode);
         Storage::disk('local')->assertExists('bot-reports/batches/command-benchmark/game-1.json');
         Storage::disk('local')->assertExists('bot-reports/batches/command-benchmark/summary.json');
+        $report = json_decode(Storage::disk('local')->get('bot-reports/batches/command-benchmark/game-1.json'), true, flags: JSON_THROW_ON_ERROR);
+        $this->assertNotEmpty($report['player_summaries']);
+        $this->assertSame(0, $report['player_summaries'][0]['towns']);
+        $this->assertNull($report['player_summaries'][0]['resources_at_last_pass']);
+        $this->assertSame(0, $report['player_summaries'][0]['shipping_upgrades_without_position_gain']);
+        $this->assertSame(0, $report['player_summaries'][0]['strategic_plan_decisions']);
+        $this->assertSame(0, $report['player_summaries'][0]['strategic_plan_switches']);
+        $this->assertSame(0, $report['player_summaries'][0]['strategic_progress_actions']);
+        $this->assertNull($report['decisions'][0]['strategic_plan']);
         $summary = json_decode(
             Storage::disk('local')->get('bot-reports/batches/command-benchmark/summary.json'),
             true,
@@ -141,6 +235,26 @@ class PlayAutomatedTurnActionTest extends TestCase
         $this->assertSame(0, $summary['completed_games']);
         $this->assertSame(0, $summary['scored_players']);
         $this->assertNull($summary['average_final_score']);
+        $this->assertNull($summary['average_towns']);
+        $this->assertNull($summary['average_coins_at_last_pass']);
+    }
+
+    public function test_reports_keep_towns_network_and_resources_before_final_conversion(): void
+    {
+        $resources = new \App\Domain\Automation\Data\AutomatedGameResourcesData(coins: 30, tools: 2, scholars: 1, books: 4, power: 3, spades: 0);
+        $result = new AutomatedGameSimulationResultData(true, [], 1, [1 => 150], playerSummaries: [
+            new \App\Domain\Automation\Data\AutomatedGamePlayerSummaryData(1, 2, 1, 2, 10, $resources),
+        ]);
+        $report = json_decode(json_encode(app(\App\Domain\Automation\Services\AutomatedGameReportBuilder::class)->execute($result), JSON_THROW_ON_ERROR), true, flags: JSON_THROW_ON_ERROR);
+
+        $summary = $report['player_summaries'][0];
+        $this->assertSame(2, $summary['towns']);
+        $this->assertSame(1, $summary['shipping_level']);
+        $this->assertSame(2, $summary['terraforming_level']);
+        $this->assertSame(10, $summary['largest_network']);
+        $this->assertSame(30, $summary['resources_at_last_pass']['coins']);
+        $this->assertSame(2, $summary['resources_at_last_pass']['tools']);
+        $this->assertSame(30, $resources->coins);
     }
 
     public function test_benchmark_average_includes_only_scores_from_completed_games(): void
@@ -1134,7 +1248,7 @@ class PlayAutomatedTurnActionTest extends TestCase
         $opponent = GamePlayer::factory()->create(['game_id' => $game->id, 'seat' => 2]);
         $player = $this->playerState($bot, new BookSupplyData(banking: 1, law: 1));
         $player->resources->tools = 2;
-        $pool = app(GameSetupPoolFactory::class)->create(2);
+        $pool = app(GameSetupPoolFactory::class)->createFromSeed(2, 'queued-stale-plan');
         $pool->bookActions = [BookAction::GainCoins];
         $game->update([
             'active_game_player_id' => $bot->id,

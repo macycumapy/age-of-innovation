@@ -17,6 +17,7 @@ final readonly class GameActionSelectionDiagnosticsData
         public int $durationMilliseconds,
         public bool $budgetExhausted,
         public GameActionSearchTimingsData $searchTimings,
+        public ?StrategicPlanData $strategicPlan = null,
     ) {
     }
 }

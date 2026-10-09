@@ -16,12 +16,13 @@ final readonly class GameActionScoreData
         public int $economicNeeds,
         public int $passPenalty,
         public int $searchAdjustment = 0,
+        public int $strategicPlan = 0,
     ) {
     }
 
     public function strategicProgress(): int
     {
-        return $this->roundScoring + $this->finalScoring + $this->boardPosition + $this->economicNeeds;
+        return $this->roundScoring + $this->finalScoring + $this->boardPosition + $this->economicNeeds + $this->strategicPlan;
     }
 
     public function total(): int

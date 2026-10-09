@@ -23,6 +23,119 @@ use Tests\TestCase;
 
 class CompetencyEvaluatorTest extends TestCase
 {
+    public function test_annex_competency_is_preferred_only_when_it_enables_a_new_town(): void
+    {
+        [$state, $player] = $this->state(Competency::Competency06);
+        $player->competencyIds = [];
+        $state->round->number = 6;
+        foreach (\App\Domain\GameEngine\Research\Enums\KnowledgeDiscipline::cases() as $discipline) {
+            $player->knowledge->{$discipline->value} = 10;
+        }
+        $state->turnOrder = [1];
+        $state->availableTownTileIds = [\App\Domain\GameEngine\Towns\Enums\TownTile::Coins->value];
+        $state->availableCompetencyIds = [Competency::Competency06->value, Competency::Competency04->value];
+        $state->board->hexes = [
+            new BoardHexStateData('a', 0, 0, TerrainType::Forest, TerrainType::Forest, adjacentHexIds: ['b'], building: new BuildingStateData(BuildingType::Guild, 1)),
+            new BoardHexStateData('b', 1, 0, TerrainType::Forest, TerrainType::Forest, adjacentHexIds: ['a', 'c'], building: new BuildingStateData(BuildingType::Guild, 1)),
+            new BoardHexStateData('c', 2, 0, TerrainType::Forest, TerrainType::Forest, adjacentHexIds: ['b'], building: new BuildingStateData(BuildingType::Guild, 1)),
+        ];
+        $state->pendingInteraction = new \App\Domain\GameEngine\Interactions\Data\PendingInteractionData(
+            \App\Domain\GameEngine\Interactions\Enums\PendingInteractionType::ChooseCompetency,
+            1,
+            $state->availableCompetencyIds,
+            ['reason' => 'innovation'],
+        );
+        $ranker = app(\App\Domain\Automation\Services\GameActionRanker::class);
+        $this->assertSame(Competency::Competency06, $ranker->execute($state, 1, depth: 1)[0]->option->competency);
+        $state->board->hexes[2]->adjacentHexIds[] = 'd';
+        $state->board->hexes[] = new BoardHexStateData('d', 3, 0, TerrainType::Forest, TerrainType::Forest, adjacentHexIds: ['c'], building: new BuildingStateData(BuildingType::Workshop, 1));
+        foreach ($state->board->hexes as $hex) {
+            $hex->townId = 'existing';
+        }
+        $ranked = $ranker->execute($state, 1, depth: 1);
+        $this->assertSame(Competency::Competency04, $ranked[0]->option->competency);
+        $this->assertSame([], $player->competencyIds);
+        $this->assertSame(0, $player->availableAnnexes);
+    }
+
+    public function test_tower_income_adjustment_preserves_capacity_limits_and_does_not_mutate_income(): void
+    {
+        [$state, $player] = $this->state(Competency::Competency10);
+        $income = new \App\Domain\GameEngine\Economy\Data\IncomeReceiptData(playerId: 1, tools: 0, coins: 4, scholars: 0, power: 5, books: 0, knowledgeSteps: 0, victoryPoints: 0);
+        $projected = clone $income;
+        $projected->power = 1;
+        $withoutTower = clone $projected;
+        $withoutTower->coins = 2;
+        $values = app(\App\Domain\Automation\Evaluation\Services\IncomeValueEvaluator::class);
+        $towerValue = $values->execute($projected, 5) - $values->execute($withoutTower, 5);
+        $evaluator = app(CompetencyEvaluator::class);
+
+        $this->assertSame(intdiv($towerValue, 5) - $towerValue, $evaluator->incomeScoreAdjustment($state, $player, $income, $projected, 5));
+        $this->assertSame(4, $income->coins);
+        $this->assertSame(5, $income->power);
+        $this->assertSame(1, $projected->power);
+        $player->competencyIds = [Competency::Competency02->value];
+        $this->assertSame(0, $evaluator->incomeScoreAdjustment($state, $player, $income, $projected, 5));
+    }
+
+    public function test_tower_income_is_discounted_without_an_affordable_placement_but_not_after_building(): void
+    {
+        [$state, $player] = $this->state(Competency::Competency10);
+        $state->board->hexes = [
+            new BoardHexStateData('home', 0, 0, TerrainType::Forest, TerrainType::Forest, adjacentHexIds: ['target'], building: new BuildingStateData(BuildingType::Guild, 1)),
+            new BoardHexStateData('target', 1, 0, TerrainType::Mountain, TerrainType::Mountain, adjacentHexIds: ['home']),
+        ];
+        $state->pendingInteraction = new \App\Domain\GameEngine\Interactions\Data\PendingInteractionData(
+            \App\Domain\GameEngine\Interactions\Enums\PendingInteractionType::PlaceNeutralBuilding,
+            1,
+            [],
+            ['buildingType' => BuildingType::Tower->value],
+        );
+        $evaluator = app(GameStateEvaluator::class);
+        $unaffordable = $evaluator->evaluateWithBreakdown($state, 1)->futureIncome;
+        $actualIncome = \App\Domain\GameEngine\Economy\Services\PlayerIncomeCalculator::calculate($player, $state->board, includeRoundBonus: false);
+        $this->assertSame(4, $actualIncome->coins);
+        $this->assertSame(3, $actualIncome->power);
+        $player->resources->tools = 3;
+        $funded = $evaluator->evaluateWithBreakdown($state, 1)->futureIncome;
+        $this->assertGreaterThan($unaffordable, $funded);
+        $state->pendingInteraction = null;
+        $this->assertSame($unaffordable, $evaluator->evaluateWithBreakdown($state, 1)->futureIncome);
+        $state->board->hexes[1]->building = new BuildingStateData(BuildingType::Tower, 1, isNeutral: true);
+        $this->assertSame($funded, $evaluator->evaluateWithBreakdown($state, 1)->futureIncome);
+        $this->assertSame(3, $player->resources->tools);
+    }
+
+    public function test_competency_choice_prefers_a_reward_to_a_tower_that_cannot_be_placed(): void
+    {
+        [$state, $player] = $this->state(Competency::Competency10);
+        $player->competencyIds = [];
+        $state->turnOrder = [1];
+        $state->availableCompetencyIds = [Competency::Competency04->value, Competency::Competency10->value];
+        $state->pendingInteraction = new \App\Domain\GameEngine\Interactions\Data\PendingInteractionData(
+            \App\Domain\GameEngine\Interactions\Enums\PendingInteractionType::ChooseCompetency,
+            1,
+            $state->availableCompetencyIds,
+            ['reason' => 'innovation'],
+        );
+        $ranked = app(\App\Domain\Automation\Services\GameActionRanker::class)->execute($state, 1, depth: 1);
+
+        $this->assertSame(Competency::Competency04, $ranked[0]->option->competency);
+        $this->assertSame([], $player->competencyIds);
+        $state->board->hexes = [
+            new BoardHexStateData('a', 0, 0, TerrainType::Forest, TerrainType::Forest, adjacentHexIds: ['b'], building: new BuildingStateData(BuildingType::Guild, 1)),
+            new BoardHexStateData('b', 1, 0, TerrainType::Forest, TerrainType::Forest, adjacentHexIds: ['a', 'c'], building: new BuildingStateData(BuildingType::Guild, 1)),
+            new BoardHexStateData('c', 2, 0, TerrainType::Forest, TerrainType::Forest, adjacentHexIds: ['b', 'target'], building: new BuildingStateData(BuildingType::Guild, 1)),
+            new BoardHexStateData('target', 3, 0, TerrainType::Forest, TerrainType::Forest, adjacentHexIds: ['c']),
+        ];
+        $state->availableTownTileIds = [\App\Domain\GameEngine\Towns\Enums\TownTile::Coins->value];
+        $ranked = app(\App\Domain\Automation\Services\GameActionRanker::class)->execute($state, 1, depth: 1);
+        $towerChoice = collect($ranked)->first(static fn ($action): bool => $action->option->competency === Competency::Competency10);
+        $this->assertNotNull($towerChoice);
+        $placements = app(\App\Domain\Automation\Services\GameActionRanker::class)->execute($towerChoice->simulation->state, 1, depth: 1);
+        $this->assertSame('target', $placements[0]->option->hexId);
+    }
+
     public function test_pass_rewards_depend_on_towns_knowledge_and_remaining_passes(): void
     {
         [$state, $player] = $this->state(Competency::Competency08);

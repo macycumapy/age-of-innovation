@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Domain\Automation\Actions\CreateAutomatedGameAction;
 use App\Domain\Automation\Data\AutomatedGameDecisionData;
+use App\Domain\Automation\Data\AutomatedGamePlayerSummaryData;
 use App\Domain\Automation\Data\AutomatedGameSimulationResultData;
 use App\Domain\Automation\Data\GameActionSearchBudgetData;
 use App\Domain\Automation\Enums\AutomatedGamePassReason;
@@ -112,6 +113,8 @@ class BenchmarkAutomatedGamesCommand extends Command
             ['Партий', $gameCount],
             ['Завершено', $summary['completed_games']],
             ['Средний результат, ПО', $summary['average_final_score'] ?? '—'],
+            ['Среднее число городов', $summary['average_towns'] ?? '—'],
+            ['Золото перед последним пасом', $summary['average_coins_at_last_pass'] ?? '—'],
             ['Ошибок', count($errors)],
             ['Решений', $summary['decisions']],
             ['Среднее решение, мс', $summary['average_decision_milliseconds']],
@@ -149,6 +152,9 @@ class BenchmarkAutomatedGamesCommand extends Command
                 array_push($finalScores, ...array_values($result->finalScores));
             }
         }
+        $playerSummaries = collect($results)->filter(static fn (AutomatedGameSimulationResultData $result): bool => $result->completed)
+            ->flatMap(static fn (AutomatedGameSimulationResultData $result): array => $result->playerSummaries);
+        $lastPassResources = $playerSummaries->map(static fn (AutomatedGamePlayerSummaryData $summary) => $summary->resourcesAtLastPass)->filter();
 
         return [
             'seed' => $seed,
@@ -157,6 +163,9 @@ class BenchmarkAutomatedGamesCommand extends Command
             'games' => count($results) + count($errors),
             'scored_players' => count($finalScores),
             'average_final_score' => $finalScores === [] ? null : array_sum($finalScores) / count($finalScores),
+            'average_towns' => $playerSummaries->isEmpty() ? null : (float) $playerSummaries->avg('towns'),
+            'average_coins_at_last_pass' => $lastPassResources->isEmpty() ? null : (float) $lastPassResources->avg('coins'),
+            'average_tools_at_last_pass' => $lastPassResources->isEmpty() ? null : (float) $lastPassResources->avg('tools'),
             'completed_games' => collect($results)->filter(
                 static fn (AutomatedGameSimulationResultData $result): bool => $result->completed,
             )->count(),

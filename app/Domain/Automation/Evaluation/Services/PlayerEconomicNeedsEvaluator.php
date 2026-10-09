@@ -9,6 +9,8 @@ use App\Domain\GameEngine\Board\Enums\BuildingType;
 use App\Domain\GameEngine\Board\Services\BuildWorkshopOptionFinder;
 use App\Domain\GameEngine\Board\Services\PaidTerraformingOptionFinder;
 use App\Domain\GameEngine\Board\Services\UpgradeBuildingOptionFinder;
+use App\Domain\GameEngine\Economy\Data\IncomeReceiptData;
+use App\Domain\GameEngine\Economy\Data\PlayerResourcesData;
 use App\Domain\GameEngine\Economy\Services\PlayerIncomeCalculator;
 use App\Domain\GameEngine\Enums\GameActionType;
 use App\Domain\GameEngine\PlayerAbilities\Enums\RoundBonus;
@@ -26,12 +28,15 @@ final class PlayerEconomicNeedsEvaluator
 
     private const int MAX_SCHOLAR_BONUS = 40;
 
+    private const int CONSTRUCTION_COINS_PER_TOOL = 2;
+
     public function __construct(
         private BuildWorkshopOptionFinder $buildWorkshopOptionFinder,
         private UpgradeBuildingOptionFinder $upgradeBuildingOptionFinder,
         private PaidTerraformingOptionFinder $paidTerraformingOptionFinder,
         private DevelopmentAdvancementOptionFinder $developmentAdvancementOptionFinder,
         private BoardPositionProgressEvaluator $boardPositionProgressEvaluator,
+        private DevelopmentInvestmentEvaluator $developmentInvestmentEvaluator,
     ) {
     }
 
@@ -47,7 +52,8 @@ final class PlayerEconomicNeedsEvaluator
             return 0;
         }
 
-        $scholarScore = $this->scholarScore($before, $after, $playerBefore, $playerAfter);
+        $scholarScore = $this->scholarScore($before, $after, $playerBefore, $playerAfter)
+            + $this->developmentInvestmentEvaluator->execute($before, $after, $playerId);
         $gainedCoins = max(0, $playerAfter->resources->coins - $playerBefore->resources->coins);
         $coinScore = $gainedCoins === 0 ? 0 : min(
             $gainedCoins,
@@ -59,20 +65,34 @@ final class PlayerEconomicNeedsEvaluator
         $incomeAfter = clone $playerAfter;
         $incomeBefore->roundBonus = RoundBonus::RiverWorkshop;
         $incomeAfter->roundBonus = RoundBonus::RiverWorkshop;
-        $gainedIncome = max(
-            0,
-            PlayerIncomeCalculator::calculate($incomeAfter, $after->board)->tools
-            - PlayerIncomeCalculator::calculate($incomeBefore, $before->board)->tools,
-        );
+        $previousIncome = PlayerIncomeCalculator::calculate($incomeBefore, $before->board);
+        $nextIncome = PlayerIncomeCalculator::calculate($incomeAfter, $after->board);
+        $incomeChange = $nextIncome->tools - $previousIncome->tools;
         $remainingRounds = max(0, 6 - $before->round->number);
-        $effectiveToolGain = $gainedTools + $gainedIncome * $remainingRounds;
-        if ($effectiveToolGain === 0) {
-            return $scholarScore + $coinScore;
+        $neededTools = $gainedTools > 0 || $incomeChange > 0 ? $this->neededTools($before, $playerBefore) : 0;
+        $incomeScore = 0;
+        if ($incomeChange !== 0 && $remainingRounds > 0) {
+            $constrainedIncome = $incomeChange > 0 ? $previousIncome : $nextIncome;
+            $missingTools = $this->projectedToolShortage($playerAfter->resources, $constrainedIncome, $remainingRounds);
+            $usefulIncomeTools = min(abs($incomeChange) * $remainingRounds, $missingTools);
+            if ($incomeChange > 0) {
+                $usefulIncomeTools = min($usefulIncomeTools, max(0, $neededTools - $gainedTools));
+            }
+            $incomeScore = $usefulIncomeTools * self::NEEDED_TOOL_WEIGHT * ($incomeChange > 0 ? 1 : -1);
         }
-        $neededTools = $this->neededTools($before, $playerBefore);
+        if ($gainedTools === 0) {
+            return $scholarScore + $coinScore + $incomeScore;
+        }
+        return min($neededTools, $gainedTools)
+            * self::NEEDED_TOOL_WEIGHT + $scholarScore + $coinScore + $incomeScore;
+    }
 
-        return min($neededTools, $effectiveToolGain)
-            * self::NEEDED_TOOL_WEIGHT + $scholarScore + $coinScore;
+    private function projectedToolShortage(PlayerResourcesData $resources, IncomeReceiptData $income, int $rounds): int
+    {
+        $coins = $resources->coins + $income->coins * $rounds;
+        $tools = $resources->tools + $income->tools * $rounds;
+
+        return max(0, intdiv($coins, self::CONSTRUCTION_COINS_PER_TOOL) - $tools);
     }
 
     private function neededCoins(GameStateData $state, GamePlayerStateData $before, GamePlayerStateData $after): int
@@ -148,7 +168,8 @@ final class PlayerEconomicNeedsEvaluator
                 $probe,
                 $development,
                 $player->playerId,
-            ) * self::USEFUL_DEVELOPMENT_WEIGHT + ($opensConstruction ? self::NEEDED_TOOL_WEIGHT : 0));
+            ) * self::USEFUL_DEVELOPMENT_WEIGHT + ($opensConstruction ? self::NEEDED_TOOL_WEIGHT : 0)
+                + $this->developmentInvestmentEvaluator->execute($probe, $development, $player->playerId));
         }
         $bonus = min(self::MAX_SCHOLAR_BONUS, $potential);
 

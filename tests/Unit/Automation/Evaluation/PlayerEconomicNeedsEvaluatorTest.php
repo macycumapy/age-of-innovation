@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Automation\Evaluation;
 
 use App\Domain\Automation\Evaluation\Services\BoardPositionProgressEvaluator;
+use App\Domain\Automation\Evaluation\Services\DevelopmentInvestmentEvaluator;
 use App\Domain\Automation\Evaluation\Services\PlayerEconomicNeedsEvaluator;
 use App\Domain\GameEngine\Board\Data\BoardHexStateData;
 use App\Domain\GameEngine\Board\Data\BuildingStateData;
@@ -22,6 +23,65 @@ use Tests\TestCase;
 
 class PlayerEconomicNeedsEvaluatorTest extends TestCase
 {
+    public function test_losing_tool_income_is_costly_when_it_leaves_gold_without_construction_capacity(): void
+    {
+        $before = $this->state();
+        $before->players[0]->resources = new PlayerResourcesData(coins: 50, tools: 3);
+        $after = $before->deepCopy();
+        $after->board->hexes[0]->building->type = BuildingType::Guild;
+        $after->players[0]->resources = new PlayerResourcesData(coins: 44, tools: 1);
+        $evaluator = app(PlayerEconomicNeedsEvaluator::class);
+
+        $this->assertSame(-100, $evaluator->execute($before, $after, 1));
+        $this->assertSame(BuildingType::Workshop, $before->board->hexes[0]->building->type);
+        $before->round->number = 6;
+        $after->round->number = 6;
+        $this->assertSame(0, $evaluator->execute($before, $after, 1));
+    }
+
+    public function test_a_large_tool_reserve_can_cover_income_lost_to_an_upgrade(): void
+    {
+        $before = $this->state();
+        $before->players[0]->resources = new PlayerResourcesData(coins: 50, tools: 30);
+        $after = $before->deepCopy();
+        $after->board->hexes[0]->building->type = BuildingType::Guild;
+        $after->players[0]->resources = new PlayerResourcesData(coins: 44, tools: 28);
+
+        $this->assertSame(0, app(PlayerEconomicNeedsEvaluator::class)->execute($before, $after, 1));
+    }
+
+    public function test_a_market_upgrade_keeps_its_value_when_the_remaining_economy_is_balanced(): void
+    {
+        $before = $this->state();
+        $before->players[0]->resources = new PlayerResourcesData(coins: 6, tools: 3);
+        $after = $before->deepCopy();
+        $after->board->hexes[0]->building->type = BuildingType::Guild;
+        $after->players[0]->resources = new PlayerResourcesData(tools: 1);
+
+        $this->assertSame(0, app(PlayerEconomicNeedsEvaluator::class)->execute($before, $after, 1));
+    }
+
+    public function test_an_upgrade_is_not_penalized_for_tool_income_it_does_not_actually_remove(): void
+    {
+        $before = $this->state();
+        $before->players[0]->resources = new PlayerResourcesData(coins: 50, tools: 3);
+        foreach (range(1, 4) as $index) {
+            $before->board->hexes[] = new BoardHexStateData(
+                (string) $index,
+                $index,
+                0,
+                TerrainType::Forest,
+                TerrainType::Forest,
+                building: new BuildingStateData(BuildingType::Workshop, 1)
+            );
+        }
+        $after = $before->deepCopy();
+        $after->board->hexes[0]->building->type = BuildingType::Guild;
+        $after->players[0]->resources = new PlayerResourcesData(coins: 44, tools: 1);
+
+        $this->assertSame(0, app(PlayerEconomicNeedsEvaluator::class)->execute($before, $after, 1));
+    }
+
     public function test_it_values_missing_coins_only_when_remaining_tools_can_fund_construction(): void
     {
         $before = $this->state();
@@ -78,12 +138,19 @@ class PlayerEconomicNeedsEvaluatorTest extends TestCase
         $this->assertSame(-40, $evaluator->execute($before, $after, 1));
         $before->players[0]->resources->tools = 3;
         $after->players[0]->resources->tools = 3;
-        $this->assertSame(-21, $evaluator->execute($before, $after, 1));
+        $this->assertSame(-37, $evaluator->execute($before, $after, 1));
         $before->players[0]->resources->tools = 4;
         $after->players[0]->resources->tools = 4;
         $before->players[0]->resources->coins = 5;
         $after->players[0]->resources->coins = 5;
-        $this->assertSame(-21, $evaluator->execute($before, $after, 1));
+        $this->assertSame(0, $evaluator->execute($before, $after, 1));
+        $before->players[0]->resources->coins = 6;
+        $after->players[0]->resources->coins = 6;
+        $before->players[0]->resources->tools = 3;
+        $after->players[0]->resources->tools = 3;
+        $before->round->number = 6;
+        $after->round->number = 6;
+        $this->assertSame(0, $evaluator->execute($before, $after, 1));
     }
 
     public function test_it_rewards_a_scholar_only_when_affordable_development_improves_the_map(): void
@@ -119,7 +186,9 @@ class PlayerEconomicNeedsEvaluatorTest extends TestCase
         $after->players[0]->resources->coins -= 4;
 
         $this->assertGreaterThan(0, app(BoardPositionProgressEvaluator::class)->execute($before, $after, 1));
-        $this->assertSame(0, app(PlayerEconomicNeedsEvaluator::class)->execute($before, $after, 1));
+        $investment = app(DevelopmentInvestmentEvaluator::class)->execute($before, $after, 1);
+        $this->assertGreaterThan(0, $investment);
+        $this->assertSame($investment, app(PlayerEconomicNeedsEvaluator::class)->execute($before, $after, 1));
     }
 
     public function test_a_development_reserve_does_not_value_one_scholar_as_three_scholars(): void

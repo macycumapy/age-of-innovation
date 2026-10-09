@@ -24,6 +24,8 @@ final class GameTreeSearchContext
     public function __construct(
         public readonly int $maxNodes,
         int $maxTimeMilliseconds,
+        public readonly ?StrategicPlanData $strategicPlan = null,
+        public readonly ?int $rootPlayerId = null,
     ) {
         $this->timings = new GameActionSearchTimingsData();
         $this->deadlineNanoseconds = hrtime(true) + ($maxTimeMilliseconds * 1_000_000);

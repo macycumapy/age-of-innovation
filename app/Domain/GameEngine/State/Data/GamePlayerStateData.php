@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domain\GameEngine\State\Data;
 
+use App\Domain\Automation\Data\StrategicPlanData;
 use App\Domain\GameEngine\Board\Enums\TerrainType;
 use App\Domain\GameEngine\Economy\Data\PlayerResourcesData;
 use App\Domain\GameEngine\PlayerAbilities\Enums\Faction;
@@ -67,6 +68,7 @@ class GamePlayerStateData extends Data
         public array $scholarDisciplineIds = [],
         public array $scholarSlotIndexes = [],
         public int $scholarPoolSize = 7,
+        public ?StrategicPlanData $strategicPlan = null,
     ) {
     }
 }
