@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domain\Automation\Actions;
 
+use App\Domain\Automation\Data\GameActionSearchBudgetData;
 use App\Domain\Automation\Services\GameActionSelector;
 use App\Domain\Game\Enums\GameBotDifficulty;
 use App\Domain\GameEngine\Contracts\GameActionOption;
@@ -35,6 +36,7 @@ final class PlayAutomatedTurnAction
         bool $singleDecision = false,
         ?\Closure $onDecisionSelected = null,
         array $plannedOptions = [],
+        ?GameActionSearchBudgetData $searchBudget = null,
     ): Game {
         if ($player->game_id !== $game->id) {
             throw new DomainException('Автоматический игрок не участвует в этой партии.');
@@ -59,6 +61,7 @@ final class PlayAutomatedTurnAction
                 $difficulty,
                 $this->auxiliaryActionsRemaining($game, $player),
                 $plannedOptions,
+                $searchBudget,
             );
             $onDecisionSelected?->__invoke($diagnostics);
             $selection = $diagnostics->selected;

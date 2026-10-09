@@ -12,7 +12,12 @@ final class GameTreeSearchContext
     /** @var array<string, int> */
     public array $cachedScores = [];
 
+    /** @var array<string, EvaluatedGameActionData|null> */
+    public array $cachedFundingForecasts = [];
+
     public int $visitedNodes = 0;
+
+    public ?int $fundingForecastNodeLimit = null;
 
     public readonly int $deadlineNanoseconds;
 

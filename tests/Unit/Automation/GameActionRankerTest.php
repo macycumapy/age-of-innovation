@@ -54,6 +54,52 @@ use Tests\TestCase;
 
 class GameActionRankerTest extends TestCase
 {
+    public function test_funding_forecasts_reuse_equivalent_conversion_states(): void
+    {
+        $state = $this->state();
+        $state->turnOrder = [1];
+        $state->board->hexes = [];
+        $state->round->usedSharedActionIds = array_map(static fn (PowerAction $action): string => $action->value, PowerAction::cases());
+        $state->players[0]->resources = new PlayerResourcesData(tools: 3, power: new PowerBowlsStateData(bowlThree: 3));
+        $ranker = app(GameActionRanker::class);
+        $ranked = $ranker->execute($state, 1, depth: 1);
+
+        $this->assertGreaterThan(0, $ranker->lastSearchTimings()->fundingForecastCacheHits);
+        $this->assertSame(GameActionOptionType::Pass, $ranked[0]->option->type());
+        $this->assertSame(3, $state->players[0]->resources->tools);
+        $this->assertSame(3, $state->players[0]->resources->power->bowlThree);
+    }
+
+    public function test_deeper_root_search_keeps_pass_and_the_required_legal_continuation(): void
+    {
+        $state = $this->state();
+        $state->turnOrder = [1];
+        $state->round->number = 6;
+        $state->round->scoringTileId = RoundScoringTile::WorkshopLaw->value;
+        $state->players[0]->resources = new PlayerResourcesData(coins: 10, tools: 5);
+        $state->board->hexes = [$this->buildingHex('home', 1, ['a', 'b', 'c', 'd'])];
+        foreach (['a', 'b', 'c', 'd'] as $id) {
+            $state->board->hexes[] = $this->emptyHex($id, ['home']);
+        }
+        $ranker = app(GameActionRanker::class);
+        $ranked = $ranker->execute(
+            $state,
+            1,
+            depth: 2,
+            branchLimit: 1,
+            requiredRootOption: new BuildWorkshopOptionData('d')
+        );
+
+        $this->assertSame(2, $ranker->lastSearchTimings()->completedSearchDepth);
+        $builds = array_filter($ranked, static fn ($action): bool => $action->option instanceof BuildWorkshopOptionData);
+        $this->assertLessThanOrEqual(2, count($builds));
+        $this->assertNotEmpty(array_filter($builds, static fn ($action): bool => $action->option->hexId === 'd'));
+        $this->assertNotEmpty(array_filter($ranked, static fn ($action): bool => $action->option->type() === GameActionOptionType::Pass));
+        foreach ($ranked as $action) {
+            $this->assertSame($action->score, $action->scoreBreakdown->total());
+        }
+    }
+
     public function test_auxiliary_actions_without_a_funded_main_action_cannot_precede_a_pass(): void
     {
         $state = $this->state();

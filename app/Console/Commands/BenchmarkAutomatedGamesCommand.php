@@ -7,6 +7,7 @@ namespace App\Console\Commands;
 use App\Domain\Automation\Actions\CreateAutomatedGameAction;
 use App\Domain\Automation\Data\AutomatedGameDecisionData;
 use App\Domain\Automation\Data\AutomatedGameSimulationResultData;
+use App\Domain\Automation\Data\GameActionSearchBudgetData;
 use App\Domain\Automation\Enums\AutomatedGamePassReason;
 use App\Domain\Automation\Services\AutomatedGameReportBuilder;
 use App\Domain\Automation\Services\AutomatedGameSimulator;
@@ -26,7 +27,9 @@ use Throwable;
     {--difficulty=fast : fast, balanced или strong}
     {--seed=bot-benchmark : Базовый seed серии}
     {--max-decisions=2000 : Максимум решений на партию}
-    {--max-duration=300000 : Максимум миллисекунд на партию}')]
+    {--max-duration=300000 : Максимум миллисекунд на партию}
+    {--search-nodes= : Лимит узлов поиска для сравнения бюджетов}
+    {--search-time= : Лимит миллисекунд поиска для сравнения бюджетов}')]
 #[Description('Создаёт и запускает серию воспроизводимых партий ботов')]
 class BenchmarkAutomatedGamesCommand extends Command
 {
@@ -44,6 +47,11 @@ class BenchmarkAutomatedGamesCommand extends Command
         $difficultyValue = $this->option('difficulty');
         $seed = $this->option('seed');
         $difficulty = is_string($difficultyValue) ? GameBotDifficulty::tryFrom($difficultyValue) : null;
+        $searchNodes = $this->option('search-nodes');
+        $searchTime = $this->option('search-time');
+        $hasSearchBudget = $searchNodes !== null || $searchTime !== null;
+        $parsedSearchNodes = filter_var($searchNodes, FILTER_VALIDATE_INT);
+        $parsedSearchTime = filter_var($searchTime, FILTER_VALIDATE_INT);
 
         if (! is_int($gameCount) || $gameCount < 1
             || ! is_int($playerCount) || $playerCount < 2 || $playerCount > 5
@@ -51,6 +59,8 @@ class BenchmarkAutomatedGamesCommand extends Command
             || ! is_int($maxDuration) || $maxDuration < 1
             || ! $difficulty instanceof GameBotDifficulty
             || ! is_string($seed) || $seed === ''
+            || ($hasSearchBudget && (! is_int($parsedSearchNodes) || $parsedSearchNodes < 1
+                || ! is_int($parsedSearchTime) || $parsedSearchTime < 1))
         ) {
             $this->components->error('Некорректные параметры серии симуляций.');
 
@@ -59,7 +69,13 @@ class BenchmarkAutomatedGamesCommand extends Command
 
         Queue::fake([PlayAutomatedTurnJob::class]);
 
+        $searchBudget = $hasSearchBudget
+            ? new GameActionSearchBudgetData($parsedSearchNodes, $parsedSearchTime)
+            : null;
         $directory = 'bot-reports/batches/'.Str::slug($seed);
+        if ($searchBudget !== null) {
+            $directory .= '/search-'.$searchBudget->maxNodes.'-'.$searchBudget->maxTimeMilliseconds;
+        }
         $results = [];
         $errors = [];
 
@@ -68,7 +84,7 @@ class BenchmarkAutomatedGamesCommand extends Command
 
             try {
                 $game = $createGame->execute($gameSeed, $playerCount, $difficulty);
-                $result = $simulator->execute($game, $maxDecisions, $maxDuration);
+                $result = $simulator->execute($game, $maxDecisions, $maxDuration, $searchBudget);
                 $results[] = $result;
                 $this->writeJson(
                     "{$directory}/game-{$index}.json",
@@ -85,6 +101,12 @@ class BenchmarkAutomatedGamesCommand extends Command
         }
 
         $summary = $this->summary($seed, $difficulty, $playerCount, $results, $errors);
+        $parameters = $difficulty->searchParameters();
+        $summary['search_parameters'] = [
+            ...$parameters,
+            'maxNodes' => $searchBudget !== null ? $searchBudget->maxNodes : $parameters['maxNodes'],
+            'maxTimeMilliseconds' => $searchBudget !== null ? $searchBudget->maxTimeMilliseconds : $parameters['maxTimeMilliseconds'],
+        ];
         $this->writeJson("{$directory}/summary.json", $summary);
         $this->table(['Показатель', 'Значение'], [
             ['Партий', $gameCount],

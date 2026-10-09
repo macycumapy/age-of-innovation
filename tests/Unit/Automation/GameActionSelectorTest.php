@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Automation;
 
+use App\Domain\Automation\Data\GameActionSearchBudgetData;
 use App\Domain\Automation\Enums\GameActionSelectionReason;
 use App\Domain\Automation\Services\GameActionSelector;
 use App\Domain\Game\Enums\GameBotDifficulty;
@@ -29,10 +30,44 @@ use App\Domain\GameEngine\State\Data\GameStateData;
 use App\Domain\GameEngine\State\Enums\PlayerColor;
 use App\Domain\GameEngine\Turns\Data\RoundStateData;
 use App\Domain\GameEngine\Turns\Enums\GamePhase;
+use InvalidArgumentException;
 use Tests\TestCase;
 
 class GameActionSelectorTest extends TestCase
 {
+    public function test_explicit_search_budget_limits_selection_without_changing_the_difficulty_profile(): void
+    {
+        $state = $this->state();
+        $state->round->phase = GamePhase::Actions;
+        $state->turnOrder = [1];
+        $state->players[0]->resources->tools = 4;
+
+        $result = app(GameActionSelector::class)->selectWithDiagnostics(
+            $state,
+            1,
+            GameBotDifficulty::Balanced,
+            searchBudget: new GameActionSearchBudgetData(1, 15_000),
+        );
+
+        $this->assertLessThanOrEqual(1, $result->visitedNodes);
+        $this->assertTrue($result->budgetExhausted);
+        $this->assertSame(300, GameBotDifficulty::Balanced->searchParameters()['maxNodes']);
+    }
+
+    public function test_search_budget_rejects_non_positive_nodes(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+
+        new GameActionSearchBudgetData(0, 8_000);
+    }
+
+    public function test_search_budget_rejects_non_positive_time(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+
+        new GameActionSearchBudgetData(300, 0);
+    }
+
     public function test_it_combines_consecutive_identical_exchanges_from_a_plan(): void
     {
         $state = $this->state();
@@ -326,6 +361,36 @@ class GameActionSelectorTest extends TestCase
         $this->assertLessThan($strong['maxNodes'], $balanced['maxNodes']);
         $this->assertLessThan($balanced['maxTimeMilliseconds'], $fast['maxTimeMilliseconds']);
         $this->assertLessThan($strong['maxTimeMilliseconds'], $balanced['maxTimeMilliseconds']);
+    }
+
+    public function test_balanced_profile_keeps_the_budget_selected_by_game_benchmarks(): void
+    {
+        $this->assertSame([
+            'depth' => 2,
+            'branchLimit' => 4,
+            'maxNodes' => 300,
+            'maxTimeMilliseconds' => 8_000,
+        ], GameBotDifficulty::Balanced->searchParameters());
+    }
+
+    public function test_strong_profile_increases_node_and_time_budgets_without_widening_search(): void
+    {
+        $this->assertSame([
+            'depth' => 3,
+            'branchLimit' => 6,
+            'maxNodes' => 750,
+            'maxTimeMilliseconds' => 30_000,
+        ], GameBotDifficulty::Strong->searchParameters());
+    }
+
+    public function test_fast_profile_keeps_its_existing_search_limits(): void
+    {
+        $this->assertSame([
+            'depth' => 1,
+            'branchLimit' => 4,
+            'maxNodes' => 50,
+            'maxTimeMilliseconds' => 2_000,
+        ], GameBotDifficulty::Fast->searchParameters());
     }
 
     private function state(): GameStateData

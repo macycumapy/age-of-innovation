@@ -7,6 +7,7 @@ namespace Tests\Feature\Automation;
 use App\Domain\Automation\Actions\CreateAutomatedGameAction;
 use App\Domain\Automation\Actions\PlayAutomatedTurnAction;
 use App\Domain\Automation\Data\AutomatedGameSimulationResultData;
+use App\Domain\Automation\Data\GameActionSearchBudgetData;
 use App\Domain\Automation\Enums\AutomatedGamePassReason;
 use App\Domain\Automation\Services\AutomatedGameSimulator;
 use App\Domain\Automation\Services\GameActionSimulator;
@@ -167,6 +168,53 @@ class PlayAutomatedTurnActionTest extends TestCase
         $this->assertSame(111.75, $summary['average_final_score']);
     }
 
+    public function test_benchmark_search_budget_is_forwarded_and_reports_are_kept_separate(): void
+    {
+        Queue::fake();
+        Storage::fake('local');
+        $simulator = $this->createMock(AutomatedGameSimulator::class);
+        $simulator->expects($this->once())->method('execute')->with(
+            $this->isInstanceOf(Game::class),
+            2_000,
+            300_000,
+            $this->callback(static fn (GameActionSearchBudgetData $budget): bool =>
+                $budget->maxNodes === 300 && $budget->maxTimeMilliseconds === 8_000),
+        )->willReturn(new AutomatedGameSimulationResultData(true, [], 1, [1 => 150, 2 => 160]));
+        $this->instance(AutomatedGameSimulator::class, $simulator);
+
+        $exitCode = Artisan::call('game:benchmark-bots', [
+            '--seed' => 'budget-comparison',
+            '--difficulty' => GameBotDifficulty::Balanced->value,
+            '--search-nodes' => 300,
+            '--search-time' => 8_000,
+        ]);
+
+        $this->assertSame(0, $exitCode);
+        $summary = json_decode(Storage::disk('local')->get('bot-reports/batches/budget-comparison/search-300-8000/summary.json'), true, flags: JSON_THROW_ON_ERROR);
+        $this->assertSame([
+            'depth' => 2,
+            'branchLimit' => 4,
+            'maxNodes' => 300,
+            'maxTimeMilliseconds' => 8_000,
+        ], $summary['search_parameters']);
+        Storage::disk('local')->assertMissing('bot-reports/batches/budget-comparison/summary.json');
+    }
+
+    public function test_benchmark_rejects_incomplete_or_invalid_search_budgets_before_creating_games(): void
+    {
+        $gameCount = Game::query()->count();
+        foreach ([
+            ['--search-nodes' => 300],
+            ['--search-time' => 8_000],
+            ['--search-nodes' => 0, '--search-time' => 8_000],
+            ['--search-nodes' => 300, '--search-time' => -1],
+            ['--search-nodes' => 'invalid', '--search-time' => 8_000],
+        ] as $options) {
+            $this->assertSame(1, Artisan::call('game:benchmark-bots', $options));
+        }
+        $this->assertSame($gameCount, Game::query()->count());
+    }
+
     public function test_automated_game_simulator_completes_a_final_round_and_collects_diagnostics(): void
     {
         Queue::fake();
@@ -282,6 +330,8 @@ class PlayAutomatedTurnActionTest extends TestCase
         $this->assertGreaterThanOrEqual(0, $report['decisions'][0]['search_timings']['simulation_ms']);
         $this->assertArrayHasKey('exhausted_by', $report['decisions'][0]['search_timings']);
         $this->assertArrayHasKey('completed_search_depth', $report['decisions'][0]['search_timings']);
+        $this->assertArrayHasKey('funding_forecast_nodes', $report['decisions'][0]['search_timings']);
+        $this->assertArrayHasKey('funding_forecast_cache_hits', $report['decisions'][0]['search_timings']);
         $simulationTimings = $report['decisions'][0]['search_timings']['simulations_by_action'];
         $this->assertNotEmpty($simulationTimings);
         $this->assertSame($report['decisions'][0]['search_timings']['simulation_calls'], array_sum(array_column($simulationTimings, 'calls')));

@@ -12,6 +12,10 @@ final class GameActionSearchTimingsData
 
     public int $completedSearchDepth = 0;
 
+    public int $fundingForecastNodes = 0;
+
+    public int $fundingForecastCacheHits = 0;
+
     public int $optionFindingNanoseconds = 0;
 
     public int $simulationNanoseconds = 0;

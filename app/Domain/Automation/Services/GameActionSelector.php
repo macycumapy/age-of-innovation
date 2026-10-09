@@ -6,6 +6,7 @@ namespace App\Domain\Automation\Services;
 
 use App\Domain\Automation\Data\EvaluatedGameActionData;
 use App\Domain\Automation\Data\GameActionCandidateDiagnosticsData;
+use App\Domain\Automation\Data\GameActionSearchBudgetData;
 use App\Domain\Automation\Data\GameActionSelectionDiagnosticsData;
 use App\Domain\Automation\Enums\GameActionSelectionReason;
 use App\Domain\Game\Enums\GameBotDifficulty;
@@ -47,6 +48,7 @@ final class GameActionSelector
         GameBotDifficulty $difficulty = GameBotDifficulty::Balanced,
         int $auxiliaryActionsRemaining = 3,
         array $plannedOptions = [],
+        ?GameActionSearchBudgetData $searchBudget = null,
     ): GameActionSelectionDiagnosticsData {
         $parameters = $difficulty->searchParameters();
         $startedAt = hrtime(true);
@@ -56,9 +58,10 @@ final class GameActionSelector
             $playerId,
             depth: $state->round->phase === GamePhase::Setup ? 1 : $parameters['depth'],
             branchLimit: $parameters['branchLimit'],
-            maxNodes: $parameters['maxNodes'],
-            maxTimeMilliseconds: $parameters['maxTimeMilliseconds'],
+            maxNodes: $searchBudget !== null ? $searchBudget->maxNodes : $parameters['maxNodes'],
+            maxTimeMilliseconds: $searchBudget !== null ? $searchBudget->maxTimeMilliseconds : $parameters['maxTimeMilliseconds'],
             auxiliaryActionsRemaining: $auxiliaryActionsRemaining,
+            requiredRootOption: $plannedOptions[0] ?? null,
         );
 
         $selected = $rankedActions[0] ?? null;

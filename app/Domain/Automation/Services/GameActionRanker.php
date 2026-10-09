@@ -46,7 +46,7 @@ final class GameActionRanker
 
     private const int FINAL_SCORING_PRIORITY_WEIGHT = 10;
 
-    private const int HORIZON_PLACEMENT_BRANCH_LIMIT = 4;
+    private const int HORIZON_REWARD_BRANCH_LIMIT = 2;
 
     public function __construct(
         private GameActionOptionFinder $gameActionOptionFinder,
@@ -71,6 +71,7 @@ final class GameActionRanker
         int $maxNodes = 1000,
         int $maxTimeMilliseconds = 20_000,
         int $auxiliaryActionsRemaining = self::MAX_AUXILIARY_ACTIONS_PER_TURN,
+        ?GameActionOption $requiredRootOption = null,
     ): array {
         if ($depth < 1
             || $branchLimit < 1
@@ -82,6 +83,9 @@ final class GameActionRanker
         }
 
         $context = new GameTreeSearchContext($maxNodes, $maxTimeMilliseconds);
+        if ($depth > 1) {
+            $context->fundingForecastNodeLimit = max(1, intdiv($maxNodes, 3));
+        }
         $candidates = [];
 
         $options = $this->findOptions($state, $playerId, $context);
@@ -140,14 +144,32 @@ final class GameActionRanker
 
         $rewardForecastIndexes = array_keys($candidates);
         $fundingPlans = [];
+        if ($depth > 1 && $state->pendingInteraction === null && $state->round->phase === GamePhase::Actions) {
+            $rewardForecastIndexes = $this->rootSearchIndexes($rankedActions, $branchLimit * 2, $requiredRootOption);
+            $protectedInteractions = [];
+            foreach ($candidates as $index => $candidate) {
+                $interactionType = $candidate['simulation']->state->pendingInteraction?->type->value;
+                if ($interactionType !== null && ! isset($protectedInteractions[$interactionType])) {
+                    $protectedInteractions[$interactionType] = true;
+                    if (! in_array($index, $rewardForecastIndexes, true)) {
+                        $rewardForecastIndexes[] = $index;
+                    }
+                }
+            }
+        }
         usort($rewardForecastIndexes, fn (int $left, int $right): int =>
             ($candidates[$left]['fundedOptions'] !== [] ? 1 : $this->rewardForecastPriority($candidates[$left]['simulation']->state))
                 <=> ($candidates[$right]['fundedOptions'] !== [] ? 1 : $this->rewardForecastPriority($candidates[$right]['simulation']->state))
                     ?: $left <=> $right);
 
         for ($searchDepth = 0; $searchDepth <= $depth && ! $context->isExhausted(); $searchDepth++) {
+            if ($searchDepth === 1 && $state->pendingInteraction === null) {
+                continue;
+            }
             $iterationActions = [];
-            foreach ($searchDepth === 0 ? $rewardForecastIndexes : array_keys($candidates) as $candidateIndex) {
+            $iterationBestScore = PHP_INT_MIN;
+            $searchIndexes = $searchDepth === 0 ? $rewardForecastIndexes : $this->rootSearchIndexes($rankedActions, $branchLimit, $requiredRootOption);
+            foreach ($searchIndexes as $candidateIndex) {
                 $candidate = $candidates[$candidateIndex];
                 if ($context->isExhausted()) {
                     break;
@@ -158,6 +180,11 @@ final class GameActionRanker
                 $searchStartedAt = hrtime(true);
                 $requiresFundingPlan = $state->pendingInteraction === null
                     && $state->round->phase === GamePhase::Actions && $this->isAuxiliaryOption($option);
+                if ($searchDepth > 0 && $requiresFundingPlan && ! isset($fundingPlans[$candidateIndex])) {
+                    $iterationActions[$candidateIndex] = $rankedActions[$candidateIndex];
+
+                    continue;
+                }
                 $fundingPlan = $searchDepth === 0 && $requiresFundingPlan
                     ? $this->fundedActionForecast(
                         $simulation->state,
@@ -177,7 +204,10 @@ final class GameActionRanker
                     $this->auxiliaryActionsAfter($option, $auxiliaryActionsRemaining),
                     $branchLimit,
                     $context,
-                    PHP_INT_MIN,
+                    $searchDepth === 0 ? PHP_INT_MIN : $this->relativeSearchBound(
+                        $iterationBestScore,
+                        $initialBreakdown->total() - $initialBreakdown->state->total(),
+                    ),
                     PHP_INT_MAX,
                 );
                 $context->timings->continuationSearchNanoseconds += hrtime(true) - $searchStartedAt;
@@ -203,17 +233,18 @@ final class GameActionRanker
                     'isAuxiliary' => $this->isAuxiliaryOption($option),
                     'isPass' => $option->type() === GameActionOptionType::Pass,
                 ];
+                $iterationBestScore = max($iterationBestScore, $scoreBreakdown->total());
                 if ($searchDepth === 0 && (! $context->isExhausted() || $fundingPlan !== null)) {
                     $rankedActions[$candidateIndex] = $iterationActions[$candidateIndex];
                 }
             }
 
-            if ($context->isExhausted() || count($iterationActions) !== count($candidates)) {
+            if ($context->isExhausted() || count($iterationActions) !== count($searchIndexes)) {
                 break;
             }
 
             $rankedActions = $iterationActions;
-            $context->timings->completedSearchDepth = $searchDepth;
+            $context->timings->completedSearchDepth = $searchDepth === 0 && $state->pendingInteraction === null ? 1 : $searchDepth;
         }
 
         $bestDirectScore = null;
@@ -291,6 +322,37 @@ final class GameActionRanker
     public function lastSearchTimings(): GameActionSearchTimingsData
     {
         return $this->lastSearchTimings ?? new GameActionSearchTimingsData();
+    }
+
+    /**
+     * @param array<int, array{evaluation: EvaluatedGameActionData, index: int, isAuxiliary: bool, isPass: bool}> $actions
+     * @return list<int>
+     */
+    private function rootSearchIndexes(array $actions, int $branchLimit, ?GameActionOption $requiredOption): array
+    {
+        $eligible = array_filter($actions, static fn (array $action): bool =>
+            ! $action['isAuxiliary'] || $action['evaluation']->continuation !== []);
+        uasort($eligible, static fn (array $left, array $right): int =>
+            $right['evaluation']->score <=> $left['evaluation']->score
+                ?: $left['isPass'] <=> $right['isPass']
+                ?: $left['index'] <=> $right['index']);
+        $indexes = array_slice(array_keys($eligible), 0, $branchLimit);
+        foreach ($eligible as $index => $action) {
+            if ($action['isPass'] && ! in_array($index, $indexes, true)) {
+                $indexes[] = $index;
+                break;
+            }
+        }
+        foreach ($actions as $index => $action) {
+            if (($action['isAuxiliary'] || ($requiredOption !== null
+                    && $action['evaluation']->option->type() === $requiredOption->type()
+                    && $action['evaluation']->option->toArray() === $requiredOption->toArray()))
+                && ! in_array($index, $indexes, true)) {
+                $indexes[] = $index;
+            }
+        }
+
+        return $indexes;
     }
 
     private function search(
@@ -379,6 +441,7 @@ final class GameActionRanker
                 'auxiliaryActionsRemaining' => $this->auxiliaryActionsAfter($option, $auxiliaryActionsRemaining),
                 'passPenalty' => $passPenalty,
                 'progressScore' => $progressScore,
+                'isAuxiliary' => $this->isAuxiliaryOption($option),
             ];
         }
 
@@ -392,9 +455,13 @@ final class GameActionRanker
                 ? $right['score'] <=> $left['score']
                 : $left['score'] <=> $right['score'],
         );
-        $simulations = array_slice($simulations, 0, $branchLimit);
+        $mainSimulations = array_filter($simulations, static fn (array $candidate): bool => ! $candidate['isAuxiliary']);
+        $auxiliarySimulations = array_filter($simulations, static fn (array $candidate): bool => $candidate['isAuxiliary']);
+        $simulations = [...array_slice($mainSimulations, 0, $branchLimit), ...array_slice($auxiliarySimulations, 0, 1)];
         $bestScore = $maximizing ? PHP_INT_MIN : PHP_INT_MAX;
         $wasCutOff = false;
+        $initialAlpha = $alpha;
+        $initialBeta = $beta;
 
         foreach ($simulations as $candidate) {
             $progressScore = $candidate['progressScore'] + ($maximizing ? -$candidate['passPenalty'] : $candidate['passPenalty']);
@@ -424,7 +491,7 @@ final class GameActionRanker
             }
         }
 
-        if (! $wasCutOff) {
+        if (! $wasCutOff && ! $context->isExhausted() && $bestScore > $initialAlpha && $bestScore < $initialBeta) {
             $context->cachedScores[$cacheKey] = $bestScore;
         }
 
@@ -521,18 +588,10 @@ final class GameActionRanker
             $candidates[] = ['simulation' => $simulation, 'stateScore' => $stateScore, 'score' => $score];
         }
 
-        if (in_array($interaction->type, [
-            PendingInteractionType::SpendSpades,
-            PendingInteractionType::BuildWorkshopAfterTerraforming,
-            PendingInteractionType::PlacePalaceGuild,
-            PendingInteractionType::PlaceNeutralBuilding,
-            PendingInteractionType::PlaceBridge,
-        ], true)) {
-            usort($candidates, static fn (array $left, array $right): int => $maximizing
-                ? $right['score'] <=> $left['score']
-                : $left['score'] <=> $right['score']);
-            $candidates = array_slice($candidates, 0, self::HORIZON_PLACEMENT_BRANCH_LIMIT);
-        }
+        usort($candidates, static fn (array $left, array $right): int => $maximizing
+            ? $right['score'] <=> $left['score']
+            : $left['score'] <=> $right['score']);
+        $candidates = array_slice($candidates, 0, self::HORIZON_REWARD_BRANCH_LIMIT);
 
         foreach ($candidates as $candidate) {
             if ($bestScore !== null && $context->isExhausted()) {
@@ -778,8 +837,20 @@ final class GameActionRanker
         if ($context->isExhausted()) {
             return null;
         }
+        if ($options === [] && $context->fundingForecastNodeLimit !== null
+            && $context->timings->fundingForecastNodes >= $context->fundingForecastNodeLimit) {
+            return null;
+        }
+
+        $cacheKey = $this->cacheKey($state, $playerId, $playerId, 0, $auxiliaryActionsRemaining);
+        if (array_key_exists($cacheKey, $context->cachedFundingForecasts)) {
+            $context->timings->fundingForecastCacheHits++;
+
+            return $context->cachedFundingForecasts[$cacheKey];
+        }
 
         $context->visitedNodes++;
+        $context->timings->fundingForecastNodes++;
         $bestScore = null;
         foreach ($options as $option) {
             if ($bestScore !== null && $context->isExhausted()) {
@@ -802,9 +873,12 @@ final class GameActionRanker
                 $bestScore = new EvaluatedGameActionData($option, $simulation, $score, $forecastBreakdown);
             }
         }
-        if ($auxiliaryActionsRemaining > 0 && ! $context->isExhausted()) {
+        if ($auxiliaryActionsRemaining > 0 && ! $context->isExhausted()
+            && ($context->fundingForecastNodeLimit === null
+                || $context->timings->fundingForecastNodes < $context->fundingForecastNodeLimit)) {
             foreach ($this->findOptions($state, $playerId, $context) as $option) {
-                if ($context->isExhausted()) {
+                if ($context->isExhausted() || ($context->fundingForecastNodeLimit !== null
+                    && $context->timings->fundingForecastNodes >= $context->fundingForecastNodeLimit)) {
                     break;
                 }
                 if (! $this->isAuxiliaryOption($option)) {
@@ -845,6 +919,12 @@ final class GameActionRanker
                     }
                 }
             }
+        }
+
+        if (! $context->isExhausted() && ($auxiliaryActionsRemaining === 0
+            || $context->fundingForecastNodeLimit === null
+            || $context->timings->fundingForecastNodes < $context->fundingForecastNodeLimit)) {
+            $context->cachedFundingForecasts[$cacheKey] = $bestScore;
         }
 
         return $bestScore;

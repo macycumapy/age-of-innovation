@@ -8,6 +8,7 @@ use App\Domain\Automation\Actions\PlayAutomatedTurnAction;
 use App\Domain\Automation\Data\AutomatedGameDecisionData;
 use App\Domain\Automation\Data\AutomatedGameResourcesData;
 use App\Domain\Automation\Data\AutomatedGameSimulationResultData;
+use App\Domain\Automation\Data\GameActionSearchBudgetData;
 use App\Domain\Automation\Data\GameActionSelectionDiagnosticsData;
 use App\Domain\Automation\Enums\AutomatedGamePassReason;
 use App\Domain\Automation\Enums\GameActionSelectionReason;
@@ -32,6 +33,7 @@ class AutomatedGameSimulator
         Game $game,
         int $maxDecisions = 2_000,
         int $maxDurationMilliseconds = 300_000,
+        ?GameActionSearchBudgetData $searchBudget = null,
     ): AutomatedGameSimulationResultData {
         if ($maxDecisions < 1 || $maxDurationMilliseconds < 1) {
             throw new DomainException('Лимиты симуляции должны быть положительными.');
@@ -99,6 +101,7 @@ class AutomatedGameSimulator
                     }
                 },
                 plannedOptions: $versionBefore === $plannedStateVersion && $player->id === $plannedPlayerId ? $plannedOptions : [],
+                searchBudget: $searchBudget,
             );
             $game->refresh();
             $plannedOptions = $diagnostics !== null && $diagnostics->selected !== null ? $diagnostics->selected->continuation : [];

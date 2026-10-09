@@ -60,6 +60,8 @@ final class AutomatedGameReportBuilder
                     'search_timings' => $decision->searchTimings === null ? null : [
                         'exhausted_by' => $decision->searchTimings->exhaustedBy?->value,
                         'completed_search_depth' => $decision->searchTimings->completedSearchDepth,
+                        'funding_forecast_nodes' => $decision->searchTimings->fundingForecastNodes,
+                        'funding_forecast_cache_hits' => $decision->searchTimings->fundingForecastCacheHits,
                         'option_finding_ms' => $decision->searchTimings->optionFindingNanoseconds / 1_000_000,
                         'simulation_ms' => $decision->searchTimings->simulationNanoseconds / 1_000_000,
                         'simulation_state_copy_ms' => $decision->searchTimings->simulationStateCopyNanoseconds / 1_000_000,
