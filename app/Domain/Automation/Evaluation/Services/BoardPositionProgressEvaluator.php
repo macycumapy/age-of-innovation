@@ -34,15 +34,18 @@ class BoardPositionProgressEvaluator
 
     private const int MAX_FORECAST_EXPANSION_TARGETS = 3;
 
-    public function __construct(private FindReachableLandHexesAction $findReachableLandHexes)
-    {
+    public function __construct(
+        private FindReachableLandHexesAction $findReachableLandHexes,
+        private NetworkBlockingRiskEvaluator $networkBlockingRiskEvaluator,
+    ) {
     }
 
     public function execute(GameStateData $before, GameStateData $after, int $playerId): int
     {
         return $this->positionScore($after, $playerId)
             - $this->positionScore($before, $playerId)
-            - $this->strandedTerraformingPenalty($before, $after, $playerId);
+            - $this->strandedTerraformingPenalty($before, $after, $playerId)
+            + $this->networkBlockingRiskEvaluator->execute($before, $after, $playerId);
     }
 
     private function positionScore(GameStateData $state, int $playerId): int

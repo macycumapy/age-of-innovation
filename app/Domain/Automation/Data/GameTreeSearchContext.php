@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Domain\Automation\Data;
 
+use App\Domain\Automation\Enums\GameActionSearchLimit;
+
 final class GameTreeSearchContext
 {
     public GameActionSearchTimingsData $timings;
@@ -25,6 +27,16 @@ final class GameTreeSearchContext
     /** @phpstan-impure */
     public function isExhausted(): bool
     {
-        return $this->visitedNodes >= $this->maxNodes || hrtime(true) >= $this->deadlineNanoseconds;
+        $nodesExhausted = $this->visitedNodes >= $this->maxNodes;
+        $timeExhausted = hrtime(true) >= $this->deadlineNanoseconds;
+        if ($nodesExhausted || $timeExhausted) {
+            $this->timings->exhaustedBy ??= match (true) {
+                $nodesExhausted && $timeExhausted => GameActionSearchLimit::NodesAndTime,
+                $nodesExhausted => GameActionSearchLimit::Nodes,
+                default => GameActionSearchLimit::Time,
+            };
+        }
+
+        return $nodesExhausted || $timeExhausted;
     }
 }

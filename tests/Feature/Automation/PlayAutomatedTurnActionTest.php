@@ -280,6 +280,8 @@ class PlayAutomatedTurnActionTest extends TestCase
         $this->assertSame(['knowledgeDisciplines' => []], $report['decisions'][0]['candidates'][0]['parameters']);
         $this->assertGreaterThan(0, $report['decisions'][0]['search_timings']['simulation_calls']);
         $this->assertGreaterThanOrEqual(0, $report['decisions'][0]['search_timings']['simulation_ms']);
+        $this->assertArrayHasKey('exhausted_by', $report['decisions'][0]['search_timings']);
+        $this->assertArrayHasKey('completed_search_depth', $report['decisions'][0]['search_timings']);
         $simulationTimings = $report['decisions'][0]['search_timings']['simulations_by_action'];
         $this->assertNotEmpty($simulationTimings);
         $this->assertSame($report['decisions'][0]['search_timings']['simulation_calls'], array_sum(array_column($simulationTimings, 'calls')));

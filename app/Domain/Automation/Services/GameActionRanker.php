@@ -213,6 +213,7 @@ final class GameActionRanker
             }
 
             $rankedActions = $iterationActions;
+            $context->timings->completedSearchDepth = $searchDepth;
         }
 
         $bestDirectScore = null;

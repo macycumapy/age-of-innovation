@@ -4,8 +4,14 @@ declare(strict_types=1);
 
 namespace App\Domain\Automation\Data;
 
+use App\Domain\Automation\Enums\GameActionSearchLimit;
+
 final class GameActionSearchTimingsData
 {
+    public ?GameActionSearchLimit $exhaustedBy = null;
+
+    public int $completedSearchDepth = 0;
+
     public int $optionFindingNanoseconds = 0;
 
     public int $simulationNanoseconds = 0;
