@@ -19,6 +19,7 @@ use App\Domain\Automation\Evaluation\Services\PlayerEconomicNeedsEvaluator;
 use App\Domain\Automation\Evaluation\Services\RoundScoringProgressEvaluator;
 use App\Domain\GameEngine\Board\Enums\BuildingType;
 use App\Domain\GameEngine\Contracts\GameActionOption;
+use App\Domain\GameEngine\Economy\Data\PowerActionOptionData;
 use App\Domain\GameEngine\Enums\GameActionOptionType;
 use App\Domain\GameEngine\Interactions\Enums\PendingInteractionType;
 use App\Domain\GameEngine\Interactions\Services\GameActionOptionFinder;
@@ -39,7 +40,7 @@ final class GameActionRanker
 
     private ?GameActionSearchTimingsData $lastSearchTimings = null;
 
-    private const int MAX_AUXILIARY_ACTIONS_PER_TURN = 2;
+    private const int MAX_AUXILIARY_ACTIONS_PER_TURN = 3;
 
     private const int ROUND_SCORING_PRIORITY_WEIGHT = 10;
 
@@ -138,6 +139,7 @@ final class GameActionRanker
         }
 
         $rewardForecastIndexes = array_keys($candidates);
+        $fundingPlans = [];
         usort($rewardForecastIndexes, fn (int $left, int $right): int =>
             ($candidates[$left]['fundedOptions'] !== [] ? 1 : $this->rewardForecastPriority($candidates[$left]['simulation']->state))
                 <=> ($candidates[$right]['fundedOptions'] !== [] ? 1 : $this->rewardForecastPriority($candidates[$right]['simulation']->state))
@@ -154,18 +156,30 @@ final class GameActionRanker
                 $simulation = $candidate['simulation'];
                 $initialBreakdown = $candidate['scoreBreakdown'];
                 $searchStartedAt = hrtime(true);
-                $searchScore = $searchDepth === 0 && $candidate['fundedOptions'] !== []
-                    ? $this->fundedActionForecast($simulation->state, $playerId, $candidate['fundedOptions'], $context)
-                    : $this->search(
-                        new GameActionSimulationData($simulation->state->deepCopy(), $simulation->nextActivePlayerId),
+                $requiresFundingPlan = $state->pendingInteraction === null
+                    && $state->round->phase === GamePhase::Actions && $this->isAuxiliaryOption($option);
+                $fundingPlan = $searchDepth === 0 && $requiresFundingPlan
+                    ? $this->fundedActionForecast(
+                        $simulation->state,
                         $playerId,
-                        $searchDepth === 0 ? 0 : $this->remainingDepthAfter($state, $option, $searchDepth),
-                        $this->auxiliaryActionsAfter($option, $auxiliaryActionsRemaining),
-                        $branchLimit,
+                        $candidate['fundedOptions'],
+                        $availableOptionKeys,
+                        $auxiliaryActionsRemaining - 1,
                         $context,
-                        PHP_INT_MIN,
-                        PHP_INT_MAX,
-                    );
+                    ) : ($fundingPlans[$candidateIndex] ?? null);
+                if ($fundingPlan !== null) {
+                    $fundingPlans[$candidateIndex] = $fundingPlan;
+                }
+                $searchScore = $fundingPlan !== null ? $fundingPlan->score : $this->search(
+                    new GameActionSimulationData($simulation->state->deepCopy(), $simulation->nextActivePlayerId),
+                    $playerId,
+                    $searchDepth === 0 ? 0 : $this->remainingDepthAfter($state, $option, $searchDepth),
+                    $this->auxiliaryActionsAfter($option, $auxiliaryActionsRemaining),
+                    $branchLimit,
+                    $context,
+                    PHP_INT_MIN,
+                    PHP_INT_MAX,
+                );
                 $context->timings->continuationSearchNanoseconds += hrtime(true) - $searchStartedAt;
                 $scoreBreakdown = new GameActionScoreData(
                     state: $initialBreakdown->state,
@@ -174,7 +188,8 @@ final class GameActionRanker
                     boardPosition: $initialBreakdown->boardPosition,
                     economicNeeds: $initialBreakdown->economicNeeds,
                     passPenalty: $initialBreakdown->passPenalty,
-                    searchAdjustment: $searchScore - $initialBreakdown->state->total(),
+                    searchAdjustment: $searchScore - $initialBreakdown->state->total()
+                        - ($fundingPlan !== null ? max(0, $initialBreakdown->economicNeeds) : 0),
                 );
                 $iterationActions[$candidateIndex] = [
                     'evaluation' => new EvaluatedGameActionData(
@@ -182,12 +197,13 @@ final class GameActionRanker
                         $simulation,
                         $scoreBreakdown->total(),
                         $scoreBreakdown,
+                        $fundingPlan === null ? [] : [...$fundingPlan->continuation, $fundingPlan->option],
                     ),
                     'index' => $candidate['index'],
                     'isAuxiliary' => $this->isAuxiliaryOption($option),
                     'isPass' => $option->type() === GameActionOptionType::Pass,
                 ];
-                if ($searchDepth === 0 && ! $context->isExhausted()) {
+                if ($searchDepth === 0 && (! $context->isExhausted() || $fundingPlan !== null)) {
                     $rankedActions[$candidateIndex] = $iterationActions[$candidateIndex];
                 }
             }
@@ -197,6 +213,33 @@ final class GameActionRanker
             }
 
             $rankedActions = $iterationActions;
+        }
+
+        $bestDirectScore = null;
+        foreach ($rankedActions as $action) {
+            if (! $action['isAuxiliary']) {
+                $bestDirectScore = $bestDirectScore === null ? $action['evaluation']->score : max($bestDirectScore, $action['evaluation']->score);
+            }
+        }
+        if ($state->pendingInteraction === null && $state->round->phase === GamePhase::Actions && $bestDirectScore !== null) {
+            foreach ($rankedActions as &$action) {
+                if (! $action['isAuxiliary'] || $action['evaluation']->continuation !== [] || $action['evaluation']->score < $bestDirectScore) {
+                    continue;
+                }
+                $evaluation = $action['evaluation'];
+                $breakdown = $evaluation->scoreBreakdown;
+                $score = new GameActionScoreData(
+                    state: $breakdown->state,
+                    roundScoring: $breakdown->roundScoring,
+                    finalScoring: $breakdown->finalScoring,
+                    boardPosition: $breakdown->boardPosition,
+                    economicNeeds: $breakdown->economicNeeds,
+                    passPenalty: $breakdown->passPenalty,
+                    searchAdjustment: $breakdown->searchAdjustment + $bestDirectScore - 1 - $evaluation->score,
+                );
+                $action['evaluation'] = new EvaluatedGameActionData($evaluation->option, $evaluation->simulation, $score->total(), $score);
+            }
+            unset($action);
         }
 
         usort(
@@ -325,13 +368,16 @@ final class GameActionRanker
                 $option,
                 $hasNonPassOption,
             );
+            $breakdown = $this->scoreBreakdown($state, $nextSimulation->state, $rootPlayerId, 0, $context);
+            $progressScore = $breakdown->total() - $breakdown->state->total();
             $simulations[] = [
                 'simulation' => $nextSimulation,
-                'score' => $this->evaluateState($nextSimulation->state, $rootPlayerId, $context)->total()
+                'score' => $breakdown->total()
                     + ($maximizing ? -$passPenalty : $passPenalty),
                 'remainingDepth' => $this->remainingDepthAfter($state, $option, $remainingDepth),
                 'auxiliaryActionsRemaining' => $this->auxiliaryActionsAfter($option, $auxiliaryActionsRemaining),
                 'passPenalty' => $passPenalty,
+                'progressScore' => $progressScore,
             ];
         }
 
@@ -350,6 +396,7 @@ final class GameActionRanker
         $wasCutOff = false;
 
         foreach ($simulations as $candidate) {
+            $progressScore = $candidate['progressScore'] + ($maximizing ? -$candidate['passPenalty'] : $candidate['passPenalty']);
             $score = $this->search(
                 $candidate['simulation'],
                 $rootPlayerId,
@@ -357,9 +404,9 @@ final class GameActionRanker
                 $candidate['auxiliaryActionsRemaining'],
                 $branchLimit,
                 $context,
-                $alpha,
-                $beta,
-            ) + ($maximizing ? -$candidate['passPenalty'] : $candidate['passPenalty']);
+                $this->relativeSearchBound($alpha, $progressScore),
+                $this->relativeSearchBound($beta, $progressScore),
+            ) + $progressScore;
 
             if ($maximizing) {
                 $bestScore = max($bestScore, $score);
@@ -381,6 +428,14 @@ final class GameActionRanker
         }
 
         return $bestScore;
+    }
+
+    private function relativeSearchBound(int $bound, int $progressScore): int
+    {
+        return match ($bound) {
+            PHP_INT_MIN, PHP_INT_MAX => $bound,
+            default => $bound - $progressScore,
+        };
     }
 
     private function horizonScore(GameStateData $state, int $rootPlayerId, GameTreeSearchContext $context): int
@@ -645,6 +700,10 @@ final class GameActionRanker
 
     private function optionCacheKey(GameActionOption $option): string
     {
+        if ($option instanceof PowerActionOptionData) {
+            return $option->type()->value.':'.$option->action->value;
+        }
+
         return $option->type()->value.':'.serialize($this->cacheStateValue($option));
     }
 
@@ -703,11 +762,20 @@ final class GameActionRanker
         ));
     }
 
-    /** @param list<GameActionOption> $options */
-    private function fundedActionForecast(GameStateData $state, int $playerId, array $options, GameTreeSearchContext $context): int
-    {
+    /**
+     * @param list<GameActionOption> $options
+     * @param array<string, true> $availableOptionKeys
+     */
+    private function fundedActionForecast(
+        GameStateData $state,
+        int $playerId,
+        array $options,
+        array $availableOptionKeys,
+        int $auxiliaryActionsRemaining,
+        GameTreeSearchContext $context,
+    ): ?EvaluatedGameActionData {
         if ($context->isExhausted()) {
-            return $this->evaluateState($state, $playerId, $context)->total();
+            return null;
         }
 
         $context->visitedNodes++;
@@ -720,10 +788,65 @@ final class GameActionRanker
             $breakdown = $this->scoreBreakdown($state, $simulation->state, $playerId, 0, $context);
             $score = $this->horizonScore($simulation->state, $playerId, $context)
                 + $breakdown->total() - $breakdown->state->total();
-            $bestScore = $bestScore === null ? $score : max($bestScore, $score);
+            if ($bestScore === null || $score > $bestScore->score) {
+                $forecastBreakdown = new GameActionScoreData(
+                    state: $breakdown->state,
+                    roundScoring: $breakdown->roundScoring,
+                    finalScoring: $breakdown->finalScoring,
+                    boardPosition: $breakdown->boardPosition,
+                    economicNeeds: $breakdown->economicNeeds,
+                    passPenalty: $breakdown->passPenalty,
+                    searchAdjustment: $score - $breakdown->total(),
+                );
+                $bestScore = new EvaluatedGameActionData($option, $simulation, $score, $forecastBreakdown);
+            }
+        }
+        if ($auxiliaryActionsRemaining > 0 && ! $context->isExhausted()) {
+            foreach ($this->findOptions($state, $playerId, $context) as $option) {
+                if ($context->isExhausted()) {
+                    break;
+                }
+                if (! $this->isAuxiliaryOption($option)) {
+                    continue;
+                }
+                $simulation = $this->simulate($state, $playerId, $option, $context);
+                $score = $this->fundedActionForecast(
+                    $simulation->state,
+                    $playerId,
+                    $this->newlyFundedOptions($simulation->state, $playerId, $availableOptionKeys, $context),
+                    $availableOptionKeys,
+                    $auxiliaryActionsRemaining - 1,
+                    $context,
+                );
+                if ($score !== null) {
+                    $auxiliaryBreakdown = $this->scoreBreakdown($state, $simulation->state, $playerId, 0, $context);
+                    $progress = $auxiliaryBreakdown->boardPosition + $auxiliaryBreakdown->roundScoring
+                        + $auxiliaryBreakdown->finalScoring + min(0, $auxiliaryBreakdown->economicNeeds);
+                    $planScore = $score->score + $progress;
+                    if ($bestScore === null || $planScore > $bestScore->score) {
+                        $breakdown = $score->scoreBreakdown;
+                        $planBreakdown = new GameActionScoreData(
+                            state: $breakdown->state,
+                            roundScoring: $breakdown->roundScoring,
+                            finalScoring: $breakdown->finalScoring,
+                            boardPosition: $breakdown->boardPosition,
+                            economicNeeds: $breakdown->economicNeeds,
+                            passPenalty: $breakdown->passPenalty,
+                            searchAdjustment: $breakdown->searchAdjustment + $progress,
+                        );
+                        $bestScore = new EvaluatedGameActionData(
+                            $score->option,
+                            $score->simulation,
+                            $planScore,
+                            $planBreakdown,
+                            [$option, ...$score->continuation],
+                        );
+                    }
+                }
+            }
         }
 
-        return $bestScore ?? $this->evaluateState($state, $playerId, $context)->total();
+        return $bestScore;
     }
 
     private function playerById(GameStateData $state, ?int $playerId): ?GamePlayerStateData

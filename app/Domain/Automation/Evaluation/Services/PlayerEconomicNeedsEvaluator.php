@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Domain\Automation\Evaluation\Services;
 
+use App\Domain\GameEngine\Board\Data\BoardHexStateData;
+use App\Domain\GameEngine\Board\Enums\BuildingType;
 use App\Domain\GameEngine\Board\Services\BuildWorkshopOptionFinder;
 use App\Domain\GameEngine\Board\Services\PaidTerraformingOptionFinder;
 use App\Domain\GameEngine\Board\Services\UpgradeBuildingOptionFinder;
@@ -125,6 +127,7 @@ final class PlayerEconomicNeedsEvaluator
             return 0;
         }
         $player->resources->scholars = max(1, $scholarsBefore);
+        $hasConstruction = $this->hasFundedConstruction($probe, $player);
         $potential = 0;
         foreach ($this->developmentAdvancementOptionFinder->execute($probe, $player) as $option) {
             $development = $probe->deepCopy();
@@ -137,15 +140,39 @@ final class PlayerEconomicNeedsEvaluator
             } else {
                 $developmentPlayer->terraformingLevel = $option->targetLevel;
             }
+            $developmentPlayer->resources->coins -= $option->coins;
+            $developmentPlayer->resources->tools -= $option->tools;
+            $developmentPlayer->resources->scholars -= $option->scholars;
+            $opensConstruction = ! $hasConstruction && $this->hasFundedConstruction($development, $developmentPlayer);
             $potential = max($potential, $this->boardPositionProgressEvaluator->execute(
                 $probe,
                 $development,
                 $player->playerId,
-            ));
+            ) * self::USEFUL_DEVELOPMENT_WEIGHT + ($opensConstruction ? self::NEEDED_TOOL_WEIGHT : 0));
         }
-        $bonus = min(self::MAX_SCHOLAR_BONUS, $potential * self::USEFUL_DEVELOPMENT_WEIGHT);
+        $bonus = min(self::MAX_SCHOLAR_BONUS, $potential);
 
         return ((int) ($scholarsAfter > 0) - (int) ($scholarsBefore > 0)) * $bonus;
+    }
+
+    private function hasFundedConstruction(GameStateData $state, GamePlayerStateData $player): bool
+    {
+        if ($this->buildWorkshopOptionFinder->execute($state, $player) !== []) {
+            return true;
+        }
+        $workshops = count(array_filter($state->board->hexes, static fn (BoardHexStateData $hex): bool =>
+            $hex->building?->ownerPlayerId === $player->playerId && $hex->building->type === BuildingType::Workshop
+                && ! $hex->building->isNeutral));
+        if ($workshops >= BuildingType::Workshop->supplyLimit() || $player->resources->coins < 2) {
+            return false;
+        }
+        foreach ($this->paidTerraformingOptionFinder->execute($state, $player) as $option) {
+            if ($option->toolCost + 1 <= $player->resources->tools) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function neededTools(GameStateData $state, GamePlayerStateData $player): int

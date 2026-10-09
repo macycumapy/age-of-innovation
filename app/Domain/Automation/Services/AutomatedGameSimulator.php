@@ -44,6 +44,9 @@ class AutomatedGameSimulator
         $startedAt = hrtime(true);
         $decisions = [];
         $stoppedReason = null;
+        $plannedOptions = [];
+        $plannedStateVersion = null;
+        $plannedPlayerId = null;
 
         while ($game->refresh()->status === GameStatus::Active) {
             if (count($decisions) >= $maxDecisions) {
@@ -95,8 +98,12 @@ class AutomatedGameSimulator
                         $actionAvailability = $this->actionAvailabilityEvaluator->execute($state, $statePlayer);
                     }
                 },
+                plannedOptions: $versionBefore === $plannedStateVersion && $player->id === $plannedPlayerId ? $plannedOptions : [],
             );
             $game->refresh();
+            $plannedOptions = $diagnostics !== null && $diagnostics->selected !== null ? $diagnostics->selected->continuation : [];
+            $plannedStateVersion = $game->version;
+            $plannedPlayerId = $player->id;
 
             if ($game->version <= $versionBefore) {
                 throw new DomainException('Автоматическое решение не изменило состояние партии.');

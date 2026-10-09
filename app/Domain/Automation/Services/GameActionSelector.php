@@ -9,6 +9,7 @@ use App\Domain\Automation\Data\GameActionCandidateDiagnosticsData;
 use App\Domain\Automation\Data\GameActionSelectionDiagnosticsData;
 use App\Domain\Automation\Enums\GameActionSelectionReason;
 use App\Domain\Game\Enums\GameBotDifficulty;
+use App\Domain\GameEngine\Contracts\GameActionOption;
 use App\Domain\GameEngine\State\Data\GameStateData;
 use App\Domain\GameEngine\Turns\Enums\GamePhase;
 
@@ -22,7 +23,7 @@ final class GameActionSelector
         GameStateData $state,
         int $playerId,
         GameBotDifficulty $difficulty = GameBotDifficulty::Balanced,
-        int $auxiliaryActionsRemaining = 2,
+        int $auxiliaryActionsRemaining = 3,
     ): ?EvaluatedGameActionData {
         return $this->selectWithDiagnostics(
             $state,
@@ -32,11 +33,13 @@ final class GameActionSelector
         )->selected;
     }
 
+    /** @param list<GameActionOption> $plannedOptions */
     public function selectWithDiagnostics(
         GameStateData $state,
         int $playerId,
         GameBotDifficulty $difficulty = GameBotDifficulty::Balanced,
-        int $auxiliaryActionsRemaining = 2,
+        int $auxiliaryActionsRemaining = 3,
+        array $plannedOptions = [],
     ): GameActionSelectionDiagnosticsData {
         $parameters = $difficulty->searchParameters();
         $startedAt = hrtime(true);
@@ -52,6 +55,23 @@ final class GameActionSelector
         );
 
         $selected = $rankedActions[0] ?? null;
+        $plannedOption = $plannedOptions[0] ?? null;
+        $isPlannedContinuation = false;
+        if ($plannedOption !== null && $state->pendingInteraction === null) {
+            foreach ($rankedActions as $action) {
+                if ($action->option->type() === $plannedOption->type() && $action->option->toArray() === $plannedOption->toArray()) {
+                    $selected = new EvaluatedGameActionData(
+                        $action->option,
+                        $action->simulation,
+                        $action->score,
+                        $action->scoreBreakdown,
+                        array_slice($plannedOptions, 1),
+                    );
+                    $isPlannedContinuation = true;
+                    break;
+                }
+            }
+        }
 
         return new GameActionSelectionDiagnosticsData(
             selected: $selected,
@@ -61,14 +81,14 @@ final class GameActionSelector
                     score: $action->score,
                     rank: $index + 1,
                     scoreDelta: $selected === null ? 0 : $selected->score - $action->score,
-                    selected: $index === 0,
+                    selected: $selected !== null && $action->option === $selected->option,
                     scoreBreakdown: $action->scoreBreakdown,
                     option: $action->option,
                 ),
                 $rankedActions,
                 array_keys($rankedActions),
             ),
-            selectionReason: match (count($rankedActions)) {
+            selectionReason: $isPlannedContinuation ? GameActionSelectionReason::PlannedContinuation : match (count($rankedActions)) {
                 0 => GameActionSelectionReason::NoLegalActions,
                 1 => GameActionSelectionReason::OnlyLegalAction,
                 default => GameActionSelectionReason::HighestScore,

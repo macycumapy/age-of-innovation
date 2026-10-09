@@ -7,8 +7,11 @@ namespace Tests\Unit\Automation;
 use App\Domain\Automation\Enums\GameActionSelectionReason;
 use App\Domain\Automation\Services\GameActionSelector;
 use App\Domain\Game\Enums\GameBotDifficulty;
+use App\Domain\GameEngine\Board\Data\BuildWorkshopOptionData;
 use App\Domain\GameEngine\Board\Enums\TerrainType;
 use App\Domain\GameEngine\Economy\Data\PlayerResourcesData;
+use App\Domain\GameEngine\Economy\Data\ResourceExchangeOptionData;
+use App\Domain\GameEngine\Economy\Enums\ResourceExchange;
 use App\Domain\GameEngine\Interactions\Data\PendingInteractionData;
 use App\Domain\GameEngine\Interactions\Data\RewardDistributionOptionData;
 use App\Domain\GameEngine\Interactions\Enums\PendingInteractionType;
@@ -27,6 +30,36 @@ use Tests\TestCase;
 
 class GameActionSelectorTest extends TestCase
 {
+    public function test_it_follows_a_legal_plan_and_keeps_its_remaining_actions(): void
+    {
+        $state = $this->state();
+        $state->round->phase = GamePhase::Actions;
+        $state->turnOrder = [1];
+        $state->players[0]->resources->tools = 2;
+        $plan = [new ResourceExchangeOptionData(ResourceExchange::ToolToCoin), new BuildWorkshopOptionData('target')];
+
+        $diagnostics = app(GameActionSelector::class)->selectWithDiagnostics($state, 1, GameBotDifficulty::Fast, plannedOptions: $plan);
+
+        $this->assertSame(GameActionSelectionReason::PlannedContinuation, $diagnostics->selectionReason);
+        $this->assertInstanceOf(ResourceExchangeOptionData::class, $diagnostics->selected?->option);
+        $this->assertSame([$plan[1]], $diagnostics->selected->continuation);
+        $this->assertCount(1, array_filter($diagnostics->candidates, static fn ($candidate): bool => $candidate->selected));
+    }
+
+    public function test_it_discards_a_plan_when_its_next_action_is_not_legal(): void
+    {
+        $state = $this->state();
+        $state->round->phase = GamePhase::Actions;
+        $state->turnOrder = [1];
+        $selector = app(GameActionSelector::class);
+        $normal = $selector->selectWithDiagnostics($state, 1, GameBotDifficulty::Fast);
+        $planned = $selector->selectWithDiagnostics($state, 1, GameBotDifficulty::Fast, plannedOptions: [new BuildWorkshopOptionData('missing')]);
+
+        $this->assertNotSame(GameActionSelectionReason::PlannedContinuation, $planned->selectionReason);
+        $this->assertEquals($normal->selected?->option, $planned->selected?->option);
+        $this->assertSame([], $planned->selected?->continuation);
+    }
+
     public function test_it_reports_compact_search_diagnostics(): void
     {
         $state = $this->state();

@@ -6,6 +6,7 @@ namespace App\Domain\Automation\Actions;
 
 use App\Domain\Automation\Services\GameActionSelector;
 use App\Domain\Game\Enums\GameBotDifficulty;
+use App\Domain\GameEngine\Contracts\GameActionOption;
 use App\Domain\GameEngine\Enums\GameActionType;
 use App\Domain\GameEngine\Interactions\Actions\PerformGameActionOptionAction;
 use App\Domain\GameEngine\Turns\Actions\FinishActionTurnAction;
@@ -17,7 +18,7 @@ final class PlayAutomatedTurnAction
 {
     private const int MAX_DECISIONS = 32;
 
-    private const int MAX_AUXILIARY_ACTIONS_PER_TURN = 2;
+    private const int MAX_AUXILIARY_ACTIONS_PER_TURN = 3;
 
     public function __construct(
         private GameActionSelector $gameActionSelector,
@@ -26,12 +27,14 @@ final class PlayAutomatedTurnAction
     ) {
     }
 
+    /** @param list<GameActionOption> $plannedOptions */
     public function execute(
         Game $game,
         GamePlayer $player,
         GameBotDifficulty $difficulty = GameBotDifficulty::Balanced,
         bool $singleDecision = false,
         ?\Closure $onDecisionSelected = null,
+        array $plannedOptions = [],
     ): Game {
         if ($player->game_id !== $game->id) {
             throw new DomainException('Автоматический игрок не участвует в этой партии.');
@@ -55,6 +58,7 @@ final class PlayAutomatedTurnAction
                 $player->id,
                 $difficulty,
                 $this->auxiliaryActionsRemaining($game, $player),
+                $plannedOptions,
             );
             $onDecisionSelected?->__invoke($diagnostics);
             $selection = $diagnostics->selected;
@@ -62,6 +66,7 @@ final class PlayAutomatedTurnAction
             if ($selection === null) {
                 throw new DomainException('Для автоматического игрока не найдено допустимое действие.');
             }
+            $plannedOptions = $selection->continuation;
 
             $game = $this->performGameActionOption->execute($game, $player, $selection->option);
 

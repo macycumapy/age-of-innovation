@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Jobs;
 
 use App\Domain\Automation\Actions\PlayAutomatedTurnAction;
+use App\Domain\Automation\Data\GameActionSelectionDiagnosticsData;
+use App\Domain\GameEngine\Contracts\GameActionOption;
 use App\Events\GameChanged;
 use App\Models\Game;
 use App\Models\GamePlayer;
@@ -29,10 +31,20 @@ final class PlayAutomatedTurnJob implements ShouldBeUniqueUntilProcessing, Shoul
     /** @var list<int> */
     public array $backoff = [1, 5, 15];
 
+    /** @var list<GameActionOption> */
+    public array $plannedOptions = [];
+
+    public ?int $plannedStateVersion = null;
+
+    /** @param list<GameActionOption> $plannedOptions */
     public function __construct(
         public readonly int $gameId,
         public readonly int $gamePlayerId,
+        array $plannedOptions = [],
+        ?int $plannedStateVersion = null,
     ) {
+        $this->plannedOptions = $plannedOptions;
+        $this->plannedStateVersion = $plannedStateVersion;
         $this->onQueue(self::QUEUE);
         $this->afterCommit();
     }
@@ -51,12 +63,22 @@ final class PlayAutomatedTurnJob implements ShouldBeUniqueUntilProcessing, Shoul
             return;
         }
 
-        $playAutomatedTurn->execute($game, $player, $player->bot_difficulty, singleDecision: true);
+        $nextPlan = [];
+        $playAutomatedTurn->execute(
+            $game,
+            $player,
+            $player->bot_difficulty,
+            singleDecision: true,
+            onDecisionSelected: static function (GameActionSelectionDiagnosticsData $diagnostics) use (&$nextPlan): void {
+                $nextPlan = $diagnostics->selected !== null ? $diagnostics->selected->continuation : [];
+            },
+            plannedOptions: $game->version === $this->plannedStateVersion ? $this->plannedOptions : [],
+        );
         GameChanged::dispatch($game->id);
 
         $game->refresh();
         if ($game->active_game_player_id === $player->id) {
-            self::dispatch($game->id, $player->id);
+            self::dispatch($game->id, $player->id, $nextPlan, $game->version);
         }
     }
 

@@ -915,9 +915,9 @@ class PlayAutomatedTurnActionTest extends TestCase
             ),
         ]);
 
-        for ($turn = 0; $turn < 4 && $game->refresh()->phase === GamePhase::Setup; $turn++) {
+        for ($turn = 0; $turn < 16 && $game->refresh()->phase === GamePhase::Setup; $turn++) {
             $activeBot = $game->active_game_player_id === $firstBot->id ? $firstBot : $secondBot;
-            app(PlayAutomatedTurnAction::class)->execute($game, $activeBot, GameBotDifficulty::Fast);
+            app(PlayAutomatedTurnAction::class)->execute($game, $activeBot, GameBotDifficulty::Fast, singleDecision: true);
         }
 
         $game->refresh();
@@ -1023,6 +1023,132 @@ class PlayAutomatedTurnActionTest extends TestCase
             fn (GameChanged $event): bool => $event->gameId === $game->id,
         );
         Event::assertDispatchedTimes(GameChanged::class, 2);
+    }
+
+    public function test_a_job_preserves_a_legal_construction_plan_after_serialization(): void
+    {
+        Queue::fake();
+
+        $game = Game::factory()->create(['status' => GameStatus::Active, 'phase' => GamePhase::Actions]);
+        $bot = GamePlayer::factory()->bot(GameBotDifficulty::Fast)->create(['game_id' => $game->id, 'user_id' => null, 'seat' => 1]);
+        $player = $this->playerState($bot);
+        $player->resources->coins = 1;
+        $player->resources->tools = 2;
+        $game->update([
+            'active_game_player_id' => $bot->id,
+            'state' => new GameStateData(
+                turnOrder: [$bot->id],
+                players: [$player],
+                board: new BoardStateData(hexes: [
+                    new BoardHexStateData('0:0', 0, 0, TerrainType::Forest, TerrainType::Forest, ['1:0'], building: new BuildingStateData(BuildingType::Workshop, $bot->id)),
+                    new BoardHexStateData('1:0', 1, 0, TerrainType::Forest, TerrainType::Forest, ['0:0']),
+                ]),
+                round: new RoundStateData(phase: GamePhase::Actions),
+            ),
+        ]);
+        $job = unserialize(serialize(new PlayAutomatedTurnJob(
+            $game->id,
+            $bot->id,
+            [new ResourceExchangeOptionData(ResourceExchange::ToolToCoin), new BuildWorkshopOptionData('1:0')],
+            $game->version,
+        )));
+        $this->assertInstanceOf(PlayAutomatedTurnJob::class, $job);
+        $this->assertInstanceOf(ResourceExchangeOptionData::class, $job->plannedOptions[0]);
+        app(\Illuminate\Bus\UniqueLock::class)->release($job);
+
+        $job->handle(app(PlayAutomatedTurnAction::class));
+
+        $game->refresh();
+        $this->assertSame([GameActionType::ExchangeResources], $game->actions()->pluck('type')->all());
+        $next = Queue::pushed(PlayAutomatedTurnJob::class)->last();
+        $this->assertSame($game->version, $next->plannedStateVersion);
+        $this->assertCount(1, $next->plannedOptions);
+        $this->assertInstanceOf(BuildWorkshopOptionData::class, $next->plannedOptions[0]);
+        app(\Illuminate\Bus\UniqueLock::class)->release($next);
+        unserialize(serialize($next))->handle(app(PlayAutomatedTurnAction::class));
+
+        $game->refresh();
+        $this->assertSame(BuildingType::Workshop, $game->state->board->hexes[1]->building?->type);
+        $this->assertSame([GameActionType::ExchangeResources, GameActionType::BuildWorkshop], $game->actions()->orderBy('sequence')->pluck('type')->all());
+        Queue::assertPushed(PlayAutomatedTurnJob::class, fn (PlayAutomatedTurnJob $next): bool => $next->plannedStateVersion === $game->version && $next->plannedOptions === []);
+    }
+
+    public function test_a_job_ignores_a_plan_from_an_older_game_version(): void
+    {
+        Queue::fake();
+
+        $game = Game::factory()->create(['status' => GameStatus::Active, 'phase' => GamePhase::Actions, 'version' => 2]);
+        $bot = GamePlayer::factory()->bot(GameBotDifficulty::Fast)->create(['game_id' => $game->id, 'user_id' => null, 'seat' => 1]);
+        $opponent = GamePlayer::factory()->create(['game_id' => $game->id, 'seat' => 2]);
+        $player = $this->playerState($bot, new BookSupplyData(banking: 1, law: 1));
+        $player->resources->tools = 2;
+        $pool = app(GameSetupPoolFactory::class)->create(2);
+        $pool->bookActions = [BookAction::GainCoins];
+        $game->update([
+            'active_game_player_id' => $bot->id,
+            'state' => new GameStateData(
+                turnOrder: [$bot->id, $opponent->id],
+                players: [$player, $this->playerState($opponent)],
+                round: new RoundStateData(phase: GamePhase::Actions),
+                setupPool: $pool,
+            ),
+        ]);
+
+        (new PlayAutomatedTurnJob($game->id, $bot->id, [new ResourceExchangeOptionData(ResourceExchange::ToolToCoin)], 1))
+            ->handle(app(PlayAutomatedTurnAction::class));
+
+        $this->assertSame([GameActionType::BookAction], $game->actions()->pluck('type')->all());
+        $this->assertSame(2, $game->refresh()->state->players[0]->resources->tools);
+    }
+
+    public function test_jobs_complete_three_funding_conversions_before_buying_an_innovation(): void
+    {
+        Queue::fake();
+
+        $game = Game::factory()->create(['status' => GameStatus::Active, 'phase' => GamePhase::Actions]);
+        $bot = GamePlayer::factory()->bot(GameBotDifficulty::Fast)->create(['game_id' => $game->id, 'user_id' => null, 'seat' => 1]);
+        $player = $this->playerState($bot, new BookSupplyData(banking: 3, law: 4));
+        $player->resources->coins = 2;
+        $player->resources->power->bowlThree = 4;
+        $player->knowledge->banking = 12;
+        $player->knowledge->law = 12;
+        $pool = app(GameSetupPoolFactory::class)->createFromSeed(2, 'queued-three-conversion-library');
+        $librarySlot = array_search(Innovation::Library, $pool->innovations, true);
+        if ($librarySlot !== false) {
+            $pool->innovations[$librarySlot] = $pool->innovations[0];
+        }
+        $pool->innovations[0] = Innovation::Library;
+        $pool->bookActions = [];
+        $game->update([
+            'active_game_player_id' => $bot->id,
+            'state' => new GameStateData(
+                turnOrder: [$bot->id],
+                players: [$player],
+                round: new RoundStateData(
+                    number: 6,
+                    phase: GamePhase::Actions,
+                    scoringTileId: RoundScoringTile::WorkshopLaw->value,
+                    usedSharedActionIds: array_map(static fn (PowerAction $action): string => $action->value, PowerAction::cases()),
+                ),
+                setupPool: $pool,
+                availableInventionIds: [Innovation::Library->value],
+            ),
+        ]);
+        $job = new PlayAutomatedTurnJob($game->id, $bot->id);
+        for ($decision = 0; $decision < 4; $decision++) {
+            app(\Illuminate\Bus\UniqueLock::class)->release($job);
+            unserialize(serialize($job))->handle(app(PlayAutomatedTurnAction::class));
+            $job = Queue::pushed(PlayAutomatedTurnJob::class)->last();
+        }
+
+        $game->refresh();
+        $this->assertSame([
+            GameActionType::ExchangeResources, GameActionType::ExchangeResources,
+            GameActionType::ExchangeResources, GameActionType::MakeInnovation,
+        ], $game->actions()->orderBy('sequence')->pluck('type')->all());
+        $this->assertSame([Innovation::Library->value], $game->state->players[0]->inventionIds);
+        $this->assertSame($player->victoryPoints + 24, $game->state->players[0]->victoryPoints);
+        $this->assertTrue($game->state->round->hasTakenMainAction);
     }
 
     public function test_a_new_job_does_not_repeat_an_auxiliary_action_from_the_current_turn(): void

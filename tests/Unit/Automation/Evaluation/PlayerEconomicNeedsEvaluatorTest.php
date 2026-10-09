@@ -66,6 +66,26 @@ class PlayerEconomicNeedsEvaluatorTest extends TestCase
         $this->assertLessThan(0, app(PlayerEconomicNeedsEvaluator::class)->execute($before, $after, 1));
     }
 
+    public function test_the_last_scholar_reserve_accounts_for_construction_cost_after_development(): void
+    {
+        $before = $this->shippingState();
+        $before->players[0]->resources = new PlayerResourcesData(coins: 6, tools: 4, scholars: 1);
+        $before->board->hexes[2]->terrain = TerrainType::Mountain;
+        $after = $before->deepCopy();
+        $after->players[0]->resources->scholars = 0;
+        $evaluator = app(PlayerEconomicNeedsEvaluator::class);
+
+        $this->assertSame(-40, $evaluator->execute($before, $after, 1));
+        $before->players[0]->resources->tools = 3;
+        $after->players[0]->resources->tools = 3;
+        $this->assertSame(-21, $evaluator->execute($before, $after, 1));
+        $before->players[0]->resources->tools = 4;
+        $after->players[0]->resources->tools = 4;
+        $before->players[0]->resources->coins = 5;
+        $after->players[0]->resources->coins = 5;
+        $this->assertSame(-21, $evaluator->execute($before, $after, 1));
+    }
+
     public function test_it_rewards_a_scholar_only_when_affordable_development_improves_the_map(): void
     {
         $before = $this->shippingState();

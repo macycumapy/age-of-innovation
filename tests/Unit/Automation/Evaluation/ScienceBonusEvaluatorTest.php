@@ -116,6 +116,71 @@ class ScienceBonusEvaluatorTest extends TestCase
         $this->assertSame(0, app(ScienceBonusEvaluator::class)->execute($state, $player));
     }
 
+    public function test_scholar_reward_projection_excludes_received_rewards_and_the_final_round(): void
+    {
+        [$state, $player] = $this->state();
+        $state->round->number = 5;
+        $state->round->scoringTileId = RoundScoringTile::WorkshopLaw->value;
+        $player->scholarPoolSize = 1;
+        $evaluator = app(ScienceBonusEvaluator::class);
+
+        $this->assertSame(1, $evaluator->scholarReward($state, $player, 5));
+        $this->assertSame(0, $evaluator->scholarReward($state, $player, 0));
+        $this->assertSame(0, $evaluator->scholarReward($state, $player, 6));
+        $state->round->phase = GamePhase::ScienceBonus;
+        $state->round->scienceBonusReceipts = [['round' => 5, 'player_id' => 2, 'scholars' => 1]];
+        $this->assertSame(1, $evaluator->scholarReward($state, $player, 5));
+        $state->round->scienceBonusReceipts[] = ['round' => 5, 'player_id' => 1, 'scholars' => 1];
+        $this->assertSame(0, $evaluator->scholarReward($state, $player, 5));
+    }
+
+    public function test_science_coins_are_valued_together_with_the_tools_available_after_income(): void
+    {
+        [$state, $player] = $this->state();
+        $state->setupPool->roundScoringTiles = [RoundScoringTile::SchoolBanking];
+        $player->knowledge->banking = 6;
+        $evaluator = app(ScienceBonusEvaluator::class);
+
+        $this->assertSame(66, $evaluator->execute($state, $player));
+        for ($index = 0; $index < 3; $index++) {
+            $state->board->hexes[] = new BoardHexStateData(
+                'guild-'.$index,
+                $index,
+                0,
+                TerrainType::Forest,
+                TerrainType::Forest,
+                building: new BuildingStateData(BuildingType::Guild, 1),
+            );
+        }
+        $this->assertSame(12, $evaluator->execute($state, $player));
+        $state->setupPool->roundScoringTiles = [RoundScoringTile::PalaceUniversityBanking];
+        $state->round->scoringTileId = RoundScoringTile::PalaceUniversityBanking->value;
+        $player->knowledge->banking = 2;
+        $this->assertSame(74, $evaluator->execute($state, $player));
+    }
+
+    public function test_power_projection_uses_the_remaining_tokens_and_current_charging_room(): void
+    {
+        [$state, $player] = $this->state();
+        $state->round->scoringTileId = RoundScoringTile::WorkshopBanking->value;
+        $state->setupPool->roundScoringTiles = array_fill(0, 6, RoundScoringTile::WorkshopBanking);
+        $player->knowledge->banking = 3;
+        $player->resources->power->bowlOne = 1;
+        $evaluator = app(ScienceBonusEvaluator::class);
+
+        $this->assertSame(2, $evaluator->powerReward($state, $player, 1));
+        $this->assertSame(0, $evaluator->powerIncomeCapacity($state, $player, 2));
+        $player->resources->power->bowlOne = 0;
+        $player->resources->power->bowlThree = 1;
+        $state->passedPlayerIds = [1];
+        $this->assertSame(0, $evaluator->powerReward($state, $player, 1));
+        $this->assertSame(0, $evaluator->powerIncomeCapacity($state, $player, 2));
+        $this->assertSame(2, $evaluator->powerReward($state, $player, 2));
+        $this->assertSame(0, $evaluator->powerIncomeCapacity($state, $player, 3));
+        $player->resources->power->bowlThree = 0;
+        $this->assertSame(0, $evaluator->powerReward($state, $player, 2));
+    }
+
     /** @return array{GameStateData, GamePlayerStateData} */
     private function state(): array
     {

@@ -22,6 +22,7 @@ final class GameTreeSearchContext
         $this->deadlineNanoseconds = hrtime(true) + ($maxTimeMilliseconds * 1_000_000);
     }
 
+    /** @phpstan-impure */
     public function isExhausted(): bool
     {
         return $this->visitedNodes >= $this->maxNodes || hrtime(true) >= $this->deadlineNanoseconds;
