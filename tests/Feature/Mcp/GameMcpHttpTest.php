@@ -55,9 +55,11 @@ class GameMcpHttpTest extends TestCase
         $this->callTool($this->token($remoteUser), 'join_game', ['game_id' => $game->id, 'user_id' => $localUser->id])
             ->assertOk()->assertJsonPath('result.isError', false)
             ->assertJsonPath('result.structuredContent.user_id', $remoteUser->id)
-            ->assertJsonPath('result.structuredContent.joined', true);
+            ->assertJsonPath('result.structuredContent.joined', true)
+            ->assertJsonPath('result.structuredContent.is_ready', true);
 
         $this->assertSame($remoteUser->id, $game->players()->sole()->user_id);
+        $this->assertTrue($game->players()->sole()->is_ready);
         $this->assertSame(0, $localUser->gamePlayers()->count());
     }
 

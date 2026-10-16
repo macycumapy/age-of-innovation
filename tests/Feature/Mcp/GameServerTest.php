@@ -160,7 +160,8 @@ class GameServerTest extends TestCase
         $this->assertSame($game->id, $player->game_id);
         $this->assertSame(2, $player->seat);
         $this->assertNull($player->bot_difficulty);
-        $this->assertFalse($player->is_ready);
+        $this->assertTrue($player->is_ready);
+        $this->assertSame(GameStatus::Lobby, $game->fresh()->status);
         $sessionState = app(GetGameStateQuery::class)->execute($user, $game->id);
         $this->assertSame($player->id, $sessionState->playerId);
         $this->assertSame($user->id, $sessionState->userId);
@@ -183,13 +184,19 @@ class GameServerTest extends TestCase
         $this->assertSame(0, $game->players()->count());
     }
 
-    public function test_join_game_rejects_duplicate_membership(): void
+    public function test_join_game_marks_existing_lobby_members_ready_without_duplicate_membership(): void
     {
         $user = User::factory()->create();
         $player = GamePlayer::factory()->create(['user_id' => $user->id]);
         config(['game-mcp.user_id' => $user->id]);
 
-        GameServer::tool(JoinGameTool::class, ['game_id' => $player->game_id])->assertHasErrors();
+        Event::fake([GamePlayersChanged::class]);
+        GameServer::tool(JoinGameTool::class, ['game_id' => $player->game_id])
+            ->assertOk()->assertSee('"is_ready":true');
+        $this->assertTrue($player->fresh()->is_ready);
+        Event::assertDispatchedTimes(GamePlayersChanged::class, 1);
+        GameServer::tool(JoinGameTool::class, ['game_id' => $player->game_id])->assertOk();
+        Event::assertDispatchedTimes(GamePlayersChanged::class, 1);
         $this->assertSame(1, $user->gamePlayers()->count());
     }
 
@@ -207,8 +214,12 @@ class GameServerTest extends TestCase
             $closedGame = Game::factory()->create(['status' => $status]);
             GameServer::tool(JoinGameTool::class, ['game_id' => $closedGame->id])->assertHasErrors();
             $this->assertSame(0, $closedGame->players()->count());
+            $existingPlayer = GamePlayer::factory()->create(['game_id' => $closedGame->id, 'user_id' => $user->id]);
+            GameServer::tool(JoinGameTool::class, ['game_id' => $closedGame->id])->assertHasErrors();
+            $this->assertFalse($existingPlayer->fresh()->is_ready);
+            $this->assertSame(1, $closedGame->players()->count());
         }
-        $this->assertSame(0, $user->gamePlayers()->count());
+        $this->assertSame(3, $user->gamePlayers()->count());
     }
 
     public function test_user_id_is_not_interpreted_as_a_player_id(): void

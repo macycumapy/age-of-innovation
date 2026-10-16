@@ -25,7 +25,7 @@ class GameServer extends Server
 {
     protected string $instructions = <<<'TEXT'
         Before your first game, read game://rules, game://components, and game://play-guide using resources/read.
-        Use join_game with game_id to join an open lobby.
+        Use join_game with game_id to join an open lobby and automatically mark yourself ready. Existing lobby members are marked ready too; the game is not started.
         HTTP uses the authenticated token owner; local STDIO uses GAME_MCP_USER_ID.
         Read state and legal actions.
         While authorized to keep playing, use wait_for_turn when waiting for your turn. On timeout, call it again; on game_ended, stop. On your_turn, read legal actions and use the returned current version.

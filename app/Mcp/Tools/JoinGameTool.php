@@ -5,28 +5,35 @@ declare(strict_types=1);
 namespace App\Mcp\Tools;
 
 use App\Domain\Game\Actions\JoinGameAction;
+use App\Domain\Game\Actions\SetGamePlayerReadinessAction;
+use App\Domain\Game\Enums\GameStatus;
 use App\Events\GameChanged;
 use App\Mcp\Validators\JoinGameValidator;
 use App\Models\Game;
 use App\Models\User;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Illuminate\JsonSchema\Types\Type;
+use Illuminate\Support\Facades\DB;
 use Laravel\Mcp\Request;
 use Laravel\Mcp\ResponseFactory;
 use Laravel\Mcp\Server\Attributes\Description;
 use Laravel\Mcp\Server\Attributes\Name;
 
 #[Name('join_game')]
-#[Description('Join the requested open lobby as the authenticated user. Requires a game_id. Does not mark readiness or start the game.')]
+#[Description('Join the requested open lobby as the authenticated user and mark the player ready. Existing lobby members are marked ready too. Requires a game_id. Does not start the game.')]
 final class JoinGameTool extends GameTool
 {
-    public function handle(Request $request, JoinGameValidator $validator, JoinGameAction $joinGame): ResponseFactory
+    public function handle(Request $request, JoinGameValidator $validator, JoinGameAction $joinGame, SetGamePlayerReadinessAction $setReadiness): ResponseFactory
     {
         $data = $validator->validate($request);
 
-        return $this->respond($request, function (User $user) use ($data, $joinGame): array {
-            $game = Game::query()->findOrFail($data->gameId);
-            $player = $joinGame->execute($game, $user);
+        return $this->respond($request, fn (User $user): array => DB::transaction(function () use ($user, $data, $joinGame, $setReadiness): array {
+            $game = Game::query()->lockForUpdate()->findOrFail($data->gameId);
+            $player = $game->status === GameStatus::Lobby
+                ? $game->players()->whereBelongsTo($user)->first()
+                : null;
+            $player ??= $joinGame->execute($game, $user);
+            $player = $setReadiness->execute($player, true);
             GameChanged::dispatch($game->id);
 
             return [
@@ -35,8 +42,9 @@ final class JoinGameTool extends GameTool
                 'user_id' => $player->user_id,
                 'player_id' => $player->id,
                 'seat' => $player->seat,
+                'is_ready' => $player->is_ready,
             ];
-        });
+        }));
     }
 
     /** @return array<string, Type> */
