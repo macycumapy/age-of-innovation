@@ -9,6 +9,7 @@ use App\Domain\GameEngine\Economy\Enums\PowerAction;
 
 enum GameActionOptionType: string
 {
+    case FinishTurn = 'finish_turn';
     case ChoosePlanningBundle = 'choose_planning_bundle';
     case PlaceStartingBuilding = 'place_starting_building';
     case BookAction = 'book_action';

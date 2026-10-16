@@ -49,3 +49,14 @@ Before passing, inspect unused special actions, reachable round goals, all owned
 `StrategicPriorities::settlementValue()` scales a supplied settlement heuristic to 40% in rounds 1–2, 70% in round 3, and 100% later, except setup and town-scoring rounds. This is neither a point payout nor a universal prohibition on early towns.
 
 Source: `app/Domain/Automation/Evaluation/Services/StrategicPriorities.php`.
+
+## Strategic decision checks
+
+Use these checks as planning aids, not as a fixed strategy. Verify mechanical details against the current player-visible state and legal options.
+
+- **Check usable knowledge advancement before buying it.** Track the actual cap and unlock status of each discipline, the requirements for unlocking further advancement, and the attainable steps of a multi-step reward. Do not value a blocked step as points, income, or ranking progress. If advancement falls short of the estimate, correct the plan before repeating it; do not keep acquiring scholars without a useful outlet.
+- **Plan town geometry during setup and early expansion.** Name candidate hexes, required buildings, power, bridges or annexes, and the remaining construction costs. Shipping access is not town connectivity. Check a second town's independence before connecting it to an existing town. Compare the timing and reward of a town with the income and round scoring sacrificed to obtain it; do not postpone all town planning until the middle game.
+- **Budget the economy after upgrades.** An upgraded workshop no longer provides its previous income. Compare the resulting total income, remaining payouts, and resources needed for the next useful build. Keep an affordable terrain/building continuation rather than a theoretically strong economy stranded without tools or expansion access.
+- **Price the long-term cost of sacrificing power.** Check remaining token capacity and whether future charging can still fund useful actions. Heavy early sacrifice needs a concrete payoff; access to an action alone is not enough reason to take it.
+- **Compare complete scoring packages.** Include town rewards, unlocks, owned pass bonuses, innovation scaling, and final rankings without double-counting. For example, league_of_cities scales with town tiles; assess its timing against realistic additional towns and competing innovations, not just its current payout. Count actual connected network size rather than all owned buildings.
+- **Compare alternatives before expensive commitments.** For a major upgrade, innovation, or resource conversion, consider a feasible competing line and the next few actions each enables. Distinguish verified costs/effects from estimates. After confirmation, check actual resource, income, knowledge, and connectivity changes instead of reporting the intended result as accomplished.

@@ -7,11 +7,14 @@ namespace Tests\Feature\Mcp;
 use App\Domain\User\Actions\IssueTokenAction;
 use App\Domain\User\Actions\RevokeTokenAction;
 use App\Domain\User\Data\IssueTokenData;
+use App\Events\GameChanged;
 use App\Models\Game;
 use App\Models\GamePlayer;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Illuminate\Testing\TestResponse;
@@ -39,7 +42,7 @@ class GameMcpHttpTest extends TestCase
         ])->assertOk()->assertJsonPath('result.serverInfo.name', 'Game Server');
         $this->withToken($token)->postJson('/mcp/game', [
             'jsonrpc' => '2.0', 'id' => 2, 'method' => 'tools/list',
-        ])->assertOk()->assertJsonPath('result.tools.0.name', 'game-session-tool');
+        ])->assertOk()->assertJsonCount(7, 'result.tools')->assertJsonPath('result.tools.0.name', 'join_game');
     }
 
     public function test_http_join_uses_the_token_owner_instead_of_the_local_user(): void
@@ -49,11 +52,60 @@ class GameMcpHttpTest extends TestCase
         $game = Game::factory()->create();
         config(['game-mcp.user_id' => $localUser->id]);
 
-        $this->callTool($this->token($remoteUser), ['operation' => 'join_game', 'game_id' => $game->id, 'user_id' => $localUser->id])
-            ->assertOk()->assertJsonPath('result.isError', false);
+        $this->callTool($this->token($remoteUser), 'join_game', ['game_id' => $game->id, 'user_id' => $localUser->id])
+            ->assertOk()->assertJsonPath('result.isError', false)
+            ->assertJsonPath('result.structuredContent.user_id', $remoteUser->id)
+            ->assertJsonPath('result.structuredContent.joined', true);
 
         $this->assertSame($remoteUser->id, $game->players()->sole()->user_id);
         $this->assertSame(0, $localUser->gamePlayers()->count());
+    }
+
+    public function test_http_tools_support_selection_rollback_and_confirmation(): void
+    {
+        config(['cache.stores.array.serialize' => true, 'cache.serializable_classes' => false]);
+        Cache::purge('array');
+
+        $users = User::factory()->count(2)->create();
+        $game = Game::factory()->create();
+        foreach ($users as $index => $user) {
+            GamePlayer::factory()->ready()->create(['game_id' => $game->id, 'user_id' => $user->id, 'seat' => $index + 1]);
+        }
+        $this->actingAs($users[0])->post(route('games.start', $game))->assertNoContent();
+        $this->app['auth']->forgetGuards();
+        $game->refresh();
+        $player = $game->players()->findOrFail($game->active_game_player_id);
+        $token = $this->token($users->firstWhere('id', $player->user_id));
+        Event::fake([GameChanged::class]);
+        $historyCount = $game->actions()->count();
+        $version = $game->version;
+
+        $this->callTool($token, 'get_state', ['game_id' => $game->id])
+            ->assertOk()->assertJsonPath('result.structuredContent.version', $version)
+            ->assertJsonPath('result.structuredContent.player_id', $player->id);
+
+        $response = $this->callTool($token, 'get_legal_actions', ['game_id' => $game->id])
+            ->assertOk()->assertJsonPath('result.isError', false);
+        $actions = json_decode($response->json('result.content.0.text'), true, flags: JSON_THROW_ON_ERROR);
+        $this->assertSame($actions, $response->json('result.structuredContent'));
+        $selection = ['game_id' => $game->id, 'version' => $version, 'action_id' => $actions['actions'][0]['action_id']];
+        $context = ['game_id' => $game->id, 'version' => $version];
+
+        $this->callTool($token, 'stage_action', $selection)->assertOk()->assertJsonPath('result.isError', false)
+            ->assertJsonPath('result.structuredContent.staged_action.action_id', $selection['action_id']);
+        $this->assertSame($version, $game->fresh()->version);
+        $this->callTool($token, 'rollback_action', $context)->assertOk()->assertJsonPath('result.isError', false)
+            ->assertJsonPath('result.structuredContent.rolled_back', true);
+        $this->callTool($token, 'confirm_action', $context)->assertOk()->assertJsonPath('result.isError', true);
+        $this->assertSame($historyCount, $game->actions()->count());
+        Event::assertNotDispatched(GameChanged::class);
+
+        $this->callTool($token, 'stage_action', $selection)->assertOk()->assertJsonPath('result.isError', false);
+        $this->callTool($token, 'confirm_action', $context)->assertOk()->assertJsonPath('result.isError', false)
+            ->assertJsonPath('result.structuredContent.confirmed', true);
+        $this->assertGreaterThan($version, $game->fresh()->version);
+        $this->assertSame($historyCount + 1, $game->actions()->count());
+        Event::assertDispatched(GameChanged::class);
     }
 
     public function test_http_cannot_read_another_users_game_or_use_local_configuration_as_fallback(): void
@@ -63,7 +115,7 @@ class GameMcpHttpTest extends TestCase
         $player = GamePlayer::factory()->create(['user_id' => $owner->id]);
         config(['game-mcp.user_id' => $owner->id]);
 
-        $this->callTool($this->token($remoteUser), ['operation' => 'get_state', 'game_id' => $player->game_id])
+        $this->callTool($this->token($remoteUser), 'get_state', ['game_id' => $player->game_id])
             ->assertOk()->assertJsonPath('result.isError', true);
     }
 
@@ -189,11 +241,11 @@ class GameMcpHttpTest extends TestCase
     }
 
     /** @param array<string, mixed> $arguments */
-    private function callTool(string $token, array $arguments): TestResponse
+    private function callTool(string $token, string $name, array $arguments): TestResponse
     {
         return $this->withToken($token)->postJson('/mcp/game', [
             'jsonrpc' => '2.0', 'id' => 1, 'method' => 'tools/call',
-            'params' => ['name' => 'game-session-tool', 'arguments' => $arguments],
+            'params' => ['name' => $name, 'arguments' => $arguments],
         ]);
 
     }

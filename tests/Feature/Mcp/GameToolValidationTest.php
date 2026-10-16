@@ -1,0 +1,70 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Tests\Feature\Mcp;
+
+use App\Mcp\Validators\GameActionValidator;
+use App\Mcp\Validators\GameQueryValidator;
+use App\Mcp\Validators\JoinGameValidator;
+use App\Mcp\Validators\StageGameActionValidator;
+use Illuminate\Validation\ValidationException;
+use Laravel\Mcp\Request;
+use PHPUnit\Framework\Attributes\DataProvider;
+use Tests\TestCase;
+
+class GameToolValidationTest extends TestCase
+{
+    public function test_validators_return_typed_data_from_validated_parameters(): void
+    {
+        $query = new GameQueryValidator();
+        $this->assertNull($query->validate(new Request())->gameId);
+        $this->assertSame(12, $query->validate(new Request(['game_id' => '12']))->gameId);
+        $this->assertSame(12, (new JoinGameValidator())->validate(new Request(['game_id' => '12']))->gameId);
+
+        $action = (new GameActionValidator())->validate(new Request(['version' => '0']));
+        $this->assertNull($action->gameId);
+        $this->assertSame(0, $action->version);
+
+        $stage = (new StageGameActionValidator())->validate(new Request([
+            'game_id' => '12', 'version' => '3', 'action_id' => str_repeat('a', 64), 'user_id' => 999,
+        ]));
+        $this->assertSame(12, $stage->gameId);
+        $this->assertSame(3, $stage->version);
+        $this->assertSame(str_repeat('a', 64), $stage->actionId);
+        $this->assertFalse(property_exists($stage, 'user_id'));
+    }
+
+    /** @param array<string, mixed> $arguments */
+    #[DataProvider('invalidArguments')]
+    public function test_validators_reject_invalid_parameters(string $validatorClass, array $arguments, string $field): void
+    {
+        try {
+            (new $validatorClass())->validate(new Request($arguments));
+            $this->fail('Expected parameter validation to fail.');
+        } catch (ValidationException $exception) {
+            $this->assertArrayHasKey($field, $exception->errors());
+        }
+    }
+
+    /** @return array<string, array{class-string, array<string, mixed>, string}> */
+    public static function invalidArguments(): array
+    {
+        return [
+            'query zero game' => [GameQueryValidator::class, ['game_id' => 0], 'game_id'],
+            'query null game' => [GameQueryValidator::class, ['game_id' => null], 'game_id'],
+            'query noninteger game' => [GameQueryValidator::class, ['game_id' => 'invalid'], 'game_id'],
+            'join missing game' => [JoinGameValidator::class, [], 'game_id'],
+            'join negative game' => [JoinGameValidator::class, ['game_id' => -1], 'game_id'],
+            'action missing version' => [GameActionValidator::class, [], 'version'],
+            'action negative version' => [GameActionValidator::class, ['version' => -1], 'version'],
+            'action fractional version' => [GameActionValidator::class, ['version' => 1.5], 'version'],
+            'action invalid game' => [GameActionValidator::class, ['version' => 0, 'game_id' => []], 'game_id'],
+            'stage missing action' => [StageGameActionValidator::class, ['version' => 0], 'action_id'],
+            'stage empty action' => [StageGameActionValidator::class, ['version' => 0, 'action_id' => ''], 'action_id'],
+            'stage oversized action' => [StageGameActionValidator::class, ['version' => 0, 'action_id' => str_repeat('a', 65)], 'action_id'],
+            'stage nonstring action' => [StageGameActionValidator::class, ['version' => 0, 'action_id' => []], 'action_id'],
+            'stage missing version' => [StageGameActionValidator::class, ['action_id' => 'example'], 'version'],
+        ];
+    }
+}

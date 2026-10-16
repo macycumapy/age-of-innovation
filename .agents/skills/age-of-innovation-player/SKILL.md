@@ -11,7 +11,7 @@ Read [rules-and-strategy.md](references/rules-and-strategy.md) at the start of a
 
 ## Establish the position
 
-Discover the live MCP schema. Currently one GameSessionTool accepts an operation argument; do not assume each operation is a separate tool. Connector prefixes can change the exposed tool name.
+Discover the live MCP schema. The server exposes six tools: join_game, get_state, get_legal_actions, stage_action, confirm_action, and rollback_action. Call the appropriate tool directly without an operation argument. Connector prefixes can change the exposed tool name.
 
 Identify game_id, user_id, player_id, active_player_id, version, round, phase, and pending interaction. HTTP identifies the user by the Bearer token; local STDIO uses GAME_MCP_USER_ID. Board ownership and turn order use game-player IDs. Always pin the requested game_id on every call.
 
@@ -22,6 +22,8 @@ Read get_state and get_legal_actions for the same version. Resolve the controlle
 ## Choose a move
 
 Maintain a short plan: next scoring opportunity, economic bottleneck, intended expansion or town site, and required resources/actions. Reassess after an opponent move or material change.
+
+Apply the concrete checks in the reference's “Strategic decision checks” section before committing to a strategic line. Treat those checks as evaluation criteria, not a fixed opening or a requirement to pursue towns in every position.
 
 Compare immediate points, future income before game end, pass rewards, resource scarcity, knowledge/network ranking swings, and competition for shared actions or building sites. Count the entire sequence, including conversions, terraforming, shipping, and follow-up choices. Prefer an affordable continuation over a plan requiring several unavailable resources.
 
