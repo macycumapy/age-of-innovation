@@ -19,6 +19,7 @@ use App\Domain\GameEngine\PlayerAbilities\Enums\PalaceAbility;
 use App\Domain\GameEngine\PlayerAbilities\Enums\RoundBonus;
 use App\Domain\GameEngine\Research\Enums\Competency;
 use App\Domain\GameEngine\Research\Enums\Innovation;
+use App\Domain\GameEngine\Research\Services\MakeInnovationOptionFinder;
 use App\Domain\GameEngine\Scoring\Enums\RoundScoringTile;
 use App\Domain\GameEngine\Setup\Factories\GameSetupPoolFactory;
 use App\Domain\GameEngine\State\Data\GamePlayerStateData;
@@ -39,8 +40,13 @@ class InnovationPurchaseTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_player_can_confirm_an_innovation_purchase_with_books_and_palace_surcharge(): void
-    {
+    #[DataProvider('palacePurchaseProvider')]
+    public function test_player_can_confirm_an_innovation_purchase_with_books_and_palace_surcharge(
+        bool $hasPalace,
+        bool $isNeutral,
+        bool $ownsPalace,
+        int $expectedSurcharge,
+    ): void {
         $user = User::factory()->create();
         $game = Game::factory()->create([
             'status' => GameStatus::Active,
@@ -63,17 +69,35 @@ class InnovationPurchaseTest extends TestCase
             roundBonus: RoundBonus::Coins,
             townTileIds: [TownTile::Tools->value, TownTile::Coins->value],
             resources: new PlayerResourcesData(
-                coins: 10,
+                coins: $expectedSurcharge,
                 books: new BookSupplyData(banking: 2, law: 2, medicine: 1),
             ),
         );
         $game->update(['state' => new GameStateData(
             turnOrder: [$player->id],
+            board: new BoardStateData(hexes: $hasPalace ? [new BoardHexStateData(
+                id: '0:0',
+                q: 0,
+                r: 0,
+                initialTerrain: TerrainType::Forest,
+                terrain: TerrainType::Forest,
+                building: new BuildingStateData(
+                    BuildingType::Palace,
+                    $ownsPalace ? $player->id : $player->id + 1,
+                    isNeutral: $isNeutral,
+                ),
+            )] : []),
             players: [$playerState],
             round: new RoundStateData(phase: GamePhase::Actions),
             availableInventionIds: [Innovation::LeagueOfCities->value],
             setupPool: $setupPool,
         )]);
+
+        $this->assertNotEmpty(app(MakeInnovationOptionFinder::class)->execute($game->state, $playerState));
+        $this->actingAs($user)->get(route('games.show', $game))->assertInertia(
+            fn (Assert $page) => $page->where('game.data.innovationStates.0.coins', $expectedSurcharge)
+                ->where('game.data.innovationStates.0.isAffordable', true),
+        );
 
         $this->actingAs($user)->post(route('games.innovation', $game), [
             'innovation' => Innovation::LeagueOfCities->value,
@@ -82,7 +106,7 @@ class InnovationPurchaseTest extends TestCase
 
         $game->refresh();
         $updatedPlayerState = $game->state->players[0];
-        $this->assertSame(5, $updatedPlayerState->resources->coins);
+        $this->assertSame(0, $updatedPlayerState->resources->coins);
         $this->assertSame(0, $updatedPlayerState->resources->books->banking);
         $this->assertSame(0, $updatedPlayerState->resources->books->law);
         $this->assertSame(0, $updatedPlayerState->resources->books->medicine);
@@ -92,6 +116,18 @@ class InnovationPurchaseTest extends TestCase
         $this->assertTrue($game->state->round->hasTakenMainAction);
         $this->assertSame(GameActionType::MakeInnovation, $game->actions()->sole()->type);
         $this->assertSame(10, $game->actions()->sole()->payload['reward']['victoryPoints']);
+        $this->assertSame($expectedSurcharge, $game->actions()->sole()->payload['coins']);
+    }
+
+    /** @return array<string, array{bool, bool, bool, int}> */
+    public static function palacePurchaseProvider(): array
+    {
+        return [
+            'without a palace' => [false, false, false, 5],
+            'own palace' => [true, false, true, 0],
+            'own neutral palace' => [true, true, true, 0],
+            'opponent neutral palace' => [true, true, false, 5],
+        ];
     }
 
     public function test_architecture_innovation_grants_a_knowledge_step_for_each_owned_building_type(): void

@@ -114,8 +114,7 @@ final class MakeInnovationOptionFinder
     {
         return collect($state->board->hexes)->contains(
             static fn (BoardHexStateData $hex): bool => $hex->building?->ownerPlayerId === $player->playerId
-                && $hex->building->type === BuildingType::Palace
-                && ! $hex->building->isNeutral,
+                && $hex->building->type === BuildingType::Palace,
         );
     }
 }

@@ -500,7 +500,7 @@ class GameResource extends JsonResource
         $skipsSecondInventionSurcharge = $player instanceof GamePlayerStateData
             && $player->homeland === TerrainType::Wasteland;
         $hasPalace = $player instanceof GamePlayerStateData
-            && $this->buildingCount($player->playerId, BuildingType::Palace) > 0;
+            && $this->buildingCount($player->playerId, BuildingType::Palace, includeNeutral: true) > 0;
 
         return array_map(
             function (int $index, Innovation|string $innovation) use (
