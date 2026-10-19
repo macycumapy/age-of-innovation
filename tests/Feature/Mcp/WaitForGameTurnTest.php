@@ -9,7 +9,6 @@ use App\Domain\GameEngine\Interactions\Data\PendingInteractionData;
 use App\Domain\GameEngine\Interactions\Enums\PendingInteractionType;
 use App\Domain\GameSession\Enums\GameTurnWaitReason;
 use App\Domain\GameSession\Queries\WaitForGameTurnQuery;
-use App\Domain\GameSession\Services\GameTurnWaitBackoff;
 use App\Mcp\Servers\GameServer;
 use App\Mcp\Tools\WaitForGameTurnTool;
 use App\Mcp\Validators\WaitForGameTurnValidator;
@@ -170,13 +169,13 @@ class WaitForGameTurnTest extends TestCase
     {
         $validator = new WaitForGameTurnValidator();
         $this->assertNull($validator->validate(new Request())->gameId);
-        $this->assertNull($validator->validate(new Request())->timeoutSeconds);
+        $this->assertSame(30, $validator->validate(new Request())->timeoutSeconds);
         $data = $validator->validate(new Request(['game_id' => '12', 'timeout_seconds' => '0']));
         $this->assertSame(12, $data->gameId);
         $this->assertSame(0, $data->timeoutSeconds);
         $schema = app(WaitForGameTurnTool::class)->toArray()['inputSchema']['properties']['timeout_seconds'];
         $this->assertSame(0, $schema['minimum']);
-        $this->assertSame(40, $schema['maximum']);
+        $this->assertSame(30, $schema['maximum']);
     }
 
     public function test_http_uses_token_owner_and_returns_structured_state(): void
@@ -237,64 +236,60 @@ class WaitForGameTurnTest extends TestCase
     /** @return list<array{array<string, mixed>}> */
     public static function invalidArguments(): array
     {
-        return [[['timeout_seconds' => -1]], [['timeout_seconds' => 41]], [['timeout_seconds' => 0.5]], [['timeout_seconds' => null]], [['game_id' => 0]]];
+        return [[['timeout_seconds' => -1]], [['timeout_seconds' => 31]], [['timeout_seconds' => 0.5]], [['timeout_seconds' => null]], [['game_id' => 0]]];
     }
 
-    public function test_automatic_wait_adds_twenty_seconds_after_timeout_and_resets_after_own_turn(): void
+    public function test_default_wait_stays_at_thirty_seconds_after_timeouts_and_success(): void
     {
         [$game, $player] = $this->createGameSession();
         Sleep::fake();
+        Cache::spy();
         $query = app(WaitForGameTurnQuery::class);
-        $backoff = app(GameTurnWaitBackoff::class);
 
         $this->assertSame(GameTurnWaitReason::Timeout, $query->execute($player->user, $game->id)->reason);
-        Sleep::assertSleptTimes(20);
-        $this->assertSame(30, $backoff->seconds($player->user_id, $game->id));
+        Sleep::assertSleptTimes(30);
         $this->assertSame(GameTurnWaitReason::Timeout, $query->execute($player->user, $game->id)->reason);
-        Sleep::assertSleptTimes(50);
-        $this->assertSame(40, $backoff->seconds($player->user_id, $game->id));
+        Sleep::assertSleptTimes(60);
+        Cache::shouldNotHaveReceived('put');
+        Cache::shouldNotHaveReceived('forget');
 
         $game->update(['active_game_player_id' => $player->id]);
         $this->assertSame(GameTurnWaitReason::YourTurn, $query->execute($player->user, $game->id)->reason);
-        Sleep::assertSleptTimes(50);
-        $this->assertSame(20, $backoff->seconds($player->user_id, $game->id));
+        Sleep::assertSleptTimes(60);
         $game->update(['active_game_player_id' => null]);
         $this->assertSame(GameTurnWaitReason::Timeout, $query->execute($player->user, $game->id)->reason);
-        Sleep::assertSleptTimes(70);
+        Sleep::assertSleptTimes(90);
     }
 
-    public function test_backoff_is_capped_scoped_and_expires(): void
+    public function test_default_wait_is_the_same_for_other_users_and_games(): void
     {
-        [$game, $player] = $this->createGameSession();
-        $backoff = app(GameTurnWaitBackoff::class);
-        foreach ([20, 30, 40, 40] as $seconds) {
-            $this->assertSame($seconds, $backoff->seconds($player->user_id, $game->id));
-            $backoff->increase($player->user_id, $game->id, $seconds);
-        }
-        $this->assertSame(20, $backoff->seconds($player->user_id + 1, $game->id));
-        $this->assertSame(20, $backoff->seconds($player->user_id, $game->id + 1));
-        $this->travel(61)->minutes();
-        $this->assertSame(20, $backoff->seconds($player->user_id, $game->id));
+        [, $firstPlayer] = $this->createGameSession();
+        [$game, $secondPlayer] = $this->createGameSession();
+        Sleep::fake();
+        $query = app(WaitForGameTurnQuery::class);
+
+        $this->assertSame(GameTurnWaitReason::Timeout, $query->execute($firstPlayer->user)->reason);
+        Sleep::assertSleptTimes(30);
+        $this->assertSame(GameTurnWaitReason::Timeout, $query->execute($secondPlayer->user, $game->id)->reason);
+        Sleep::assertSleptTimes(60);
     }
 
-    public function test_explicit_timeout_does_not_increase_backoff_and_game_end_resets_it(): void
+    public function test_explicit_short_wait_does_not_change_next_default_wait(): void
     {
         [$game, $player] = $this->createGameSession();
         Sleep::fake();
-        $backoff = app(GameTurnWaitBackoff::class);
-        $backoff->increase($player->user_id, $game->id, 40);
         $query = app(WaitForGameTurnQuery::class);
 
         $this->assertSame(GameTurnWaitReason::Timeout, $query->execute($player->user, $game->id, 2)->reason);
         Sleep::assertSleptTimes(2);
-        $this->assertSame(40, $backoff->seconds($player->user_id, $game->id));
-
+        $this->assertSame(GameTurnWaitReason::Timeout, $query->execute($player->user, $game->id)->reason);
+        Sleep::assertSleptTimes(32);
         $game->update(['status' => GameStatus::Finished]);
         $this->assertSame(GameTurnWaitReason::GameEnded, $query->execute($player->user, $game->id)->reason);
-        $this->assertSame(20, $backoff->seconds($player->user_id, $game->id));
+        Sleep::assertSleptTimes(32);
     }
 
-    public function test_default_http_wait_uses_backoff_without_adding_state_to_timeout_response(): void
+    public function test_default_http_wait_is_thirty_seconds_without_adding_state_to_timeout_response(): void
     {
         [$game, $player] = $this->createGameSession();
         Sleep::fake();
@@ -303,8 +298,7 @@ class WaitForGameTurnTest extends TestCase
             'jsonrpc' => '2.0', 'id' => 1, 'method' => 'tools/call',
             'params' => ['name' => 'wait_for_turn', 'arguments' => ['game_id' => $game->id]],
         ])->assertOk()->assertJsonPath('result.structuredContent', ['reason' => 'timeout']);
-        Sleep::assertSleptTimes(20);
-        $this->assertSame(30, app(GameTurnWaitBackoff::class)->seconds($player->user_id, $game->id));
+        Sleep::assertSleptTimes(30);
     }
 
     /** @return array{Game, GamePlayer} */

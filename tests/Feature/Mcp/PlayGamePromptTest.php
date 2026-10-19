@@ -24,7 +24,7 @@ class PlayGamePromptTest extends TestCase
             ->assertSee('get_state')->assertSee('get_legal_actions')
             ->assertSee('stage_action')->assertSee('confirm_action')->assertSee('rollback_action')
             ->assertSee('finish_turn')->assertSee('wait_for_turn')
-            ->assertSee('without timeout_seconds')->assertSee('at most 40 seconds')
+            ->assertSee('without timeout_seconds')->assertSee('at most 30 seconds')
             ->assertSee('On timeout, call it again')->assertSee('On game_ended, stop')
             ->assertSee('Do not inspect or modify source code')
             ->assertSee('Do not silently confirm a staged action that predates this session');

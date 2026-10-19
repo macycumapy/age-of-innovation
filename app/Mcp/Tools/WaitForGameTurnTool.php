@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Mcp\Tools;
 
 use App\Domain\GameSession\Queries\WaitForGameTurnQuery;
-use App\Domain\GameSession\Services\GameTurnWaitBackoff;
 use App\Mcp\Presentation\GameStatePresenter;
 use App\Mcp\Validators\WaitForGameTurnValidator;
 use App\Models\User;
@@ -18,7 +17,7 @@ use Laravel\Mcp\Server\Attributes\Name;
 use Laravel\Mcp\Server\Tools\Annotations\IsReadOnly;
 
 #[Name('wait_for_turn')]
-#[Description('Wait until your turn, pending choice, or game end. Omit timeout_seconds for automatic waits starting at 20 seconds and increasing by 10 seconds after each timeout, capped at 40 seconds; success resets the sequence. Returns reason (your_turn, timeout, game_ended), with visible game state only on success. On timeout, call again only while authorized to keep playing. HTTP/client timeouts must exceed the wait; specify a shorter timeout_seconds if needed.')]
+#[Description('Wait up to 30 seconds until your turn, pending choice, or game end. Returns reason (your_turn, timeout, game_ended), with visible game state only on success. Timeout returns only reason. On timeout, call again only while authorized to keep playing. Client and proxy timeouts must exceed the wait.')]
 #[IsReadOnly]
 final class WaitForGameTurnTool extends GameTool
 {
@@ -42,7 +41,7 @@ final class WaitForGameTurnTool extends GameTool
     {
         return [
             ...parent::schema($schema),
-            'timeout_seconds' => $schema->integer()->min(0)->max(GameTurnWaitBackoff::MAXIMUM_SECONDS)->description('Omit for automatic linear backoff per user and game. An explicit value overrides this call without increasing the counter. Use 0 for an immediate check.'),
+            'timeout_seconds' => $schema->integer()->min(0)->max(WaitForGameTurnQuery::TIMEOUT_SECONDS)->description('Defaults to 30 seconds on every call. Use a smaller value if needed, or 0 for an immediate check.'),
         ];
     }
 }

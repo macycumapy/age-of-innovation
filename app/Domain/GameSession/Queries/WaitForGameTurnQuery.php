@@ -8,7 +8,6 @@ use App\Domain\Game\Enums\GameStatus;
 use App\Domain\GameSession\Data\GameTurnWaitResultData;
 use App\Domain\GameSession\Enums\GameTurnWaitReason;
 use App\Domain\GameSession\Services\GamePlayerResolver;
-use App\Domain\GameSession\Services\GameTurnWaitBackoff;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Sleep;
@@ -16,18 +15,19 @@ use InvalidArgumentException;
 
 final class WaitForGameTurnQuery
 {
-    public function __construct(private GamePlayerResolver $players, private GetGameStateQuery $state, private GameTurnWaitBackoff $backoff)
+    public const int TIMEOUT_SECONDS = 30;
+
+    public function __construct(private GamePlayerResolver $players, private GetGameStateQuery $state)
     {
     }
 
-    public function execute(User $user, ?int $gameId = null, ?int $timeoutSeconds = null): GameTurnWaitResultData
+    public function execute(User $user, ?int $gameId = null, int $timeoutSeconds = self::TIMEOUT_SECONDS): GameTurnWaitResultData
     {
-        if ($timeoutSeconds !== null && ($timeoutSeconds < 0 || $timeoutSeconds > GameTurnWaitBackoff::MAXIMUM_SECONDS)) {
-            throw new InvalidArgumentException('The wait timeout must be between 0 and '.GameTurnWaitBackoff::MAXIMUM_SECONDS.' seconds.');
+        if ($timeoutSeconds < 0 || $timeoutSeconds > self::TIMEOUT_SECONDS) {
+            throw new InvalidArgumentException('The wait timeout must be between 0 and '.self::TIMEOUT_SECONDS.' seconds.');
         }
 
-        $startedAt = hrtime(true);
-        $waitSeconds = $timeoutSeconds;
+        $deadline = hrtime(true) + $timeoutSeconds * 1_000_000_000;
 
         for ($attempt = 0; ; $attempt++) {
             $result = DB::transaction(function () use ($user, $gameId): GameTurnWaitResultData {
@@ -53,18 +53,10 @@ final class WaitForGameTurnQuery
 
             $gameId = $result->gameId;
             if ($result->reason !== GameTurnWaitReason::Timeout) {
-                $this->backoff->reset($user->id, $gameId);
-
                 return $result;
             }
 
-            $waitSeconds ??= $this->backoff->seconds($user->id, $gameId);
-            $deadline = $startedAt + $waitSeconds * 1_000_000_000;
-            if ($attempt >= $waitSeconds || hrtime(true) >= $deadline) {
-                if ($timeoutSeconds === null) {
-                    $this->backoff->increase($user->id, $gameId, $waitSeconds);
-                }
-
+            if ($attempt >= $timeoutSeconds || hrtime(true) >= $deadline) {
                 return $result;
             }
 
