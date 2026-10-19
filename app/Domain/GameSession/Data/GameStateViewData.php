@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Domain\Game\Data;
+namespace App\Domain\GameSession\Data;
 
 use App\Domain\GameEngine\State\Data\GameStateData;
 

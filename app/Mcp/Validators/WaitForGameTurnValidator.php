@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Mcp\Validators;
 
-use App\Domain\Game\Services\GameTurnWaitBackoff;
+use App\Domain\GameSession\Services\GameTurnWaitBackoff;
 use App\Mcp\Data\WaitForGameTurnData;
 use Laravel\Mcp\Request;
 

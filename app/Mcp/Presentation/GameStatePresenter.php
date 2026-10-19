@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Mcp\Presentation;
 
-use App\Domain\Game\Data\GameStateViewData;
+use App\Domain\GameSession\Data\GameStateViewData;
 
 final class GameStatePresenter
 {

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Domain\Game\Services;
+namespace App\Domain\GameSession\Services;
 
 use Illuminate\Support\Facades\Cache;
 

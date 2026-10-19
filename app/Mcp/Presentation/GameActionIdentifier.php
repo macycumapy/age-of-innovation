@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Mcp\Presentation;
 
-use App\Domain\Game\Data\GameActionOptionsData;
 use App\Domain\GameEngine\Contracts\GameActionOption;
 use App\Domain\GameEngine\Enums\GameActionOptionType;
+use App\Domain\GameSession\Data\GameActionOptionsData;
 use DomainException;
 
 final class GameActionIdentifier

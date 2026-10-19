@@ -4,17 +4,17 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Mcp;
 
-use App\Domain\Game\Data\GameActionOptionsData;
-use App\Domain\Game\Data\GameStateViewData;
-use App\Domain\Game\Data\StagedGameActionData;
 use App\Domain\Game\Enums\GameStatus;
-use App\Domain\Game\Queries\GetGameStateQuery;
 use App\Domain\GameEngine\Board\Enums\TerrainType;
 use App\Domain\GameEngine\Enums\GameActionOptionType;
 use App\Domain\GameEngine\Interactions\Services\GameActionOptionFinder;
 use App\Domain\GameEngine\Setup\Data\PlanningBundleOptionData;
 use App\Domain\GameEngine\State\Data\GameStateData;
 use App\Domain\GameEngine\Turns\Enums\GamePhase;
+use App\Domain\GameSession\Data\GameActionOptionsData;
+use App\Domain\GameSession\Data\GameStateViewData;
+use App\Domain\GameSession\Data\StagedGameActionData;
+use App\Domain\GameSession\Queries\GetGameStateQuery;
 use App\Events\GameChanged;
 use App\Events\GamePlayersChanged;
 use App\Mcp\Presentation\GameActionIdentifier;

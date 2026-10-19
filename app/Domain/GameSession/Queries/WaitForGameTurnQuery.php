@@ -2,12 +2,13 @@
 
 declare(strict_types=1);
 
-namespace App\Domain\Game\Queries;
+namespace App\Domain\GameSession\Queries;
 
-use App\Domain\Game\Data\GameTurnWaitResultData;
 use App\Domain\Game\Enums\GameStatus;
-use App\Domain\Game\Services\GamePlayerResolver;
-use App\Domain\Game\Services\GameTurnWaitBackoff;
+use App\Domain\GameSession\Data\GameTurnWaitResultData;
+use App\Domain\GameSession\Enums\GameTurnWaitReason;
+use App\Domain\GameSession\Services\GamePlayerResolver;
+use App\Domain\GameSession\Services\GameTurnWaitBackoff;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Sleep;
@@ -32,22 +33,26 @@ final class WaitForGameTurnQuery
             $result = DB::transaction(function () use ($user, $gameId): GameTurnWaitResultData {
                 $context = $this->players->resolve($user, $gameId);
                 $game = $context->game;
-                $reason = 'timeout';
+                $reason = GameTurnWaitReason::Timeout;
 
                 if (in_array($game->status, [GameStatus::Finished, GameStatus::Abandoned], true)) {
-                    $reason = 'game_ended';
+                    $reason = GameTurnWaitReason::GameEnded;
                 } elseif ($game->status === GameStatus::Active) {
                     $pending = $game->state->pendingInteraction;
                     if ($pending !== null ? $pending->playerId === $context->player->id : $game->isActivePlayer($context->player)) {
-                        $reason = 'your_turn';
+                        $reason = GameTurnWaitReason::YourTurn;
                     }
                 }
 
-                return new GameTurnWaitResultData($reason, $this->state->execute($user, $game->id));
+                return new GameTurnWaitResultData(
+                    reason: $reason,
+                    gameId: $game->id,
+                    view: $reason === GameTurnWaitReason::Timeout ? null : $this->state->execute($user, $game->id),
+                );
             });
 
-            $gameId = $result->view->gameId;
-            if ($result->reason !== 'timeout') {
+            $gameId = $result->gameId;
+            if ($result->reason !== GameTurnWaitReason::Timeout) {
                 $this->backoff->reset($user->id, $gameId);
 
                 return $result;

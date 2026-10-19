@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Mcp\Tools;
 
-use App\Domain\Game\Queries\WaitForGameTurnQuery;
-use App\Domain\Game\Services\GameTurnWaitBackoff;
+use App\Domain\GameSession\Queries\WaitForGameTurnQuery;
+use App\Domain\GameSession\Services\GameTurnWaitBackoff;
 use App\Mcp\Presentation\GameStatePresenter;
 use App\Mcp\Validators\WaitForGameTurnValidator;
 use App\Models\User;
@@ -29,11 +29,11 @@ final class WaitForGameTurnTool extends GameTool
         return $this->respond($request, function (User $user) use ($data, $query, $presenter): array {
             $result = $query->execute($user, $data->gameId, $data->timeoutSeconds);
 
-            if ($result->reason === 'timeout') {
-                return ['reason' => $result->reason];
+            if ($result->view === null) {
+                return ['reason' => $result->reason->value];
             }
 
-            return ['reason' => $result->reason, ...$presenter->present($result->view)];
+            return ['reason' => $result->reason->value, ...$presenter->present($result->view)];
         });
     }
 

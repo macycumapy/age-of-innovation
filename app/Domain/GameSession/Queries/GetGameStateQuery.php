@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace App\Domain\Game\Queries;
+namespace App\Domain\GameSession\Queries;
 
-use App\Domain\Game\Data\GameStateViewData;
-use App\Domain\Game\Services\GamePlayerResolver;
-use App\Domain\Game\Services\StagedGameActionStore;
+use App\Domain\GameSession\Data\GameStateViewData;
+use App\Domain\GameSession\Services\GamePlayerResolver;
+use App\Domain\GameSession\Services\StagedGameActionStore;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 

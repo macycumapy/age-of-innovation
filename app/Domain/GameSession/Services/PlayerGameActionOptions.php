@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\Domain\Game\Services;
+namespace App\Domain\GameSession\Services;
 
-use App\Domain\Game\Data\GameActionOptionsData;
 use App\Domain\GameEngine\Interactions\Services\GameActionOptionFinder;
+use App\Domain\GameSession\Data\GameActionOptionsData;
 use App\Models\Game;
 use App\Models\GamePlayer;
 

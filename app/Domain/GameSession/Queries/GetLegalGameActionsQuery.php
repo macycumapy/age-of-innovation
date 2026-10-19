@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace App\Domain\Game\Queries;
+namespace App\Domain\GameSession\Queries;
 
-use App\Domain\Game\Data\GameActionOptionsData;
-use App\Domain\Game\Services\GamePlayerResolver;
-use App\Domain\Game\Services\PlayerGameActionOptions;
+use App\Domain\GameSession\Data\GameActionOptionsData;
+use App\Domain\GameSession\Services\GamePlayerResolver;
+use App\Domain\GameSession\Services\PlayerGameActionOptions;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 

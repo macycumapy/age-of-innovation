@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Mcp\Tools;
 
-use App\Domain\Game\Actions\RollbackGameAction;
+use App\Domain\GameSession\Actions\RollbackGameAction;
 use App\Mcp\Validators\GameActionValidator;
 use App\Models\User;
 use Illuminate\Contracts\JsonSchema\JsonSchema;

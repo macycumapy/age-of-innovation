@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Domain\Game\Services;
+namespace App\Domain\GameSession\Services;
 
-use App\Domain\Game\Data\GamePlayerContextData;
+use App\Domain\GameSession\Data\GamePlayerContextData;
 use App\Models\Game;
 use App\Models\User;
 use DomainException;

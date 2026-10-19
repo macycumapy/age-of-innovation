@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace App\Domain\Game\Actions;
+namespace App\Domain\GameSession\Actions;
 
-use App\Domain\Game\Data\StagedGameActionData;
-use App\Domain\Game\Services\GamePlayerResolver;
-use App\Domain\Game\Services\PlayerGameActionOptions;
-use App\Domain\Game\Services\StagedGameActionStore;
 use App\Domain\GameEngine\Contracts\GameActionOption;
+use App\Domain\GameSession\Data\StagedGameActionData;
+use App\Domain\GameSession\Services\GamePlayerResolver;
+use App\Domain\GameSession\Services\PlayerGameActionOptions;
+use App\Domain\GameSession\Services\StagedGameActionStore;
 use App\Models\User;
 use DomainException;
 use Illuminate\Support\Facades\DB;

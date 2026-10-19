@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Mcp\Presentation;
 
-use App\Domain\Game\Data\GameActionOptionsData;
-use App\Domain\Game\Data\StagedGameActionData;
 use App\Domain\GameEngine\Enums\GameActionOptionType;
+use App\Domain\GameSession\Data\GameActionOptionsData;
+use App\Domain\GameSession\Data\StagedGameActionData;
 
 final class GameActionPresenter
 {

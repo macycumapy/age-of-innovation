@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Mcp\Tools;
 
-use App\Domain\Game\Queries\GetGameStateQuery;
+use App\Domain\GameSession\Queries\GetGameStateQuery;
 use App\Mcp\Presentation\GameStatePresenter;
 use App\Mcp\Validators\GameQueryValidator;
 use App\Models\User;

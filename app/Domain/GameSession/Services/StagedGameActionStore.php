@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\Domain\Game\Services;
+namespace App\Domain\GameSession\Services;
 
-use App\Domain\Game\Data\StagedGameActionData;
 use App\Domain\GameEngine\Enums\GameActionOptionType;
+use App\Domain\GameSession\Data\StagedGameActionData;
 use App\Models\GamePlayer;
 use Illuminate\Support\Facades\Cache;
 

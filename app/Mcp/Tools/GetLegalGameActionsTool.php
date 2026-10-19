@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Mcp\Tools;
 
-use App\Domain\Game\Queries\GetLegalGameActionsQuery;
+use App\Domain\GameSession\Queries\GetLegalGameActionsQuery;
 use App\Mcp\Presentation\GameActionPresenter;
 use App\Mcp\Validators\GameQueryValidator;
 use App\Models\User;
