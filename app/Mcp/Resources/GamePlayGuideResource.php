@@ -13,7 +13,7 @@ use Laravel\Mcp\Server\Resource;
 
 #[Uri('game://play-guide')]
 #[MimeType('text/markdown')]
-#[Description('How to play through the game tools: identity, versions, selection, confirmation, rollback and pending choices.')]
+#[Description('Optional full play guide. Start with game://quick-start; read this only when more detailed gameplay guidance is needed.')]
 final class GamePlayGuideResource extends Resource
 {
     public function handle(): Response

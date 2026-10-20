@@ -13,7 +13,7 @@ use Laravel\Mcp\Server\Resource;
 
 #[Uri('game://components')]
 #[MimeType('text/markdown')]
-#[Description('Effects and identifiers of factions, competencies, innovations, palaces, round bonuses and town tiles.')]
+#[Description('Optional full component catalog. Prefer get_component for one relevant component; do not preload this resource at startup.')]
 final class GameComponentsResource extends Resource
 {
     public function handle(): Response

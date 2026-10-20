@@ -6,6 +6,7 @@ namespace Tests\Feature\Mcp;
 
 use App\Mcp\Resources\GameComponentsResource;
 use App\Mcp\Resources\GamePlayGuideResource;
+use App\Mcp\Resources\GameQuickStartResource;
 use App\Mcp\Resources\GameRulesResource;
 use App\Mcp\Servers\GameServer;
 use App\Models\User;
@@ -28,15 +29,16 @@ class GameResourcesTest extends TestCase
         $this->assertSame('text/markdown', app($resource)->mimeType());
     }
 
-    public function test_http_lists_all_three_resources_and_instructs_clients_to_read_them(): void
+    public function test_http_lists_full_references_but_instructs_clients_to_start_with_quick_start_only(): void
     {
         $token = User::factory()->create()->createToken('game-mcp', ['game:mcp'])->plainTextToken;
         $this->withToken($token)->postJson('/mcp/game', [
             'jsonrpc' => '2.0', 'id' => 1, 'method' => 'resources/list',
-        ])->assertOk()->assertJsonCount(3, 'result.resources')
+        ])->assertOk()->assertJsonCount(4, 'result.resources')
             ->assertJsonPath('result.resources.0.uri', 'game://rules')
             ->assertJsonPath('result.resources.1.uri', 'game://components')
             ->assertJsonPath('result.resources.2.uri', 'game://play-guide')
+            ->assertJsonPath('result.resources.3.uri', 'game://quick-start')
             ->assertJsonPath('result.resources.0.mimeType', 'text/markdown');
 
         $response = $this->withToken($token)->postJson('/mcp/game', [
@@ -44,6 +46,23 @@ class GameResourcesTest extends TestCase
         ])->assertOk();
         foreach (self::resources() as [, $uri]) {
             $this->assertStringContainsString($uri, $response->json('result.instructions'));
+        }
+        $this->assertStringContainsString('read only game://quick-start', $response->json('result.instructions'));
+        $this->assertStringContainsString('not automatically at startup', $response->json('result.instructions'));
+    }
+
+    public function test_quick_start_is_short_and_accessible_locally_and_over_http(): void
+    {
+        $token = User::factory()->create()->createToken('game-mcp', ['game:mcp'])->plainTextToken;
+        $response = $this->withToken($token)->postJson('/mcp/game', [
+            'jsonrpc' => '2.0', 'id' => 1, 'method' => 'resources/read', 'params' => ['uri' => 'game://quick-start'],
+        ])->assertOk()->assertJsonPath('result.contents.0.mimeType', 'text/markdown');
+        $text = $response->json('result.contents.0.text');
+        GameServer::resource(GameQuickStartResource::class)->assertOk()->assertSee($text);
+        $fullSize = strlen($this->content('SKILL.md')) + strlen($this->content('references/components.md')) + strlen($this->content('references/rules-and-strategy.md'));
+        $this->assertLessThan($fullSize / 4, strlen($text));
+        foreach (['get_component', 'get_turn_context', 'stage_action', 'confirm_action', 'rollback_action', 'wait_for_turn', 'layout_id'] as $name) {
+            $this->assertStringContainsString($name, $text);
         }
     }
 

@@ -42,7 +42,7 @@ class GameMcpHttpTest extends TestCase
         ])->assertOk()->assertJsonPath('result.serverInfo.name', 'Game Server');
         $this->withToken($token)->postJson('/mcp/game', [
             'jsonrpc' => '2.0', 'id' => 2, 'method' => 'tools/list',
-        ])->assertOk()->assertJsonCount(9, 'result.tools')->assertJsonPath('result.tools.0.name', 'join_game');
+        ])->assertOk()->assertJsonCount(10, 'result.tools')->assertJsonPath('result.tools.0.name', 'join_game');
     }
 
     public function test_http_join_uses_the_token_owner_instead_of_the_local_user(): void

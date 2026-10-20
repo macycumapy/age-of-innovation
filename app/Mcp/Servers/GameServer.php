@@ -7,9 +7,11 @@ namespace App\Mcp\Servers;
 use App\Mcp\Prompts\PlayGamePrompt;
 use App\Mcp\Resources\GameComponentsResource;
 use App\Mcp\Resources\GamePlayGuideResource;
+use App\Mcp\Resources\GameQuickStartResource;
 use App\Mcp\Resources\GameRulesResource;
 use App\Mcp\Tools\ConfirmGameActionTool;
 use App\Mcp\Tools\GetGameBoardLayoutTool;
+use App\Mcp\Tools\GetGameComponentTool;
 use App\Mcp\Tools\GetGameStateTool;
 use App\Mcp\Tools\GetGameTurnContextTool;
 use App\Mcp\Tools\GetLegalGameActionsTool;
@@ -26,7 +28,7 @@ use Laravel\Mcp\Server\Attributes\Version;
 class GameServer extends Server
 {
     protected string $instructions = <<<'TEXT'
-        Before your first game, read game://rules, game://components, and game://play-guide using resources/read.
+        Before your first game, read only game://quick-start using resources/read. Fetch get_component(type,id) only for unfamiliar components relevant to a decision and reuse known descriptions. Full references game://rules, game://components, and game://play-guide are optional: read only when needed, not automatically at startup.
         Use join_game with game_id to join an open lobby and automatically mark yourself ready. Existing lobby members are marked ready too; the game is not started.
         HTTP uses the authenticated token owner; local STDIO uses GAME_MCP_USER_ID.
         Prefer get_turn_context to read compact state and legal actions together with one shared version. Use get_state or get_legal_actions only when that information alone is needed; do not immediately repeat reads already covered by the context.
@@ -47,6 +49,7 @@ class GameServer extends Server
         GetGameStateTool::class,
         GetGameTurnContextTool::class,
         GetGameBoardLayoutTool::class,
+        GetGameComponentTool::class,
         WaitForGameTurnTool::class,
         GetLegalGameActionsTool::class,
         StageGameActionTool::class,
@@ -58,6 +61,7 @@ class GameServer extends Server
         GameRulesResource::class,
         GameComponentsResource::class,
         GamePlayGuideResource::class,
+        GameQuickStartResource::class,
     ];
 
     protected array $prompts = [

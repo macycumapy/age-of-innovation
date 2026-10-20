@@ -13,7 +13,7 @@ use Laravel\Mcp\Server\Resource;
 
 #[Uri('game://rules')]
 #[MimeType('text/markdown')]
-#[Description('Implemented game rules, scoring, economy, town connectivity and strategic planning.')]
+#[Description('Optional detailed rules, scoring, economy, town connectivity and strategy. Start with game://quick-start; read this only for an unresolved rule.')]
 final class GameRulesResource extends Resource
 {
     public function handle(): Response

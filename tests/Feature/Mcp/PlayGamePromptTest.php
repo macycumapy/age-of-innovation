@@ -21,6 +21,8 @@ class PlayGamePromptTest extends TestCase
             ->assertSee('Play game_id=243.')
             ->assertSee('gameplay-only mode')
             ->assertSee('game://rules')->assertSee('game://components')->assertSee('game://play-guide')
+            ->assertSee('read only game://quick-start')->assertSee('get_component(type,id)')
+            ->assertSee('not automatically at startup')
             ->assertSee('get_turn_context')->assertSee('get_legal_actions')
             ->assertSee('get_board_layout')->assertSee('layout_id')
             ->assertSee('not row order')
