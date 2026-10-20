@@ -7,6 +7,7 @@ namespace App\Mcp\Presentation;
 use App\Domain\GameEngine\Enums\GameActionOptionType;
 use App\Domain\GameSession\Data\GameActionOptionsData;
 use App\Domain\GameSession\Data\StagedGameActionData;
+use DomainException;
 
 final class GameActionPresenter
 {
@@ -24,12 +25,16 @@ final class GameActionPresenter
 
         $actions = [];
         foreach ($options as $option) {
-            $id = $this->identifiers->forOption($option);
-            $actions[$id] = [
+            $id = $this->identifiers->forOption($option, $result->version);
+            $action = [
                 'action_id' => $id,
                 'type' => $option?->type()->value ?? GameActionOptionType::FinishTurn->value,
                 'parameters' => $option?->toArray() ?? [],
             ];
+            if (isset($actions[$id]) && $actions[$id] !== $action) {
+                throw new DomainException('Ambiguous action identifier.');
+            }
+            $actions[$id] = $action;
         }
 
         return ['version' => $result->version, 'actions' => array_values($actions)];
@@ -40,7 +45,7 @@ final class GameActionPresenter
     {
         return [
             'version' => $staged->version,
-            'action_id' => $this->identifiers->forOption($staged->option),
+            'action_id' => $this->identifiers->forOption($staged->option, $staged->version),
         ];
     }
 }

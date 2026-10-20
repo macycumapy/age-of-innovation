@@ -4,11 +4,12 @@ declare(strict_types=1);
 
 namespace App\Mcp\Presentation;
 
+use App\Domain\GameEngine\Turns\Enums\GamePhase;
 use App\Domain\GameSession\Data\GameStateViewData;
 
 final class GameStatePresenter
 {
-    public function __construct(private GameActionPresenter $actions)
+    public function __construct(private GameActionPresenter $actions, private GameBoardPresenter $board)
     {
     }
 
@@ -22,7 +23,16 @@ final class GameStatePresenter
         }
         unset($playerState);
 
+        $state['board'] = $this->board->present($view->state->board);
+        if ($view->state->round->phase !== GamePhase::Setup) {
+            unset($state['planningSelections'], $state['startingBuildingTurnIndex'], $state['pendingStartingBuildingHexId']);
+            if (is_array($state['setupPool'])) {
+                unset($state['setupPool']['planningBundles'], $state['setupPool']['firstPlayerIndex']);
+            }
+        }
+
         return [
+            'format' => 'compact-v1',
             'game_id' => $view->gameId, 'user_id' => $view->userId, 'player_id' => $view->playerId,
             'version' => $view->version, 'active_player_id' => $view->activePlayerId,
             'state' => $state,

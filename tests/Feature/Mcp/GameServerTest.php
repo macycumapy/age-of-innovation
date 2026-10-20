@@ -345,6 +345,6 @@ class GameServerTest extends TestCase
         Cache::forget('game:staged-action:'.$player->id);
         $option = app(GameActionOptionFinder::class)->execute($game->state, $player->id)[0];
 
-        return [$game, $player, hash('sha256', json_encode([$option->type()->value, $option->toArray()], JSON_THROW_ON_ERROR))];
+        return [$game, $player, app(GameActionIdentifier::class)->forOption($option, $game->version)];
     }
 }

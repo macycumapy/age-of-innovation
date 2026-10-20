@@ -84,6 +84,8 @@ class GameMcpHttpTest extends TestCase
 
         $this->callTool($token, 'get_state', ['game_id' => $game->id])
             ->assertOk()->assertJsonPath('result.structuredContent.version', $version)
+            ->assertJsonPath('result.structuredContent.format', 'compact-v1')
+            ->assertJsonPath('result.structuredContent.state.board.hex_fields.0', 'id')
             ->assertJsonPath('result.structuredContent.player_id', $player->id);
 
         $response = $this->callTool($token, 'get_legal_actions', ['game_id' => $game->id])
