@@ -21,7 +21,7 @@ class PlayGamePromptTest extends TestCase
             ->assertSee('Play game_id=243.')
             ->assertSee('gameplay-only mode')
             ->assertSee('game://rules')->assertSee('game://components')->assertSee('game://play-guide')
-            ->assertSee('get_state')->assertSee('get_legal_actions')
+            ->assertSee('get_turn_context')->assertSee('get_legal_actions')
             ->assertSee('stage_action')->assertSee('confirm_action')->assertSee('rollback_action')
             ->assertSee('finish_turn')->assertSee('wait_for_turn')
             ->assertSee('without timeout_seconds')->assertSee('at most 30 seconds')

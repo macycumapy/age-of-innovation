@@ -37,6 +37,6 @@ final class GameActionIdentifier
             return $selected;
         }
 
-        throw new DomainException('Select an action from get_legal_actions.');
+        throw new DomainException('Select an action from get_turn_context or get_legal_actions.');
     }
 }

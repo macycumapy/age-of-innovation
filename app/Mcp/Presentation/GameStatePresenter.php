@@ -6,11 +6,21 @@ namespace App\Mcp\Presentation;
 
 use App\Domain\GameEngine\Turns\Enums\GamePhase;
 use App\Domain\GameSession\Data\GameStateViewData;
+use App\Domain\GameSession\Data\GameTurnContextData;
 
 final class GameStatePresenter
 {
     public function __construct(private GameActionPresenter $actions, private GameBoardPresenter $board)
     {
+    }
+
+    /** @return array<string, mixed> */
+    public function turnContext(GameTurnContextData $context): array
+    {
+        return [
+            ...$this->present($context->view),
+            'actions' => $this->actions->legalActions($context->actions)['actions'],
+        ];
     }
 
     /** @return array<string, mixed> */
