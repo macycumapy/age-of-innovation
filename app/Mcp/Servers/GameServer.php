@@ -33,6 +33,7 @@ class GameServer extends Server
         Action IDs are opaque and version-scoped; always refresh legal actions after a version change. finish_turn is the only fixed ID and still requires the current version.
         While authorized to keep playing, use wait_for_turn without timeout_seconds to wait up to 30 seconds on each call. On timeout, call it again; on game_ended, stop. On your_turn, read legal actions and use the returned current version.
         Stage an action, then explicitly confirm or roll back.
+        After confirm_action, follow continuation: your_turn -> get_turn_context; wait_for_turn -> wait_for_turn without a redundant state/context read; game_ended -> stop. next_player_id identifies a game player, not a user. The action summary is not a state delta.
         Use the current version for action mutations.
         Resolve pending choices before finishing the turn.
         Access is limited to the configured user.

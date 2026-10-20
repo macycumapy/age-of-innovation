@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Mcp\Presentation;
 
 use App\Domain\GameEngine\Enums\GameActionOptionType;
+use App\Domain\GameSession\Data\ConfirmedGameActionData;
 use App\Domain\GameSession\Data\GameActionOptionsData;
 use App\Domain\GameSession\Data\StagedGameActionData;
 use DomainException;
@@ -13,6 +14,22 @@ final class GameActionPresenter
 {
     public function __construct(private GameActionIdentifier $identifiers)
     {
+    }
+
+    /** @return array<string, mixed> */
+    public function confirmed(ConfirmedGameActionData $result): array
+    {
+        return [
+            'confirmed' => true,
+            'game_id' => $result->game->id,
+            'version' => $result->game->version,
+            'action' => [
+                'type' => $result->action->option?->type()->value ?? GameActionOptionType::FinishTurn->value,
+                'parameters' => $result->action->option?->toArray() ?? [],
+            ],
+            'continuation' => $result->continuation->value,
+            'next_player_id' => $result->nextPlayerId,
+        ];
     }
 
     /** @return array<string, mixed> */

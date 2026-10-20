@@ -6,11 +6,12 @@ namespace App\Domain\GameSession\Actions;
 
 use App\Domain\GameEngine\Interactions\Actions\PerformGameActionOptionAction;
 use App\Domain\GameEngine\Turns\Actions\FinishActionTurnAction;
+use App\Domain\GameSession\Data\ConfirmedGameActionData;
+use App\Domain\GameSession\Enums\GameActionContinuation;
 use App\Domain\GameSession\Services\GamePlayerResolver;
 use App\Domain\GameSession\Services\PlayerGameActionOptions;
 use App\Domain\GameSession\Services\StagedGameActionStore;
 use App\Events\GameChanged;
-use App\Models\Game;
 use App\Models\User;
 use DomainException;
 use Illuminate\Support\Facades\DB;
@@ -26,9 +27,9 @@ final class ConfirmGameAction
     ) {
     }
 
-    public function execute(User $user, ?int $gameId, int $version): Game
+    public function execute(User $user, ?int $gameId, int $version): ConfirmedGameActionData
     {
-        return DB::transaction(function () use ($user, $gameId, $version): Game {
+        return DB::transaction(function () use ($user, $gameId, $version): ConfirmedGameActionData {
             $context = $this->players->resolve($user, $gameId, $version);
             $staged = $this->stagedActions->get($context->player);
             if ($staged === null || $staged->version !== $version
@@ -41,7 +42,16 @@ final class ConfirmGameAction
             $this->stagedActions->forget($context->player);
             DB::afterCommit(static fn () => GameChanged::dispatch($game->id));
 
-            return $game;
+            $continuation = GameActionContinuation::forPlayer($game, $context->player);
+
+            return new ConfirmedGameActionData(
+                game: $game,
+                action: $staged,
+                continuation: $continuation,
+                nextPlayerId: $continuation === GameActionContinuation::GameEnded
+                    ? null
+                    : ($game->state->pendingInteraction->playerId ?? $game->active_game_player_id),
+            );
         });
     }
 }

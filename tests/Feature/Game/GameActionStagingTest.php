@@ -23,9 +23,11 @@ use App\Domain\GameEngine\Turns\Enums\GamePhase;
 use App\Domain\GameSession\Actions\ConfirmGameAction;
 use App\Domain\GameSession\Actions\RollbackGameAction;
 use App\Domain\GameSession\Actions\StageGameAction;
+use App\Domain\GameSession\Data\ConfirmedGameActionData;
 use App\Domain\GameSession\Data\GameActionOptionsData;
 use App\Domain\GameSession\Data\GameStateViewData;
 use App\Domain\GameSession\Data\StagedGameActionData;
+use App\Domain\GameSession\Enums\GameActionContinuation;
 use App\Domain\GameSession\Queries\GetGameStateQuery;
 use App\Domain\GameSession\Queries\GetLegalGameActionsQuery;
 use App\Domain\GameSession\Services\StagedGameActionStore;
@@ -84,7 +86,9 @@ class GameActionStagingTest extends TestCase
         app(StageGameAction::class)->execute($user, $game->id, $options->version, $options->options[0]);
         Event::fake([GameChanged::class]);
 
-        $result = app(ConfirmGameAction::class)->execute($user, $game->id, $options->version);
+        $confirmation = app(ConfirmGameAction::class)->execute($user, $game->id, $options->version);
+        $this->assertInstanceOf(ConfirmedGameActionData::class, $confirmation);
+        $result = $confirmation->game;
 
         $this->assertInstanceOf(Game::class, $result);
         $this->assertGreaterThan($options->version, $result->version);
@@ -181,7 +185,10 @@ class GameActionStagingTest extends TestCase
         $this->assertNull(app(StagedGameActionStore::class)->get($player));
 
         $stage->execute($user, $game->id, $game->version, $option);
-        $result = app(ConfirmGameAction::class)->execute($user, $game->id, $game->version);
+        $confirmation = app(ConfirmGameAction::class)->execute($user, $game->id, $game->version);
+        $this->assertSame(GameActionContinuation::YourTurn, $confirmation->continuation);
+        $this->assertSame($player->id, $confirmation->nextPlayerId);
+        $result = $confirmation->game;
         $this->assertSame(BuildingType::Workshop, $result->state->board->hexes[1]->building?->type);
         $this->assertSame(2, $result->state->players[0]->resources->tools);
         $this->assertSame(3, $result->state->players[0]->resources->coins);
