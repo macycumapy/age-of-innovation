@@ -22,6 +22,7 @@ use App\Mcp\Presentation\GameActionPresenter;
 use App\Mcp\Presentation\GameStatePresenter;
 use App\Mcp\Servers\GameServer;
 use App\Mcp\Tools\ConfirmGameActionTool;
+use App\Mcp\Tools\GetGameBoardLayoutTool;
 use App\Mcp\Tools\GetGameStateTool;
 use App\Mcp\Tools\GetGameTurnContextTool;
 use App\Mcp\Tools\GetLegalGameActionsTool;
@@ -82,6 +83,7 @@ class GameServerTest extends TestCase
             JoinGameTool::class => ['join_game', ['game_id']],
             GetGameStateTool::class => ['get_state', []],
             GetGameTurnContextTool::class => ['get_turn_context', []],
+            GetGameBoardLayoutTool::class => ['get_board_layout', []],
             GetLegalGameActionsTool::class => ['get_legal_actions', []],
             StageGameActionTool::class => ['stage_action', ['version', 'action_id']],
             ConfirmGameActionTool::class => ['confirm_action', ['version']],
@@ -93,7 +95,7 @@ class GameServerTest extends TestCase
             $this->assertArrayNotHasKey('operation', $definition['inputSchema']['properties']);
             $this->assertEqualsCanonicalizing($required, $definition['inputSchema']['required'] ?? []);
             $annotations = (array) $definition['annotations'];
-            $this->assertSame(in_array($name, ['get_state', 'get_legal_actions', 'get_turn_context'], true), $annotations['readOnlyHint'] ?? false);
+            $this->assertSame(in_array($name, ['get_state', 'get_legal_actions', 'get_turn_context', 'get_board_layout'], true), $annotations['readOnlyHint'] ?? false);
         }
     }
 

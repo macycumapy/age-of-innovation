@@ -41,33 +41,58 @@ class CompactGamePresentationTest extends TestCase
         $board->bridges = [new BridgeStateData($board->hexes[0]->id, $board->hexes[1]->id, 12)];
         $before = $board->toArray();
 
-        $compact = app(GameBoardPresenter::class)->present($board);
+        $presenter = app(GameBoardPresenter::class);
+        $compact = $presenter->present($board);
+        $layout = $presenter->layout($board);
+        $this->assertSame($layout['layout_id'], $compact['layout_id']);
+        $geometry = [];
+        foreach ($layout['hexes'] as $row) {
+            $entry = array_combine($layout['hex_fields'], $row);
+            $geometry[$entry['id']] = $entry;
+        }
         $decodedHexes = [];
         foreach ($compact['hexes'] as $row) {
             $hex = array_combine($compact['hex_fields'], array_pad($row, count($compact['hex_fields']), null));
             if ($hex['building'] !== null) {
                 $hex['building'] = array_combine($compact['building_fields'], $hex['building']);
             }
-            $decodedHexes[] = $hex;
+            $static = $geometry[$hex['id']];
+            $decodedHexes[] = [
+                'id' => $hex['id'], 'q' => $static['q'], 'r' => $static['r'],
+                'initialTerrain' => $static['initialTerrain'], 'terrain' => $hex['terrain'],
+                'adjacentHexIds' => $static['adjacentHexIds'], 'riverConnectedHexIds' => $static['riverConnectedHexIds'],
+                'building' => $hex['building'], 'townId' => $hex['townId'], 'townTileId' => $hex['townTileId'],
+            ];
         }
         $decodedBridges = array_map(fn (array $row): array => array_combine($compact['bridge_fields'], $row), $compact['bridges']);
 
-        $this->assertSame($before['hexes'], $decodedHexes);
+        $expectedHexes = $before['hexes'];
+        foreach ($expectedHexes as &$hex) {
+            sort($hex['adjacentHexIds'], SORT_STRING);
+            sort($hex['riverConnectedHexIds'], SORT_STRING);
+        }
+        unset($hex);
+        $this->assertSame($expectedHexes, $decodedHexes);
         $this->assertSame($before['bridges'], $decodedBridges);
-        $this->assertSame($before['variant'], $compact['variant']);
-        $this->assertSame($before['riverBankHexIds'], $compact['riverBankHexIds']);
-        $this->assertSame($before['edgeHexIds'], $compact['edgeHexIds']);
+        $this->assertSame($before['variant'], $layout['variant']);
+        $this->assertEqualsCanonicalizing($before['riverBankHexIds'], $layout['riverBankHexIds']);
+        $this->assertEqualsCanonicalizing($before['edgeHexIds'], $layout['edgeHexIds']);
         $this->assertSame($before, $board->toArray());
         $this->assertLessThan(strlen(json_encode($before, JSON_THROW_ON_ERROR)) / 2, strlen(json_encode($compact, JSON_THROW_ON_ERROR)));
+        $this->assertLessThan(
+            strlen(json_encode($before, JSON_THROW_ON_ERROR)) / 2,
+            strlen(json_encode($compact, JSON_THROW_ON_ERROR)) + strlen(json_encode($layout, JSON_THROW_ON_ERROR))
+        );
     }
 
     public function test_empty_board_is_a_valid_self_describing_snapshot(): void
     {
         $payload = app(GameStatePresenter::class)->present(new GameStateViewData(1, 2, 3, 4, null, new GameStateData(), null));
-        $this->assertSame('compact-v1', $payload['format']);
+        $this->assertSame('compact-v2', $payload['format']);
         $this->assertSame([], $payload['state']['board']['hexes']);
         $this->assertSame([], $payload['state']['board']['bridges']);
-        $this->assertCount(10, $payload['state']['board']['hex_fields']);
+        $this->assertCount(5, $payload['state']['board']['hex_fields']);
+        $this->assertNotEmpty($payload['state']['board']['layout_id']);
     }
 
     #[DataProvider('phases')]

@@ -42,7 +42,7 @@ final class GameStatePresenter
         }
 
         return [
-            'format' => 'compact-v1',
+            'format' => 'compact-v2',
             'game_id' => $view->gameId, 'user_id' => $view->userId, 'player_id' => $view->playerId,
             'version' => $view->version, 'active_player_id' => $view->activePlayerId,
             'state' => $state,

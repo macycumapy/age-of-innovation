@@ -17,7 +17,7 @@ use Laravel\Mcp\Server\Attributes\Name;
 use Laravel\Mcp\Server\Tools\Annotations\IsReadOnly;
 
 #[Name('wait_for_turn')]
-#[Description('Wait up to 30 seconds until your turn, pending choice, or game end. Returns reason (your_turn, timeout, game_ended), with visible game state only on success. Timeout returns only reason. On timeout, call again only while authorized to keep playing. Client and proxy timeouts must exceed the wait.')]
+#[Description('Wait up to 30 seconds until your turn, pending choice, or game end. Returns reason (your_turn, timeout, game_ended), with compact-v2 state only on success. Fetch get_board_layout only for unknown/missing geometry identified by state.board.layout_id. Timeout returns only reason. On timeout, call again only while authorized to keep playing. Client and proxy timeouts must exceed the wait.')]
 #[IsReadOnly]
 final class WaitForGameTurnTool extends GameTool
 {

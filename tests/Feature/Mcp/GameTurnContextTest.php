@@ -74,7 +74,7 @@ class GameTurnContextTest extends TestCase
     {
         [$game] = $this->sessionGame();
         GameServer::tool(GetGameTurnContextTool::class, ['game_id' => $game->id])
-            ->assertOk()->assertSee('compact-v1')->assertSee('actions');
+            ->assertOk()->assertSee('compact-v2')->assertSee('actions');
 
         $other = $game->players()->whereKeyNot($game->active_game_player_id)->sole();
         $context = app(GetGameTurnContextQuery::class)->execute($other->user, $game->id);
@@ -115,7 +115,7 @@ class GameTurnContextTest extends TestCase
             'jsonrpc' => '2.0', 'id' => 1, 'method' => 'tools/call',
             'params' => ['name' => 'get_turn_context', 'arguments' => ['game_id' => $game->id]],
         ])->assertOk()->assertJsonPath('result.isError', false)
-            ->assertJsonPath('result.structuredContent.format', 'compact-v1')
+            ->assertJsonPath('result.structuredContent.format', 'compact-v2')
             ->assertJsonPath('result.structuredContent.user_id', $user->id)
             ->assertJsonPath('result.structuredContent.version', $game->version)
             ->assertJsonStructure(['result' => ['structuredContent' => ['state', 'actions', 'staged_action']]]);

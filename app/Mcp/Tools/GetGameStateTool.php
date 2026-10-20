@@ -17,7 +17,7 @@ use Laravel\Mcp\Server\Attributes\Name;
 use Laravel\Mcp\Server\Tools\Annotations\IsReadOnly;
 
 #[Name('get_state')]
-#[Description('Read the complete user-visible game state in compact-v1 format, current version, pending choices, and staged action. Board rows use hex_fields, building_fields, and bridge_fields; missing trailing hex values are null.')]
+#[Description('Read compact-v2 user-visible state, current version, pending choices, and staged action. The board is a full dynamic snapshot with layout_id; fetch get_board_layout only for unknown/missing geometry. Board rows use hex_fields, building_fields, and bridge_fields; missing trailing hex values are null.')]
 #[IsReadOnly]
 final class GetGameStateTool extends GameTool
 {

@@ -22,6 +22,8 @@ class PlayGamePromptTest extends TestCase
             ->assertSee('gameplay-only mode')
             ->assertSee('game://rules')->assertSee('game://components')->assertSee('game://play-guide')
             ->assertSee('get_turn_context')->assertSee('get_legal_actions')
+            ->assertSee('get_board_layout')->assertSee('layout_id')
+            ->assertSee('not row order')
             ->assertSee('stage_action')->assertSee('confirm_action')->assertSee('rollback_action')
             ->assertSee('finish_turn')->assertSee('wait_for_turn')
             ->assertSee('After confirmation, follow continuation')
