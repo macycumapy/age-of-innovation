@@ -9,7 +9,7 @@ use App\Domain\GameEngine\Interactions\Data\PendingInteractionData;
 use App\Domain\GameEngine\Interactions\Enums\PendingInteractionType;
 use App\Domain\GameSession\Enums\GameTurnWaitReason;
 use App\Domain\GameSession\Queries\WaitForGameTurnQuery;
-use App\Mcp\Servers\GameServer;
+use App\Mcp\Server\GameServer;
 use App\Mcp\Tools\WaitForGameTurnTool;
 use App\Mcp\Validators\WaitForGameTurnValidator;
 use App\Models\Game;

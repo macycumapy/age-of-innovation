@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature\Mcp;
 
 use App\Mcp\Prompts\PlayGamePrompt;
-use App\Mcp\Servers\GameServer;
+use App\Mcp\Server\GameServer;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use PHPUnit\Framework\Attributes\DataProvider;

@@ -20,7 +20,7 @@ use App\Events\GamePlayersChanged;
 use App\Mcp\Presentation\GameActionIdentifier;
 use App\Mcp\Presentation\GameActionPresenter;
 use App\Mcp\Presentation\GameStatePresenter;
-use App\Mcp\Servers\GameServer;
+use App\Mcp\Server\GameServer;
 use App\Mcp\Tools\ConfirmGameActionTool;
 use App\Mcp\Tools\GetGameBoardLayoutTool;
 use App\Mcp\Tools\GetGameComponentTool;

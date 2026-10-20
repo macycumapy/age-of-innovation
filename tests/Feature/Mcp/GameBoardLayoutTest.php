@@ -14,7 +14,7 @@ use App\Domain\GameEngine\Board\Factories\BoardStateFactory;
 use App\Domain\GameEngine\State\Data\GameStateData;
 use App\Domain\GameSession\Queries\GetGameBoardLayoutQuery;
 use App\Mcp\Presentation\GameBoardPresenter;
-use App\Mcp\Servers\GameServer;
+use App\Mcp\Server\GameServer;
 use App\Mcp\Tools\GetGameBoardLayoutTool;
 use App\Models\Game;
 use App\Models\GamePlayer;

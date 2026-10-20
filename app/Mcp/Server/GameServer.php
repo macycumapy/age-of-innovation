@@ -2,13 +2,14 @@
 
 declare(strict_types=1);
 
-namespace App\Mcp\Servers;
+namespace App\Mcp\Server;
 
 use App\Mcp\Prompts\PlayGamePrompt;
 use App\Mcp\Resources\GameComponentsResource;
 use App\Mcp\Resources\GamePlayGuideResource;
 use App\Mcp\Resources\GameQuickStartResource;
 use App\Mcp\Resources\GameRulesResource;
+use App\Mcp\Server\Methods\MeasuredCallTool;
 use App\Mcp\Tools\ConfirmGameActionTool;
 use App\Mcp\Tools\GetGameBoardLayoutTool;
 use App\Mcp\Tools\GetGameComponentTool;
@@ -27,6 +28,13 @@ use Laravel\Mcp\Server\Attributes\Version;
 #[Version('0.0.3')]
 class GameServer extends Server
 {
+    protected function boot(): void
+    {
+        parent::boot();
+
+        $this->addMethod('tools/call', MeasuredCallTool::class);
+    }
+
     protected string $instructions = <<<'TEXT'
         Before your first game, read only game://quick-start using resources/read. Fetch get_component(type,id) only for unfamiliar components relevant to a decision and reuse known descriptions. Full references game://rules, game://components, and game://play-guide are optional: read only when needed, not automatically at startup.
         Use join_game with game_id to join an open lobby and automatically mark yourself ready. Existing lobby members are marked ready too; the game is not started.

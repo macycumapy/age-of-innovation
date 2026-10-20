@@ -11,7 +11,7 @@ use App\Domain\GameSession\Queries\GetGameTurnContextQuery;
 use App\Domain\GameSession\Queries\GetLegalGameActionsQuery;
 use App\Mcp\Presentation\GameActionPresenter;
 use App\Mcp\Presentation\GameStatePresenter;
-use App\Mcp\Servers\GameServer;
+use App\Mcp\Server\GameServer;
 use App\Mcp\Tools\ConfirmGameActionTool;
 use App\Mcp\Tools\GetGameTurnContextTool;
 use App\Mcp\Tools\RollbackGameActionTool;

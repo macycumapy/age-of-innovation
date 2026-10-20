@@ -8,7 +8,7 @@ use App\Mcp\Resources\GameComponentsResource;
 use App\Mcp\Resources\GamePlayGuideResource;
 use App\Mcp\Resources\GameQuickStartResource;
 use App\Mcp\Resources\GameRulesResource;
-use App\Mcp\Servers\GameServer;
+use App\Mcp\Server\GameServer;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\File;

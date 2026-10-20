@@ -13,7 +13,7 @@ use App\Domain\GameEngine\Towns\Enums\TownTile;
 use App\Mcp\Data\GameComponentData;
 use App\Mcp\Enums\GameComponentType;
 use App\Mcp\Presentation\GameComponentPresenter;
-use App\Mcp\Servers\GameServer;
+use App\Mcp\Server\GameServer;
 use App\Mcp\Tools\GetGameComponentTool;
 use App\Mcp\Validators\GameComponentValidator;
 use App\Models\User;

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use App\Mcp\Servers\GameServer;
+use App\Mcp\Server\GameServer;
 use Illuminate\Support\Facades\Route;
 use Laravel\Mcp\Facades\Mcp;
 use Laravel\Sanctum\Http\Middleware\CheckAbilities;

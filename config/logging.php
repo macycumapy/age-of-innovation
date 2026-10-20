@@ -54,6 +54,14 @@ return [
 
     'channels' => [
 
+        'mcp' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/mcp.log'),
+            'level' => 'info',
+            'days' => 14,
+            'formatter' => Monolog\Formatter\JsonFormatter::class,
+        ],
+
         'stack' => [
             'driver' => 'stack',
             'channels' => explode(',', (string) env('LOG_STACK', 'single')),
