@@ -10,9 +10,15 @@ Coins and tools fund construction; scholars support knowledge/development; books
 
 Only power in bowl III is spendable. Distinguish charging existing tokens from gaining new ones. Sacrifice reduces future capacity; justify it by an affordable immediate opportunity. Offered power may cost points: compare the actual charge with access to useful shared actions.
 
+An accepted offer costs max(0, actual charge − 1) points. Separate movement from bowl I to II from power that reaches bowl III. For a paid offer, name the useful action it enables and count further charging or sacrifice needed; repeated offers can consume a substantial point lead even when each looks affordable. Free charging and paid charging need different evaluations.
+
 Power actions cost 3 for a bridge/scholar, 4 for tools/coins/one spade, 6 for two spades before modifiers. Illusionists pay one less. Ordinary conversions differ: a scholar costs 5 power, tool 3, coin 1, selected book 5 in the current finder. Use live options for quantities and eligibility.
 
 Sources: `app/Domain/GameEngine/Economy/Enums/PowerAction.php`, `app/Domain/GameEngine/Economy/Services/ResourceConversionOptionFinder.php`, `app/Domain/GameEngine/Economy/Services/PlayerIncomeCalculator.php`.
+
+Development rewards are level-specific. For non-blue players, shipping levels 1/2/3 award 2 points / 2 selected books / 4 points; blue players instead receive no reward / 3 points / 2 selected books. Terraforming levels 1/2 award 2 selected books / 6 points. Add conditional round scoring separately. Verify the exact next reward and a use for any books before buying development late in the game.
+
+Sources: `app/Domain/GameEngine/Research/Actions/AdvanceDevelopmentTrackAction.php`, `app/Domain/GameEngine/Economy/Actions/ApplyPowerOfferDecisionAction.php`.
 
 ## Buildings, towns, and networks
 
@@ -32,9 +38,13 @@ When the current tile rewards that goal, construction awards workshop 2, guild 3
 
 Round tiles also define science bonuses by discipline and level interval. Check payout thresholds and reward timing. Blessed use an effective knowledge level three higher for science bonuses. The additional sixth-round building goal is separate from final rankings.
 
-Final network ranking awards 18/12/6; each knowledge discipline awards 8/4/2. Ties divide occupied-place awards, rounded down. Level-zero players are excluded from knowledge ranking. Two-player games can include neutral knowledge and a configured neutral territory score that occupies ranking places. Compare the entire field. Do not invent a final resource conversion from another game's rules.
+Final network ranking awards 18/12/6; each knowledge discipline awards 8/4/2. Ties divide occupied-place awards, rounded down. Level-zero players are excluded from knowledge ranking. Two-player games can include neutral knowledge and a configured neutral territory score that occupies ranking places. Compare the entire field.
+
+At the final pass, tools, scholars, books (including unassigned books), and bowl III power each convert to one coin; each pair of bowl II tokens adds one more coin. Add existing coins and award floor(total / 5) points, retaining the coin remainder. Bowl I does not contribute. Compare actions against this automatic conversion and its five-coin thresholds: leftover resources are not necessarily worthless, and a resource exchange may improve the final payout even without enabling construction.
 
 Sources: `app/Domain/GameEngine/Scoring/Enums/RoundScoringTile.php`, `app/Domain/GameEngine/Scoring/Enums/FinalRoundScoringTile.php`, `app/Domain/GameEngine/Scoring/Actions/ApplyFinalScoringAction.php`, `app/Domain/GameEngine/Scoring/Actions/ApplyPassBonusesAction.php`.
+
+Final resource conversion sources: `app/Domain/GameEngine/Turns/Actions/BeginPassAction.php`, `app/Domain/GameEngine/Turns/Actions/ApplyPassAction.php`.
 
 ## Planning
 
@@ -59,4 +69,6 @@ Use these checks as planning aids, not as a fixed strategy. Verify mechanical de
 - **Budget the economy after upgrades.** An upgraded workshop no longer provides its previous income. Compare the resulting total income, remaining payouts, and resources needed for the next useful build. Keep an affordable terrain/building continuation rather than a theoretically strong economy stranded without tools or expansion access.
 - **Price the long-term cost of sacrificing power.** Check remaining token capacity and whether future charging can still fund useful actions. Heavy early sacrifice needs a concrete payoff; access to an action alone is not enough reason to take it.
 - **Compare complete scoring packages.** Include town rewards, unlocks, owned pass bonuses, innovation scaling, and final rankings without double-counting. For example, league_of_cities scales with town tiles; assess its timing against realistic additional towns and competing innovations, not just its current payout. Count actual connected network size rather than all owned buildings.
+- **Budget the final sequence before spending scholars.** List the remaining constructions, terrain work, conversions, and development rewards with their full costs. Compare the affordable sequence against passing now, including automatic resource points. A development step that gives books needs a concrete scoring use for them; greater shipping range needs a verified ranking change if that is its justification.
+- **Time repeatable rewards and contested knowledge steps.** Value a pass ability by its current payout times remaining passes and affordable changes to that payout. For knowledge, count the turns needed to reach a ranking threshold and the opponent's available responses. Level 12 is exclusive among players; crossing 7 requires an unused town key. Do not spend steps beyond the attainable cap or chase a rank that no longer changes.
 - **Compare alternatives before expensive commitments.** For a major upgrade, innovation, or resource conversion, consider a feasible competing line and the next few actions each enables. Distinguish verified costs/effects from estimates. After confirmation, check actual resource, income, knowledge, and connectivity changes instead of reporting the intended result as accomplished.
