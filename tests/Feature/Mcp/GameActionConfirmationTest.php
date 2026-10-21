@@ -6,10 +6,16 @@ namespace Tests\Feature\Mcp;
 
 use App\Domain\Game\Enums\GameStatus;
 use App\Domain\GameEngine\Board\Data\BuildWorkshopOptionData;
+use App\Domain\GameEngine\Board\Enums\TerrainType;
+use App\Domain\GameEngine\Economy\Data\PlayerResourcesData;
 use App\Domain\GameEngine\Interactions\Data\PendingInteractionData;
 use App\Domain\GameEngine\Interactions\Enums\PendingInteractionType;
+use App\Domain\GameEngine\PlayerAbilities\Enums\Faction;
+use App\Domain\GameEngine\PlayerAbilities\Enums\RoundBonus;
 use App\Domain\GameEngine\Setup\Actions\StartGameAction;
+use App\Domain\GameEngine\State\Data\GamePlayerStateData;
 use App\Domain\GameEngine\State\Data\GameStateData;
+use App\Domain\GameEngine\State\Enums\PlayerColor;
 use App\Domain\GameEngine\Turns\Enums\GamePhase;
 use App\Domain\GameSession\Data\ConfirmedGameActionData;
 use App\Domain\GameSession\Data\StagedGameActionData;
@@ -20,6 +26,7 @@ use App\Mcp\Presentation\GameActionPresenter;
 use App\Mcp\Presentation\GameStatePresenter;
 use App\Mcp\Server\GameServer;
 use App\Mcp\Tools\ConfirmGameActionTool;
+use App\Mcp\Tools\RollbackGameActionTool;
 use App\Mcp\Tools\StageGameActionTool;
 use App\Models\Game;
 use App\Models\GamePlayer;
@@ -62,11 +69,24 @@ class GameActionConfirmationTest extends TestCase
         $this->assertArrayNotHasKey('actions', $payload);
     }
 
-    public function test_http_confirmation_returns_short_summary_and_next_step_without_reading_context(): void
+    public function test_http_confirmation_returns_a_reconstructable_update_and_next_actions(): void
     {
         [$game, $user] = $this->sessionGame();
+        $state = $game->state;
+        $state->round->phase = GamePhase::Actions;
+        $state->players = [new GamePlayerStateData(
+            playerId: $game->active_game_player_id,
+            userId: $user->id,
+            color: PlayerColor::Green,
+            faction: Faction::Blessed,
+            homeland: TerrainType::Forest,
+            roundBonus: RoundBonus::Coins,
+            resources: new PlayerResourcesData(coins: 5, tools: 3),
+        )];
+        $game->update(['state' => $state, 'phase' => GamePhase::Actions]);
         $context = app(GameStatePresenter::class)->turnContext(app(GetGameTurnContextQuery::class)->execute($user, $game->id));
-        $option = $context['actions'][0];
+        $option = collect($context['actions'])->firstWhere('type', 'exchange_resources');
+        $this->assertNotNull($option);
         $before = $game->fresh()->getAttributes();
         $historyCount = $game->actions()->count();
         Event::fake([GameChanged::class]);
@@ -89,13 +109,55 @@ class GameActionConfirmationTest extends TestCase
 
         $game->refresh();
         $payload = $response->json('result.structuredContent');
+        $this->assertSame('your_turn', $payload['continuation']);
         $player = $game->players()->where('user_id', $user->id)->sole();
         $this->assertSame(GameActionContinuation::forPlayer($game, $player)->value, $payload['continuation']);
         $this->assertSame($game->state->pendingInteraction?->playerId ?? $game->active_game_player_id, $payload['next_player_id']);
-        $this->assertLessThan(1024, strlen($response->json('result.content.0.text')));
+        if ($payload['continuation'] === 'your_turn') {
+            $update = $payload['context_update'];
+            if ($update['format'] === 'context-snapshot-v1') {
+                $reconstructed = $update['context'];
+            } else {
+                $this->assertSame($context['version'], $update['base_version']);
+                $this->assertSame($game->id, $update['game_id']);
+                $reconstructed = $context;
+                foreach ($update['changes'] as $change) {
+                    $path = $change['path'];
+                    $key = array_pop($path);
+                    $target = &$reconstructed;
+                    foreach ($path as $segment) {
+                        $target = &$target[$segment];
+                    }
+                    if ($change['op'] === 'remove') {
+                        unset($target[$key]);
+                    } else {
+                        $target[$key] = $change['value'];
+                    }
+                    unset($target);
+                }
+                $reconstructed['actions'] = $update['actions'];
+            }
+            $fresh = app(GameStatePresenter::class)->turnContext(app(GetGameTurnContextQuery::class)->execute($user, $game->id));
+            $this->assertSame($fresh, $reconstructed);
+            $this->assertLessThan(strlen(json_encode($fresh)), strlen(json_encode($update)));
+            $this->assertStringNotContainsString('strategicPlan', json_encode($update));
+        } else {
+            $this->assertArrayNotHasKey('context_update', $payload);
+            $this->assertLessThan(1024, strlen($response->json('result.content.0.text')));
+        }
         $this->assertSame($payload, json_decode($response->json('result.content.0.text'), true, flags: JSON_THROW_ON_ERROR));
         $this->assertSame($historyCount + 1, $game->actions()->count());
         Event::assertDispatchedTimes(GameChanged::class, 1);
+
+        $this->assertNotEmpty($reconstructed['actions']);
+        config(['game-mcp.user_id' => $user->id]);
+        GameServer::tool(StageGameActionTool::class, [
+            'game_id' => $game->id, 'version' => $reconstructed['version'], 'action_id' => $reconstructed['actions'][0]['action_id'],
+        ])->assertOk();
+        GameServer::tool(RollbackGameActionTool::class, [
+            'game_id' => $game->id, 'version' => $reconstructed['version'],
+        ])->assertOk();
+        $this->assertSame($historyCount + 1, $game->actions()->count());
 
         $request['params']['arguments']['version'] = $game->version;
         $this->withToken($token)->postJson('/mcp/game', $request)->assertOk()->assertJsonPath('result.isError', true);

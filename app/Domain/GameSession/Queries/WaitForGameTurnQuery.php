@@ -17,8 +17,11 @@ final class WaitForGameTurnQuery
 {
     public const int TIMEOUT_SECONDS = 30;
 
-    public function __construct(private GamePlayerResolver $players, private GetGameStateQuery $state)
-    {
+    public function __construct(
+        private GamePlayerResolver $players,
+        private GetGameStateQuery $state,
+        private GetLegalGameActionsQuery $actions,
+    ) {
     }
 
     public function execute(User $user, ?int $gameId = null, int $timeoutSeconds = self::TIMEOUT_SECONDS): GameTurnWaitResultData
@@ -48,6 +51,7 @@ final class WaitForGameTurnQuery
                     reason: $reason,
                     gameId: $game->id,
                     view: $reason === GameTurnWaitReason::Timeout ? null : $this->state->execute($user, $game->id),
+                    actions: $reason === GameTurnWaitReason::YourTurn ? $this->actions->execute($user, $game->id) : null,
                 );
             });
 

@@ -8,7 +8,9 @@ use App\Domain\Game\Enums\GameStatus;
 use App\Domain\GameEngine\Interactions\Data\PendingInteractionData;
 use App\Domain\GameEngine\Interactions\Enums\PendingInteractionType;
 use App\Domain\GameSession\Enums\GameTurnWaitReason;
+use App\Domain\GameSession\Queries\GetGameTurnContextQuery;
 use App\Domain\GameSession\Queries\WaitForGameTurnQuery;
+use App\Mcp\Presentation\GameStatePresenter;
 use App\Mcp\Server\GameServer;
 use App\Mcp\Tools\WaitForGameTurnTool;
 use App\Mcp\Validators\WaitForGameTurnValidator;
@@ -64,6 +66,7 @@ class WaitForGameTurnTest extends TestCase
 
         $this->assertSame(GameTurnWaitReason::YourTurn, $result->reason);
         $this->assertSame(4, $result->view->version);
+        $this->assertSame(4, $result->actions->version);
         Sleep::assertSleptTimes(1);
     }
 
@@ -90,6 +93,7 @@ class WaitForGameTurnTest extends TestCase
         $this->assertSame(GameTurnWaitReason::Timeout, $result->reason);
         $this->assertSame($game->id, $result->gameId);
         $this->assertNull($result->view);
+        $this->assertNull($result->actions);
         Cache::shouldNotHaveReceived('get');
         Sleep::assertSleptTimes(2);
     }
@@ -184,13 +188,16 @@ class WaitForGameTurnTest extends TestCase
         $game->update(['active_game_player_id' => $player->id]);
         config(['game-mcp.user_id' => User::factory()->create()->id]);
         $token = $player->user->createToken('test', ['game:mcp'])->plainTextToken;
-        $this->withToken($token)->postJson('/mcp/game', [
+        $expected = app(GameStatePresenter::class)->turnContext(app(GetGameTurnContextQuery::class)->execute($player->user, $game->id));
+        $response = $this->withToken($token)->postJson('/mcp/game', [
             'jsonrpc' => '2.0', 'id' => 1, 'method' => 'tools/call',
             'params' => ['name' => 'wait_for_turn', 'arguments' => ['game_id' => $game->id, 'timeout_seconds' => 0]],
         ])->assertOk()->assertJsonPath('result.isError', false)
             ->assertJsonPath('result.structuredContent.reason', 'your_turn')
-            ->assertJsonStructure(['result' => ['structuredContent' => ['state', 'version']]])
+            ->assertJsonStructure(['result' => ['structuredContent' => ['state', 'version', 'actions']]])
             ->assertJsonPath('result.structuredContent.player_id', $player->id);
+
+        $this->assertSame(['reason' => 'your_turn', ...$expected], $response->json('result.structuredContent'));
     }
 
     public function test_timeout_returns_only_reason_in_both_structured_and_text_content(): void
@@ -222,6 +229,7 @@ class WaitForGameTurnTest extends TestCase
             'params' => ['name' => 'wait_for_turn', 'arguments' => ['game_id' => $game->id, 'timeout_seconds' => 0]],
         ])->assertOk()->assertJsonPath('result.structuredContent.reason', 'game_ended')
             ->assertJsonPath('result.structuredContent.game_id', $game->id)
+            ->assertJsonMissingPath('result.structuredContent.actions')
             ->assertJsonStructure(['result' => ['structuredContent' => ['state', 'version']]]);
     }
 

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Mcp\Tools;
 
+use App\Domain\GameSession\Data\GameTurnContextData;
 use App\Domain\GameSession\Queries\WaitForGameTurnQuery;
 use App\Mcp\Presentation\GameStatePresenter;
 use App\Mcp\Validators\WaitForGameTurnValidator;
@@ -17,7 +18,7 @@ use Laravel\Mcp\Server\Attributes\Name;
 use Laravel\Mcp\Server\Tools\Annotations\IsReadOnly;
 
 #[Name('wait_for_turn')]
-#[Description('Wait up to 30 seconds until your turn, pending choice, or game end. Returns reason (your_turn, timeout, game_ended), with compact-v2 state only on success. Fetch get_board_layout only for unknown/missing geometry identified by state.board.layout_id. Timeout returns only reason. On timeout, call again only while authorized to keep playing. Client and proxy timeouts must exceed the wait.')]
+#[Description('Wait up to 30 seconds until your turn, pending choice, or game end. your_turn returns compact-v2 state and legal actions at one shared version: choose directly from actions without another state/context/actions read. game_ended returns final visible state. Fetch get_board_layout only for unknown/missing geometry identified by state.board.layout_id. Timeout returns only reason. On timeout, call again only while authorized to keep playing. Client and proxy timeouts must exceed the wait.')]
 #[IsReadOnly]
 final class WaitForGameTurnTool extends GameTool
 {
@@ -30,6 +31,10 @@ final class WaitForGameTurnTool extends GameTool
 
             if ($result->view === null) {
                 return ['reason' => $result->reason->value];
+            }
+
+            if ($result->actions !== null) {
+                return ['reason' => $result->reason->value, ...$presenter->turnContext(new GameTurnContextData($result->view, $result->actions))];
             }
 
             return ['reason' => $result->reason->value, ...$presenter->present($result->view)];

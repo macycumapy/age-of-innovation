@@ -25,7 +25,7 @@ use Laravel\Mcp\Server\Attributes\Name;
 use Laravel\Mcp\Server\Attributes\Version;
 
 #[Name('Game Server')]
-#[Version('0.0.3')]
+#[Version('0.0.4')]
 class GameServer extends Server
 {
     protected function boot(): void
@@ -43,9 +43,10 @@ class GameServer extends Server
         State format compact-v2 is a complete dynamic snapshot, not a delta. Static geometry is separate: fetch get_board_layout for the current game when state.board.layout_id is unknown or its geometry is missing from your context. Reuse geometry by layout_id, not just map variant. If layout IDs disagree, refresh the turn context before deciding. Join layout and state hexes by id, never by row position.
         Board hexes, buildings, and bridges are positional rows: use each response's hex_fields, building_fields, and bridge_fields. Missing trailing dynamic hex values are null. Current terrain, ownership, towns, neutral buildings, annexes, and bridges are always included. Setup-only selections are omitted after setup; scoring goals and shared actions remain available.
         Action IDs are opaque and version-scoped; always refresh legal actions after a version change. finish_turn is the only fixed ID and still requires the current version.
-        While authorized to keep playing, use wait_for_turn without timeout_seconds to wait up to 30 seconds on each call. On timeout, call it again; on game_ended, stop. On your_turn, read legal actions and use the returned current version.
+        While authorized to keep playing, use wait_for_turn without timeout_seconds to wait up to 30 seconds on each call. On timeout, call it again; on game_ended, stop. On your_turn, use the returned state, actions, and shared version directly; do not call get_state, get_turn_context, or get_legal_actions again for the same version.
         Stage an action, then explicitly confirm or roll back.
-        After confirm_action, follow continuation: your_turn -> get_turn_context; wait_for_turn -> wait_for_turn without a redundant state/context read; game_ended -> stop. next_player_id identifies a game player, not a user. The action summary is not a state delta.
+        After confirm_action, follow continuation: your_turn -> use context_update and its fresh actions directly; wait_for_turn -> wait_for_turn without a redundant state/context read; game_ended -> stop. next_player_id identifies a game player, not a user. The action summary is not a state delta.
+        context_update format context-delta-v1 applies only to your held compact-v2 context with matching game_id and base_version. Apply changes in order: path is an array of literal object keys or zero-based array indices; set replaces/adds exactly that value (including null or an entire array), remove deletes that object key. Never merge arrays or infer resource changes from the action summary. Replace actions with context_update.actions and use its new version. For context-snapshot-v1 replace the entire context with context_update.context. If your baseline is missing, mismatched, or uncertain, fetch get_turn_context before acting. Do not replay the confirmed action to recover context.
         Use the current version for action mutations.
         Resolve pending choices before finishing the turn.
         Access is limited to the configured user.

@@ -8,7 +8,11 @@ use App\Domain\GameSession\Enums\GameTurnWaitReason;
 
 final readonly class GameTurnWaitResultData
 {
-    public function __construct(public GameTurnWaitReason $reason, public int $gameId, public ?GameStateViewData $view = null)
-    {
+    public function __construct(
+        public GameTurnWaitReason $reason,
+        public int $gameId,
+        public ?GameStateViewData $view = null,
+        public ?GameActionOptionsData $actions = null,
+    ) {
     }
 }

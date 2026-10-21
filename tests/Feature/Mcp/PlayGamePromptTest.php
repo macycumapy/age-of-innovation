@@ -32,6 +32,9 @@ class PlayGamePromptTest extends TestCase
             ->assertSee('without reading state or context again')
             ->assertSee('without timeout_seconds')->assertSee('at most 30 seconds')
             ->assertSee('On timeout, call it again')->assertSee('On game_ended, stop')
+            ->assertSee('use the returned state, actions, and shared version directly')
+            ->assertSee('context-delta-v1')->assertSee('base_version')
+            ->assertSee('context-snapshot-v1')->assertSee('Do not replay the confirmed action')
             ->assertSee('Do not inspect or modify source code')
             ->assertSee('Do not silently confirm a staged action that predates this session');
     }
