@@ -6,6 +6,7 @@ namespace App\Domain\GameEngine\History\Actions;
 
 use App\Domain\Game\Enums\GameStatus;
 use App\Domain\GameEngine\Board\Actions\ApplyPlaceNeutralBuildingAction;
+use App\Domain\GameEngine\Board\Actions\ApplyWorkshopAfterTerraformingAction;
 use App\Domain\GameEngine\Board\Actions\FindEligibleMoleTunnelHexesAction;
 use App\Domain\GameEngine\Board\Actions\FindEligiblePalaceFlightHexesAction;
 use App\Domain\GameEngine\Board\Actions\FindEligibleTerraformHexesAction;
@@ -133,6 +134,7 @@ final class ReplayGameHistoryAction
         private FindEligiblePalaceFlightHexesAction $findEligiblePalaceFlightHexes,
         private StartFelineTownBonusAction $startFelineTownBonus,
         private StartLizardTownBonusAction $startLizardTownBonus,
+        private ApplyWorkshopAfterTerraformingAction $applyWorkshopAfterTerraforming,
         private CreateTownChoiceAfterBuildingAction $createTownChoiceAfterBuilding,
         private CreateBuildingFollowUpInteractionAction $createBuildingFollowUpInteraction,
         private ApplyPlaceNeutralBuildingAction $applyPlaceNeutralBuilding,
@@ -946,7 +948,7 @@ final class ReplayGameHistoryAction
                     $action->payload['buildable_hex_ids'] ?? [],
                 );
 
-                if ((bool) ($action->payload['lizard_bonus_pending'] ?? false)) {
+                if ((bool) ($action->payload['lizard_bonus_pending'] ?? false) && ! (bool) ($action->payload['build_offered'] ?? false)) {
                     $this->startLizardTownBonus->execute($state, $playerState);
                     $game->active_game_player_id = $player->id;
                 } elseif ($availableHexIds !== [] && (bool) ($action->payload['build_offered'] ?? false)) {
@@ -962,6 +964,7 @@ final class ReplayGameHistoryAction
                             'toolCost' => $isFreeWorkshop ? 0 : 1,
                             'coinCost' => $isFreeWorkshop ? 0 : 2,
                             ...$buildingContext,
+                            ...((bool) ($action->payload['lizard_bonus_pending'] ?? false) ? ['lizardBonusPending' => true] : []),
                             ...($isFreeWorkshop ? ['lizardFreeWorkshop' => true] : []),
                         ],
                     );
@@ -986,7 +989,7 @@ final class ReplayGameHistoryAction
 
             $availableHexIds = $this->availableWorkshopHexIds($state, $playerState, $buildableHexIds);
             $isFreeWorkshop = (bool) ($action->payload['lizard_free_workshop'] ?? false);
-            $state->pendingInteraction = (bool) ($action->payload['lizard_bonus_pending'] ?? false)
+            $state->pendingInteraction = (bool) ($action->payload['lizard_bonus_pending'] ?? false) && ! (bool) ($action->payload['build_offered'] ?? false)
                 ? null
                 : ($availableHexIds === []
                 || ! (bool) ($action->payload['build_offered'] ?? false)
@@ -1002,10 +1005,11 @@ final class ReplayGameHistoryAction
                             'toolCost' => $isFreeWorkshop ? 0 : 1,
                             'coinCost' => $isFreeWorkshop ? 0 : 2,
                             ...$buildingContext,
+                            ...((bool) ($action->payload['lizard_bonus_pending'] ?? false) ? ['lizardBonusPending' => true] : []),
                             ...($isFreeWorkshop ? ['lizardFreeWorkshop' => true] : []),
                         ],
                     ));
-            if ((bool) ($action->payload['lizard_bonus_pending'] ?? false)) {
+            if ((bool) ($action->payload['lizard_bonus_pending'] ?? false) && ! (bool) ($action->payload['build_offered'] ?? false)) {
                 $this->startLizardTownBonus->execute($state, $playerState);
             }
         } elseif ($interactionPhase === GamePhase::ScienceBonus) {
@@ -1057,6 +1061,18 @@ final class ReplayGameHistoryAction
         }
 
         $state = $game->state;
+        if ((bool) ($action->payload['lizard_bonus_pending'] ?? false)) {
+            $result = $this->applyWorkshopAfterTerraforming->execute(
+                $state,
+                $this->playerState($state, $player->id),
+                (bool) ($action->payload['built'] ?? false),
+                $action->payload['hex_id'] ?? null,
+            );
+            $game->active_game_player_id = $result->nextActivePlayerId;
+            $game->state = $state;
+
+            return;
+        }
         $originalBuiltHexId = (string) ($state->pendingInteraction?->context['builtHexId'] ?? '');
         $powerOffersResolved = ($state->pendingInteraction?->context['powerOffersResolved'] ?? false) === true;
         $state->round->hasTakenMainAction = true;

@@ -15,10 +15,11 @@ final class StartLizardTownBonusAction
 {
     public function __construct(
         private FindEligibleTerraformHexesAction $findEligibleTerraformHexes,
+        private CreateTownChoiceAfterBuildingAction $createTownChoiceAfterBuilding,
     ) {
     }
 
-    public function execute(GameStateData $state, GamePlayerStateData $playerState): bool
+    public function execute(GameStateData $state, GamePlayerStateData $playerState, string $builtHexId = ''): bool
     {
         $eligibleHexIds = $this->findEligibleTerraformHexes->execute(
             $state,
@@ -28,6 +29,9 @@ final class StartLizardTownBonusAction
 
         if ($eligibleHexIds === []) {
             $state->pendingInteraction = null;
+            if ($builtHexId !== '') {
+                $this->createTownChoiceAfterBuilding->execute($state, $playerState, $builtHexId, powerOffersResolved: true);
+            }
 
             return false;
         }
@@ -43,6 +47,7 @@ final class StartLizardTownBonusAction
                 'remainingSpades' => 1,
                 'targetTerrain' => $playerState->homeland->value,
                 'lizardFreeWorkshop' => true,
+                ...($builtHexId !== '' ? ['builtHexId' => $builtHexId, 'powerOffersResolved' => true] : []),
             ],
         );
 

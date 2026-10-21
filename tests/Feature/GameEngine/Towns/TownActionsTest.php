@@ -523,6 +523,161 @@ class TownActionsTest extends TestCase
         $this->assertSame(0, $game->actions()->latest('sequence')->first()?->payload['coin_cost']);
     }
 
+    public static function lizardTownWorkshopProvider(): array
+    {
+        return [[true, false], [true, true], [false, false]];
+    }
+
+    #[DataProvider('lizardTownWorkshopProvider')]
+    public function test_lizard_town_tile_spades_offer_paid_building_before_the_faction_bonus(bool $build, bool $acceptPower): void
+    {
+        $user = User::factory()->create();
+        $neighborUser = User::factory()->create();
+        $game = Game::factory()->create([
+            'status' => GameStatus::Active,
+            'phase' => GamePhase::Actions,
+            'active_player_id' => $user->id,
+        ]);
+        $player = GamePlayer::factory()->create(['game_id' => $game->id, 'user_id' => $user->id]);
+        $player->update(['seat' => 1]);
+        $neighbor = GamePlayer::factory()->create(['game_id' => $game->id, 'user_id' => $neighborUser->id, 'seat' => 2]);
+        $state = new GameStateData(
+            turnOrder: [$player->id, $neighbor->id],
+            board: new BoardStateData(hexes: [
+                new BoardHexStateData(
+                    id: '0:0',
+                    q: 0,
+                    r: 0,
+                    initialTerrain: TerrainType::Forest,
+                    terrain: TerrainType::Forest,
+                    adjacentHexIds: ['1:0', '0:1', '-1:0'],
+                    building: new BuildingStateData(BuildingType::Workshop, $player->id),
+                ),
+                new BoardHexStateData(
+                    id: '1:0',
+                    q: 1,
+                    r: 0,
+                    initialTerrain: TerrainType::Mountain,
+                    terrain: TerrainType::Mountain,
+                    adjacentHexIds: ['0:0', '2:0'],
+                ),
+                new BoardHexStateData(
+                    id: '0:1',
+                    q: 0,
+                    r: 1,
+                    initialTerrain: TerrainType::Mountain,
+                    terrain: TerrainType::Mountain,
+                    adjacentHexIds: ['0:0'],
+                ),
+                new BoardHexStateData(
+                    id: '2:0',
+                    q: 2,
+                    r: 0,
+                    initialTerrain: TerrainType::Swamp,
+                    terrain: TerrainType::Swamp,
+                    adjacentHexIds: ['1:0'],
+                    building: new BuildingStateData(BuildingType::Workshop, $neighbor->id),
+                ),
+                new BoardHexStateData(
+                    id: '-1:0',
+                    q: -1,
+                    r: 0,
+                    initialTerrain: TerrainType::Mountain,
+                    terrain: TerrainType::Mountain,
+                    adjacentHexIds: ['0:0'],
+                ),
+            ]),
+            round: new RoundStateData(phase: GamePhase::Actions),
+            players: [new GamePlayerStateData(
+                playerId: $player->id,
+                userId: $user->id,
+                color: PlayerColor::Green,
+                faction: Faction::Lizards,
+                homeland: TerrainType::Forest,
+                roundBonus: RoundBonus::Coins,
+                resources: new PlayerResourcesData(tools: 1, coins: 2),
+            ), new GamePlayerStateData(
+                playerId: $neighbor->id,
+                userId: $neighborUser->id,
+                color: PlayerColor::Red,
+                faction: Faction::Blessed,
+                homeland: TerrainType::Swamp,
+                roundBonus: RoundBonus::Coins,
+                resources: new PlayerResourcesData(power: new PowerBowlsStateData(bowlOne: 1)),
+            )],
+            availableTownTileIds: [TownTile::Terraform->value],
+            pendingInteraction: new PendingInteractionData(
+                PendingInteractionType::ChooseTown,
+                $player->id,
+                [TownTile::Terraform->value],
+                ['townHexIds' => ['0:0'], 'builtHexId' => '0:0'],
+            ),
+        );
+        $game->update(['state' => $state]);
+        $game->actions()->create([
+            'sequence' => 1, 'type' => GameActionType::PhaseCheckpoint,
+            'payload' => [
+                'game' => [
+                    'status' => GameStatus::Active->value, 'phase' => GamePhase::Actions->value,
+                    'active_player_id' => $user->id, 'active_game_player_id' => $player->id,
+                    'version' => 0, 'state' => $state->toArray(), 'started_at' => null, 'finished_at' => null,
+                    'round' => 1,
+                ],
+                'players' => [['id' => $player->id], ['id' => $neighbor->id]],
+                'final_scoring' => [],
+            ],
+            'events' => [], 'state_version_before' => 0, 'state_version_after' => 0,
+        ]);
+
+        $this->actingAs($user)->post(route('games.town', $game), ['town_tile' => TownTile::Terraform->value])->assertNoContent();
+        foreach (['1:0', '0:1'] as $hexId) {
+            $this->post(route('games.starting-spade.store', $game), ['hex_id' => $hexId])->assertNoContent();
+            $this->delete(route('games.starting-spade.destroy', $game))->assertNoContent();
+            $this->assertNull(collect($game->fresh()->state->board->hexes)->firstWhere('id', $hexId)->building);
+            $this->post(route('games.starting-spade.store', $game), ['hex_id' => $hexId])->assertNoContent();
+            $this->post(route('games.starting-spade.finish', $game))->assertNoContent();
+        }
+        $game->refresh();
+        $this->assertSame(PendingInteractionType::BuildWorkshopAfterTerraforming, $game->state->pendingInteraction?->type);
+        $this->assertSame(0, $game->state->players[0]->unassignedSpades);
+        $this->assertSame(1, $game->state->pendingInteraction?->context['toolCost']);
+        $this->assertSame(2, $game->state->pendingInteraction?->context['coinCost']);
+
+        $this->post(route('games.terraform-workshop', $game), ['build' => $build, 'hex_id' => '1:0'])->assertNoContent();
+        $game->refresh();
+        if ($build) {
+            $this->assertSame(PendingInteractionType::PowerOffer, $game->state->pendingInteraction?->type);
+            $this->assertSame(0, $game->state->players[0]->unassignedSpades);
+            $this->actingAs($neighborUser)->post(route('games.power-offer', $game), ['accept' => $acceptPower])->assertNoContent();
+            $game->refresh();
+        }
+        $this->assertSame(PendingInteractionType::SpendSpades, $game->state->pendingInteraction?->type);
+        $this->assertTrue($game->state->pendingInteraction?->context['lizardFreeWorkshop']);
+        $this->assertSame(1, $game->state->players[0]->unassignedSpades);
+        $this->assertSame($build ? 0 : 1, $game->state->players[0]->resources->tools);
+        $this->assertSame($build ? 0 : 2, $game->state->players[0]->resources->coins);
+        $expected = $game->state->toArray();
+        $expected['townChoiceCheckpoint'] = null;
+        if ($acceptPower) {
+            $expected['turnStartSnapshot']['townChoiceCheckpoint'] = null;
+        }
+        app(\App\Domain\GameEngine\History\Actions\ReplayGameHistoryAction::class)->execute($game, $game->actions()->orderBy('sequence')->get());
+        $this->assertEquals($expected, $game->fresh()->state->toArray());
+
+        $this->actingAs($user)->post(route('games.starting-spade.store', $game), ['hex_id' => '-1:0'])->assertNoContent();
+        $this->post(route('games.starting-spade.finish', $game))->assertNoContent();
+        $game->refresh();
+        $this->assertSame(0, $game->state->pendingInteraction?->context['toolCost']);
+        $this->assertSame(0, $game->state->pendingInteraction?->context['coinCost']);
+        $this->post(route('games.terraform-workshop', $game), ['build' => true, 'hex_id' => '-1:0'])->assertNoContent();
+        $game->refresh();
+        $this->assertSame($build ? 0 : 1, $game->state->players[0]->resources->tools);
+        $this->assertSame($build ? 0 : 2, $game->state->players[0]->resources->coins);
+        $expected = $game->state->toArray();
+        app(\App\Domain\GameEngine\History\Actions\ReplayGameHistoryAction::class)->execute($game, $game->actions()->orderBy('sequence')->get());
+        $this->assertEquals($expected, $game->fresh()->state->toArray());
+    }
+
     public function test_felines_immediately_distribute_a_book_and_three_knowledge_steps_after_founding_a_town(): void
     {
         $user = User::factory()->create();

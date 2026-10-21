@@ -61,6 +61,7 @@ final class ResolveWorkshopAfterTerraformingAction
                     'bonus_coins' => $result->bonusCoins,
                     'scoring_sources' => $result->scoringSources,
                     'feline_bonus_pending' => $result->felineBonusPending,
+                    'lizard_bonus_pending' => $result->lizardBonusPending,
                     'tool_cost' => $result->toolCost,
                     'coin_cost' => $result->coinCost,
                 ],

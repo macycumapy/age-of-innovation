@@ -12,6 +12,7 @@ use App\Domain\GameEngine\State\Data\GamePlayerStateData;
 use App\Domain\GameEngine\State\Data\GameStateData;
 use App\Domain\GameEngine\Towns\Actions\CreateTownChoiceAfterBuildingAction;
 use App\Domain\GameEngine\Towns\Actions\StartFelineTownBonusAction;
+use App\Domain\GameEngine\Towns\Actions\StartLizardTownBonusAction;
 use Illuminate\Validation\ValidationException;
 
 final class ApplyPowerOfferDecisionAction
@@ -21,6 +22,7 @@ final class ApplyPowerOfferDecisionAction
         private CreateTownChoiceAfterBuildingAction $createTownChoiceAfterBuilding,
         private GainPowerAction $gainPower,
         private StartFelineTownBonusAction $startFelineTownBonus,
+        private StartLizardTownBonusAction $startLizardTownBonus,
         private CreateBuildingFollowUpInteractionAction $createBuildingFollowUpInteraction,
     ) {
     }
@@ -74,6 +76,7 @@ final class ApplyPowerOfferDecisionAction
                         ? ['felineBonusPending' => $interaction->context['felineBonusPending']]
                         : []),
                     ...($powerAcceptedDuringOfferChain ? ['powerAcceptedDuringOfferChain' => true] : []),
+                    ...(($interaction->context['lizardBonusPending'] ?? false) ? ['lizardBonusPending' => true] : []),
                 ],
             );
             $nextActivePlayerId = (int) $nextOffer['playerId'];
@@ -123,6 +126,9 @@ final class ApplyPowerOfferDecisionAction
                         powerOffersResolved: true,
                         queuedTownHexIds: (array) ($interaction->context['queuedTownHexIds'] ?? []),
                     );
+                } elseif (($interaction->context['lizardBonusPending'] ?? false) === true) {
+                    $this->startLizardTownBonus->execute($state, $buildingPlayer, (string) $interaction->context['builtHexId']);
+                    $nextActivePlayerId = $buildingPlayer->playerId;
                 } elseif (($interaction->context['felineBonusPending'] ?? false) === true) {
                     $this->startFelineTownBonus->execute($state, $buildingPlayer, [
                         'continueBuildingAfterPowerHexId' => (string) $interaction->context['builtHexId'],

@@ -165,6 +165,10 @@ final class ApplySpendSpadesAction
         PendingInteractionData $interaction,
     ): bool {
         if (($interaction->context['lizardBonusPending'] ?? false) === true) {
+            if ($this->offerWorkshopAfterTerraforming->execute($state, $player, $buildableHexIds, ['lizardBonusPending' => true])) {
+                return true;
+            }
+
             $this->startLizardTownBonus->execute($state, $player);
 
             return false;
@@ -174,7 +178,13 @@ final class ApplySpendSpadesAction
                 $state,
                 $player,
                 $buildableHexIds,
-                ['toolCost' => 0, 'coinCost' => 0, 'lizardFreeWorkshop' => true],
+                [
+                    'toolCost' => 0,
+                    'coinCost' => 0,
+                    'lizardFreeWorkshop' => true,
+                    'builtHexId' => (string) ($interaction->context['builtHexId'] ?? ''),
+                    'powerOffersResolved' => ($interaction->context['powerOffersResolved'] ?? false) === true,
+                ],
             );
         }
         if (($interaction->context['felineBonusPending'] ?? false) === true) {

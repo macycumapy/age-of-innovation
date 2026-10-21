@@ -17,6 +17,7 @@ use App\Domain\GameEngine\State\Data\GamePlayerStateData;
 use App\Domain\GameEngine\State\Data\GameStateData;
 use App\Domain\GameEngine\Towns\Actions\CreateTownChoiceAfterBuildingAction;
 use App\Domain\GameEngine\Towns\Actions\StartFelineTownBonusAction;
+use App\Domain\GameEngine\Towns\Actions\StartLizardTownBonusAction;
 use Illuminate\Validation\ValidationException;
 
 final class ApplyWorkshopAfterTerraformingAction
@@ -26,6 +27,7 @@ final class ApplyWorkshopAfterTerraformingAction
         private CreatePowerOffersAfterBuildingAction $createPowerOffersAfterBuilding,
         private ApplyBuildingBonusesAction $applyBuildingBonuses,
         private StartFelineTownBonusAction $startFelineTownBonus,
+        private StartLizardTownBonusAction $startLizardTownBonus,
         private AdvancePendingInteractionQueueAction $advancePendingInteractionQueue,
         private CreateTownChoiceAfterBuildingAction $createTownChoiceAfterBuilding,
     ) {
@@ -47,6 +49,7 @@ final class ApplyWorkshopAfterTerraformingAction
 
         $bonuses = ['victoryPoints' => 0, 'coins' => 0, 'sources' => []];
         $felineBonusPending = ($interaction->context['felineBonusPending'] ?? false) === true;
+        $lizardBonusPending = ($interaction->context['lizardBonusPending'] ?? false) === true;
         $toolCost = max(0, (int) ($interaction->context['toolCost'] ?? 1));
         $coinCost = max(0, (int) ($interaction->context['coinCost'] ?? 2));
 
@@ -77,7 +80,18 @@ final class ApplyWorkshopAfterTerraformingAction
         $state->pendingInteraction = null;
         $state->round->hasTakenMainAction = true;
 
-        if ($felineBonusPending) {
+        if ($lizardBonusPending) {
+            $nextActivePlayerId = $build
+                ? $this->createPowerOffersAfterBuilding->execute($state, $player->playerId, (string) $hexId)
+                : null;
+            $powerOffer = $this->powerOffer($state);
+            if ($nextActivePlayerId !== null && $powerOffer !== null) {
+                $powerOffer->context['lizardBonusPending'] = true;
+            } else {
+                $this->startLizardTownBonus->execute($state, $player, $build ? (string) $hexId : '');
+                $nextActivePlayerId = $player->playerId;
+            }
+        } elseif ($felineBonusPending) {
             $nextActivePlayerId = $build
                 ? $this->createPowerOffersAfterBuilding->execute($state, $player->playerId, (string) $hexId)
                 : null;
@@ -124,6 +138,7 @@ final class ApplyWorkshopAfterTerraformingAction
             $felineBonusPending,
             $toolCost,
             $coinCost,
+            $lizardBonusPending,
         );
     }
 

@@ -17,6 +17,7 @@ final class WorkshopAfterTerraformingResultData extends Data
         public bool $felineBonusPending,
         public int $toolCost,
         public int $coinCost,
+        public bool $lizardBonusPending = false,
     ) {
     }
 }
