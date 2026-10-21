@@ -18,7 +18,7 @@ use Laravel\Mcp\Server\Attributes\Description;
 use Laravel\Mcp\Server\Attributes\Name;
 
 #[Name('stage_action')]
-#[Description('Stage an action_id returned by get_turn_context or get_legal_actions at the supplied version. Does not spend resources or change the game. Confirm or roll back afterwards.')]
+#[Description('Stage an action_id from current legal actions at the supplied version. Does not spend resources or change the game. Inspect the result before confirming or rolling back. If stage_action fails or its result is uncertain, do not call confirm_action. Fetch get_turn_context, choose again from its current actions, and stage again. Confirm only after a successful stage_action response whose staged_action matches the intended action_id and version. Never batch stage_action and confirm_action in parallel.')]
 final class StageGameActionTool extends GameTool
 {
     public function handle(Request $request, StageGameActionValidator $validator, GetLegalGameActionsQuery $query, GameActionIdentifier $identifiers, StageGameAction $stage, GameActionPresenter $presenter): ResponseFactory

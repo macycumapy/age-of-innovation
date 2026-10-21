@@ -119,6 +119,12 @@ class GameServerTest extends TestCase
         $this->assertStringContainsString('Use join_game with game_id', $instructions);
         $this->assertStringContainsString('GAME_MCP_USER_ID', $instructions);
         $this->assertStringContainsString('Stage an action, then explicitly confirm or roll back.', $instructions);
+        foreach ([$instructions, app(StageGameActionTool::class)->toArray()['description']] as $text) {
+            $this->assertStringContainsString('If stage_action fails or its result is uncertain, do not call confirm_action.', $text);
+            $this->assertStringContainsString('Fetch get_turn_context, choose again from its current actions, and stage again.', $text);
+            $this->assertStringContainsString('matches the intended action_id and version', $text);
+            $this->assertStringContainsString('Never batch stage_action and confirm_action in parallel', $text);
+        }
         $this->assertStringContainsString('Use the current version for action mutations.', $instructions);
         $this->assertStringContainsString('specify game_id on each call.', $instructions);
     }
