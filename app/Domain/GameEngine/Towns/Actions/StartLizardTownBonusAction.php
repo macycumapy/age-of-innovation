@@ -16,6 +16,7 @@ final class StartLizardTownBonusAction
     public function __construct(
         private FindEligibleTerraformHexesAction $findEligibleTerraformHexes,
         private CreateTownChoiceAfterBuildingAction $createTownChoiceAfterBuilding,
+        private ContinuePalaceTownChoicesAction $continuePalaceTownChoices,
     ) {
     }
 
@@ -32,6 +33,8 @@ final class StartLizardTownBonusAction
             if ($builtHexId !== '') {
                 $this->createTownChoiceAfterBuilding->execute($state, $playerState, $builtHexId, powerOffersResolved: true);
             }
+
+            $this->continuePalaceTownChoices->execute($state, $playerState);
 
             return false;
         }

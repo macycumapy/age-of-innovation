@@ -16,6 +16,7 @@ use App\Domain\GameEngine\Scoring\Enums\RoundScoringGoal;
 use App\Domain\GameEngine\Scoring\Enums\RoundScoringTile;
 use App\Domain\GameEngine\State\Data\GamePlayerStateData;
 use App\Domain\GameEngine\State\Data\GameStateData;
+use App\Domain\GameEngine\Towns\Actions\ContinuePalaceTownChoicesAction;
 use App\Domain\GameEngine\Towns\Actions\StartFelineTownBonusAction;
 use App\Domain\GameEngine\Towns\Actions\StartLizardTownBonusAction;
 use Illuminate\Validation\ValidationException;
@@ -31,6 +32,7 @@ final class ApplySpendSpadesAction
         private StartFelineTownBonusAction $startFelineTownBonus,
         private StartLizardTownBonusAction $startLizardTownBonus,
         private AdvancePendingInteractionQueueAction $advancePendingInteractionQueue,
+        private ContinuePalaceTownChoicesAction $continuePalaceTownChoices,
     ) {
     }
 
@@ -90,6 +92,8 @@ final class ApplySpendSpadesAction
                 );
             }
         }
+
+        $this->continuePalaceTownChoices->execute($state, $player);
 
         return new SpendSpadesResultData(
             $player->playerId,

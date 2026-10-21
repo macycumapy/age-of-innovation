@@ -33,6 +33,20 @@ final class AdvancePendingInteractionQueueAction
                 continue;
             }
 
+            if (($step->context['palaceTownChoice'] ?? false) === true) {
+                $this->createTownChoiceAfterBuilding->execute(
+                    $state,
+                    $player,
+                    (string) $step->context['builtHexId'],
+                    powerOffersResolved: true,
+                );
+                if ($state->pendingInteraction !== null) {
+                    return $player->playerId;
+                }
+
+                continue;
+            }
+
             if ($step->type === PendingInteractionType::SpendSpades) {
                 $step->optionIds = $this->findEligibleTerraformHexes->execute($state, $player, $player->homeland);
                 $step->context = [

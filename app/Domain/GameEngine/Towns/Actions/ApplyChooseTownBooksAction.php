@@ -17,6 +17,7 @@ final class ApplyChooseTownBooksAction
         private ApplyBookDistributionAction $applyBookDistribution,
         private StartFelineTownBonusAction $startFelineTownBonus,
         private StartLizardTownBonusAction $startLizardTownBonus,
+        private ContinuePalaceTownChoicesAction $continuePalaceTownChoices,
     ) {
     }
 
@@ -46,6 +47,8 @@ final class ApplyChooseTownBooksAction
             && $player->faction === Faction::Lizards) {
             $this->startLizardTownBonus->execute($state, $player);
         }
+
+        $this->continuePalaceTownChoices->execute($state, $player);
 
         return $player->playerId;
     }

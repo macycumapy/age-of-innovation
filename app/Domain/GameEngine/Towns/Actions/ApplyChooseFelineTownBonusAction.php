@@ -22,6 +22,7 @@ final class ApplyChooseFelineTownBonusAction
         private BookDistributionValidator $bookDistributionValidator,
         private KnowledgeDistributionValidator $knowledgeDistributionValidator,
         private CreateTownChoiceAfterBuildingAction $createTownChoiceAfterBuilding,
+        private ContinuePalaceTownChoicesAction $continuePalaceTownChoices,
     ) {
     }
 
@@ -72,6 +73,8 @@ final class ApplyChooseFelineTownBonusAction
                 powerOffersResolved: true,
             );
         }
+
+        $this->continuePalaceTownChoices->execute($state, $player);
 
         return new ChooseFelineTownBonusResultData(
             $nextActivePlayerId,

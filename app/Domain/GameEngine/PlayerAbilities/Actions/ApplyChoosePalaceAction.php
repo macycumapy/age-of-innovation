@@ -18,6 +18,7 @@ use App\Domain\GameEngine\Scoring\Actions\ApplyDevelopmentTrackRoundScoringActio
 use App\Domain\GameEngine\State\Data\GamePlayerStateData;
 use App\Domain\GameEngine\State\Data\GameStateData;
 use App\Domain\GameEngine\Towns\Actions\CreateTownChoiceAfterBuildingAction;
+use App\Domain\GameEngine\Towns\Actions\QueuePalaceTownChoicesAction;
 use Illuminate\Validation\ValidationException;
 
 final class ApplyChoosePalaceAction
@@ -28,6 +29,7 @@ final class ApplyChoosePalaceAction
         private CreateTownChoiceAfterBuildingAction $createTownChoiceAfterBuilding,
         private GainPowerAction $gainPower,
         private AdvancePendingInteractionQueueAction $advancePendingInteractionQueue,
+        private QueuePalaceTownChoicesAction $queuePalaceTownChoices,
     ) {
     }
 
@@ -70,6 +72,7 @@ final class ApplyChoosePalaceAction
             static fn (string $palaceId): bool => $palaceId !== $palace->value,
         ));
         $state->pendingInteraction = null;
+        $this->queuePalaceTownChoices->execute($state, $player);
         $availableCompetencyIds = array_values(array_unique(array_diff(
             CompetencySupply::availableIds($state),
             $player->competencyIds,
@@ -132,6 +135,8 @@ final class ApplyChoosePalaceAction
                 ['palaceBuiltHexId' => $builtHexId, 'selectedHexId' => null, 'powerOffersResolved' => $powerOffersResolved],
             );
             $nextActivePlayerId = $player->playerId;
+        } elseif (in_array($palace, [PalaceAbility::Palace08, PalaceAbility::Palace14], true)) {
+            $nextActivePlayerId = $this->advancePendingInteractionQueue->execute($state, $player, '', powerOffersResolved: true);
         } else {
             $nextActivePlayerId = $this->createTownChoiceAfterBuilding->execute($state, $player, $builtHexId, powerOffersResolved: $powerOffersResolved);
         }

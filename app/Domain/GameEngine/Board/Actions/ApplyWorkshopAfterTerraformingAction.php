@@ -15,6 +15,7 @@ use App\Domain\GameEngine\Interactions\Data\PendingInteractionData;
 use App\Domain\GameEngine\Interactions\Enums\PendingInteractionType;
 use App\Domain\GameEngine\State\Data\GamePlayerStateData;
 use App\Domain\GameEngine\State\Data\GameStateData;
+use App\Domain\GameEngine\Towns\Actions\ContinuePalaceTownChoicesAction;
 use App\Domain\GameEngine\Towns\Actions\CreateTownChoiceAfterBuildingAction;
 use App\Domain\GameEngine\Towns\Actions\StartFelineTownBonusAction;
 use App\Domain\GameEngine\Towns\Actions\StartLizardTownBonusAction;
@@ -30,6 +31,7 @@ final class ApplyWorkshopAfterTerraformingAction
         private StartLizardTownBonusAction $startLizardTownBonus,
         private AdvancePendingInteractionQueueAction $advancePendingInteractionQueue,
         private CreateTownChoiceAfterBuildingAction $createTownChoiceAfterBuilding,
+        private ContinuePalaceTownChoicesAction $continuePalaceTownChoices,
     ) {
     }
 
@@ -129,6 +131,8 @@ final class ApplyWorkshopAfterTerraformingAction
                 ($interaction->context['powerOffersResolved'] ?? false) === true,
             );
         }
+
+        $this->continuePalaceTownChoices->execute($state, $player);
 
         return new WorkshopAfterTerraformingResultData(
             $nextActivePlayerId ?? $player->playerId,

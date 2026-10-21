@@ -32,7 +32,6 @@ final class CreateTownChoiceAfterBuildingAction
         array $queuedTownHexIds = [],
     ): int {
         $townBuiltHexId = $builtHexId;
-
         foreach (array_unique([$builtHexId, ...$queuedBuiltHexIds, ...$queuedTownHexIds]) as $candidateHexId) {
             if ($this->findEligibleTownHexes->execute($state, $player, $candidateHexId) !== []
                 || $this->findPalaceWaterTownOptions->execute($state, $player, $candidateHexId) !== []) {

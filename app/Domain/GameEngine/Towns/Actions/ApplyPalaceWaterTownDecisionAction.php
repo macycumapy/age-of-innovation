@@ -13,6 +13,10 @@ use Illuminate\Validation\ValidationException;
 
 final class ApplyPalaceWaterTownDecisionAction
 {
+    public function __construct(private ContinuePalaceTownChoicesAction $continuePalaceTownChoices)
+    {
+    }
+
     public function execute(
         GameStateData $state,
         int $playerId,
@@ -53,6 +57,7 @@ final class ApplyPalaceWaterTownDecisionAction
             );
         } else {
             $state->pendingInteraction = null;
+            $this->continuePalaceTownChoices->execute($state, $player);
         }
 
         return new PalaceWaterTownResultData(

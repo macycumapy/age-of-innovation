@@ -30,6 +30,7 @@ final class ApplyChooseTownAction
         private FindEligibleTerraformHexesAction $findEligibleTerraformHexes,
         private StartFelineTownBonusAction $startFelineTownBonus,
         private StartLizardTownBonusAction $startLizardTownBonus,
+        private ContinuePalaceTownChoicesAction $continuePalaceTownChoices,
     ) {
     }
 
@@ -118,6 +119,8 @@ final class ApplyChooseTownAction
         } elseif ($isLizardTown) {
             $this->startLizardTownBonus->execute($state, $player);
         }
+
+        $this->continuePalaceTownChoices->execute($state, $player);
 
         return new ChooseTownResultData(
             $player->playerId,

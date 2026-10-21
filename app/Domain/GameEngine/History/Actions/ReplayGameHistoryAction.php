@@ -58,7 +58,9 @@ use App\Domain\GameEngine\Setup\Factories\GameSetupPoolFactory;
 use App\Domain\GameEngine\State\Data\GamePlayerStateData;
 use App\Domain\GameEngine\State\Data\GameStateData;
 use App\Domain\GameEngine\State\Enums\PlayerColor;
+use App\Domain\GameEngine\Towns\Actions\ContinuePalaceTownChoicesAction;
 use App\Domain\GameEngine\Towns\Actions\CreateTownChoiceAfterBuildingAction;
+use App\Domain\GameEngine\Towns\Actions\QueuePalaceTownChoicesAction;
 use App\Domain\GameEngine\Towns\Actions\StartFelineTownBonusAction;
 use App\Domain\GameEngine\Towns\Actions\StartLizardTownBonusAction;
 use App\Domain\GameEngine\Towns\Enums\TownTile;
@@ -134,6 +136,8 @@ final class ReplayGameHistoryAction
         private FindEligiblePalaceFlightHexesAction $findEligiblePalaceFlightHexes,
         private StartFelineTownBonusAction $startFelineTownBonus,
         private StartLizardTownBonusAction $startLizardTownBonus,
+        private ContinuePalaceTownChoicesAction $continuePalaceTownChoices,
+        private QueuePalaceTownChoicesAction $queuePalaceTownChoices,
         private ApplyWorkshopAfterTerraformingAction $applyWorkshopAfterTerraforming,
         private CreateTownChoiceAfterBuildingAction $createTownChoiceAfterBuilding,
         private CreateBuildingFollowUpInteractionAction $createBuildingFollowUpInteraction,
@@ -244,6 +248,22 @@ final class ReplayGameHistoryAction
                 GameActionType::AcceptPalaceWaterTown, GameActionType::DeclinePalaceWaterTown => $this->replayPalaceWaterTownDecision($game, $players, $action),
                 default => null,
             };
+
+            if (in_array($action->type, [
+                GameActionType::ChooseTown,
+                GameActionType::ChooseTownBooks,
+                GameActionType::ChooseFelineTownBonus,
+                GameActionType::SpendStartingSpade,
+                GameActionType::TerraformAndBuild,
+                GameActionType::DeclinePalaceWaterTown,
+            ], true)) {
+                $state = $game->state;
+                $player = $this->historyPlayer($players, $action);
+                if ($player instanceof GamePlayer) {
+                    $this->continuePalaceTownChoices->execute($state, $this->playerState($state, $player->id));
+                    $game->state = $state;
+                }
+            }
 
             $game->version = $action->state_version_after;
             $game->save();
@@ -1458,6 +1478,8 @@ final class ReplayGameHistoryAction
         $builtHexId = (string) ($action->payload['built_hex_id'] ?? '');
         $state->pendingInteraction = null;
 
+        $this->queuePalaceTownChoices->execute($state, $playerState);
+
         if ($palace === PalaceAbility::Palace15) {
             $stepContext = ['builtHexId' => $builtHexId, 'powerOffersResolved' => $powerOffersResolved];
             $state->pendingInteractionQueue = [
@@ -1512,6 +1534,17 @@ final class ReplayGameHistoryAction
                 ['palaceBuiltHexId' => $builtHexId, 'selectedHexId' => null, 'powerOffersResolved' => $powerOffersResolved],
             );
             $game->active_game_player_id = $player->id;
+        } elseif (in_array($palace, [PalaceAbility::Palace08, PalaceAbility::Palace14], true)) {
+            if ((int) ($action->payload['gained_books'] ?? 0) > 0 && ! array_key_exists('reward_book_counts', $action->payload)) {
+                $state->pendingInteraction = new PendingInteractionData(
+                    PendingInteractionType::ChoosePalaceBooks,
+                    $player->id,
+                    context: ['bookCount' => (int) ($action->payload['gained_books'] ?? 0), 'source' => 'palace', 'builtHexId' => $builtHexId, 'powerOffersResolved' => $powerOffersResolved],
+                );
+                $game->active_game_player_id = $player->id;
+            } else {
+                $game->active_game_player_id = $this->advancePendingInteractionQueue->execute($state, $playerState, '', powerOffersResolved: true);
+            }
         } else {
             $game->active_game_player_id = $this->createTownChoiceAfterBuilding->execute(
                 $state,

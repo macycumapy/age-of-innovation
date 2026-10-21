@@ -10,6 +10,7 @@ use App\Domain\GameEngine\Interactions\Data\PendingInteractionData;
 use App\Domain\GameEngine\Interactions\Enums\PendingInteractionType;
 use App\Domain\GameEngine\State\Data\GamePlayerStateData;
 use App\Domain\GameEngine\State\Data\GameStateData;
+use App\Domain\GameEngine\Towns\Actions\ContinuePalaceTownChoicesAction;
 use App\Domain\GameEngine\Towns\Actions\CreateTownChoiceAfterBuildingAction;
 use App\Domain\GameEngine\Towns\Actions\StartFelineTownBonusAction;
 use App\Domain\GameEngine\Towns\Actions\StartLizardTownBonusAction;
@@ -24,6 +25,7 @@ final class ApplyPowerOfferDecisionAction
         private StartFelineTownBonusAction $startFelineTownBonus,
         private StartLizardTownBonusAction $startLizardTownBonus,
         private CreateBuildingFollowUpInteractionAction $createBuildingFollowUpInteraction,
+        private ContinuePalaceTownChoicesAction $continuePalaceTownChoices,
     ) {
     }
 
@@ -149,6 +151,10 @@ final class ApplyPowerOfferDecisionAction
                     }
                 }
             }
+        }
+
+        if ($state->pendingInteraction === null && isset($buildingPlayer)) {
+            $this->continuePalaceTownChoices->execute($state, $buildingPlayer);
         }
 
         return [
