@@ -42,7 +42,7 @@ Source: `app/Domain/GameEngine/Research/Enums/Competency.php`. Account for stack
 
 ## Innovations
 
-Sources: `app/Domain/GameEngine/Research/Enums/Innovation.php`, `app/Domain/GameEngine/Research/Services/InnovationPurchaseCostCalculator.php`, `app/Domain/GameEngine/Research/Services/InnovationVictoryPointCalculator.php`.
+Sources: `app/Domain/GameEngine/Research/Enums/Innovation.php`, `app/Domain/GameEngine/Research/Actions/ApplyInnovationRewardAction.php`, `app/Domain/GameEngine/Research/Services/InnovationPurchaseCostCalculator.php`, `app/Domain/GameEngine/Research/Services/InnovationVictoryPointCalculator.php`.
 
 | ID | Effect |
 | --- | --- |
@@ -52,7 +52,7 @@ Sources: `app/Domain/GameEngine/Research/Enums/Innovation.php`, `app/Domain/Game
 | sewage_system | Immediate two points per workshop. |
 | architecture | Steps based on built building forms, plus ten points. |
 | library | Points from sum of two best knowledge levels. |
-| steam_engine | Scholar and free shipping/terraforming advancement. |
+| steam_engine | Scholar and one free step on both shipping and terraforming; each successful advancement also grants its normal level reward. |
 | league_of_cities | Immediate five points per town tile. |
 | telecommunication | 8/12/18 points for 4/5/6+ settlement areas. |
 | steel | 8/12/18 points for 1/2/3 bridges. |

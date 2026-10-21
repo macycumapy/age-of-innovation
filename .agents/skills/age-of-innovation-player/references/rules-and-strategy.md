@@ -24,13 +24,21 @@ Sources: `app/Domain/GameEngine/Research/Actions/AdvanceDevelopmentTrackAction.p
 
 Upgrade tree: workshop → guild → palace or school; school → university. Workshop-to-guild base cost is two tools and six coins, or three coins beside an opponent. Compare net income after replacing a building, not both buildings' incomes added together.
 
+Check building supply before budgeting an upgrade chain: each player has nine workshops, four guilds, three schools, one university, and one palace. An existing university rules out planning another ordinary university upgrade, even with sufficient resources.
+
 Building power: workshop 1; guild/school/tower 2; palace/university 3; monument 4. Normally a town needs four connected buildings and power seven. A university reduces the building count to three; a monument to two. Annexes reduce the required count and add power. palace_08 reduces required power to six. Existing town membership can invalidate combinations.
 
 Town connectivity differs from final-network connectivity. Ordinary towns use direct adjacency and owned bridges; exceptions such as palace_14 are explicit. Final networks use their own calculator including shipping. Do not assume shipping connects a town, or guess adjacency from coordinate strings.
 
+For the final network, Moles also connect owned buildings two hexes apart when they share an intermediate board hex; this does not require a stored tunnel edge. The calculator uses the player's shipping level, not the river_workshop bonus's temporary expansion range. Count each connected component using these rules and compare it with opponents and the neutral territory score before valuing another building or shipping step.
+
+Mole paid terraforming through a tunnel costs one additional tool and awards 2 + player count points (four in a two-player game). Compare the offered normal and tunnel options even when both reach the same target. Add the full terraforming and workshop costs; a tunnel reward alone does not make the follow-up build affordable.
+
+Multiple spades can prepare multiple buildable hexes, but the terraforming follow-up permits only one workshop. Budget a separate later action for another prepared hex and verify that it remains reachable.
+
 Protect routes opponents can block. Check the independence of a second town before merging components into an existing town. Balance separate town opportunities against final network ranking.
 
-Sources: `app/Domain/GameEngine/Board/Enums/BuildingType.php`, `app/Domain/GameEngine/Towns/Actions/FindEligibleTownHexesAction.php`, `app/Domain/GameEngine/Board/Services/LargestNetworkSizeCalculator.php`.
+Sources: `app/Domain/GameEngine/Board/Enums/BuildingType.php`, `app/Domain/GameEngine/Towns/Actions/FindEligibleTownHexesAction.php`, `app/Domain/GameEngine/Board/Services/LargestNetworkSizeCalculator.php`, `app/Domain/GameEngine/Board/Actions/ApplyPaidTerraformingAction.php`, `app/Domain/GameEngine/Board/Actions/ApplySpendSpadesAction.php`.
 
 ## Scoring
 
@@ -65,6 +73,7 @@ Source: `app/Domain/Automation/Evaluation/Services/StrategicPriorities.php`.
 Use these checks as planning aids, not as a fixed strategy. Verify mechanical details against the current player-visible state and legal options.
 
 - **Check usable knowledge advancement before buying it.** Track the actual cap and unlock status of each discipline, the requirements for unlocking further advancement, and the attainable steps of a multi-step reward. Do not value a blocked step as points, income, or ranking progress. If advancement falls short of the estimate, correct the plan before repeating it; do not keep acquiring scholars without a useful outlet.
+- **Check supply and reward order before committing.** Verify the whole upgrade chain against remaining building pieces. Immediate rewards such as science score the schools present at acquisition: compare buying the innovation before upgrading a school away. Match book colors and total payment to the live innovation options rather than treating books as interchangeable.
 - **Plan town geometry during setup and early expansion.** Name candidate hexes, required buildings, power, bridges or annexes, and the remaining construction costs. Shipping access is not town connectivity. Check a second town's independence before connecting it to an existing town. Compare the timing and reward of a town with the income and round scoring sacrificed to obtain it; do not postpone all town planning until the middle game.
 - **Budget the economy after upgrades.** An upgraded workshop no longer provides its previous income. Compare the resulting total income, remaining payouts, and resources needed for the next useful build. Keep an affordable terrain/building continuation rather than a theoretically strong economy stranded without tools or expansion access.
 - **Price the long-term cost of sacrificing power.** Check remaining token capacity and whether future charging can still fund useful actions. Heavy early sacrifice needs a concrete payoff; access to an action alone is not enough reason to take it.
