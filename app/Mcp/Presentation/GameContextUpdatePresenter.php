@@ -23,14 +23,32 @@ final class GameContextUpdatePresenter
             throw new LogicException('Context update must belong to the same player and game with a newer shared version.');
         }
 
-        $next = $this->state->turnContext($after);
+        return $this->fromSnapshots($this->state->present($before), $this->state->turnContext($after));
+    }
+
+    /**
+     * @param array<string, mixed> $before
+     * @param array<string, mixed> $next
+     * @return array<string, mixed>
+     */
+    public function fromSnapshots(array $before, array $next): array
+    {
+        unset($before['context_id'], $next['context_id']);
         $snapshot = ['format' => 'context-snapshot-v1', 'context' => $next];
+        if (($before['format'] ?? null) !== 'compact-v2' || ($next['format'] ?? null) !== 'compact-v2'
+            || $before['game_id'] !== $next['game_id'] || $before['player_id'] !== $next['player_id']
+            || $before['user_id'] !== $next['user_id'] || $before['version'] > $next['version']) {
+            return $snapshot;
+        }
+        unset($before['actions']);
+        $after = $next;
+        unset($after['actions']);
         $delta = [
             'format' => 'context-delta-v1',
-            'game_id' => $before->gameId,
-            'base_version' => $before->version,
-            'version' => $after->view->version,
-            'changes' => $this->changes($this->state->present($before), $this->state->present($after->view)),
+            'game_id' => $before['game_id'],
+            'base_version' => $before['version'],
+            'version' => $next['version'],
+            'changes' => $this->changes($before, $after),
             'actions' => $next['actions'],
         ];
 

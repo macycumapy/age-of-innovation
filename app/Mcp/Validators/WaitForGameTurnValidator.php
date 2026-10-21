@@ -15,11 +15,13 @@ final class WaitForGameTurnValidator
         $data = $request->validate([
             'game_id' => ['sometimes', 'integer', 'min:1'],
             'timeout_seconds' => ['sometimes', 'integer', 'min:0', 'max:'.WaitForGameTurnQuery::TIMEOUT_SECONDS],
+            'context_id' => ['sometimes', 'filled', 'string', 'regex:/\A[a-f0-9]{32}\z/'],
         ]);
 
         return new WaitForGameTurnData(
             isset($data['game_id']) ? (int) $data['game_id'] : null,
             (int) ($data['timeout_seconds'] ?? WaitForGameTurnQuery::TIMEOUT_SECONDS),
+            $data['context_id'] ?? null,
         );
     }
 }

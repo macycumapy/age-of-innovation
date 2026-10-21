@@ -62,6 +62,8 @@ class GameResourcesTest extends TestCase
         $this->assertStringContainsString('Fetch get_turn_context, choose again from its current actions, and stage again.', $text);
         $this->assertStringContainsString('matches the intended action_id and version', $text);
         $this->assertStringContainsString('Never batch stage_action and confirm_action in parallel', $text);
+        $this->assertStringContainsString('base_context_id, game_id, and base_version', $text);
+        $this->assertStringContainsString('Timeout preserves context/ID', $text);
         GameServer::resource(GameQuickStartResource::class)->assertOk()->assertSee($text);
         $fullSize = strlen($this->content('SKILL.md')) + strlen($this->content('references/components.md')) + strlen($this->content('references/rules-and-strategy.md'));
         $this->assertLessThan($fullSize / 4, strlen($text));

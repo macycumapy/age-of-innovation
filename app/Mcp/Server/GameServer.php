@@ -25,7 +25,7 @@ use Laravel\Mcp\Server\Attributes\Name;
 use Laravel\Mcp\Server\Attributes\Version;
 
 #[Name('Game Server')]
-#[Version('0.0.4')]
+#[Version('0.0.5')]
 class GameServer extends Server
 {
     protected function boot(): void
@@ -44,6 +44,7 @@ class GameServer extends Server
         Board hexes, buildings, and bridges are positional rows: use each response's hex_fields, building_fields, and bridge_fields. Missing trailing dynamic hex values are null. Current terrain, ownership, towns, neutral buildings, annexes, and bridges are always included. Setup-only selections are omitted after setup; scoring goals and shared actions remain available.
         Action IDs are opaque and version-scoped; always refresh legal actions after a version change. finish_turn is the only fixed ID and still requires the current version.
         While authorized to keep playing, use wait_for_turn without timeout_seconds to wait up to 30 seconds on each call. On timeout, call it again; on game_ended, stop. On your_turn, use the returned state, actions, and shared version directly; do not call get_state, get_turn_context, or get_legal_actions again for the same version.
+        Keep context_id alongside the exact context returned by get_turn_context, successful wait_for_turn, or confirm_action.context_update. Pass it to wait_for_turn only while that context is still held. A wait delta requires matching base_context_id, game_id, and base_version; otherwise fetch get_turn_context. Unknown/expired/foreign IDs return a full context. Replace the held context_id with the new one after applying an update/full context; discard it if absent. Timeout leaves context and its ID unchanged. A confirmation without context_update also leaves the held snapshot/ID unchanged; do not advance its version from the confirmation summary alone. If context is lost or uncertain, omit context_id and request a full context. Use reconstructed state and fresh actions directly.
         Stage an action, then explicitly confirm or roll back.
         If stage_action fails or its result is uncertain, do not call confirm_action. Fetch get_turn_context, choose again from its current actions, and stage again. Confirm only after a successful stage_action response whose staged_action matches the intended action_id and version. Never batch stage_action and confirm_action in parallel or continue to confirmation without inspecting the staging result.
         After confirm_action, follow continuation: your_turn -> use context_update and its fresh actions directly; wait_for_turn -> wait_for_turn without a redundant state/context read; game_ended -> stop. next_player_id identifies a game player, not a user. The action summary is not a state delta.

@@ -25,6 +25,7 @@ use App\Events\GameChanged;
 use App\Mcp\Presentation\GameActionPresenter;
 use App\Mcp\Presentation\GameStatePresenter;
 use App\Mcp\Server\GameServer;
+use App\Mcp\Stores\GameContextSnapshotStore;
 use App\Mcp\Tools\ConfirmGameActionTool;
 use App\Mcp\Tools\RollbackGameActionTool;
 use App\Mcp\Tools\StageGameActionTool;
@@ -115,6 +116,9 @@ class GameActionConfirmationTest extends TestCase
         $this->assertSame($game->state->pendingInteraction?->playerId ?? $game->active_game_player_id, $payload['next_player_id']);
         if ($payload['continuation'] === 'your_turn') {
             $update = $payload['context_update'];
+            $cached = app(GameContextSnapshotStore::class)->find($user->id, $game->id, $player->id, $update['context_id']);
+            $this->assertNotNull($cached);
+            $this->assertSame($game->version, $cached['version']);
             if ($update['format'] === 'context-snapshot-v1') {
                 $reconstructed = $update['context'];
             } else {
@@ -139,6 +143,7 @@ class GameActionConfirmationTest extends TestCase
             }
             $fresh = app(GameStatePresenter::class)->turnContext(app(GetGameTurnContextQuery::class)->execute($user, $game->id));
             $this->assertSame($fresh, $reconstructed);
+            $this->assertSame($fresh, $cached);
             $this->assertLessThan(strlen(json_encode($fresh)), strlen(json_encode($update)));
             $this->assertStringNotContainsString('strategicPlan', json_encode($update));
         } else {

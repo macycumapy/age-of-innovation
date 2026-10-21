@@ -10,6 +10,8 @@ use App\Domain\GameSession\Queries\GetGameStateQuery;
 use App\Domain\GameSession\Queries\GetGameTurnContextQuery;
 use App\Mcp\Presentation\GameActionPresenter;
 use App\Mcp\Presentation\GameContextUpdatePresenter;
+use App\Mcp\Presentation\GameStatePresenter;
+use App\Mcp\Stores\GameContextSnapshotStore;
 use App\Mcp\Validators\GameActionValidator;
 use App\Models\User;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
@@ -32,16 +34,23 @@ final class ConfirmGameActionTool extends GameTool
         GetGameStateQuery $state,
         GetGameTurnContextQuery $context,
         GameContextUpdatePresenter $updates,
+        GameStatePresenter $statePresenter,
+        GameContextSnapshotStore $snapshots,
     ): ResponseFactory {
         $data = $validator->validate($request);
 
-        return $this->respond($request, fn (User $user): array => DB::transaction(function () use ($user, $data, $state, $confirm, $presenter, $context, $updates): array {
+        return $this->respond($request, fn (User $user): array => DB::transaction(function () use ($user, $data, $state, $confirm, $presenter, $context, $updates, $statePresenter, $snapshots): array {
             $before = $state->execute($user, $data->gameId);
             $result = $confirm->execute($user, $before->gameId, $data->version);
             $payload = $presenter->confirmed($result);
 
             if ($result->continuation === GameActionContinuation::YourTurn) {
-                $payload['context_update'] = $updates->present($before, $context->execute($user, $before->gameId));
+                $after = $context->execute($user, $before->gameId);
+                $payload['context_update'] = $updates->present($before, $after);
+                $snapshot = $snapshots->remember($statePresenter->turnContext($after));
+                if (isset($snapshot['context_id'])) {
+                    $payload['context_update']['context_id'] = $snapshot['context_id'];
+                }
             }
 
             return $payload;

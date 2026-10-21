@@ -197,7 +197,10 @@ class WaitForGameTurnTest extends TestCase
             ->assertJsonStructure(['result' => ['structuredContent' => ['state', 'version', 'actions']]])
             ->assertJsonPath('result.structuredContent.player_id', $player->id);
 
-        $this->assertSame(['reason' => 'your_turn', ...$expected], $response->json('result.structuredContent'));
+        $payload = $response->json('result.structuredContent');
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{32}$/', $payload['context_id']);
+        unset($payload['context_id']);
+        $this->assertSame(['reason' => 'your_turn', ...$expected], $payload);
     }
 
     public function test_timeout_returns_only_reason_in_both_structured_and_text_content(): void

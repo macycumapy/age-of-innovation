@@ -39,6 +39,9 @@ class PlayGamePromptTest extends TestCase
             ->assertSee('use the returned state, actions, and shared version directly')
             ->assertSee('context-delta-v1')->assertSee('base_version')
             ->assertSee('context-snapshot-v1')->assertSee('Do not replay the confirmed action')
+            ->assertSee('base_context_id, game_id, and base_version')
+            ->assertSee('Timeout leaves context and its ID unchanged')
+            ->assertSee('omit context_id and request a full context')
             ->assertSee('Do not inspect or modify source code')
             ->assertSee('Do not silently confirm a staged action that predates this session');
     }
