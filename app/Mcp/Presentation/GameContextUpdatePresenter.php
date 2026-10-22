@@ -37,7 +37,8 @@ final class GameContextUpdatePresenter
         $snapshot = ['format' => 'context-snapshot-v1', 'context' => $next];
         if (($before['format'] ?? null) !== 'compact-v2' || ($next['format'] ?? null) !== 'compact-v2'
             || $before['game_id'] !== $next['game_id'] || $before['player_id'] !== $next['player_id']
-            || $before['user_id'] !== $next['user_id'] || $before['version'] > $next['version']) {
+            || $before['user_id'] !== $next['user_id'] || $before['version'] > $next['version']
+            || ($before['state']['round']['number'] ?? null) !== ($next['state']['round']['number'] ?? null)) {
             return $snapshot;
         }
         unset($before['actions']);

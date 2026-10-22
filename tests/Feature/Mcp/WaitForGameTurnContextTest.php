@@ -34,7 +34,7 @@ class WaitForGameTurnContextTest extends TestCase
         $baseline = $this->toolCall('get_turn_context', ['game_id' => $game->id], $token);
         $this->assertMatchesRegularExpression('/^[a-f0-9]{32}$/', $baseline['context_id']);
         $state = $game->state;
-        $state->round->number++;
+        $state->round->hasTakenMainAction = true;
         $game->update(['state' => $state, 'version' => 2]);
         $attributes = $game->fresh()->getAttributes();
 
@@ -71,7 +71,11 @@ class WaitForGameTurnContextTest extends TestCase
         $baseline = $this->toolCall('get_turn_context', ['game_id' => $game->id], $token);
         $id = $baseline['context_id'];
         $store = app(GameContextSnapshotStore::class);
-        if ($case === 'expired') {
+        if ($case === 'new-round') {
+            $state = $game->state;
+            $state->round->number++;
+            $game->update(['state' => $state, 'version' => 2]);
+        } elseif ($case === 'expired') {
             $this->travel(GameContextSnapshotStore::TTL_SECONDS + 1)->seconds();
         } elseif ($case === 'missing') {
             $id = str_repeat('0', 32);
@@ -101,12 +105,18 @@ class WaitForGameTurnContextTest extends TestCase
         $this->assertSame($player->user_id, $response['user_id']);
         $this->assertArrayHasKey('actions', $response);
         $this->assertArrayHasKey('context_id', $response);
+        if ($case === 'new-round') {
+            $this->assertSame(2, $response['state']['round']['number']);
+            $again = $this->toolCall('wait_for_turn', ['game_id' => $game->id, 'timeout_seconds' => 0, 'context_id' => $response['context_id']], $token);
+            $this->assertSame('context-delta-v1', $again['context_update']['format']);
+            $this->assertSame([], $again['context_update']['changes']);
+        }
     }
 
     /** @return list<array{string}> */
     public static function fallbacks(): array
     {
-        return array_map(fn (string $case): array => [$case], ['expired', 'missing', 'corrupt', 'foreign-user', 'foreign-game', 'foreign-player', 'future-version', 'larger-delta']);
+        return array_map(fn (string $case): array => [$case], ['new-round', 'expired', 'missing', 'corrupt', 'foreign-user', 'foreign-game', 'foreign-player', 'future-version', 'larger-delta']);
     }
 
     public function test_timeout_neither_reads_nor_writes_snapshot_cache(): void

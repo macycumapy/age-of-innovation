@@ -97,6 +97,20 @@ class GameContextUpdateTest extends TestCase
         $this->assertSame(['format' => 'context-snapshot-v1', 'context' => app(GameStatePresenter::class)->turnContext($after)], $update);
     }
 
+    public function test_new_round_forces_a_full_snapshot_even_when_only_the_round_number_changed(): void
+    {
+        $state = new GameStateData(board: app(BoardStateFactory::class)->create(MapVariant::ThreeToFivePlayers));
+        $nextState = $state->deepCopy();
+        $nextState->round->number++;
+        $before = $this->stateView($state, 10);
+        $after = new GameTurnContextData($this->stateView($nextState, 11), new GameActionOptionsData(11, [], true));
+        $expected = ['format' => 'context-snapshot-v1', 'context' => app(GameStatePresenter::class)->turnContext($after)];
+        $presenter = app(GameContextUpdatePresenter::class);
+
+        $this->assertSame($expected, $presenter->present($before, $after));
+        $this->assertSame($expected, $presenter->fromSnapshots(app(GameStatePresenter::class)->present($before), $expected['context']));
+    }
+
     #[DataProvider('invalidContexts')]
     public function test_mismatched_contexts_are_rejected(int $gameId, int $userId, int $playerId, int $version, int $actionsVersion): void
     {
