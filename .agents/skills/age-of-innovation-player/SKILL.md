@@ -29,7 +29,7 @@ After confirm_action, follow the returned continuation when available: your_turn
 
 ## Choose a move
 
-Maintain a short plan: next scoring opportunity, economic bottleneck, intended expansion or town site, and required resources/actions. Reassess after an opponent move or material change.
+Maintain a short plan: next scoring opportunity, economic bottleneck, intended expansion or town site, and required resources/actions. After founding a town, reassess where an independent next town could form before continuing construction around the existing one. Reassess after an opponent move or material change.
 
 Apply the concrete checks in the reference's “Strategic decision checks” section before committing to a strategic line. Treat those checks as evaluation criteria, not a fixed opening or a requirement to pursue towns in every position.
 
@@ -38,6 +38,8 @@ Compare immediate points, future income before game end, pass rewards, resource 
 Bot evaluations can inform a decision but are heuristics, not game rules or proof of optimal play. Do not delegate a requested human-like decision to the automatic turn executor.
 
 ## Execute a move
+
+For resource exchanges, calculate the required total first and prefer a single offered action with that amount over repeated one-unit exchanges. Inspect the live schema and legal actions for quantity support; do not assume a UI capability is exposed through MCP. If only one-unit actions are exposed, explain that limitation and use those exact actions rather than inventing an amount or action ID. Reassess between exchanges only when an intervening choice or state change can affect the plan.
 
 1. Select an exact action_id from get_legal_actions. Do not invent IDs or submit arbitrary parameter objects.
 2. Call stage_action with game_id, version, and action_id. This records a selection; it does not simulate or spend resources.
