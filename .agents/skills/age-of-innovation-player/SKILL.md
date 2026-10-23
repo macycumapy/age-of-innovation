@@ -15,7 +15,7 @@ Discover the live MCP schema, including the available turn-context and wait_for_
 
 Identify game_id, user_id, player_id, active_player_id, version, round, phase, and pending interaction. HTTP identifies the user by the Bearer token; local STDIO uses GAME_MCP_USER_ID. Board ownership and turn order use game-player IDs. Always pin the requested game_id on every call.
 
-When asked to join, use join_game with the requested game_id. It creates membership in a lobby as the authenticated HTTP user or configured STDIO user, but does not mark readiness or start the game. Missing membership is not permission to choose another party. Join only when authorized. Do not change configuration to control another seat.
+When asked to join, use join_game with the requested game_id. It creates membership as the configured user and, under the current live schema, marks that player ready without starting the game. Check the response for readiness. Missing membership is not permission to choose another party. Join only when authorized. Do not change configuration to control another seat.
 
 Prefer get_turn_context when available to read state and legal actions at one version; otherwise read get_state and get_legal_actions for the same version. Resolve the controlled seat's pending choices before normal actions. If versions differ, refresh. An empty action list does not authorize passing, finishing, or bypassing validation.
 
@@ -25,7 +25,9 @@ A request to play (such as “Играем”) authorizes continuing play for th
 
 When another player must act during authorized play, briefly report the move and call wait_for_turn with the requested game_id. Use its default timeout. On timeout, call it again while play remains authorized; a timeout does not end the playing session. On your_turn, obtain current legal actions and continue playing. On game_ended, stop and report the result. Keep the user informed during extended waits without ending the response or requiring another “Играем”.
 
-After confirm_action, follow the returned continuation when available: your_turn means refresh turn context; wait_for_turn means wait directly; game_ended means stop. If waiting is unavailable or fails in a way that prevents continuing, explain the limitation and yield. Do not claim that waiting continues after the response ends.
+After confirm_action, follow the returned continuation: your_turn means apply context_update to the exact held baseline and use its fresh actions; wait_for_turn means wait directly; game_ended means stop. Keep context_id with its snapshot and pass it to wait_for_turn only while that exact context is held. Replace full snapshots; apply deltas only when their game, base version, and supplied base context ID match. Refresh turn context if the baseline is missing or uncertain. If waiting is unavailable or fails in a way that prevents continuing, explain the limitation and yield. Do not claim that waiting continues after the response ends.
+
+If the game returns to an earlier version or a previously confirmed position changes, discard the old action sequence and reassess from the returned full context. Fetch a full context if only an incompatible delta is available. Do not repeat old confirmations or infer why the position changed; describe the observed change neutrally. A stale staged_action is not authority to confirm it: stage a currently offered action successfully first.
 
 ## Choose a move
 
