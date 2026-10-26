@@ -110,7 +110,7 @@ watch(
         entries.value = [...entriesById.values()].sort((first, second) => second.sequence - first.sequence);
 
         const newEntries = latestEntries.filter(
-            (entry) => !knownEntryIds.has(entry.id) && shouldNotifyAboutPlayerAction(entry.player, currentUserId),
+            (entry) => !knownEntryIds.has(entry.id) && shouldNotifyAboutPlayerAction(entry.player, currentUserId, entry.type),
         );
 
         latestEntries.forEach((entry) => knownEntryIds.add(entry.id));

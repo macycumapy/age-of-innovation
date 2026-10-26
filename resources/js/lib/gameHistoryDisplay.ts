@@ -38,8 +38,14 @@ export function specialActionDescription(
 export function shouldNotifyAboutPlayerAction(
     player: { user_id: number | null } | null,
     currentUserId: number,
+    actionType: string,
 ): boolean {
-    return player !== null && player.user_id !== currentUserId;
+    return (
+        player !== null &&
+        player.user_id !== currentUserId &&
+        actionType !== 'finish_turn' &&
+        actionType !== 'finish_starting_building_turn'
+    );
 }
 export function finalScoringPlace(rank: number, tiedCount: number): string {
     const count = Number.isInteger(tiedCount) && tiedCount > 0 ? tiedCount : 1;
