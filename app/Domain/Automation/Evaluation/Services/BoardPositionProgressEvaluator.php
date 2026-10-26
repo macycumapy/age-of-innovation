@@ -442,17 +442,25 @@ class BoardPositionProgressEvaluator
             }
             $connectedComponents = [];
             $joinsTown = false;
+            $joinsUnfinishedGroup = false;
+            $connectedTownIds = [];
             foreach ($neighbors as $neighborId) {
                 if (! isset($componentByHex[$neighborId])) {
                     continue;
                 }
                 $connectedComponents[$componentByHex[$neighborId]] = true;
-                $joinsTown = $joinsTown || array_any(
-                    $components[$componentByHex[$neighborId]],
-                    static fn (BoardHexStateData $neighbor): bool => $neighbor->townId !== null
-                );
+                $component = $components[$componentByHex[$neighborId]];
+                $componentHasTown = false;
+                foreach ($component as $member) {
+                    if ($member->townId !== null) {
+                        $connectedTownIds[$member->townId] = true;
+                        $componentHasTown = true;
+                    }
+                }
+                $joinsTown = $joinsTown || $componentHasTown;
+                $joinsUnfinishedGroup = $joinsUnfinishedGroup || ! $componentHasTown;
             }
-            if ($joinsTown && count($connectedComponents) === 1) {
+            if ($joinsTown && ($joinsUnfinishedGroup || count($connectedTownIds) < 2)) {
                 $penalty += $earlyDevelopment && ! isset($networkRouteHexIds[$hex->id])
                     ? self::EARLY_COMPLETED_TOWN_DEVELOPMENT_PENALTY
                     : self::COMPLETED_TOWN_EXPANSION_PENALTY;

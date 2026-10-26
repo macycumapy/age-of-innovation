@@ -30,6 +30,60 @@ use Tests\TestCase;
 
 class TownAnnexPlanningEvaluatorTest extends TestCase
 {
+    public function test_a_house_absorbing_an_unfinished_group_into_a_town_keeps_the_early_expansion_penalty(): void
+    {
+        foreach ([false, true] as $throughBridge) {
+            $before = $this->state();
+            $before->availableTownTileIds = [];
+            $before->board->hexes = [...$this->group('town', [BuildingType::Guild]), ...$this->group('new-town', [BuildingType::Workshop])];
+            $before->board->hexes[0]->townId = 'existing';
+            $before->board->hexes[0]->adjacentHexIds = ['gap'];
+            $before->board->hexes[1]->adjacentHexIds = $throughBridge ? [] : ['gap'];
+            $before->board->hexes[] = new BoardHexStateData(
+                'gap',
+                1,
+                0,
+                TerrainType::Forest,
+                TerrainType::Forest,
+                adjacentHexIds: $throughBridge ? ['town-0'] : ['town-0', 'new-town-0']
+            );
+            if ($throughBridge) {
+                $before->board->bridges[] = new BridgeStateData('gap', 'new-town-0', 1);
+            }
+            $after = $before->deepCopy();
+            $after->board->hexes[2]->building = new BuildingStateData(BuildingType::Workshop, 1);
+            $evaluator = app(BoardPositionProgressEvaluator::class);
+            $lastRound = $evaluator->execute($before, $after, 1);
+            $before->round->number = 4;
+            $after->round->number = 4;
+
+            $this->assertSame($lastRound - 90, $evaluator->execute($before, $after, 1));
+            $this->assertLessThan(0, $evaluator->execute($before, $after, 1));
+            $this->assertNull($before->board->hexes[2]->building);
+        }
+    }
+
+    public function test_a_house_joining_two_completed_towns_is_not_penalized_as_absorbing_a_new_town(): void
+    {
+        $before = $this->state();
+        $before->availableTownTileIds = [];
+        $before->board->hexes = [...$this->group('first', [BuildingType::Guild]), ...$this->group('second', [BuildingType::Guild])];
+        foreach ($before->board->hexes as $hex) {
+            $hex->townId = $hex->id;
+            $hex->adjacentHexIds = ['gap'];
+        }
+        $before->board->hexes[] = new BoardHexStateData('gap', 1, 0, TerrainType::Forest, TerrainType::Forest, adjacentHexIds: ['first-0', 'second-0']);
+        $after = $before->deepCopy();
+        $after->board->hexes[2]->building = new BuildingStateData(BuildingType::Workshop, 1);
+        $evaluator = app(BoardPositionProgressEvaluator::class);
+        $lastRound = $evaluator->execute($before, $after, 1);
+        $before->round->number = 4;
+        $after->round->number = 4;
+
+        $this->assertSame($lastRound, $evaluator->execute($before, $after, 1));
+        $this->assertGreaterThan(0, $evaluator->execute($before, $after, 1));
+    }
+
     public function test_position_potential_declines_gradually_without_claiming_an_unfunded_town_is_available(): void
     {
         $state = $this->state();
