@@ -3,7 +3,7 @@ import Crown from '@lucide/vue/dist/esm/icons/crown.mjs';
 import Medal from '@lucide/vue/dist/esm/icons/medal.mjs';
 import Trophy from '@lucide/vue/dist/esm/icons/trophy.mjs';
 import { computed } from 'vue';
-import victoryPointsUrl from '../../../images/token_parts/sunflower.png';
+import VictoryPointSourceIcon from '@/components/game/VictoryPointSourceIcon.vue';
 import { factionNames, playerColorValues } from '@/lib/gameDisplay';
 import type { GamePlayerBoardState, GamePlayerSummary } from '@/types';
 
@@ -35,15 +35,15 @@ const standings = computed(() => {
 const scoreCategories = computed(() => [
     { id: 'starting', label: 'Стартовые очки' },
     { id: 'round_scoring', label: 'Цели раундов' },
+    { id: 'final_objectives', label: 'Финальные цели игры' },
+    { id: 'final_knowledge', label: 'Финальные места на шкалах знаний' },
     { id: 'town', label: 'Федерации' },
     { id: 'innovation', label: 'Инновации' },
     { id: 'competency', label: 'Компетенции' },
-    { id: 'final_objectives', label: 'Финальные цели игры' },
-    { id: 'final_knowledge', label: 'Финальные места на шкалах знаний' },
     { id: 'round_bonus', label: 'Бонусы раундов' },
-    { id: 'faction', label: 'Бонусы расы' },
     { id: 'palace', label: 'Бонусы дворца' },
     { id: 'development', label: 'Судоходство и преобразование' },
+    { id: 'faction', label: 'Бонусы расы' },
     { id: 'knowledge_income', label: 'Доход от знаний' },
     { id: 'book_actions', label: 'Действия за книги' },
     { id: 'end_game_resources', label: 'Оставшиеся ресурсы' },
@@ -60,124 +60,94 @@ function placeLabel(place: number): string {
 
 <template>
     <section
-        class="w-full max-w-5xl justify-self-center overflow-hidden rounded-xl bg-linear-to-br from-amber-50 via-background to-orange-50 shadow-md shadow-amber-950/10 dark:border-yellow-700/50 dark:from-amber-950/60 dark:via-background/60 dark:to-orange-950/60"
+        class="w-full max-w-[88rem] min-w-0 justify-self-center overflow-hidden rounded-xl border border-amber-800/20 bg-linear-to-br from-amber-50 via-background to-orange-50 shadow-md shadow-amber-950/10 dark:border-amber-600/30 dark:from-amber-950/40 dark:via-background dark:to-stone-950"
         aria-labelledby="final-leaderboard-title"
     >
-        <header class="flex items-center justify-center gap-2 border-b border-amber-300/40 px-4 py-2">
-            <Trophy class="size-5 text-amber-500 drop-shadow-sm" aria-hidden="true" />
+        <header
+            class="flex items-center justify-center gap-3 border-b border-amber-800/15 px-4 py-3 dark:border-amber-400/20"
+        >
+            <Trophy class="size-5 text-amber-600 dark:text-amber-400" aria-hidden="true" />
             <div class="text-center">
                 <p class="text-[0.625rem] font-bold tracking-[0.18em] text-amber-700 uppercase dark:text-amber-300">
                     Партия завершена
                 </p>
                 <h2 id="final-leaderboard-title" class="text-lg font-black tracking-tight">Итоговый лидерборд</h2>
             </div>
-            <Trophy class="size-5 scale-x-[-1] text-amber-500 drop-shadow-sm" aria-hidden="true" />
         </header>
-
-        <ol class="grid gap-1.5 p-2">
-            <li
-                v-for="entry in standings"
-                :key="entry.player.id"
-                class="relative grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 overflow-hidden rounded-lg border bg-background/80 px-3 py-1.5 shadow-sm backdrop-blur-sm"
-                :class="entry.place === 1 ? 'border-amber-400/80 ring-1 ring-amber-300/50' : 'border-border/70'"
-            >
-                <span
-                    class="absolute inset-y-0 left-0 w-1.5"
+        <div class="overflow-x-auto">
+            <ol class="grid min-w-max gap-3 p-4">
+                <li
+                    v-for="entry in standings"
+                    :key="entry.player.id"
+                    class="grid grid-cols-[4rem_minmax(0,1fr)_5rem] items-center gap-x-2 gap-y-1 rounded-l-full rounded-r-2xl border bg-background/70 px-2 py-2 shadow-sm"
                     :style="{
-                        backgroundColor:
+                        '--player-color':
                             entry.player.color === null ? '#a1a1aa' : playerColorValues[entry.player.color],
+                        borderColor: 'color-mix(in srgb, var(--player-color) 65%, var(--border))',
+                        backgroundImage:
+                            'linear-gradient(90deg, color-mix(in srgb, var(--player-color) 18%, transparent), transparent)',
                     }"
-                    aria-hidden="true"
-                />
-
-                <span
-                    class="grid size-8 place-items-center rounded-full text-xs font-black shadow-inner"
-                    :class="{
-                        'bg-amber-400 text-amber-950': entry.place === 1,
-                        'bg-slate-300 text-slate-800 dark:bg-slate-600 dark:text-slate-50': entry.place === 2,
-                        'bg-orange-300 text-orange-950 dark:bg-orange-700 dark:text-orange-50': entry.place === 3,
-                        'bg-muted text-muted-foreground': entry.place > 3,
-                    }"
-                    :aria-label="placeLabel(entry.place)"
                 >
-                    <Crown v-if="entry.place === 1" class="size-4" aria-hidden="true" />
-                    <Medal v-else-if="entry.place <= 3" class="size-4" aria-hidden="true" />
-                    <span v-else>{{ entry.place }}</span>
-                </span>
-
-                <div class="min-w-0">
-                    <div class="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-                        <strong class="truncate text-sm">{{ entry.player.name }}</strong>
-                        <span class="text-[0.625rem] font-bold text-muted-foreground uppercase">
-                            {{ placeLabel(entry.place) }}
+                    <div class="relative row-span-2 self-center">
+                        <VictoryPointSourceIcon
+                            source="faction"
+                            portrait
+                            :faction="entry.player.faction"
+                            class="size-16"
+                        />
+                        <span
+                            class="absolute -right-0.5 -bottom-0.5 grid size-6 place-items-center rounded-full border border-amber-600/60 bg-background text-xs font-black text-amber-800 shadow-sm dark:text-amber-300"
+                            :aria-label="placeLabel(entry.place)"
+                        >
+                            <Crown v-if="entry.place === 1" class="size-3.5" aria-hidden="true" />
+                            <Medal v-else-if="entry.place <= 3" class="size-3.5" aria-hidden="true" />
+                            <span v-else>{{ entry.place }}</span>
                         </span>
                     </div>
-                    <p v-if="entry.player.faction !== null" class="truncate text-xs text-muted-foreground">
-                        {{ factionNames[entry.player.faction] }}
-                    </p>
-                </div>
-
-                <div
-                    class="relative grid size-11 place-items-center"
-                    :aria-label="`Итоговые победные очки: ${entry.victoryPoints}`"
-                >
-                    <img :src="victoryPointsUrl" alt="" class="absolute size-full object-contain drop-shadow-md" />
-                    <span class="relative z-10 text-sm font-black text-yellow-500">{{ entry.victoryPoints }}</span>
-                </div>
-            </li>
-        </ol>
-
-        <div class="border-t border-amber-300/40 p-3">
-            <h3 class="mb-2 text-sm font-bold">Статистика победных очков</h3>
-            <p
-                v-if="scoreCategories.some((category) => category.id === 'untracked')"
-                class="mb-2 text-xs text-muted-foreground"
-            >
-                Для старых партий часть очков сохранена без разбивки по источникам.
-            </p>
-            <div class="overflow-x-auto">
-                <table class="w-full text-sm tabular-nums">
-                    <caption class="sr-only">
-                        Очки каждого игрока по источникам и потери за принятую Силу
-                    </caption>
-                    <thead>
-                        <tr class="border-b border-border">
-                            <th scope="col" class="px-2 py-2 text-left font-medium text-muted-foreground">
-                                Источник очков
-                            </th>
-                            <th
-                                v-for="entry in standings"
-                                :key="entry.player.id"
-                                scope="col"
-                                class="min-w-24 px-2 py-2 text-right font-semibold"
-                            >
-                                {{ entry.player.name }}
-                            </th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr v-for="category in scoreCategories" :key="category.id" class="border-b border-border/50">
-                            <th scope="row" class="px-2 py-1.5 text-left font-normal">{{ category.label }}</th>
-                            <td
-                                v-for="entry in standings"
-                                :key="entry.player.id"
-                                class="px-2 py-1.5 text-right"
-                                :class="(entry.sources[category.id] ?? 0) < 0 ? 'text-red-600 dark:text-red-400' : ''"
-                            >
-                                {{ entry.sources[category.id] ?? 0 }}
-                            </td>
-                        </tr>
-                    </tbody>
-                    <tfoot>
-                        <tr class="font-bold">
-                            <th scope="row" class="px-2 py-2 text-left">Итого</th>
-                            <td v-for="entry in standings" :key="entry.player.id" class="px-2 py-2 text-right">
-                                {{ entry.victoryPoints }}
-                            </td>
-                        </tr>
-                    </tfoot>
-                </table>
-            </div>
+                    <div
+                        class="flex items-stretch tabular-nums"
+                        :aria-label="`Статистика победных очков: ${entry.player.name}`"
+                    >
+                        <span
+                            v-for="category in scoreCategories"
+                            :key="category.id"
+                            class="grid min-w-18 flex-1 justify-items-center gap-1 border-l border-amber-900/15 px-1 outline-none first:border-l-0 focus-visible:ring-2 focus-visible:ring-ring dark:border-amber-200/15"
+                            :class="
+                                (entry.sources[category.id] ?? 0) < 0
+                                    ? 'text-red-600 dark:text-red-400'
+                                    : (entry.sources[category.id] ?? 0) === 0
+                                      ? 'text-muted-foreground/50'
+                                      : 'text-foreground'
+                            "
+                            :data-score-category="category.id"
+                            :title="`${category.label}: ${entry.sources[category.id] ?? 0}`"
+                            :aria-label="`${category.label}: ${entry.sources[category.id] ?? 0}`"
+                            tabindex="0"
+                        >
+                            <VictoryPointSourceIcon
+                                :source="category.id"
+                                :faction="entry.player.faction"
+                                class="size-15"
+                            />
+                            <span class="text-base leading-none font-bold" aria-hidden="true">{{
+                                (entry.sources[category.id] ?? 0) === 0 ? '—' : entry.sources[category.id]
+                            }}</span>
+                        </span>
+                    </div>
+                    <div
+                        class="flex h-full items-center justify-center border-l border-amber-900/20 text-3xl font-black tabular-nums dark:border-amber-200/20"
+                        :aria-label="`Итоговые победные очки: ${entry.victoryPoints}`"
+                    >
+                        {{ entry.victoryPoints }}
+                    </div>
+                    <div class="col-span-2 col-start-2 flex items-baseline gap-2 px-1 text-sm">
+                        <strong>{{ entry.player.name }}</strong>
+                        <span v-if="entry.player.faction !== null" class="text-xs text-muted-foreground"
+                            >({{ factionNames[entry.player.faction] }})</span
+                        >
+                    </div>
+                </li>
+            </ol>
         </div>
     </section>
 </template>
