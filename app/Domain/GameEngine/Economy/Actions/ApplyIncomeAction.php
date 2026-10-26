@@ -38,7 +38,7 @@ final class ApplyIncomeAction
             $player->addVictoryPoints($points, VictoryPointSource::from($source));
         }
         $income->scholars = $player->resources->scholars - $scholarsBeforeIncome;
-        $income->power = $this->gainPower->execute($player, $income->power, confirmLoss: false);
+        $income->power = $this->gainPower->execute($player, $income->power);
 
         return $income;
     }

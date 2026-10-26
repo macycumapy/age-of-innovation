@@ -68,7 +68,7 @@ final class ResolveScienceBonusPhaseAction
                 $playerState->scholarPoolSize,
                 $playerState->resources->scholars + $reward['scholars'],
             );
-            $gainedPower = $this->gainPower->execute($playerState, $reward['power'], confirmLoss: false);
+            $gainedPower = $this->gainPower->execute($playerState, $reward['power']);
             $state->round->scienceBonusReceipts[] = [
                 'player_id' => $playerId,
                 'round' => $state->round->number,
