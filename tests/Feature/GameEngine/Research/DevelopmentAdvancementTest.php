@@ -118,6 +118,7 @@ class DevelopmentAdvancementTest extends TestCase
         $this->assertSame(0, $game->state->players[0]->resources->coins);
         $this->assertSame(0, $game->state->players[0]->resources->scholars);
         $this->assertSame(25, $game->state->players[0]->victoryPoints);
+        $this->assertEquals(['starting' => 20, 'development' => 2, 'round_scoring' => 3], $game->state->players[0]->victoryPointBreakdown());
         $this->assertTrue($game->state->round->hasTakenMainAction);
         $this->assertSame(GameActionType::AdvanceShipping, $game->actions()->sole()->type);
 

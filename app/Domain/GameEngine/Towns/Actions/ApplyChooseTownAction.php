@@ -13,6 +13,7 @@ use App\Domain\GameEngine\Research\Actions\AdvanceKnowledgeAction;
 use App\Domain\GameEngine\Research\Enums\KnowledgeDiscipline;
 use App\Domain\GameEngine\Scoring\Enums\RoundScoringGoal;
 use App\Domain\GameEngine\Scoring\Enums\RoundScoringTile;
+use App\Domain\GameEngine\Scoring\Enums\VictoryPointSource;
 use App\Domain\GameEngine\State\Data\GamePlayerStateData;
 use App\Domain\GameEngine\State\Data\GameStateData;
 use App\Domain\GameEngine\Towns\Data\ChooseTownResultData;
@@ -78,7 +79,6 @@ final class ApplyChooseTownAction
         }
 
         $reward = $this->applyReward($state, $player, $townTile);
-        $player->victoryPoints += $reward->victoryPoints;
         $state->pendingInteraction = null;
         $isFelineTown = $player->faction === Faction::Felines;
         $isLizardTown = $player->faction === Faction::Lizards;
@@ -164,17 +164,19 @@ final class ApplyChooseTownAction
 
         $roundTile = RoundScoringTile::tryFrom((string) $state->round->scoringTileId);
         $knowledgeVictoryPoints = array_sum(array_column($knowledgeAdvances, 'victoryPoints'));
-        $victoryPoints = match ($townTile) {
+        $townVictoryPoints = match ($townTile) {
             TownTile::Tools => 4,
             TownTile::Terraform, TownTile::Books => 5,
             TownTile::Coins => 6,
             TownTile::Knowledge => 7,
             TownTile::Power, TownTile::Scholar => 8,
-        } + ($roundTile?->goal() === RoundScoringGoal::Town ? 5 : 0)
-            + $knowledgeVictoryPoints;
+        };
+        $roundVictoryPoints = ($roundTile?->goal() === RoundScoringGoal::Town ? 5 : 0) + $knowledgeVictoryPoints;
+        $player->addVictoryPoints($townVictoryPoints, VictoryPointSource::Town);
+        $player->addVictoryPoints($roundVictoryPoints, VictoryPointSource::RoundScoring);
 
         return new TownRewardResultData(
-            victoryPoints: $victoryPoints,
+            victoryPoints: $townVictoryPoints + $roundVictoryPoints,
             gainedPower: $townTile === TownTile::Knowledge ? $gainedPower : 0,
         );
     }

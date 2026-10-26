@@ -186,6 +186,7 @@ class IncomePhaseTest extends TestCase
                 'books' => 0,
                 'knowledge_steps' => 0,
                 'victory_points' => 0,
+                'victory_point_sources' => [],
             ],
             [
                 'player_id' => $secondPlayer->id,
@@ -196,6 +197,7 @@ class IncomePhaseTest extends TestCase
                 'books' => 0,
                 'knowledge_steps' => 0,
                 'victory_points' => 0,
+                'victory_point_sources' => [],
             ],
         ], $game->actions()->where('type', GameActionType::IncomePhase)->latest('sequence')->firstOrFail()->payload['income_receipts']);
     }

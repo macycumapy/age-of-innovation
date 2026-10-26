@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domain\GameEngine\Research\Actions;
 
+use App\Domain\GameEngine\Scoring\Enums\VictoryPointSource;
 use App\Domain\GameEngine\State\Data\GamePlayerStateData;
 use App\Domain\GameEngine\State\Enums\PlayerColor;
 
@@ -28,7 +29,7 @@ class AdvanceDevelopmentTrackAction
         $reward = $this->rewardForReachedLevels($currentLevel, $newLevel, $levelRewards);
         $player->shippingLevel = $newLevel;
         $player->resources->books->unassigned += $reward['books'];
-        $player->victoryPoints += $reward['victoryPoints'];
+        $player->addVictoryPoints($reward['victoryPoints'], VictoryPointSource::Development);
 
         return ['steps' => $newLevel - $currentLevel, ...$reward];
     }
@@ -44,7 +45,7 @@ class AdvanceDevelopmentTrackAction
         ]);
         $player->terraformingLevel = $newLevel;
         $player->resources->books->unassigned += $reward['books'];
-        $player->victoryPoints += $reward['victoryPoints'];
+        $player->addVictoryPoints($reward['victoryPoints'], VictoryPointSource::Development);
 
         return ['steps' => $newLevel - $currentLevel, ...$reward];
     }

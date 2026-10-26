@@ -9,6 +9,7 @@ use App\Domain\GameEngine\Research\Data\KnowledgeAdvanceResultData;
 use App\Domain\GameEngine\Research\Enums\Competency;
 use App\Domain\GameEngine\Research\Enums\KnowledgeDiscipline;
 use App\Domain\GameEngine\Research\Services\CompetencySupply;
+use App\Domain\GameEngine\Scoring\Enums\VictoryPointSource;
 use App\Domain\GameEngine\State\Data\GamePlayerStateData;
 use App\Domain\GameEngine\State\Data\GameStateData;
 use Illuminate\Validation\ValidationException;
@@ -93,7 +94,7 @@ final class GrantCompetencyAction
     {
         $playerState->resources->tools++;
         $playerState->resources->coins += 2;
-        $playerState->victoryPoints += 5;
+        $playerState->addVictoryPoints(5, VictoryPointSource::Competency);
     }
 
 }

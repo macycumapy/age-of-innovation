@@ -12,6 +12,7 @@ use App\Domain\GameEngine\PlayerAbilities\Enums\RoundBonus;
 use App\Domain\GameEngine\Research\Actions\AdvanceKnowledgeAction;
 use App\Domain\GameEngine\Research\Enums\KnowledgeDiscipline;
 use App\Domain\GameEngine\Scoring\Actions\ApplyPassBonusesAction;
+use App\Domain\GameEngine\Scoring\Enums\VictoryPointSource;
 use App\Domain\GameEngine\State\Data\GamePlayerStateData;
 use App\Domain\GameEngine\State\Data\GameStateData;
 use App\Domain\GameEngine\Turns\Enums\GamePhase;
@@ -170,7 +171,7 @@ final class ApplyPassAction
             $victoryPoints += $knowledgeAdvance->victoryPoints;
         }
 
-        $player->victoryPoints += $victoryPoints;
+        $player->addVictoryPoints($victoryPoints, VictoryPointSource::RoundScoring);
 
         return $victoryPoints;
     }
@@ -215,7 +216,7 @@ final class ApplyPassAction
 
         $victoryPoints = intdiv($resources->coins, 5);
         $resources->coins %= 5;
-        $player->victoryPoints += $victoryPoints;
+        $player->addVictoryPoints($victoryPoints, VictoryPointSource::EndGameResources);
 
         return [
             'bowlTwoSpent' => $bowlTwoSpent,

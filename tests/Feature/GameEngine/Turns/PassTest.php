@@ -247,6 +247,7 @@ class PassTest extends TestCase
         $this->assertSame(0, $game->state->players[0]->resources->power->bowlThree);
         $this->assertSame(3, $game->state->players[0]->resources->power->bowlOne);
         $this->assertSame(22, $game->state->players[0]->victoryPoints);
+        $this->assertEquals(['starting' => 20, 'end_game_resources' => 2], $game->state->players[0]->victoryPointBreakdown());
         $this->assertCount(4, $game->state->setupPool?->availableRoundBonuses);
         $this->assertContains(
             RoundBonus::Knowledge,
@@ -281,6 +282,9 @@ class PassTest extends TestCase
                 ->payload['science_bonus_started'],
         );
         $this->assertSame([31, 29], array_column($game->state->players, 'victoryPoints'));
+        foreach ($game->state->players as $playerState) {
+            $this->assertSame($playerState->victoryPoints, array_sum($playerState->victoryPointSources));
+        }
         $this->assertSame(2, $game->state->players[1]->resources->coins);
         $this->assertSame(1, $game->state->players[1]->resources->tools);
         $this->assertSame(2, $game->state->players[1]->resources->power->bowlTwo);

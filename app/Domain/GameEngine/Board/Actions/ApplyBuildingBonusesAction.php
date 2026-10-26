@@ -10,6 +10,7 @@ use App\Domain\GameEngine\PlayerAbilities\Enums\PalaceAbility;
 use App\Domain\GameEngine\Research\Enums\Competency;
 use App\Domain\GameEngine\Scoring\Enums\FinalRoundScoringTile;
 use App\Domain\GameEngine\Scoring\Enums\RoundScoringTile;
+use App\Domain\GameEngine\Scoring\Enums\VictoryPointSource;
 use App\Domain\GameEngine\State\Data\GamePlayerStateData;
 use App\Domain\GameEngine\State\Data\GameStateData;
 
@@ -92,7 +93,9 @@ final class ApplyBuildingBonusesAction
         );
 
         $victoryPoints = array_sum(array_column($sources, 'points'));
-        $playerState->victoryPoints += $victoryPoints;
+        foreach ($sources as $source) {
+            $playerState->addVictoryPoints($source['points'], $source['source'] === 'additional_round_scoring' ? VictoryPointSource::RoundScoring : VictoryPointSource::from($source['source']));
+        }
         $playerState->resources->coins += $factionRewards['coins'];
 
         return [

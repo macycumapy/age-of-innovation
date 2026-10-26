@@ -42,7 +42,7 @@ test('renders player and bot names and ranks them by final victory points', asyn
         { playerId: 2, victoryPoints: 100 },
         { playerId: 3, victoryPoints: 100 },
     ];
-    const html = await renderToString(createSSRApp(FinalLeaderboard, { players, playerStates }));
+    const html = (await renderToString(createSSRApp(FinalLeaderboard, { players, playerStates }))).replace(/<!--.*?-->/g, '');
 
     assert.match(html, /Партия завершена/);
     assert.match(html, /Анна/);
@@ -53,4 +53,35 @@ test('renders player and bot names and ranks them by final victory points', asyn
     assert.equal((html.match(/Итоговые победные очки: 100/g) ?? []).length, 2);
     assert.equal((html.match(/aria-label="1-е место"/g) ?? []).length, 2);
     assert.match(html, /aria-label="3-е место"/);
+});
+
+test('shows a comparison of score sources including losses and legacy points', async () => {
+    const players = [
+        { id: 1, seat: 1, name: 'Анна', color: null, faction: null },
+        { id: 2, seat: 2, name: 'Бот', color: null, faction: null },
+    ];
+    const playerStates = [
+        { playerId: 1, victoryPoints: 33, victoryPointSources: { starting: 20, town: 7, innovation: 8, power_offers: -2 } },
+        { playerId: 2, victoryPoints: 30, victoryPointSources: { starting: 20, untracked: 10 } },
+    ];
+    const html = (await renderToString(createSSRApp(FinalLeaderboard, { players, playerStates }))).replace(/<!--.*?-->/g, '');
+
+    for (const label of ['Статистика победных очков', 'Цели раундов', 'Федерации', 'Инновации', 'Компетенции', 'Финальные цели игры', 'Бонусы раундов', 'Бонусы расы', 'Бонусы дворца', 'Потери за принятую Силу', 'Итого']) {
+        assert.ok(html.includes(label), label);
+    }
+    assert.match(html, /Федерации<\/th><td[^>]*>7<\/td><td[^>]*>0<\/td>/);
+    assert.match(html, /Потери за принятую Силу<\/th><td[^>]*text-red-600[^>]*>-2<\/td>/);
+    assert.match(html, /Очки до начала учёта статистики/);
+    assert.match(html, /Для старых партий часть очков сохранена без разбивки по источникам/);
+    assert.match(html, /<tfoot>.*33<\/td><td[^>]*>30<\/td>/);
+});
+
+test('does not show a legacy warning for fully tracked scores', async () => {
+    const html = await renderToString(createSSRApp(FinalLeaderboard, {
+        players: [{ id: 1, seat: 1, name: 'Анна', color: null, faction: null }],
+        playerStates: [{ playerId: 1, victoryPoints: 20, victoryPointSources: { starting: 20 } }],
+    }));
+
+    assert.doesNotMatch(html, /Для старых партий/);
+    assert.doesNotMatch(html, /Очки до начала учёта статистики/);
 });

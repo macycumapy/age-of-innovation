@@ -102,7 +102,10 @@ class PowerActionsTest extends TestCase
 
         $action = $game->actions()->sole();
         $this->assertSame(GameActionType::SacrificePower, $action->type);
-        $this->assertSame(['amount' => 2], $action->payload);
+        $this->assertEquals([
+            'amount' => 2,
+            'victory_point_sources' => [['player_id' => $activePlayer->id, 'sources' => ['starting' => 20]]],
+        ], $action->payload);
         $this->assertSame('power_sacrificed', $action->events[0]['type']);
         $this->assertSame(2, $action->events[0]['sacrificed']);
         $this->assertSame(2, $action->events[0]['moved_to_bowl_three']);

@@ -155,6 +155,7 @@ class InnovationRewardsTest extends TestCase
 
         $this->assertSame($expectedVictoryPoints, $reward['victoryPoints']);
         $this->assertSame(20 + $expectedVictoryPoints, $playerState->victoryPoints);
+        $this->assertSame($expectedVictoryPoints, $playerState->victoryPointSources['innovation'] ?? 0);
 
         if ($innovation === Innovation::Architecture) {
             $this->assertSame(3, $reward['knowledgeSteps']);
@@ -226,6 +227,7 @@ class InnovationRewardsTest extends TestCase
         $this->assertSame(1, $playerState->shippingLevel);
         $this->assertSame(1, $playerState->terraformingLevel);
         $this->assertSame(28, $playerState->victoryPoints);
+        $this->assertSame(['starting' => 20, 'development' => 2, 'round_scoring' => 6], $playerState->victoryPointBreakdown());
         $this->assertSame(8, $reward['victoryPoints']);
     }
 }

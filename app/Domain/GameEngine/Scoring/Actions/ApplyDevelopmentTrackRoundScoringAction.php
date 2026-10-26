@@ -6,6 +6,7 @@ namespace App\Domain\GameEngine\Scoring\Actions;
 
 use App\Domain\GameEngine\Scoring\Enums\RoundScoringGoal;
 use App\Domain\GameEngine\Scoring\Enums\RoundScoringTile;
+use App\Domain\GameEngine\Scoring\Enums\VictoryPointSource;
 use App\Domain\GameEngine\State\Data\GamePlayerStateData;
 use App\Domain\GameEngine\State\Data\GameStateData;
 
@@ -17,7 +18,7 @@ final class ApplyDevelopmentTrackRoundScoringAction
         $victoryPoints = $roundScoringTile?->goal() === RoundScoringGoal::ShippingOrTerraforming
             ? max(0, $steps) * 3
             : 0;
-        $player->victoryPoints += $victoryPoints;
+        $player->addVictoryPoints($victoryPoints, VictoryPointSource::RoundScoring);
 
         return $victoryPoints;
     }

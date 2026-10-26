@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import Crown from "@lucide/vue/dist/esm/icons/crown.mjs";
-import Medal from "@lucide/vue/dist/esm/icons/medal.mjs";
-import Trophy from "@lucide/vue/dist/esm/icons/trophy.mjs";
+import Crown from '@lucide/vue/dist/esm/icons/crown.mjs';
+import Medal from '@lucide/vue/dist/esm/icons/medal.mjs';
+import Trophy from '@lucide/vue/dist/esm/icons/trophy.mjs';
 import { computed } from 'vue';
+import victoryPointsUrl from '../../../images/token_parts/sunflower.png';
 import { factionNames, playerColorValues } from '@/lib/gameDisplay';
 import type { GamePlayerBoardState, GamePlayerSummary } from '@/types';
-import victoryPointsUrl from '../../../images/token_parts/sunflower.png';
 
 const props = defineProps<{
     players: GamePlayerSummary[];
@@ -17,7 +17,9 @@ const standings = computed(() => {
         .flatMap((player) => {
             const state = props.playerStates.find((candidate) => candidate.playerId === player.id);
 
-            return state === undefined ? [] : [{ player, victoryPoints: state.victoryPoints }];
+            return state === undefined
+                ? []
+                : [{ player, victoryPoints: state.victoryPoints, sources: state.victoryPointSources ?? {} }];
         })
         .sort((first, second) => second.victoryPoints - first.victoryPoints || first.player.seat - second.player.seat);
 
@@ -30,6 +32,27 @@ const standings = computed(() => {
     }));
 });
 
+const scoreCategories = computed(() => [
+    { id: 'starting', label: 'Стартовые очки' },
+    { id: 'round_scoring', label: 'Цели раундов' },
+    { id: 'town', label: 'Федерации' },
+    { id: 'innovation', label: 'Инновации' },
+    { id: 'competency', label: 'Компетенции' },
+    { id: 'final_objectives', label: 'Финальные цели игры' },
+    { id: 'final_knowledge', label: 'Финальные места на шкалах знаний' },
+    { id: 'round_bonus', label: 'Бонусы раундов' },
+    { id: 'faction', label: 'Бонусы расы' },
+    { id: 'palace', label: 'Бонусы дворца' },
+    { id: 'development', label: 'Судоходство и преобразование' },
+    { id: 'knowledge_income', label: 'Доход от знаний' },
+    { id: 'book_actions', label: 'Действия за книги' },
+    { id: 'end_game_resources', label: 'Оставшиеся ресурсы' },
+    { id: 'power_offers', label: 'Потери за принятую Силу' },
+    ...(standings.value.some((entry) => (entry.sources.untracked ?? 0) !== 0)
+        ? [{ id: 'untracked', label: 'Очки до начала учёта статистики' }]
+        : []),
+]);
+
 function placeLabel(place: number): string {
     return `${place}-е место`;
 }
@@ -37,7 +60,7 @@ function placeLabel(place: number): string {
 
 <template>
     <section
-        class="w-full max-w-2xl justify-self-center overflow-hidden rounded-xl bg-linear-to-br from-amber-50 via-background to-orange-50 shadow-md shadow-amber-950/10 dark:border-yellow-700/50 dark:from-amber-950/60 dark:via-background/60 dark:to-orange-950/60"
+        class="w-full max-w-5xl justify-self-center overflow-hidden rounded-xl bg-linear-to-br from-amber-50 via-background to-orange-50 shadow-md shadow-amber-950/10 dark:border-yellow-700/50 dark:from-amber-950/60 dark:via-background/60 dark:to-orange-950/60"
         aria-labelledby="final-leaderboard-title"
     >
         <header class="flex items-center justify-center gap-2 border-b border-amber-300/40 px-4 py-2">
@@ -103,5 +126,58 @@ function placeLabel(place: number): string {
                 </div>
             </li>
         </ol>
+
+        <div class="border-t border-amber-300/40 p-3">
+            <h3 class="mb-2 text-sm font-bold">Статистика победных очков</h3>
+            <p
+                v-if="scoreCategories.some((category) => category.id === 'untracked')"
+                class="mb-2 text-xs text-muted-foreground"
+            >
+                Для старых партий часть очков сохранена без разбивки по источникам.
+            </p>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm tabular-nums">
+                    <caption class="sr-only">
+                        Очки каждого игрока по источникам и потери за принятую Силу
+                    </caption>
+                    <thead>
+                        <tr class="border-b border-border">
+                            <th scope="col" class="px-2 py-2 text-left font-medium text-muted-foreground">
+                                Источник очков
+                            </th>
+                            <th
+                                v-for="entry in standings"
+                                :key="entry.player.id"
+                                scope="col"
+                                class="min-w-24 px-2 py-2 text-right font-semibold"
+                            >
+                                {{ entry.player.name }}
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr v-for="category in scoreCategories" :key="category.id" class="border-b border-border/50">
+                            <th scope="row" class="px-2 py-1.5 text-left font-normal">{{ category.label }}</th>
+                            <td
+                                v-for="entry in standings"
+                                :key="entry.player.id"
+                                class="px-2 py-1.5 text-right"
+                                :class="(entry.sources[category.id] ?? 0) < 0 ? 'text-red-600 dark:text-red-400' : ''"
+                            >
+                                {{ entry.sources[category.id] ?? 0 }}
+                            </td>
+                        </tr>
+                    </tbody>
+                    <tfoot>
+                        <tr class="font-bold">
+                            <th scope="row" class="px-2 py-2 text-left">Итого</th>
+                            <td v-for="entry in standings" :key="entry.player.id" class="px-2 py-2 text-right">
+                                {{ entry.victoryPoints }}
+                            </td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
     </section>
 </template>

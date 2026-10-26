@@ -468,6 +468,7 @@ class PowerOffersTest extends TestCase
         $this->assertSame(2, $game->state->players[1]->resources->power->bowlTwo);
         $this->assertSame(2, $game->state->players[1]->resources->power->bowlThree);
         $this->assertSame(18, $game->state->players[1]->victoryPoints);
+        $this->assertSame(['starting' => 20, 'power_offers' => -2], $game->state->players[1]->victoryPointBreakdown());
         $this->assertSame($secondNeighborUser->id, $game->active_player_id);
         $this->assertSame(3, $game->state->pendingInteraction?->context['powerAmount']);
 
@@ -481,6 +482,7 @@ class PowerOffersTest extends TestCase
         $game->refresh();
         $this->assertSame(3, $game->state->players[2]->resources->power->bowlTwo);
         $this->assertSame(20, $game->state->players[2]->victoryPoints);
+        $this->assertSame(['starting' => 20], $game->state->players[2]->victoryPointBreakdown());
         $this->assertNull($game->state->pendingInteraction);
         $this->assertSame($builderUser->id, $game->active_player_id);
         $this->assertFalse($game->state->round->isCurrentTurnIrrevocable);

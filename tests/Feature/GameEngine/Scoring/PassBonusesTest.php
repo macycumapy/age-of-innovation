@@ -139,6 +139,7 @@ class PassBonusesTest extends TestCase
         $this->assertSame(26, $action->payload['victory_points']);
         $this->assertCount(5, $action->payload['scoring_sources']);
         $this->assertSame([8, 4, 2, 6, 6], array_column($action->payload['scoring_sources'], 'points'));
+        $this->assertEquals(['starting' => 20, 'round_bonus' => 8, 'competency' => 6, 'palace' => 6, 'innovation' => 6], $game->state->players[0]->victoryPointBreakdown());
 
     }
 

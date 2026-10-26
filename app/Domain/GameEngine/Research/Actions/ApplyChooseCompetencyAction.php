@@ -12,6 +12,7 @@ use App\Domain\GameEngine\Interactions\Enums\PendingInteractionType;
 use App\Domain\GameEngine\PlayerAbilities\Enums\Faction;
 use App\Domain\GameEngine\Research\Data\ChooseCompetencyResultData;
 use App\Domain\GameEngine\Research\Enums\Competency;
+use App\Domain\GameEngine\Scoring\Enums\VictoryPointSource;
 use App\Domain\GameEngine\Setup\Actions\ResolveCompletedStartingSetupAction;
 use App\Domain\GameEngine\Setup\Services\StartingBuildingOrderFinder;
 use App\Domain\GameEngine\State\Data\GamePlayerStateData;
@@ -54,7 +55,7 @@ final class ApplyChooseCompetencyAction
             $competency,
             $state->setupPool === null ? $state->availableCompetencyIds : $state->setupPool->competencies,
         );
-        $player->victoryPoints += $knowledgeAdvance->victoryPoints;
+        $player->addVictoryPoints($knowledgeAdvance->victoryPoints, VictoryPointSource::RoundScoring);
         $state->pendingInteraction = null;
         $builtHexId = (string) ($interaction->context['builtHexId'] ?? '');
         $powerOffersResolved = ($interaction->context['powerOffersResolved'] ?? false) === true;

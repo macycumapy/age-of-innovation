@@ -13,6 +13,7 @@ use App\Domain\GameEngine\PlayerAbilities\Enums\RoundBonus;
 use App\Domain\GameEngine\Research\Enums\Competency;
 use App\Domain\GameEngine\Research\Enums\Innovation;
 use App\Domain\GameEngine\Research\Enums\KnowledgeDiscipline;
+use App\Domain\GameEngine\Scoring\Enums\VictoryPointSource;
 use App\Domain\GameEngine\State\Data\GamePlayerStateData;
 use App\Domain\GameEngine\State\Enums\PlayerColor;
 
@@ -137,7 +138,7 @@ final class PlayerIncomeCalculator
 
     private static function addVictoryPointsAndCoins(IncomeReceiptData $income): void
     {
-        $income->victoryPoints += 3;
+        self::addVictoryPoints($income, 3, VictoryPointSource::Competency);
         $income->coins += 2;
     }
 
@@ -147,7 +148,7 @@ final class PlayerIncomeCalculator
             Innovation::Workshop => $income->tools += 3,
             Innovation::Guild => $income->coins += 5,
             Innovation::Palace => $income->power += 4,
-            Innovation::University => $income->victoryPoints += 2,
+            Innovation::University => self::addVictoryPoints($income, 2, VictoryPointSource::Innovation),
             default => null,
         };
     }
@@ -209,8 +210,14 @@ final class PlayerIncomeCalculator
             'power' => $income->power += $amount,
             'books' => $income->books += $amount,
             'knowledgeSteps' => $income->knowledgeSteps += $amount,
-            'victoryPoints' => $income->victoryPoints += $amount,
+            'victoryPoints' => self::addVictoryPoints($income, $amount, VictoryPointSource::KnowledgeIncome),
             default => null,
         };
+    }
+
+    private static function addVictoryPoints(IncomeReceiptData $income, int $points, VictoryPointSource $source): void
+    {
+        $income->victoryPoints += $points;
+        $income->victoryPointSources[$source->value] = ($income->victoryPointSources[$source->value] ?? 0) + $points;
     }
 }

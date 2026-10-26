@@ -14,6 +14,7 @@ use App\Domain\GameEngine\Interactions\Data\PendingInteractionData;
 use App\Domain\GameEngine\PlayerAbilities\Enums\Faction;
 use App\Domain\GameEngine\Scoring\Enums\RoundScoringGoal;
 use App\Domain\GameEngine\Scoring\Enums\RoundScoringTile;
+use App\Domain\GameEngine\Scoring\Enums\VictoryPointSource;
 use App\Domain\GameEngine\State\Data\GamePlayerStateData;
 use App\Domain\GameEngine\State\Data\GameStateData;
 use App\Domain\GameEngine\Towns\Actions\ContinuePalaceTownChoicesAction;
@@ -63,7 +64,7 @@ final class ApplySpendSpadesAction
         $remainingSpades = max(0, (int) ($interaction->context['remainingSpades'] ?? 1) - $spentSpades);
         $roundScoringTile = RoundScoringTile::tryFrom((string) $state->round->scoringTileId);
         $victoryPoints = $roundScoringTile?->goal() === RoundScoringGoal::Spade ? $spentSpades * 2 : 0;
-        $player->victoryPoints += $victoryPoints;
+        $player->addVictoryPoints($victoryPoints, VictoryPointSource::RoundScoring);
         $buildableHexIds = array_values(array_filter(
             (array) ($interaction->context['buildableHexIds'] ?? []),
             'is_string',

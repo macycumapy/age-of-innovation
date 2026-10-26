@@ -6,6 +6,7 @@ namespace App\Domain\GameEngine\Economy\Actions;
 
 use App\Domain\GameEngine\Economy\Data\IncomeReceiptData;
 use App\Domain\GameEngine\Economy\Services\PlayerIncomeCalculator;
+use App\Domain\GameEngine\Scoring\Enums\VictoryPointSource;
 use App\Domain\GameEngine\State\Data\GamePlayerStateData;
 use App\Domain\GameEngine\State\Data\GameStateData;
 
@@ -33,9 +34,11 @@ final class ApplyIncomeAction
             $player->resources->books->unassigned += $income->books;
             $player->knowledge->unassignedSteps += $income->knowledgeSteps;
         }
-        $player->victoryPoints += $income->victoryPoints;
+        foreach ($income->victoryPointSources as $source => $points) {
+            $player->addVictoryPoints($points, VictoryPointSource::from($source));
+        }
         $income->scholars = $player->resources->scholars - $scholarsBeforeIncome;
-        $income->power = $this->gainPower->execute($player, $income->power);
+        $income->power = $this->gainPower->execute($player, $income->power, confirmLoss: false);
 
         return $income;
     }

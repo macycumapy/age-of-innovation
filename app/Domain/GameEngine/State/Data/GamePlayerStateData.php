@@ -10,6 +10,7 @@ use App\Domain\GameEngine\Economy\Data\PlayerResourcesData;
 use App\Domain\GameEngine\PlayerAbilities\Enums\Faction;
 use App\Domain\GameEngine\PlayerAbilities\Enums\RoundBonus;
 use App\Domain\GameEngine\Research\Data\KnowledgeStateData;
+use App\Domain\GameEngine\Scoring\Enums\VictoryPointSource;
 use App\Domain\GameEngine\State\Enums\PlayerColor;
 use Spatie\LaravelData\Data;
 
@@ -45,6 +46,7 @@ class GamePlayerStateData extends Data
      * @param list<string> $usedSpecialActionIds
      * @param list<string> $scholarDisciplineIds
      * @param list<int> $scholarSlotIndexes
+     * @param array<string, int> $victoryPointSources
      */
     public function __construct(
         public int $playerId,
@@ -69,6 +71,30 @@ class GamePlayerStateData extends Data
         public array $scholarSlotIndexes = [],
         public int $scholarPoolSize = 7,
         public ?StrategicPlanData $strategicPlan = null,
+        public array $victoryPointSources = [VictoryPointSource::Starting->value => 20],
     ) {
+    }
+
+    public function addVictoryPoints(int $points, VictoryPointSource $source): void
+    {
+        if ($points === 0) {
+            return;
+        }
+
+        $this->victoryPoints += $points;
+        $this->victoryPointSources[$source->value] = ($this->victoryPointSources[$source->value] ?? 0) + $points;
+    }
+
+    /** @return array<string, int> */
+    public function victoryPointBreakdown(): array
+    {
+        $sources = $this->victoryPointSources;
+        $untrackedPoints = $this->victoryPoints - array_sum($sources);
+
+        if ($untrackedPoints !== 0) {
+            $sources[VictoryPointSource::Untracked->value] = ($sources[VictoryPointSource::Untracked->value] ?? 0) + $untrackedPoints;
+        }
+
+        return $sources;
     }
 }

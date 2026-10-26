@@ -265,6 +265,11 @@ final class ReplayGameHistoryAction
                 }
             }
 
+            $state = $game->state;
+            foreach ($action->payload['victory_point_sources'] ?? [] as $receipt) {
+                $this->playerState($state, $receipt['player_id'])->victoryPointSources = $receipt['sources'];
+            }
+            $game->state = $state;
             $game->version = $action->state_version_after;
             $game->save();
         }

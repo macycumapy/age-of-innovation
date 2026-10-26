@@ -7,6 +7,7 @@ namespace App\Domain\GameEngine\History\Actions;
 use App\Domain\GameEngine\Economy\Data\IncomeReceiptData;
 use App\Domain\GameEngine\Enums\GameActionType;
 use App\Domain\GameEngine\Enums\GameEventType;
+use App\Domain\GameEngine\State\Data\GamePlayerStateData;
 use App\Events\GameHistoryChanged;
 use App\Models\Game;
 use App\Models\GameAction;
@@ -29,6 +30,13 @@ final class AppendGameHistoryAction
         bool $createPhaseCheckpoint = false,
     ): GameAction {
         $nextSequence = ((int) $lockedGame->actions()->max('sequence')) + 1;
+        $payload['victory_point_sources'] = array_map(
+            static fn (GamePlayerStateData $playerState): array => [
+                'player_id' => $playerState->playerId,
+                'sources' => $playerState->victoryPointBreakdown(),
+            ],
+            $lockedGame->state->players,
+        );
         $phaseCheckpointPayload = [];
         $incomeReceiptValues = $payload['income_receipts'] ?? [];
         $scienceBonusReceiptValues = $payload['science_bonus_receipts'] ?? [];
