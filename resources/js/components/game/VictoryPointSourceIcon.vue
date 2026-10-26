@@ -88,7 +88,7 @@ const rim = Array.from({ length: 48 }, (_, index) => {
         :data-score-source="source"
         aria-hidden="true"
     >
-        <svg viewBox="0 0 48 48" class="absolute inset-0 size-full drop-shadow-sm" fill="none" aria-hidden="true">
+        <svg v-if="!portrait" viewBox="0 0 48 48" class="absolute inset-0 size-full drop-shadow-sm" fill="none" aria-hidden="true">
             <polygon :points="rim" fill="#bd8d32" stroke="#76501d" stroke-width="1" />
             <circle cx="24" cy="24" r="18.5" fill="#e4c675" stroke="#ffdfa0" stroke-width="1.5" />
             <circle cx="24" cy="24" r="16" fill="#cfa74e" stroke="#8c6327" stroke-width="1" />
@@ -99,7 +99,7 @@ const rim = Array.from({ length: 48 }, (_, index) => {
             alt=""
             class="absolute inset-0 z-10 m-auto drop-shadow-sm"
             :class="
-                portraitArtwork ? 'size-[62%] rounded-full object-cover object-[80%_25%]' : 'size-[78%] object-contain'
+                portraitArtwork ? 'size-full rounded-full object-cover object-[64%_25%]' : 'size-[78%] object-contain'
             "
         />
     </span>

@@ -1,6 +1,4 @@
 <script setup lang="ts">
-import Crown from '@lucide/vue/dist/esm/icons/crown.mjs';
-import Medal from '@lucide/vue/dist/esm/icons/medal.mjs';
 import Trophy from '@lucide/vue/dist/esm/icons/trophy.mjs';
 import { computed } from 'vue';
 import VictoryPointSourceIcon from '@/components/game/VictoryPointSourceIcon.vue';
@@ -52,10 +50,6 @@ const scoreCategories = computed(() => [
         ? [{ id: 'untracked', label: 'Очки до начала учёта статистики' }]
         : []),
 ]);
-
-function placeLabel(place: number): string {
-    return `${place}-е место`;
-}
 </script>
 
 <template>
@@ -93,19 +87,11 @@ function placeLabel(place: number): string {
                             source="faction"
                             portrait
                             :faction="entry.player.faction"
-                            class="size-16"
+                            class="size-30"
                         />
-                        <span
-                            class="absolute -right-0.5 -bottom-0.5 grid size-6 place-items-center rounded-full border border-amber-600/60 bg-background text-xs font-black text-amber-800 shadow-sm dark:text-amber-300"
-                            :aria-label="placeLabel(entry.place)"
-                        >
-                            <Crown v-if="entry.place === 1" class="size-3.5" aria-hidden="true" />
-                            <Medal v-else-if="entry.place <= 3" class="size-3.5" aria-hidden="true" />
-                            <span v-else>{{ entry.place }}</span>
-                        </span>
                     </div>
                     <div
-                        class="flex items-stretch tabular-nums"
+                        class="flex items-stretch tabular-nums ml-12"
                         :aria-label="`Статистика победных очков: ${entry.player.name}`"
                     >
                         <span
@@ -140,7 +126,7 @@ function placeLabel(place: number): string {
                     >
                         {{ entry.victoryPoints }}
                     </div>
-                    <div class="col-span-2 col-start-2 flex items-baseline gap-2 px-1 text-sm">
+                    <div class="col-span-2 col-start-2 flex items-baseline gap-2 px-1 text-sm ml-10">
                         <strong>{{ entry.player.name }}</strong>
                         <span v-if="entry.player.faction !== null" class="text-xs text-muted-foreground"
                             >({{ factionNames[entry.player.faction] }})</span
