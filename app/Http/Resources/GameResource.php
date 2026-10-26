@@ -31,6 +31,7 @@ use App\Domain\GameEngine\State\Data\GamePlayerStateData;
 use App\Domain\GameEngine\State\Data\GameStateData;
 use App\Domain\GameEngine\State\Enums\PlayerColor;
 use App\Domain\GameEngine\Towns\Enums\TownTile;
+use App\Domain\GameEngine\Turns\Enums\GamePhase;
 use App\Models\Game;
 use App\Models\GameAction;
 use App\Models\GamePlayer;
@@ -438,7 +439,8 @@ class GameResource extends JsonResource
     {
         $isChoosingRoundBonus = $this->state->pendingInteraction?->type === PendingInteractionType::ChooseRoundBonus
             && $this->state->pendingInteraction->playerId === $player->playerId;
-        $includeRoundBonus = in_array($player->playerId, $this->state->passedPlayerIds, true)
+        $includeRoundBonus = ($this->phase === GamePhase::Income
+            || in_array($player->playerId, $this->state->passedPlayerIds, true))
             && ! $isChoosingRoundBonus;
 
         return PlayerIncomeCalculator::calculate(

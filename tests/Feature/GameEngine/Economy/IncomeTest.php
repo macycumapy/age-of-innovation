@@ -38,10 +38,11 @@ class IncomeTest extends TestCase
     use RefreshDatabase;
 
     #[DataProvider('forecastRoundBonusProvider')]
-    public function test_income_forecast_includes_round_bonus_only_after_passing_and_choosing(
+    public function test_income_forecast_includes_round_bonus_during_income_or_after_passing_and_choosing(
         bool $hasPassed,
         ?int $choosingPlayerId,
         int $expectedCoins,
+        GamePhase $phase = GamePhase::Actions,
     ): void {
         $player = new GamePlayerStateData(
             playerId: 15,
@@ -60,7 +61,7 @@ class IncomeTest extends TestCase
                 [],
             ),
         );
-        $game = Game::factory()->create(['state' => $state, 'phase' => GamePhase::Actions]);
+        $game = Game::factory()->create(['state' => $state, 'phase' => $phase]);
 
         $data = (new GameResource($game))->resolve(Request::create('/'));
 
@@ -68,7 +69,7 @@ class IncomeTest extends TestCase
         $this->assertSame(1, $data['playerBoardStates'][0]['income']['tools']);
     }
 
-    /** @return array<string, array{bool, ?int, int}> */
+    /** @return array<string, array{0: bool, 1: ?int, 2: int, 3?: GamePhase}> */
     public static function forecastRoundBonusProvider(): array
     {
         return [
@@ -76,6 +77,8 @@ class IncomeTest extends TestCase
             'choosing a replacement' => [true, 15, 0],
             'has chosen a replacement' => [true, null, 6],
             'another player is choosing' => [true, 16, 6],
+            'income phase without passed players' => [false, null, 6, GamePhase::Income],
+            'income phase while another player is choosing' => [false, 16, 6, GamePhase::Income],
         ];
     }
 
