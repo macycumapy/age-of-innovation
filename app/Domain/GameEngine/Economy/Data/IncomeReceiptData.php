@@ -11,6 +11,7 @@ use Spatie\LaravelData\Mappers\SnakeCaseMapper;
 #[MapName(SnakeCaseMapper::class)]
 final class IncomeReceiptData extends Data
 {
+    /** @param array<string, int> $victoryPointSources */
     public function __construct(
         public int $playerId,
         public int $tools,
@@ -20,6 +21,7 @@ final class IncomeReceiptData extends Data
         public int $books,
         public int $knowledgeSteps,
         public int $victoryPoints,
+        public array $victoryPointSources = [],
     ) {
     }
 

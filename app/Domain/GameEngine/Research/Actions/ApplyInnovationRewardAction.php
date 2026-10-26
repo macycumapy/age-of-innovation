@@ -8,6 +8,7 @@ use App\Domain\GameEngine\Research\Enums\Innovation;
 use App\Domain\GameEngine\Research\Enums\KnowledgeDiscipline;
 use App\Domain\GameEngine\Research\Services\InnovationVictoryPointCalculator;
 use App\Domain\GameEngine\Scoring\Actions\ApplyDevelopmentTrackRoundScoringAction;
+use App\Domain\GameEngine\Scoring\Enums\VictoryPointSource;
 use App\Domain\GameEngine\State\Data\GamePlayerStateData;
 use App\Domain\GameEngine\State\Data\GameStateData;
 
@@ -49,7 +50,7 @@ class ApplyInnovationRewardAction
                 $reward['gainedPower'] += $knowledgeAdvance->gainedPower;
                 $reward['knowledgeSteps'] += $knowledgeAdvance->advancedSteps;
                 $reward['victoryPoints'] += $knowledgeAdvance->victoryPoints;
-                $player->victoryPoints += $knowledgeAdvance->victoryPoints;
+                $player->addVictoryPoints($knowledgeAdvance->victoryPoints, VictoryPointSource::RoundScoring);
             }
         }
 
@@ -81,7 +82,7 @@ class ApplyInnovationRewardAction
             $reward['power'] = 2;
         }
 
-        $player->victoryPoints += $innovationVictoryPoints;
+        $player->addVictoryPoints($innovationVictoryPoints, VictoryPointSource::Innovation);
 
         return $reward;
     }

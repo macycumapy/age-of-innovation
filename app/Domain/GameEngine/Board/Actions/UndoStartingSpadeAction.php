@@ -6,6 +6,7 @@ namespace App\Domain\GameEngine\Board\Actions;
 
 use App\Domain\GameEngine\Board\Enums\TerrainType;
 use App\Domain\GameEngine\Interactions\Enums\PendingInteractionType;
+use App\Domain\GameEngine\Scoring\Enums\VictoryPointSource;
 use App\Domain\GameEngine\State\Data\GamePlayerStateData;
 use App\Domain\GameEngine\Turns\Enums\GamePhase;
 use App\Models\Game;
@@ -51,8 +52,8 @@ final class UndoStartingSpadeAction
                 $playerState->resources->tools += $paidTools;
                 $playerState->resources->scholars += $flightScholarCost;
                 $playerState->unassignedSpades -= $paidSpadeCount;
-                $playerState->victoryPoints -= $tunnelVictoryPoints;
-                $playerState->victoryPoints -= $flightVictoryPoints;
+                $playerState->addVictoryPoints(-$tunnelVictoryPoints, VictoryPointSource::Faction);
+                $playerState->addVictoryPoints(-$flightVictoryPoints, VictoryPointSource::Faction);
                 $interaction->context['remainingSpades'] = max(
                     0,
                     (int) ($interaction->context['remainingSpades'] ?? 0) - $paidSpadeCount,

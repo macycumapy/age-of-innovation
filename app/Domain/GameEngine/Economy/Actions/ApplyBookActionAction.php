@@ -15,6 +15,7 @@ use App\Domain\GameEngine\Interactions\Data\PendingInteractionData;
 use App\Domain\GameEngine\Interactions\Enums\PendingInteractionType;
 use App\Domain\GameEngine\Research\Actions\AdvanceKnowledgeAction;
 use App\Domain\GameEngine\Research\Enums\KnowledgeDiscipline;
+use App\Domain\GameEngine\Scoring\Enums\VictoryPointSource;
 use App\Domain\GameEngine\State\Data\GamePlayerStateData;
 use App\Domain\GameEngine\State\Data\GameStateData;
 use App\Domain\GameEngine\Turns\Enums\GamePhase;
@@ -69,7 +70,7 @@ final class ApplyBookActionAction
             $knowledgeAdvance = $this->advanceKnowledge->execute($state, $playerState, $discipline, 2);
             $gainedPower = $knowledgeAdvance->gainedPower;
             $victoryPoints += $knowledgeAdvance->victoryPoints;
-            $playerState->victoryPoints += $knowledgeAdvance->victoryPoints;
+            $playerState->addVictoryPoints($knowledgeAdvance->victoryPoints, VictoryPointSource::RoundScoring);
         } elseif ($action === BookAction::GainCoins) {
             $playerState->resources->coins += 6;
         } elseif ($action === BookAction::UpgradeToGuild) {
@@ -106,7 +107,7 @@ final class ApplyBookActionAction
                     && $hex->building->type === BuildingType::Guild,
             ));
             $victoryPoints = $guildCount * 2;
-            $playerState->victoryPoints += $victoryPoints;
+            $playerState->addVictoryPoints($victoryPoints, VictoryPointSource::BookActions);
         } elseif ($action === BookAction::TerraformThreeSpades) {
             $playerState->unassignedSpades += 3;
             $eligibleHexIds = $this->findEligibleTerraformHexes->execute(

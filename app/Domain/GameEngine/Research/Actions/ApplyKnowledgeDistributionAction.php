@@ -7,6 +7,7 @@ namespace App\Domain\GameEngine\Research\Actions;
 use App\Domain\GameEngine\Research\Data\KnowledgeDistributionResultData;
 use App\Domain\GameEngine\Research\Enums\KnowledgeDiscipline;
 use App\Domain\GameEngine\Research\Services\KnowledgeDistributionValidator;
+use App\Domain\GameEngine\Scoring\Enums\VictoryPointSource;
 use App\Domain\GameEngine\State\Data\GamePlayerStateData;
 use App\Domain\GameEngine\State\Data\GameStateData;
 
@@ -41,7 +42,7 @@ final class ApplyKnowledgeDistributionAction
         }
 
         $player->knowledge->unassignedSteps -= $expectedCount;
-        $player->victoryPoints += $victoryPoints;
+        $player->addVictoryPoints($victoryPoints, VictoryPointSource::RoundScoring);
 
         return new KnowledgeDistributionResultData($victoryPoints, $gainedPower);
     }

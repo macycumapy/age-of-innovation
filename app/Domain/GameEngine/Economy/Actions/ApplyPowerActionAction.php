@@ -11,6 +11,7 @@ use App\Domain\GameEngine\Board\Enums\BridgeSource;
 use App\Domain\GameEngine\Economy\Enums\PowerAction;
 use App\Domain\GameEngine\Interactions\Data\PendingInteractionData;
 use App\Domain\GameEngine\Interactions\Enums\PendingInteractionType;
+use App\Domain\GameEngine\Scoring\Enums\VictoryPointSource;
 use App\Domain\GameEngine\State\Data\GamePlayerStateData;
 use App\Domain\GameEngine\State\Data\GameStateData;
 use App\Domain\GameEngine\Turns\Enums\GamePhase;
@@ -54,10 +55,10 @@ final class ApplyPowerActionAction
         $playerState->resources->power->bowlThree += $sacrificeAmount;
         $playerState->resources->power->bowlThree -= $cost;
         $playerState->resources->power->bowlOne += $cost;
-        $playerState->victoryPoints += $action->victoryPoints(
+        $playerState->addVictoryPoints($action->victoryPoints(
             $playerState->faction,
             $state->setupPool?->playerCount ?? count($state->players),
-        );
+        ), VictoryPointSource::Faction);
 
         match ($action) {
             PowerAction::BuildBridge => $this->createBridgeInteraction->execute($state, $playerState, source: BridgeSource::Power),

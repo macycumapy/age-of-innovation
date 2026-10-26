@@ -15,6 +15,7 @@ use App\Domain\GameEngine\PlayerAbilities\Enums\PalaceAbility;
 use App\Domain\GameEngine\Research\Actions\AdvanceDevelopmentTrackAction;
 use App\Domain\GameEngine\Research\Services\CompetencySupply;
 use App\Domain\GameEngine\Scoring\Actions\ApplyDevelopmentTrackRoundScoringAction;
+use App\Domain\GameEngine\Scoring\Enums\VictoryPointSource;
 use App\Domain\GameEngine\State\Data\GamePlayerStateData;
 use App\Domain\GameEngine\State\Data\GameStateData;
 use App\Domain\GameEngine\Towns\Actions\CreateTownChoiceAfterBuildingAction;
@@ -47,7 +48,7 @@ final class ApplyChoosePalaceAction
         $powerOffersResolved = ($interaction->context['powerOffersResolved'] ?? false) === true;
         $victoryPoints = $palace->buildingVictoryPoints(BuildingType::Palace);
         $player->palaceId = $palace->value;
-        $player->victoryPoints += $victoryPoints;
+        $player->addVictoryPoints($victoryPoints, VictoryPointSource::Palace);
         $gainedPower = 0;
         $gainedBooks = 0;
         $gainedSpades = 0;

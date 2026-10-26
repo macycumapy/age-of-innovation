@@ -8,6 +8,7 @@ use App\Domain\GameEngine\Board\Enums\BuildingType;
 use App\Domain\GameEngine\Interactions\Actions\CreateBuildingFollowUpInteractionAction;
 use App\Domain\GameEngine\Interactions\Data\PendingInteractionData;
 use App\Domain\GameEngine\Interactions\Enums\PendingInteractionType;
+use App\Domain\GameEngine\Scoring\Enums\VictoryPointSource;
 use App\Domain\GameEngine\State\Data\GamePlayerStateData;
 use App\Domain\GameEngine\State\Data\GameStateData;
 use App\Domain\GameEngine\Towns\Actions\ContinuePalaceTownChoicesAction;
@@ -45,7 +46,7 @@ final class ApplyPowerOfferDecisionAction
             ? $this->gainPower->execute($playerState, (int) ($interaction->context['powerAmount'] ?? 0))
             : 0;
         $victoryPointsSpent = $accept ? max(0, $receivedPower - 1) : 0;
-        $playerState->victoryPoints -= $victoryPointsSpent;
+        $playerState->addVictoryPoints(-$victoryPointsSpent, VictoryPointSource::PowerOffers);
         $powerAcceptedDuringOfferChain = ($interaction->context['powerAcceptedDuringOfferChain'] ?? false) === true
             || $receivedPower > 0;
 

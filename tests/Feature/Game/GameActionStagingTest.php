@@ -14,6 +14,7 @@ use App\Domain\GameEngine\Contracts\GameActionOption;
 use App\Domain\GameEngine\Economy\Data\PlayerResourcesData;
 use App\Domain\GameEngine\PlayerAbilities\Enums\Faction;
 use App\Domain\GameEngine\PlayerAbilities\Enums\RoundBonus;
+use App\Domain\GameEngine\Scoring\Enums\RoundScoringTile;
 use App\Domain\GameEngine\Setup\Actions\StartGameAction;
 use App\Domain\GameEngine\State\Data\GamePlayerStateData;
 use App\Domain\GameEngine\State\Data\GameStateData;
@@ -166,7 +167,7 @@ class GameActionStagingTest extends TestCase
                 roundBonus: RoundBonus::Coins,
                 resources: new PlayerResourcesData(coins: 5, tools: 3)
             )],
-            round: new RoundStateData(phase: GamePhase::Actions),
+            round: new RoundStateData(phase: GamePhase::Actions, scoringTileId: RoundScoringTile::WorkshopLaw->value),
         );
         $game->update(['state' => $state, 'phase' => GamePhase::Actions]);
         $before = $game->fresh()->getAttributes();
@@ -192,6 +193,10 @@ class GameActionStagingTest extends TestCase
         $this->assertSame(BuildingType::Workshop, $result->state->board->hexes[1]->building?->type);
         $this->assertSame(2, $result->state->players[0]->resources->tools);
         $this->assertSame(3, $result->state->players[0]->resources->coins);
+        $this->assertSame(['starting' => 20, 'round_scoring' => 2], $result->state->players[0]->victoryPointBreakdown());
+        $this->assertEquals([
+            ['player_id' => $player->id, 'sources' => ['starting' => 20, 'round_scoring' => 2]],
+        ], $result->actions()->latest('sequence')->first()->payload['victory_point_sources']);
         $this->assertSame($historyCount + 1, $result->actions()->count());
         $this->assertNull(app(StagedGameActionStore::class)->get($player));
     }

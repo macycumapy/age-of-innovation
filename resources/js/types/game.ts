@@ -132,6 +132,7 @@ export type GameHistoryPage = {
 export type GamePlayerBoardState = {
     playerId: number;
     victoryPoints: number;
+    victoryPointSources: Record<string, number>;
     passOrder: number | null;
     roundBonus: RoundBonus;
     canUseFactionAction: boolean;

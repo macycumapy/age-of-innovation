@@ -14,6 +14,7 @@ use App\Domain\GameEngine\Interactions\Enums\PendingInteractionType;
 use App\Domain\GameEngine\PlayerAbilities\Enums\PalaceAbility;
 use App\Domain\GameEngine\Research\Actions\AdvanceKnowledgeAction;
 use App\Domain\GameEngine\Research\Enums\KnowledgeDiscipline;
+use App\Domain\GameEngine\Scoring\Enums\VictoryPointSource;
 use App\Domain\GameEngine\State\Data\GamePlayerStateData;
 use App\Domain\GameEngine\State\Data\GameStateData;
 use App\Domain\GameEngine\Turns\Enums\GamePhase;
@@ -102,7 +103,7 @@ final class ApplyPalaceAction
             $victoryPoints += $knowledgeAdvance->victoryPoints;
         }
 
-        $player->victoryPoints += $victoryPoints;
+        $player->addVictoryPoints($victoryPoints, VictoryPointSource::RoundScoring);
 
         return ['victoryPoints' => $victoryPoints, 'gainedPower' => $gainedPower];
     }
@@ -138,7 +139,7 @@ final class ApplyPalaceAction
         $bonuses = $this->applyBuildingBonuses->execute($state, $player, $hex, BuildingType::Guild);
 
         if ($palace === PalaceAbility::Palace03) {
-            $player->victoryPoints += 3;
+            $player->addVictoryPoints(3, VictoryPointSource::Palace);
             $player->resources->tools++;
         }
 

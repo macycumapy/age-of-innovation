@@ -9,6 +9,7 @@ use App\Domain\GameEngine\Research\Data\SendScholarOptionData;
 use App\Domain\GameEngine\Research\Data\SendScholarResultData;
 use App\Domain\GameEngine\Research\Enums\Competency;
 use App\Domain\GameEngine\Research\Services\SendScholarOptionFinder;
+use App\Domain\GameEngine\Scoring\Enums\VictoryPointSource;
 use App\Domain\GameEngine\State\Data\GamePlayerStateData;
 use App\Domain\GameEngine\State\Data\GameStateData;
 use Illuminate\Validation\ValidationException;
@@ -61,7 +62,9 @@ final class ApplySendScholarAction
         $actionVictoryPoints = ($player->roundBonus === RoundBonus::SendScholar ? 2 : 0)
             + (in_array(Competency::Competency09->value, $player->competencyIds, true) ? 2 : 0);
         $victoryPoints = $actionVictoryPoints + $knowledgeAdvance->victoryPoints;
-        $player->victoryPoints += $victoryPoints;
+        $player->addVictoryPoints($knowledgeAdvance->victoryPoints, VictoryPointSource::RoundScoring);
+        $player->addVictoryPoints($player->roundBonus === RoundBonus::SendScholar ? 2 : 0, VictoryPointSource::RoundBonus);
+        $player->addVictoryPoints(in_array(Competency::Competency09->value, $player->competencyIds, true) ? 2 : 0, VictoryPointSource::Competency);
         $state->round->hasTakenMainAction = true;
 
         return new SendScholarResultData(

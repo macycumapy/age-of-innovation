@@ -313,6 +313,7 @@ class TownActionsTest extends TestCase
         $game->refresh();
 
         $this->assertSame(30, $game->state->players[0]->victoryPoints);
+        $this->assertEquals(['starting' => 20, 'town' => 7, 'round_scoring' => 3], $game->state->players[0]->victoryPointBreakdown());
         $this->assertSame(1, $game->state->players[0]->knowledge->banking);
         $this->assertSame(1, $game->state->players[0]->knowledge->law);
         $this->assertSame(1, $game->state->players[0]->knowledge->engineering);

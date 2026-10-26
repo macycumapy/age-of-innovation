@@ -13,6 +13,7 @@ use App\Domain\GameEngine\PlayerAbilities\Data\RoundBonusActionResultData;
 use App\Domain\GameEngine\PlayerAbilities\Enums\RoundBonus;
 use App\Domain\GameEngine\Research\Actions\AdvanceKnowledgeAction;
 use App\Domain\GameEngine\Research\Enums\KnowledgeDiscipline;
+use App\Domain\GameEngine\Scoring\Enums\VictoryPointSource;
 use App\Domain\GameEngine\State\Data\GamePlayerStateData;
 use App\Domain\GameEngine\State\Data\GameStateData;
 use App\Domain\GameEngine\Turns\Enums\GamePhase;
@@ -49,7 +50,7 @@ final class ApplyRoundBonusAction
             $knowledgeAdvance = $this->advanceKnowledge->execute($state, $playerState, $discipline, 1);
             $gainedPower = $knowledgeAdvance->gainedPower;
             $victoryPoints = $knowledgeAdvance->victoryPoints;
-            $playerState->victoryPoints += $victoryPoints;
+            $playerState->addVictoryPoints($victoryPoints, VictoryPointSource::RoundScoring);
         }
 
         if ($roundBonus === RoundBonus::Spade) {

@@ -6,6 +6,7 @@ namespace App\Domain\GameEngine\Scoring\Actions;
 
 use App\Domain\GameEngine\Board\Services\LargestNetworkSizeCalculator;
 use App\Domain\GameEngine\Research\Enums\KnowledgeDiscipline;
+use App\Domain\GameEngine\Scoring\Enums\VictoryPointSource;
 use App\Domain\GameEngine\State\Data\GamePlayerStateData;
 use App\Domain\GameEngine\State\Data\GameStateData;
 
@@ -104,7 +105,7 @@ final class ApplyFinalScoringAction
 
             foreach ($state->players as $player) {
                 if (in_array($player->playerId, $tiedPlayerIds, true)) {
-                    $player->victoryPoints += $pointsPerPlayer;
+                    $player->addVictoryPoints($pointsPerPlayer, $source === 'knowledge' ? VictoryPointSource::FinalKnowledge : VictoryPointSource::FinalObjectives);
                     $scoringByPlayerId[$player->playerId]['victoryPoints'] += $pointsPerPlayer;
                     $scoringByPlayerId[$player->playerId]['sources'][] = [
                         'source' => $source,

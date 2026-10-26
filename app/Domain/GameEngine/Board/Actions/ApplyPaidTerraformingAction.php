@@ -9,6 +9,7 @@ use App\Domain\GameEngine\Board\Data\PaidTerraformingOptionData;
 use App\Domain\GameEngine\Board\Services\PaidTerraformingOptionFinder;
 use App\Domain\GameEngine\Interactions\Data\PendingInteractionData;
 use App\Domain\GameEngine\Interactions\Enums\PendingInteractionType;
+use App\Domain\GameEngine\Scoring\Enums\VictoryPointSource;
 use App\Domain\GameEngine\State\Data\GamePlayerStateData;
 use App\Domain\GameEngine\State\Data\GameStateData;
 use App\Domain\GameEngine\Turns\Enums\GamePhase;
@@ -94,6 +95,6 @@ final class ApplyPaidTerraformingAction
             );
         }
 
-        $player->victoryPoints += $tunnelVictoryPoints + $flightVictoryPoints;
+        $player->addVictoryPoints($tunnelVictoryPoints + $flightVictoryPoints, VictoryPointSource::Faction);
     }
 }

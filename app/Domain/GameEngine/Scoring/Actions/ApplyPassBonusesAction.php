@@ -9,6 +9,7 @@ use App\Domain\GameEngine\Board\Enums\BuildingType;
 use App\Domain\GameEngine\PlayerAbilities\Enums\PalaceAbility;
 use App\Domain\GameEngine\Research\Enums\Competency;
 use App\Domain\GameEngine\Research\Enums\Innovation;
+use App\Domain\GameEngine\Scoring\Enums\VictoryPointSource;
 use App\Domain\GameEngine\State\Data\GamePlayerStateData;
 use App\Domain\GameEngine\State\Data\GameStateData;
 
@@ -66,7 +67,9 @@ final class ApplyPassBonusesAction
         }
 
         $victoryPoints = array_sum(array_column($sources, 'points'));
-        $player->victoryPoints += $victoryPoints;
+        foreach ($sources as $source) {
+            $player->addVictoryPoints($source['points'], VictoryPointSource::from($source['source']));
+        }
 
         return ['victoryPoints' => $victoryPoints, 'sources' => $sources];
     }

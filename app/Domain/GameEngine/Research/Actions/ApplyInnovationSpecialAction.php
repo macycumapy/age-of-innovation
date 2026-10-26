@@ -11,6 +11,7 @@ use App\Domain\GameEngine\Research\Data\InnovationSpecialActionOptionData;
 use App\Domain\GameEngine\Research\Data\InnovationSpecialActionResultData;
 use App\Domain\GameEngine\Research\Enums\Innovation;
 use App\Domain\GameEngine\Research\Services\InnovationSpecialActionOptionFinder;
+use App\Domain\GameEngine\Scoring\Enums\VictoryPointSource;
 use App\Domain\GameEngine\State\Data\GamePlayerStateData;
 use App\Domain\GameEngine\State\Data\GameStateData;
 use App\Domain\GameEngine\Turns\Enums\GamePhase;
@@ -42,7 +43,7 @@ final class ApplyInnovationSpecialAction
         if ($option->innovation === Innovation::Professor) {
             $scholarsBefore = $player->resources->scholars;
             $player->resources->scholars = min($player->scholarPoolSize, $player->resources->scholars + 1);
-            $player->victoryPoints += 3;
+            $player->addVictoryPoints(3, VictoryPointSource::Innovation);
             $result->scholars = $player->resources->scholars - $scholarsBefore;
             $result->victoryPoints = 3;
         } else {

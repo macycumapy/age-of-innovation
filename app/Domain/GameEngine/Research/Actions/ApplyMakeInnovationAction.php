@@ -17,6 +17,7 @@ use App\Domain\GameEngine\Research\Enums\KnowledgeDiscipline;
 use App\Domain\GameEngine\Research\Services\InnovationPurchaseCostCalculator;
 use App\Domain\GameEngine\Scoring\Enums\RoundScoringGoal;
 use App\Domain\GameEngine\Scoring\Enums\RoundScoringTile;
+use App\Domain\GameEngine\Scoring\Enums\VictoryPointSource;
 use App\Domain\GameEngine\State\Data\GamePlayerStateData;
 use App\Domain\GameEngine\State\Data\GameStateData;
 use Illuminate\Validation\ValidationException;
@@ -71,7 +72,7 @@ final class ApplyMakeInnovationAction
 
         $roundScoringTile = RoundScoringTile::tryFrom((string) $state->round->scoringTileId);
         $roundVictoryPoints = $roundScoringTile?->goal() === RoundScoringGoal::Innovation ? 5 : 0;
-        $playerState->victoryPoints += $roundVictoryPoints;
+        $playerState->addVictoryPoints($roundVictoryPoints, VictoryPointSource::RoundScoring);
         $state->round->hasTakenMainAction = true;
 
         $unassignedKnowledgeStepCount = $innovation === Innovation::Architecture ? $reward['knowledgeSteps'] : 0;

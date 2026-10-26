@@ -172,6 +172,7 @@ class GameResource extends JsonResource
                 fn (GamePlayerStateData $player): array => [
                     'playerId' => $player->playerId,
                     'victoryPoints' => $player->victoryPoints,
+                    'victoryPointSources' => $player->victoryPointBreakdown(),
                     'passOrder' => ($passIndex = array_search($player->playerId, $this->state->passedPlayerIds, true)) === false
                         ? null
                         : $passIndex + 1,
