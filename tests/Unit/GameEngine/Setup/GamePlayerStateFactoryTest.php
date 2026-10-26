@@ -86,7 +86,7 @@ class GamePlayerStateFactoryTest extends TestCase
             'user_id' => 20,
         ]);
 
-        return (new GamePlayerStateFactory(new AdvanceKnowledgeAction(new GainPowerAction())))->create(
+        return (new GamePlayerStateFactory(new AdvanceKnowledgeAction(new GainPowerAction(new \App\Domain\GameEngine\Economy\Services\PowerGainConfirmation)))))->create(
             $player,
             new PlanningBundleData($homeland, $faction, RoundBonus::Coins),
         );

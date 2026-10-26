@@ -48,13 +48,15 @@ final class AdvanceKnowledgeAction
             $newLevel = min(11, $newLevel);
         }
 
-        $gainedPower = 0;
+        $powerReward = 0;
 
         foreach ([3 => 1, 5 => 2, 7 => 2, 12 => 3] as $level => $power) {
             if ($currentLevel < $level && $newLevel >= $level) {
-                $gainedPower += $this->gainPower->execute($playerState, $power);
+                $powerReward += $power;
             }
         }
+
+        $gainedPower = $this->gainPower->execute($playerState, $powerReward);
 
         $playerState->knowledge->{$discipline->value} = $newLevel;
 
