@@ -147,3 +147,36 @@ test('does not show a legacy warning for fully tracked scores', async () => {
     assert.doesNotMatch(html, /Для старых партий/);
     assert.doesNotMatch(html, /Очки до начала учёта статистики/);
 });
+
+test('keeps player identity and totals visible above wrapping statistics in narrow containers', async () => {
+    const html = (await renderToString(createSSRApp(FinalLeaderboard, {
+        players: [{ id: 1, seat: 1, name: 'ОченьДлинноеИмяИгрокаБезПробелов', color: null, faction: null }],
+        playerStates: [{ playerId: 1, victoryPoints: 1234, victoryPointSources: { untracked: 1234 } }],
+    }))).replace(/<!--.*?-->/g, '');
+
+    assert.doesNotMatch(html, /min-w-max|min-w-18|ml-12|ml-10|overflow-x-auto/);
+    assert.match(html, /grid-cols-6/);
+    assert.match(html, /col-span-3 col-start-1 row-start-2/);
+    assert.match(html, /col-start-3 row-start-1/);
+    assert.match(html, /\[overflow-wrap:anywhere\]/);
+    assert.equal((html.match(/data-score-category=/g) ?? []).length, 16);
+    assert.match(html, /Итоговые победные очки: 1234/);
+});
+
+test('uses five columns for three rows of the fifteen standard score categories', async () => {
+    const html = await renderToString(createSSRApp(FinalLeaderboard, {
+        players: [{ id: 1, seat: 1, name: 'Анна', color: null, faction: null }],
+        playerStates: [{ playerId: 1, victoryPoints: 20, victoryPointSources: { starting: 20 } }],
+    }));
+
+    assert.match(html, /grid-cols-5/);
+    assert.equal((html.match(/data-score-category=/g) ?? []).length, 15);
+    assert.match(html, /size-12 max-w-full/);
+    const scoreCells = [...html.matchAll(/<span class="([^"]+)"[^>]*data-score-category=/g)];
+    assert.equal(scoreCells.length, 15);
+    for (const [, classes] of scoreCells) {
+        assert.ok(classes.split(' ').includes('@min-[76rem]:border-l'));
+        assert.ok(classes.split(' ').includes('@min-[76rem]:first:border-l-0'));
+        assert.ok(!classes.split(' ').includes('border-l'));
+    }
+});
