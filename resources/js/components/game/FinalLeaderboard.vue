@@ -2,6 +2,7 @@
 import Trophy from '@lucide/vue/dist/esm/icons/trophy.mjs';
 import { computed } from 'vue';
 import VictoryPointSourceIcon from '@/components/game/VictoryPointSourceIcon.vue';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { factionNames, playerColorValues } from '@/lib/gameDisplay';
 import type { GamePlayerBoardState, GamePlayerSummary } from '@/types';
 
@@ -91,34 +92,40 @@ const scoreCategories = computed(() => [
                         />
                     </div>
                     <div
-                        class="flex items-stretch tabular-nums ml-12"
+                        class="ml-12 flex items-stretch tabular-nums"
                         :aria-label="`Статистика победных очков: ${entry.player.name}`"
                     >
-                        <span
-                            v-for="category in scoreCategories"
-                            :key="category.id"
-                            class="grid min-w-18 flex-1 justify-items-center gap-1 border-l border-amber-900/15 px-1 outline-none first:border-l-0 focus-visible:ring-2 focus-visible:ring-ring dark:border-amber-200/15"
-                            :class="
-                                (entry.sources[category.id] ?? 0) < 0
-                                    ? 'text-red-600 dark:text-red-400'
-                                    : (entry.sources[category.id] ?? 0) === 0
-                                      ? 'text-muted-foreground/50'
-                                      : 'text-foreground'
-                            "
-                            :data-score-category="category.id"
-                            :title="`${category.label}: ${entry.sources[category.id] ?? 0}`"
-                            :aria-label="`${category.label}: ${entry.sources[category.id] ?? 0}`"
-                            tabindex="0"
-                        >
-                            <VictoryPointSourceIcon
-                                :source="category.id"
-                                :faction="entry.player.faction"
-                                class="size-15"
-                            />
-                            <span class="text-base leading-none font-bold" aria-hidden="true">{{
-                                (entry.sources[category.id] ?? 0) === 0 ? '—' : entry.sources[category.id]
-                            }}</span>
-                        </span>
+                        <TooltipProvider :delay-duration="150">
+                            <Tooltip v-for="category in scoreCategories" :key="category.id">
+                                <TooltipTrigger as-child>
+                                    <span
+                                        class="grid min-w-18 flex-1 justify-items-center gap-1 border-l border-amber-900/15 px-1 outline-none first:border-l-0 focus-visible:ring-2 focus-visible:ring-ring dark:border-amber-200/15"
+                                        :class="
+                                            (entry.sources[category.id] ?? 0) < 0
+                                                ? 'text-red-600 dark:text-red-400'
+                                                : (entry.sources[category.id] ?? 0) === 0
+                                                  ? 'text-muted-foreground/50'
+                                                  : 'text-foreground'
+                                        "
+                                        :data-score-category="category.id"
+                                        :aria-label="`${category.label}: ${entry.sources[category.id] ?? 0}`"
+                                        tabindex="0"
+                                    >
+                                        <VictoryPointSourceIcon
+                                            :source="category.id"
+                                            :faction="entry.player.faction"
+                                            class="size-15"
+                                        />
+                                        <span class="text-base leading-none font-bold" aria-hidden="true">{{
+                                            (entry.sources[category.id] ?? 0) === 0 ? '—' : entry.sources[category.id]
+                                        }}</span>
+                                    </span>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                    {{ category.label }}: {{ entry.sources[category.id] ?? 0 }}
+                                </TooltipContent>
+                            </Tooltip>
+                        </TooltipProvider>
                     </div>
                     <div
                         class="flex h-full items-center justify-center border-l border-amber-900/20 text-3xl font-black tabular-nums dark:border-amber-200/20"
@@ -126,7 +133,7 @@ const scoreCategories = computed(() => [
                     >
                         {{ entry.victoryPoints }}
                     </div>
-                    <div class="col-span-2 col-start-2 flex items-baseline gap-2 px-1 text-sm ml-10">
+                    <div class="col-span-2 col-start-2 ml-10 flex items-baseline gap-2 px-1 text-sm">
                         <strong>{{ entry.player.name }}</strong>
                         <span v-if="entry.player.faction !== null" class="text-xs text-muted-foreground"
                             >({{ factionNames[entry.player.faction] }})</span

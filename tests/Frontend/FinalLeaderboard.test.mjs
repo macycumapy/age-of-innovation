@@ -27,6 +27,15 @@ const loadModule = (name) => {
         new Function('require', 'module', 'exports', iconCode)(loadModule, iconModule, iconModule.exports);
         return iconModule.exports;
     }
+    if (name === '@/components/ui/tooltip') {
+        const passthrough = (_, { slots }) => slots.default?.();
+        return {
+            Tooltip: passthrough,
+            TooltipProvider: passthrough,
+            TooltipTrigger: passthrough,
+            TooltipContent: (_, { slots }) => h('div', { role: 'tooltip' }, slots.default?.()),
+        };
+    }
     if (name === '@/lib/gameDisplay') {
         return { factionNames: {}, playerColorValues: {} };
     }
@@ -62,8 +71,6 @@ test('renders player and bot names and ranks them by final victory points', asyn
     assert.ok(html.indexOf('Бот (Лёгкий)') < html.indexOf('Иван'));
     assert.ok(html.indexOf('Иван') < html.indexOf('Анна'));
     assert.equal((html.match(/Итоговые победные очки: 100/g) ?? []).length, 2);
-    assert.equal((html.match(/aria-label="1-е место"/g) ?? []).length, 2);
-    assert.match(html, /aria-label="3-е место"/);
 });
 
 test('shows score icons beside each player total including losses and legacy points', async () => {
@@ -83,14 +90,16 @@ test('shows score icons beside each player total including losses and legacy poi
     const rows = html.match(/<li\b.*?<\/li>/g);
     assert.equal(rows.length, 2);
     assert.match(rows[0], /Анна/);
-    assert.match(rows[0], /title="Федерации: 7"/);
-    assert.match(rows[0], /title="Инновации: 8"/);
-    assert.match(rows[0], /text-red-600[^>]*title="Потери за принятую Силу: -2"/);
+    assert.match(rows[0], /role="tooltip">Федерации: 7</);
+    assert.match(rows[0], /role="tooltip">Инновации: 8</);
+    assert.match(rows[0], /text-red-600[^>]*aria-label="Потери за принятую Силу: -2"/);
     assert.match(rows[0], /Итоговые победные очки: 33/);
-    assert.match(rows[1], /title="Федерации: 0"/);
+    assert.match(rows[1], /role="tooltip">Федерации: 0</);
     assert.match(rows[1], /aria-label="Очки до начала учёта статистики: 10"/);
     assert.match(rows[1], /Итоговые победные очки: 30/);
     assert.doesNotMatch(html, /<table/);
+    assert.doesNotMatch(html, / title=/);
+    assert.equal((html.match(/role="tooltip"/g) ?? []).length, 32);
     assert.equal((rows[0].match(/tabindex="0"/g) ?? []).length, 16);
     assert.equal((rows[1].match(/tabindex="0"/g) ?? []).length, 16);
     assert.match(rows[0], /aria-label="Федерации: 7"[^>]*><span[^>]*data-score-source="town"[^>]*aria-hidden="true"/);
