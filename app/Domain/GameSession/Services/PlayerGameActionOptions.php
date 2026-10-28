@@ -21,7 +21,7 @@ final class PlayerGameActionOptions
 
         return new GameActionOptionsData(
             version: $game->version,
-            options: $isActive ? $this->finder->execute($game->state, $player->id) : [],
+            options: $isActive ? $this->finder->execute($game->state, $player->id, includeAllConversionAmounts: true) : [],
             canFinishTurn: $isActive && $game->phase->isActionPhase()
                 && $game->state->round->hasTakenMainAction
                 && $game->state->round->turnStartVersion !== null

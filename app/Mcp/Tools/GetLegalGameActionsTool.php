@@ -17,7 +17,7 @@ use Laravel\Mcp\Server\Attributes\Name;
 use Laravel\Mcp\Server\Tools\Annotations\IsReadOnly;
 
 #[Name('get_legal_actions')]
-#[Description('Read legal actions with exact action IDs and parameters for the current game version.')]
+#[Description('Read legal actions with exact action IDs and parameters for the current game version. Resource exchanges and power sacrifices include every affordable amount; choose the required quantity rather than repeating one-unit actions.')]
 #[IsReadOnly]
 final class GetLegalGameActionsTool extends GameTool
 {

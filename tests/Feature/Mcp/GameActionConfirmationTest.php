@@ -8,6 +8,9 @@ use App\Domain\Game\Enums\GameStatus;
 use App\Domain\GameEngine\Board\Data\BuildWorkshopOptionData;
 use App\Domain\GameEngine\Board\Enums\TerrainType;
 use App\Domain\GameEngine\Economy\Data\PlayerResourcesData;
+use App\Domain\GameEngine\Economy\Data\PowerBowlsStateData;
+use App\Domain\GameEngine\Economy\Data\ResourceExchangeOptionData;
+use App\Domain\GameEngine\Economy\Enums\ResourceExchange;
 use App\Domain\GameEngine\Interactions\Data\PendingInteractionData;
 use App\Domain\GameEngine\Interactions\Enums\PendingInteractionType;
 use App\Domain\GameEngine\PlayerAbilities\Enums\Faction;
@@ -22,6 +25,7 @@ use App\Domain\GameSession\Data\StagedGameActionData;
 use App\Domain\GameSession\Enums\GameActionContinuation;
 use App\Domain\GameSession\Queries\GetGameTurnContextQuery;
 use App\Events\GameChanged;
+use App\Mcp\Presentation\GameActionIdentifier;
 use App\Mcp\Presentation\GameActionPresenter;
 use App\Mcp\Presentation\GameStatePresenter;
 use App\Mcp\Server\GameServer;
@@ -190,6 +194,73 @@ class GameActionConfirmationTest extends TestCase
             ->assertDontSee('"state":')->assertDontSee('"actions":');
 
         $this->assertNotSame($player->id, $game->fresh()->active_game_player_id);
+    }
+
+    #[DataProvider('exchangePhases')]
+    public function test_bulk_exchange_can_be_selected_rolled_back_and_confirmed_once(bool $hasPendingChoice): void
+    {
+        [$game, $user] = $this->sessionGame();
+        $state = $game->state;
+        $state->round->phase = GamePhase::Actions;
+        $state->players = [new GamePlayerStateData(
+            playerId: $game->active_game_player_id,
+            userId: $user->id,
+            color: PlayerColor::Green,
+            faction: Faction::Illusionists,
+            homeland: TerrainType::Forest,
+            roundBonus: RoundBonus::Coins,
+            resources: new PlayerResourcesData(power: new PowerBowlsStateData(bowlThree: 5)),
+        )];
+        $state->pendingInteraction = $hasPendingChoice
+            ? new PendingInteractionData(PendingInteractionType::PowerOffer, $game->active_game_player_id, context: ['powerAmount' => 1])
+            : null;
+        $game->update(['state' => $state, 'phase' => GamePhase::Actions]);
+        $context = app(GameStatePresenter::class)->turnContext(app(GetGameTurnContextQuery::class)->execute($user, $game->id));
+        $this->assertIsArray($context['actions']);
+        $option = null;
+        foreach ($context['actions'] as $action) {
+            if ($action['type'] === 'exchange_resources'
+                && $action['parameters']['exchange'] === 'power_to_coin' && $action['parameters']['amount'] === 3) {
+                $option = $action;
+                break;
+            }
+        }
+        $this->assertNotNull($option);
+        $before = $game->fresh()->getAttributes();
+        $historyCount = $game->actions()->count();
+        $arguments = ['game_id' => $game->id, 'version' => $game->version, 'action_id' => $option['action_id']];
+
+        $unaffordable = app(GameActionIdentifier::class)->forOption(new ResourceExchangeOptionData(ResourceExchange::PowerToCoin, amount: 6), $game->version);
+        GameServer::tool(StageGameActionTool::class, [...$arguments, 'action_id' => $unaffordable])->assertHasErrors();
+        $this->assertSame($before, $game->fresh()->getAttributes());
+
+        GameServer::tool(StageGameActionTool::class, $arguments)->assertOk();
+        $this->assertSame($before, $game->fresh()->getAttributes());
+        GameServer::tool(RollbackGameActionTool::class, ['game_id' => $game->id, 'version' => $game->version])->assertOk();
+        $this->assertSame($before, $game->fresh()->getAttributes());
+        $this->assertSame($historyCount, $game->actions()->count());
+        GameServer::tool(ConfirmGameActionTool::class, ['game_id' => $game->id, 'version' => $game->version])->assertHasErrors();
+
+        GameServer::tool(StageGameActionTool::class, $arguments)->assertOk();
+        GameServer::tool(ConfirmGameActionTool::class, ['game_id' => $game->id, 'version' => $game->version])->assertOk();
+        $game->refresh();
+        $this->assertSame(3, $game->state->players[0]->resources->coins);
+        $this->assertSame(2, $game->state->players[0]->resources->power->bowlThree);
+        $this->assertSame(3, $game->state->players[0]->resources->power->bowlOne);
+        $this->assertSame($context['version'] + 1, $game->version);
+        $this->assertSame($historyCount + 1, $game->actions()->count());
+        $action = $game->actions()->latest('id')->firstOrFail();
+        $this->assertSame(3, $action->payload['exchanges']['power_to_coin']);
+        $this->assertFalse($game->state->round->hasTakenMainAction);
+        $this->assertSame($hasPendingChoice, $game->state->pendingInteraction !== null);
+        GameServer::tool(StageGameActionTool::class, $arguments)->assertHasErrors();
+        $this->assertSame($historyCount + 1, $game->actions()->count());
+    }
+
+    /** @return array<string, array{bool}> */
+    public static function exchangePhases(): array
+    {
+        return ['regular turn' => [false], 'pending choice' => [true]];
     }
 
     /** @return list<array{GameStatus, ?int, ?int, GameActionContinuation}> */

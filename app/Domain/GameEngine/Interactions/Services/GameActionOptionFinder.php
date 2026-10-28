@@ -72,7 +72,7 @@ final class GameActionOptionFinder
     }
 
     /** @return list<GameActionOption> */
-    public function execute(GameStateData $state, int $playerId): array
+    public function execute(GameStateData $state, int $playerId, bool $includeAllConversionAmounts = false): array
     {
         $planningBundleOptions = $this->planningBundleOptionFinder->execute($state, $playerId);
         if ($planningBundleOptions !== []) {
@@ -91,7 +91,7 @@ final class GameActionOptionFinder
         }
 
         if ($state->pendingInteraction !== null) {
-            return $this->pendingOptions($state, $player);
+            return $this->pendingOptions($state, $player, $includeAllConversionAmounts);
         }
 
         if (! $state->round->phase->isActionPhase() || $state->round->hasTakenMainAction) {
@@ -99,7 +99,7 @@ final class GameActionOptionFinder
         }
 
         return [
-            ...$this->resourceConversionOptionFinder->execute($player),
+            ...$this->resourceConversionOptionFinder->execute($player, $includeAllConversionAmounts),
             ...$this->passOptionFinder->execute($state, $player),
             ...$this->buildWorkshopOptionFinder->execute($state, $player),
             ...$this->upgradeBuildingOptionFinder->execute($state, $player),
@@ -117,7 +117,7 @@ final class GameActionOptionFinder
     }
 
     /** @return list<GameActionOption> */
-    private function pendingOptions(GameStateData $state, GamePlayerStateData $player): array
+    private function pendingOptions(GameStateData $state, GamePlayerStateData $player, bool $includeAllConversionAmounts): array
     {
         if ($state->pendingInteraction?->playerId !== $player->playerId) {
             return [];
@@ -146,7 +146,7 @@ final class GameActionOptionFinder
             PendingInteractionType::ChooseStartingResources => $this->rewardDistributionOptionFinder->execute($state, $player),
         };
         $resourceOptions = $state->round->phase->isActionPhase()
-            ? $this->resourceConversionOptionFinder->execute($player)
+            ? $this->resourceConversionOptionFinder->execute($player, $includeAllConversionAmounts)
             : [];
 
         return [
