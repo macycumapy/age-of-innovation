@@ -31,11 +31,23 @@ If the game returns to an earlier version or a previously confirmed position cha
 
 ## Choose a move
 
-Maintain a short plan: next scoring opportunity, economic bottleneck, intended expansion or town site, and required resources/actions. After founding a town, reassess where an independent next town could form before continuing construction around the existing one. Reassess after an opponent move or material change.
+Keep a compact decision record in the conversation's working context, alongside the held game context. Record the game/version, next scoring opportunity, economic bottleneck, intended expansion or town site, and required resources/actions. Update it instead of reconstructing the plan from earlier commentary. After founding a town, reassess where an independent next town could form before continuing construction around the existing one.
 
 Apply the concrete checks in the reference's “Strategic decision checks” section before committing to a strategic line. Treat those checks as evaluation criteria, not a fixed opening or a requirement to pursue towns in every position.
 
 Compare immediate points, future income before game end, pass rewards, resource scarcity, knowledge/network ranking swings, and competition for shared actions or building sites. Count the entire sequence, including conversions, terraforming, shipping, and follow-up choices. Prefer an affordable continuation over a plan requiring several unavailable resources.
+
+### Decision checkpoints
+
+Before the first discretionary main action of each round, record a numerical final-score range for every player: current points + remaining repeatable rewards + affordable construction/towns/innovations + knowledge/network awards + resource conversion. Name the likely leader, the largest uncertainty, and what your intended line must achieve to close any deficit. Include opponents' construction bonuses and affordable replies, not only their current pass payout. Use estimates for uncertain continuations; do not delay play seeking an exact prediction.
+
+Before staging a strategic commitment (setup bundle, major upgrade, competency, innovation, development, paid power offer, or funding conversion for a multi-action plan), compare the intended line with at least one feasible alternative from the current position. Passing or keeping flexible resources can be the alternative. Record each line's full remaining cost, required turns, scoring package, and useful continuation after payment. Apply the relevant checks from the reference to those concrete numbers. An affordable next action or a desirable component is not sufficient justification for the whole line.
+
+Record why the selected line wins and what would invalidate it. Recheck that reason after an opponent blocks a site, takes a shared action, changes a ranking threshold, or acquires a major scoring ability. Update the affected score ranges and compare the remaining plan again before spending more. Treat earlier spending as sunk cost. If the old line no longer wins, replace it; do not fund successive substitutions merely to preserve the announced plan.
+
+After confirmation, compare the actual reward, resources, and attainable continuation with the record. Correct a mismatch before the next discretionary action. Mandatory follow-ups, finish_turn, and successive quantity-limited exchanges can reuse the checked line while its assumptions still hold; they do not require another full comparison. These checkpoints are part of choosing a move, not a request for user approval, an extra game action, or permission to reread an already-held snapshot.
+
+At round transitions, briefly tell the user the projected leader or deficit and the resulting priority. For a strategic commitment, briefly give the decisive comparison with the alternative, using numbers where they determine the choice. Distinguish confirmed outcomes from estimates. Do not claim that a move keeps pace or secures victory without an updated forecast supporting it. Keep these updates concise and continue playing.
 
 Bot evaluations can inform a decision but are heuristics, not game rules or proof of optimal play. Do not delegate a requested human-like decision to the automatic turn executor.
 
@@ -43,7 +55,7 @@ Bot evaluations can inform a decision but are heuristics, not game rules or proo
 
 For resource exchanges, calculate the required total first and prefer a single offered action with that amount over repeated one-unit exchanges. Inspect the live schema and legal actions for quantity support; do not assume a UI capability is exposed through MCP. If only one-unit actions are exposed, explain that limitation and use those exact actions rather than inventing an amount or action ID. Reassess between exchanges only when an intervening choice or state change can affect the plan.
 
-1. Select an exact action_id from get_legal_actions. Do not invent IDs or submit arbitrary parameter objects.
+1. Select an exact action_id from get_legal_actions. Complete any applicable decision checkpoint before staging it. Do not invent IDs or submit arbitrary parameter objects.
 2. Call stage_action with game_id, version, and action_id. This records a selection; it does not simulate or spend resources.
 3. Call confirm_action only when authorized to play autonomously or after the user approves. Otherwise describe the choice and wait. rollback_action clears an unconfirmed selection; it cannot undo a confirmed action.
 4. Follow the confirmation's continuation as described above; if none is provided, refresh the state and legal actions. Resolve mandatory follow-up choices through the same stage/confirm cycle. The offered finish_turn action also requires staging and confirmation.
