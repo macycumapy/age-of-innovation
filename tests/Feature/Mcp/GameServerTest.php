@@ -22,6 +22,7 @@ use App\Mcp\Presentation\GameActionPresenter;
 use App\Mcp\Presentation\GameStatePresenter;
 use App\Mcp\Server\GameServer;
 use App\Mcp\Tools\ConfirmGameActionTool;
+use App\Mcp\Tools\ExecuteGameActionTool;
 use App\Mcp\Tools\GetGameBoardLayoutTool;
 use App\Mcp\Tools\GetGameComponentTool;
 use App\Mcp\Tools\GetGameStateTool;
@@ -89,6 +90,7 @@ class GameServerTest extends TestCase
             GetLegalGameActionsTool::class => ['get_legal_actions', []],
             StageGameActionTool::class => ['stage_action', ['version', 'action_id']],
             ConfirmGameActionTool::class => ['confirm_action', ['version']],
+            ExecuteGameActionTool::class => ['execute_action', ['version', 'action_id']],
             RollbackGameActionTool::class => ['rollback_action', ['version']],
         ];
         foreach ($tools as $class => [$name, $required]) {

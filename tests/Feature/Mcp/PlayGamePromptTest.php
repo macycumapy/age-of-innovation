@@ -27,6 +27,8 @@ class PlayGamePromptTest extends TestCase
             ->assertSee('get_board_layout')->assertSee('layout_id')
             ->assertSee('not row order')
             ->assertSee('stage_action')->assertSee('confirm_action')->assertSee('rollback_action')
+            ->assertSee('Prefer execute_action')->assertSee('do not call confirm_action afterwards')
+            ->assertSee('After an ambiguous execute_action failure')
             ->assertSee('finish_turn')->assertSee('wait_for_turn')
             ->assertSee('If stage_action fails or its result is uncertain, do not call confirm_action.')
             ->assertSee('Fetch get_turn_context, choose again from its current actions, and stage again.')

@@ -67,7 +67,7 @@ class GameResourcesTest extends TestCase
         GameServer::resource(GameQuickStartResource::class)->assertOk()->assertSee($text);
         $fullSize = strlen($this->content('SKILL.md')) + strlen($this->content('references/components.md')) + strlen($this->content('references/rules-and-strategy.md'));
         $this->assertLessThan($fullSize / 4, strlen($text));
-        foreach (['get_component', 'get_turn_context', 'stage_action', 'confirm_action', 'rollback_action', 'wait_for_turn', 'layout_id'] as $name) {
+        foreach (['get_component', 'get_turn_context', 'execute_action', 'stage_action', 'confirm_action', 'rollback_action', 'wait_for_turn', 'layout_id'] as $name) {
             $this->assertStringContainsString($name, $text);
         }
     }
