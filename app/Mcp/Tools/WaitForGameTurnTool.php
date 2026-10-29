@@ -13,6 +13,7 @@ use App\Mcp\Validators\WaitForGameTurnValidator;
 use App\Models\User;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Illuminate\JsonSchema\Types\Type;
+use Illuminate\Support\Facades\Context;
 use Laravel\Mcp\Request;
 use Laravel\Mcp\ResponseFactory;
 use Laravel\Mcp\Server\Attributes\Description;
@@ -38,6 +39,9 @@ final class WaitForGameTurnTool extends GameTool
             if ($result->actions !== null) {
                 $next = $snapshots->remember($presenter->turnContext(new GameTurnContextData($result->view, $result->actions)));
                 $before = $data->contextId === null ? null : $snapshots->find($user->id, $result->view->gameId, $result->view->playerId, $data->contextId);
+                if ($before === null && config('game-mcp.metrics.enabled')) {
+                    Context::addHidden('mcp.full_snapshot_reason', $data->contextId === null ? 'no_context_id' : 'baseline_unavailable');
+                }
                 if ($before !== null) {
                     $update = $updates->fromSnapshots($before, $next);
                     if ($update['format'] === 'context-delta-v1') {
@@ -51,6 +55,9 @@ final class WaitForGameTurnTool extends GameTool
                         $flags = JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES;
                         if (strlen(json_encode($response, $flags)) < strlen(json_encode($full, $flags))) {
                             return $response;
+                        }
+                        if (config('game-mcp.metrics.enabled')) {
+                            Context::addHidden('mcp.full_snapshot_reason', 'delta_not_smaller');
                         }
                     }
                 }

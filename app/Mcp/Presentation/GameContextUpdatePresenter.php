@@ -6,6 +6,7 @@ namespace App\Mcp\Presentation;
 
 use App\Domain\GameSession\Data\GameStateViewData;
 use App\Domain\GameSession\Data\GameTurnContextData;
+use Illuminate\Support\Facades\Context;
 use LogicException;
 
 final class GameContextUpdatePresenter
@@ -33,12 +34,21 @@ final class GameContextUpdatePresenter
      */
     public function fromSnapshots(array $before, array $next): array
     {
+        if (config('game-mcp.metrics.enabled')) {
+            Context::forgetHidden('mcp.full_snapshot_reason');
+        }
         unset($before['context_id'], $next['context_id']);
         $snapshot = ['format' => 'context-snapshot-v1', 'context' => $next];
         if (($before['format'] ?? null) !== 'compact-v2' || ($next['format'] ?? null) !== 'compact-v2'
             || $before['game_id'] !== $next['game_id'] || $before['player_id'] !== $next['player_id']
-            || $before['user_id'] !== $next['user_id'] || $before['version'] > $next['version']
-            || ($before['state']['round']['number'] ?? null) !== ($next['state']['round']['number'] ?? null)) {
+            || $before['user_id'] !== $next['user_id'] || $before['version'] > $next['version']) {
+            $this->recordSnapshotReason('incompatible_baseline');
+
+            return $snapshot;
+        }
+        if (($before['state']['round']['number'] ?? null) !== ($next['state']['round']['number'] ?? null)) {
+            $this->recordSnapshotReason('round_changed');
+
             return $snapshot;
         }
         unset($before['actions']);
@@ -55,7 +65,20 @@ final class GameContextUpdatePresenter
 
         $flags = JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES;
 
-        return strlen(json_encode($delta, $flags)) < strlen(json_encode($snapshot, $flags)) ? $delta : $snapshot;
+        if (strlen(json_encode($delta, $flags)) < strlen(json_encode($snapshot, $flags))) {
+            return $delta;
+        }
+
+        $this->recordSnapshotReason('delta_not_smaller');
+
+        return $snapshot;
+    }
+
+    private function recordSnapshotReason(string $reason): void
+    {
+        if (config('game-mcp.metrics.enabled')) {
+            Context::addHidden('mcp.full_snapshot_reason', $reason);
+        }
     }
 
     /**

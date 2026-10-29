@@ -38,6 +38,7 @@ use App\Models\GamePlayer;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Log;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
@@ -103,6 +104,9 @@ class GameActionConfirmationTest extends TestCase
             'jsonrpc' => '2.0', 'id' => 1, 'method' => 'tools/call',
             'params' => ['name' => 'confirm_action', 'arguments' => ['game_id' => $game->id, 'version' => $game->version]],
         ];
+        config(['game-mcp.metrics.enabled' => true]);
+        Log::spy();
+        Log::shouldReceive('channel')->with('mcp')->andReturnSelf();
         $response = $this->withToken($token)->postJson('/mcp/game', $request)
             ->assertOk()->assertJsonPath('result.isError', false)
             ->assertJsonPath('result.structuredContent.confirmed', true)
@@ -120,6 +124,13 @@ class GameActionConfirmationTest extends TestCase
         $this->assertSame($game->state->pendingInteraction?->playerId ?? $game->active_game_player_id, $payload['next_player_id']);
         if ($payload['continuation'] === 'your_turn') {
             $update = $payload['context_update'];
+            Log::shouldHaveReceived('info')->withArgs(
+                fn (string $message, array $metric): bool =>
+                $message === 'mcp.tool_call' && $metric['tool'] === 'confirm_action'
+                && $metric['response_format'] === $update['format']
+                && $metric['actions_count'] === count($update['actions'] ?? $update['context']['actions'])
+                && $metric['full_snapshot_reason'] === null
+            )->once();
             $cached = app(GameContextSnapshotStore::class)->find($user->id, $game->id, $player->id, $update['context_id']);
             $this->assertNotNull($cached);
             $this->assertSame($game->version, $cached['version']);

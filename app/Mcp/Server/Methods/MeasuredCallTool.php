@@ -6,6 +6,7 @@ namespace App\Mcp\Server\Methods;
 
 use Generator;
 use Illuminate\Log\LogManager;
+use Illuminate\Support\Facades\Context;
 use Laravel\Mcp\Server\Methods\CallTool;
 use Laravel\Mcp\Server\ServerContext;
 use Laravel\Mcp\Transport\JsonRpcRequest;
@@ -20,6 +21,7 @@ final class MeasuredCallTool extends CallTool
 
     public function handle(JsonRpcRequest $request, ServerContext $context): Generator|JsonRpcResponse
     {
+        Context::forgetHidden('mcp.full_snapshot_reason');
         if (! config('game-mcp.metrics.enabled')) {
             return parent::handle($request, $context);
         }
@@ -38,6 +40,7 @@ final class MeasuredCallTool extends CallTool
         } finally {
             if (! $response instanceof Generator) {
                 $this->record($request, $context, $startedAt, $response);
+                Context::forgetHidden('mcp.full_snapshot_reason');
             }
         }
     }
@@ -58,6 +61,7 @@ final class MeasuredCallTool extends CallTool
             }
         } finally {
             $this->record($request, $context, $startedAt, $response, $bytes);
+            Context::forgetHidden('mcp.full_snapshot_reason');
         }
     }
 
@@ -71,6 +75,16 @@ final class MeasuredCallTool extends CallTool
             $gameId = $payload['game_id'] ?? $request->get('arguments', [])['game_id'] ?? null;
             $tool = $context->tools()->first(fn ($tool): bool => $tool->name() === $request->get('name'));
             $userId = auth('sanctum')->id() ?? config('game-mcp.user_id');
+            $update = $payload['context_update'] ?? [];
+            $actions = $payload['actions'] ?? $update['actions'] ?? $update['context']['actions'] ?? null;
+            $snapshotReason = null;
+            if (isset($payload['state']) || isset($update['context']['state'])) {
+                $snapshotReason = match (true) {
+                    in_array($tool?->name(), ['get_state', 'get_turn_context'], true) => 'explicit_read',
+                    ($payload['reason'] ?? null) === 'game_ended' => 'game_ended',
+                    default => Context::getHidden('mcp.full_snapshot_reason'),
+                };
+            }
 
             $this->logs->channel('mcp')->info('mcp.tool_call', [
                 'tool' => $tool?->name(),
@@ -82,6 +96,10 @@ final class MeasuredCallTool extends CallTool
                 'status' => $response === null || isset($response->toArray()['error']) || ($result['isError'] ?? false)
                     ? 'error'
                     : (($payload['reason'] ?? null) === 'timeout' ? 'timeout' : 'success'),
+                'has_context_id' => is_array($request->get('arguments', [])) && array_key_exists('context_id', $request->get('arguments', [])),
+                'response_format' => $update['format'] ?? $payload['format'] ?? null,
+                'full_snapshot_reason' => $snapshotReason,
+                'actions_count' => is_array($actions) ? count($actions) : null,
             ]);
         } catch (Throwable) {
             // Metrics must never interrupt or cause a retry of a confirmed game action.
