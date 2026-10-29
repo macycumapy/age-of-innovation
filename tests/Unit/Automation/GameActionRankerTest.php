@@ -3313,6 +3313,9 @@ class GameActionRankerTest extends TestCase
             ],
         );
         $state->round->hasTakenMainAction = true;
+        $state->players[1]->resources->coins = 50;
+        $state->players[1]->resources->tools = 1;
+        $state->players[1]->resources->scholars = 1;
 
         $rankedActions = app(GameActionRanker::class)->execute(
             $state,
@@ -3323,6 +3326,12 @@ class GameActionRankerTest extends TestCase
         );
 
         $this->assertCount(2, $rankedActions);
+        foreach ($rankedActions as $action) {
+            $this->assertSame(GameActionOptionType::ResolvePowerOffer, $action->option->type());
+            $this->assertSame(50, $action->simulation->state->players[1]->resources->coins);
+            $this->assertSame(1, $action->simulation->state->players[1]->resources->tools);
+            $this->assertSame(1, $action->simulation->state->players[1]->resources->scholars);
+        }
         $this->assertSame(1, $rankedActions[0]->simulation->nextActivePlayerId);
         $this->assertTrue($state->round->hasTakenMainAction);
         $this->assertNotNull($state->pendingInteraction);

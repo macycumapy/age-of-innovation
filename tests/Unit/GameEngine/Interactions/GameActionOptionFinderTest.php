@@ -36,9 +36,10 @@ class GameActionOptionFinderTest extends TestCase
         $this->assertNotContains(GameActionOptionType::ResolvePowerOffer, $types);
     }
 
-    public function test_it_returns_pending_power_offer_and_free_resource_options_only(): void
+    public function test_a_power_offer_allows_only_accepting_or_declining_even_with_exchangeable_resources(): void
     {
         $state = $this->state();
+        $state->players[0]->resources = new PlayerResourcesData(coins: 50, tools: 1, scholars: 1, power: new PowerBowlsStateData(bowlTwo: 4, bowlThree: 5));
         $state->pendingInteraction = new PendingInteractionData(
             PendingInteractionType::PowerOffer,
             1,
@@ -52,7 +53,10 @@ class GameActionOptionFinderTest extends TestCase
             $types,
             static fn (GameActionOptionType $type): bool => $type === GameActionOptionType::ResolvePowerOffer,
         )));
-        $this->assertContains(GameActionOptionType::ExchangeResources, $types);
+        $this->assertSame([GameActionOptionType::ResolvePowerOffer, GameActionOptionType::ResolvePowerOffer], $types);
+        $this->assertTrue($options[0]->accept);
+        $this->assertFalse($options[1]->accept);
+        $this->assertCount(2, app(GameActionOptionFinder::class)->execute($state, 1, includeAllConversionAmounts: true));
         $this->assertNotContains(GameActionOptionType::Pass, $types);
     }
 

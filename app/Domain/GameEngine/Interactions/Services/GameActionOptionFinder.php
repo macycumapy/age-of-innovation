@@ -123,6 +123,10 @@ final class GameActionOptionFinder
             return [];
         }
 
+        if ($state->pendingInteraction->type === PendingInteractionType::PowerOffer) {
+            return $this->powerOfferOptionFinder->execute($state, $player->playerId);
+        }
+
         $interactionOptions = match ($state->pendingInteraction->type) {
             PendingInteractionType::PowerOffer => $this->powerOfferOptionFinder->execute($state, $player->playerId),
             PendingInteractionType::ChooseTown => $this->chooseTownOptionFinder->execute($state, $player->playerId),
