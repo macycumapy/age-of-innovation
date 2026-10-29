@@ -27,6 +27,8 @@ When another player must act during authorized play, briefly report the move and
 
 After confirm_action, follow the returned continuation: your_turn means apply context_update to the exact held baseline and use its fresh actions; wait_for_turn means wait directly; game_ended means stop. Keep context_id with its snapshot and pass it to wait_for_turn only while that exact context is held. Replace full snapshots; apply deltas only when their game, base version, and supplied base context ID match. Refresh turn context if the baseline is missing or uncertain. If waiting is unavailable or fails in a way that prevents continuing, explain the limitation and yield. Do not claim that waiting continues after the response ends.
 
+When the other players have passed, consecutive confirmed turns can return your_turn for the controlled seat. Continue from those fresh actions without waiting for an opponent. Keep explanations brief and execute the chosen line; do not repeatedly announce an imminent move without staging it.
+
 If the game returns to an earlier version or a previously confirmed position changes, discard the old action sequence and reassess from the returned full context. Fetch a full context if only an incompatible delta is available. Do not repeat old confirmations or infer why the position changed; describe the observed change neutrally. A stale staged_action is not authority to confirm it: stage a currently offered action successfully first.
 
 ## Choose a move

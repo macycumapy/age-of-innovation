@@ -42,6 +42,8 @@ Multiple spades can prepare multiple buildable hexes, but the terraforming follo
 
 Protect routes opponents can block. Check the independence of a second town before merging components into an existing town. Balance separate town opportunities against final network ranking.
 
+Before buying an innovation with a neutral building, check for a reachable, empty homeland hex under its placement rules. The offered innovation purchase does not guarantee a placement: the follow-up may offer only a null target. If preparation is needed, include its action and terrain cost before purchasing. Value the income or immediate points separately from the building and any town it would enable.
+
 Sources: `app/Domain/GameEngine/Board/Enums/BuildingType.php`, `app/Domain/GameEngine/Towns/Actions/FindEligibleTownHexesAction.php`, `app/Domain/GameEngine/Board/Services/LargestNetworkSizeCalculator.php`, `app/Domain/GameEngine/Board/Actions/ApplyPaidTerraformingAction.php`, `app/Domain/GameEngine/Board/Actions/ApplySpendSpadesAction.php`.
 
 ## Scoring
@@ -65,6 +67,10 @@ Early: favor income and expansion that fund future scoring. Count remaining inco
 Middle: turn income into towns, competencies, and innovations while aligning construction with round goals. Shared actions, scarce components, and contested hexes can justify acting before the numerically highest immediate reward. A lower-point town tile may fund another profitable action.
 
 Late: prioritize achievable points, pass rewards, and ranking swings. New income needs a remaining payout and a use. Calculate whether a network link or knowledge step actually overtakes a place.
+
+Before final spending, recount each player's largest connected network from the current hex IDs and layout; do not carry forward an approximate building count. Calculate ties across the entire field. For example, against two connected networks of 12, growing from 11 to 12 changes the network award from 6 to 12; reaching 13 gives 18. Check cheap follow-up sites opened by expansion, including an adjacent homeland hex requiring only a workshop. Compare the complete expansion chain with guild round points, scholar rewards, and the exact final resource payout. Once opponents have passed, expansion beyond a secured first place needs another concrete reward.
+
+Shared book and power actions are contested funding and scoring opportunities. Include when each must be taken in a multi-turn budget, and compare taking a smaller payout now with waiting for a larger one that an opponent can remove. If the action is taken, rebuild the remaining budget and scoring comparison before making conversions; do not treat the previously announced payout as secured.
 
 Before passing, inspect unused special actions, reachable round goals, all owned pass bonuses, and available replacement round bonuses. Do not spend merely because a conversion is legal or delay passing with an unproductive action.
 
