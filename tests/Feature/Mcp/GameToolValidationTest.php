@@ -4,10 +4,9 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Mcp;
 
-use App\Mcp\Validators\GameActionValidator;
+use App\Mcp\Validators\ExecuteGameActionValidator;
 use App\Mcp\Validators\GameQueryValidator;
 use App\Mcp\Validators\JoinGameValidator;
-use App\Mcp\Validators\StageGameActionValidator;
 use Illuminate\Validation\ValidationException;
 use Laravel\Mcp\Request;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -22,11 +21,11 @@ class GameToolValidationTest extends TestCase
         $this->assertSame(12, $query->validate(new Request(['game_id' => '12']))->gameId);
         $this->assertSame(12, (new JoinGameValidator())->validate(new Request(['game_id' => '12']))->gameId);
 
-        $action = (new GameActionValidator())->validate(new Request(['version' => '0']));
+        $action = (new ExecuteGameActionValidator())->validate(new Request(['version' => '0', 'action_id' => 'finish_turn']));
         $this->assertNull($action->gameId);
         $this->assertSame(0, $action->version);
 
-        $stage = (new StageGameActionValidator())->validate(new Request([
+        $stage = (new ExecuteGameActionValidator())->validate(new Request([
             'game_id' => '12', 'version' => '3', 'action_id' => str_repeat('a', 64), 'user_id' => 999,
         ]));
         $this->assertSame(12, $stage->gameId);
@@ -56,15 +55,15 @@ class GameToolValidationTest extends TestCase
             'query noninteger game' => [GameQueryValidator::class, ['game_id' => 'invalid'], 'game_id'],
             'join missing game' => [JoinGameValidator::class, [], 'game_id'],
             'join negative game' => [JoinGameValidator::class, ['game_id' => -1], 'game_id'],
-            'action missing version' => [GameActionValidator::class, [], 'version'],
-            'action negative version' => [GameActionValidator::class, ['version' => -1], 'version'],
-            'action fractional version' => [GameActionValidator::class, ['version' => 1.5], 'version'],
-            'action invalid game' => [GameActionValidator::class, ['version' => 0, 'game_id' => []], 'game_id'],
-            'stage missing action' => [StageGameActionValidator::class, ['version' => 0], 'action_id'],
-            'stage empty action' => [StageGameActionValidator::class, ['version' => 0, 'action_id' => ''], 'action_id'],
-            'stage oversized action' => [StageGameActionValidator::class, ['version' => 0, 'action_id' => str_repeat('a', 65)], 'action_id'],
-            'stage nonstring action' => [StageGameActionValidator::class, ['version' => 0, 'action_id' => []], 'action_id'],
-            'stage missing version' => [StageGameActionValidator::class, ['action_id' => 'example'], 'version'],
+            'action missing version' => [ExecuteGameActionValidator::class, [], 'version'],
+            'action negative version' => [ExecuteGameActionValidator::class, ['version' => -1], 'version'],
+            'action fractional version' => [ExecuteGameActionValidator::class, ['version' => 1.5], 'version'],
+            'action invalid game' => [ExecuteGameActionValidator::class, ['version' => 0, 'game_id' => []], 'game_id'],
+            'stage missing action' => [ExecuteGameActionValidator::class, ['version' => 0], 'action_id'],
+            'stage empty action' => [ExecuteGameActionValidator::class, ['version' => 0, 'action_id' => ''], 'action_id'],
+            'stage oversized action' => [ExecuteGameActionValidator::class, ['version' => 0, 'action_id' => str_repeat('a', 65)], 'action_id'],
+            'stage nonstring action' => [ExecuteGameActionValidator::class, ['version' => 0, 'action_id' => []], 'action_id'],
+            'stage missing version' => [ExecuteGameActionValidator::class, ['action_id' => 'example'], 'version'],
         ];
     }
 }

@@ -20,22 +20,25 @@ use App\Domain\GameEngine\State\Data\GamePlayerStateData;
 use App\Domain\GameEngine\State\Data\GameStateData;
 use App\Domain\GameEngine\State\Enums\PlayerColor;
 use App\Domain\GameEngine\Turns\Enums\GamePhase;
+use App\Domain\GameSession\Actions\ConfirmGameAction;
+use App\Domain\GameSession\Actions\RollbackGameAction;
+use App\Domain\GameSession\Actions\StageGameAction;
 use App\Domain\GameSession\Data\ConfirmedGameActionData;
 use App\Domain\GameSession\Data\StagedGameActionData;
 use App\Domain\GameSession\Enums\GameActionContinuation;
 use App\Domain\GameSession\Queries\GetGameTurnContextQuery;
+use App\Domain\GameSession\Queries\GetLegalGameActionsQuery;
 use App\Events\GameChanged;
 use App\Mcp\Presentation\GameActionIdentifier;
 use App\Mcp\Presentation\GameActionPresenter;
 use App\Mcp\Presentation\GameStatePresenter;
 use App\Mcp\Server\GameServer;
 use App\Mcp\Stores\GameContextSnapshotStore;
-use App\Mcp\Tools\ConfirmGameActionTool;
-use App\Mcp\Tools\RollbackGameActionTool;
-use App\Mcp\Tools\StageGameActionTool;
+use App\Mcp\Tools\ExecuteGameActionTool;
 use App\Models\Game;
 use App\Models\GamePlayer;
 use App\Models\User;
+use DomainException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Log;
@@ -96,13 +99,12 @@ class GameActionConfirmationTest extends TestCase
         $before = $game->fresh()->getAttributes();
         $historyCount = $game->actions()->count();
         Event::fake([GameChanged::class]);
-        GameServer::tool(StageGameActionTool::class, ['game_id' => $game->id, 'version' => $game->version, 'action_id' => $option['action_id']])->assertOk();
         $this->assertSame($before, $game->fresh()->getAttributes());
         config(['game-mcp.user_id' => User::factory()->create()->id]);
         $token = $user->createToken('test', ['game:mcp'])->plainTextToken;
         $request = [
             'jsonrpc' => '2.0', 'id' => 1, 'method' => 'tools/call',
-            'params' => ['name' => 'confirm_action', 'arguments' => ['game_id' => $game->id, 'version' => $game->version]],
+            'params' => ['name' => 'execute_action', 'arguments' => ['game_id' => $game->id, 'version' => $game->version, 'action_id' => $option['action_id']]],
         ];
         config(['game-mcp.metrics.enabled' => true]);
         Log::spy();
@@ -126,7 +128,7 @@ class GameActionConfirmationTest extends TestCase
             $update = $payload['context_update'];
             Log::shouldHaveReceived('info')->withArgs(
                 fn (string $message, array $metric): bool =>
-                $message === 'mcp.tool_call' && $metric['tool'] === 'confirm_action'
+                $message === 'mcp.tool_call' && $metric['tool'] === 'execute_action'
                 && $metric['response_format'] === $update['format']
                 && $metric['actions_count'] === count($update['actions'] ?? $update['context']['actions'])
                 && $metric['full_snapshot_reason'] === null
@@ -171,12 +173,8 @@ class GameActionConfirmationTest extends TestCase
 
         $this->assertNotEmpty($reconstructed['actions']);
         config(['game-mcp.user_id' => $user->id]);
-        GameServer::tool(StageGameActionTool::class, [
-            'game_id' => $game->id, 'version' => $reconstructed['version'], 'action_id' => $reconstructed['actions'][0]['action_id'],
-        ])->assertOk();
-        GameServer::tool(RollbackGameActionTool::class, [
-            'game_id' => $game->id, 'version' => $reconstructed['version'],
-        ])->assertOk();
+        $this->stageSelection($game, $user, $reconstructed['actions'][0]['action_id']);
+        app(RollbackGameAction::class)->execute($user, $game->id, $reconstructed['version']);
         $this->assertSame($historyCount + 1, $game->actions()->count());
 
         $request['params']['arguments']['version'] = $game->version;
@@ -189,8 +187,7 @@ class GameActionConfirmationTest extends TestCase
     {
         [$game, $user] = $this->sessionGame();
         $context = app(GameStatePresenter::class)->turnContext(app(GetGameTurnContextQuery::class)->execute($user, $game->id));
-        GameServer::tool(StageGameActionTool::class, ['game_id' => $game->id, 'version' => $game->version, 'action_id' => $context['actions'][0]['action_id']])->assertOk();
-        GameServer::tool(ConfirmGameActionTool::class, ['game_id' => $game->id, 'version' => $game->version])->assertOk();
+        GameServer::tool(ExecuteGameActionTool::class, ['game_id' => $game->id, 'version' => $game->version, 'action_id' => $context['actions'][0]['action_id']])->assertOk();
         $game->refresh();
         $player = $game->players()->where('user_id', $user->id)->sole();
         $state = $game->state;
@@ -198,9 +195,7 @@ class GameActionConfirmationTest extends TestCase
         $state->round->hasTakenMainAction = true;
         $state->round->turnStartVersion = $game->version;
         $game->update(['state' => $state, 'phase' => GamePhase::Actions, 'active_game_player_id' => $player->id]);
-        GameServer::tool(StageGameActionTool::class, ['game_id' => $game->id, 'version' => $game->version, 'action_id' => 'finish_turn'])->assertOk();
-
-        GameServer::tool(ConfirmGameActionTool::class, ['game_id' => $game->id, 'version' => $game->version])->assertOk()
+        GameServer::tool(ExecuteGameActionTool::class, ['game_id' => $game->id, 'version' => $game->version, 'action_id' => 'finish_turn'])->assertOk()
             ->assertSee('"continuation":"wait_for_turn"')->assertSee('"type":"finish_turn"')
             ->assertDontSee('"state":')->assertDontSee('"actions":');
 
@@ -208,7 +203,7 @@ class GameActionConfirmationTest extends TestCase
     }
 
     #[DataProvider('exchangePhases')]
-    public function test_bulk_exchange_can_be_selected_rolled_back_and_confirmed_once(bool $hasPendingChoice): void
+    public function test_bulk_exchange_execution_respects_pending_choices_and_domain_rollback(bool $hasPendingChoice): void
     {
         [$game, $user] = $this->sessionGame();
         $state = $game->state;
@@ -236,24 +231,37 @@ class GameActionConfirmationTest extends TestCase
                 break;
             }
         }
+        if ($hasPendingChoice) {
+            $this->assertNull($option);
+            $before = $game->fresh()->getAttributes();
+            $id = app(GameActionIdentifier::class)->forOption(new ResourceExchangeOptionData(ResourceExchange::PowerToCoin, amount: 3), $game->version);
+            GameServer::tool(ExecuteGameActionTool::class, ['game_id' => $game->id, 'version' => $game->version, 'action_id' => $id])->assertHasErrors();
+            $this->assertSame($before, $game->fresh()->getAttributes());
+
+            return;
+        }
         $this->assertNotNull($option);
         $before = $game->fresh()->getAttributes();
         $historyCount = $game->actions()->count();
         $arguments = ['game_id' => $game->id, 'version' => $game->version, 'action_id' => $option['action_id']];
 
         $unaffordable = app(GameActionIdentifier::class)->forOption(new ResourceExchangeOptionData(ResourceExchange::PowerToCoin, amount: 6), $game->version);
-        GameServer::tool(StageGameActionTool::class, [...$arguments, 'action_id' => $unaffordable])->assertHasErrors();
+        GameServer::tool(ExecuteGameActionTool::class, [...$arguments, 'action_id' => $unaffordable])->assertHasErrors();
         $this->assertSame($before, $game->fresh()->getAttributes());
 
-        GameServer::tool(StageGameActionTool::class, $arguments)->assertOk();
+        $this->stageSelection($game, $user, $arguments['action_id']);
         $this->assertSame($before, $game->fresh()->getAttributes());
-        GameServer::tool(RollbackGameActionTool::class, ['game_id' => $game->id, 'version' => $game->version])->assertOk();
+        app(RollbackGameAction::class)->execute($user, $game->id, $game->version);
         $this->assertSame($before, $game->fresh()->getAttributes());
         $this->assertSame($historyCount, $game->actions()->count());
-        GameServer::tool(ConfirmGameActionTool::class, ['game_id' => $game->id, 'version' => $game->version])->assertHasErrors();
+        try {
+            app(ConfirmGameAction::class)->execute($user, $game->id, $game->version);
+            $this->fail('An unstaged action cannot be confirmed.');
+        } catch (DomainException $exception) {
+            $this->assertStringContainsString('No valid staged action', $exception->getMessage());
+        }
 
-        GameServer::tool(StageGameActionTool::class, $arguments)->assertOk();
-        GameServer::tool(ConfirmGameActionTool::class, ['game_id' => $game->id, 'version' => $game->version])->assertOk();
+        GameServer::tool(ExecuteGameActionTool::class, $arguments)->assertOk();
         $game->refresh();
         $this->assertSame(3, $game->state->players[0]->resources->coins);
         $this->assertSame(2, $game->state->players[0]->resources->power->bowlThree);
@@ -264,7 +272,7 @@ class GameActionConfirmationTest extends TestCase
         $this->assertSame(3, $action->payload['exchanges']['power_to_coin']);
         $this->assertFalse($game->state->round->hasTakenMainAction);
         $this->assertSame($hasPendingChoice, $game->state->pendingInteraction !== null);
-        GameServer::tool(StageGameActionTool::class, $arguments)->assertHasErrors();
+        GameServer::tool(ExecuteGameActionTool::class, $arguments)->assertHasErrors();
         $this->assertSame($historyCount + 1, $game->actions()->count());
     }
 
@@ -287,6 +295,12 @@ class GameActionConfirmationTest extends TestCase
             [GameStatus::Abandoned, 7, null, GameActionContinuation::GameEnded],
             [GameStatus::Lobby, 7, null, GameActionContinuation::WaitForTurn],
         ];
+    }
+
+    private function stageSelection(Game $game, User $user, string $id): void
+    {
+        $options = app(GetLegalGameActionsQuery::class)->execute($user, $game->id);
+        app(StageGameAction::class)->execute($user, $game->id, $game->version, app(GameActionIdentifier::class)->resolve($id, $options));
     }
 
     /** @return array{Game, User} */

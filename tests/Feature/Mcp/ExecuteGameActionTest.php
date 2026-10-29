@@ -12,15 +12,16 @@ use App\Domain\GameEngine\Setup\Actions\StartGameAction;
 use App\Domain\GameEngine\State\Data\GamePlayerStateData;
 use App\Domain\GameEngine\State\Enums\PlayerColor;
 use App\Domain\GameEngine\Turns\Enums\GamePhase;
+use App\Domain\GameSession\Actions\RollbackGameAction;
+use App\Domain\GameSession\Actions\StageGameAction;
 use App\Domain\GameSession\Queries\GetGameTurnContextQuery;
+use App\Domain\GameSession\Queries\GetLegalGameActionsQuery;
 use App\Domain\GameSession\Services\StagedGameActionStore;
 use App\Events\GameChanged;
 use App\Mcp\Presentation\GameStatePresenter;
 use App\Mcp\Server\GameServer;
 use App\Mcp\Stores\GameContextSnapshotStore;
 use App\Mcp\Tools\ExecuteGameActionTool;
-use App\Mcp\Tools\RollbackGameActionTool;
-use App\Mcp\Tools\StageGameActionTool;
 use App\Models\Game;
 use App\Models\GamePlayer;
 use App\Models\User;
@@ -83,12 +84,13 @@ class ExecuteGameActionTest extends TestCase
         [$game, $player, $context] = $this->createSession();
         $arguments = ['game_id' => $game->id, 'version' => $game->version, 'action_id' => $context['actions'][0]['action_id']];
         $before = $game->fresh()->getAttributes();
-        GameServer::tool(StageGameActionTool::class, $arguments)->assertOk();
+        $options = app(GetLegalGameActionsQuery::class)->execute($player->user, $game->id);
+        app(StageGameAction::class)->execute($player->user, $game->id, $game->version, $options->options[0]);
         $selection = app(StagedGameActionStore::class)->get($player);
         GameServer::tool(ExecuteGameActionTool::class, $arguments)->assertHasErrors()->assertSee('A staged action already exists');
         $this->assertEquals($selection, app(StagedGameActionStore::class)->get($player));
         $this->assertSame($before, $game->fresh()->getAttributes());
-        GameServer::tool(RollbackGameActionTool::class, $arguments)->assertOk();
+        app(RollbackGameAction::class)->execute($player->user, $game->id, $game->version);
         GameServer::tool(ExecuteGameActionTool::class, $arguments)->assertOk();
     }
 

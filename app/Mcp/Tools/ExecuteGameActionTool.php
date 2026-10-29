@@ -14,7 +14,7 @@ use App\Mcp\Presentation\GameActionPresenter;
 use App\Mcp\Presentation\GameContextUpdatePresenter;
 use App\Mcp\Presentation\GameStatePresenter;
 use App\Mcp\Stores\GameContextSnapshotStore;
-use App\Mcp\Validators\StageGameActionValidator;
+use App\Mcp\Validators\ExecuteGameActionValidator;
 use App\Models\User;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Illuminate\JsonSchema\Types\Type;
@@ -25,12 +25,12 @@ use Laravel\Mcp\Server\Attributes\Description;
 use Laravel\Mcp\Server\Attributes\Name;
 
 #[Name('execute_action')]
-#[Description('Execute an exact current action_id in one call: stage and confirm internally under one transaction. This commits resources and may advance the game; it is not a preview and cannot be undone with rollback_action. Use only when authorized to commit. Returns the same confirmation summary, continuation and context_update as confirm_action. Existing staged selections must be confirmed or rolled back first. Never retry an ambiguous result blindly; read get_turn_context.')]
+#[Description('Commit an exact current action_id in one call: stage and confirm internally under one transaction. Spends resources and may advance the game; not a preview and not undoable through MCP. Use only when authorized to commit. Returns confirmed summary, version, continuation and context_update with fresh actions when your turn continues. Existing staged selections must be resolved by the user outside MCP first. After an ambiguous result, read get_turn_context instead of blindly retrying.')]
 final class ExecuteGameActionTool extends GameTool
 {
     public function handle(
         Request $request,
-        StageGameActionValidator $validator,
+        ExecuteGameActionValidator $validator,
         ExecuteGameAction $execute,
         GetLegalGameActionsQuery $actions,
         GameActionIdentifier $identifiers,

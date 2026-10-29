@@ -10,7 +10,6 @@ use App\Mcp\Resources\GamePlayGuideResource;
 use App\Mcp\Resources\GameQuickStartResource;
 use App\Mcp\Resources\GameRulesResource;
 use App\Mcp\Server\Methods\MeasuredCallTool;
-use App\Mcp\Tools\ConfirmGameActionTool;
 use App\Mcp\Tools\ExecuteGameActionTool;
 use App\Mcp\Tools\GetGameBoardLayoutTool;
 use App\Mcp\Tools\GetGameComponentTool;
@@ -18,15 +17,13 @@ use App\Mcp\Tools\GetGameStateTool;
 use App\Mcp\Tools\GetGameTurnContextTool;
 use App\Mcp\Tools\GetLegalGameActionsTool;
 use App\Mcp\Tools\JoinGameTool;
-use App\Mcp\Tools\RollbackGameActionTool;
-use App\Mcp\Tools\StageGameActionTool;
 use App\Mcp\Tools\WaitForGameTurnTool;
 use Laravel\Mcp\Server;
 use Laravel\Mcp\Server\Attributes\Name;
 use Laravel\Mcp\Server\Attributes\Version;
 
 #[Name('Game Server')]
-#[Version('0.0.7')]
+#[Version('0.0.8')]
 class GameServer extends Server
 {
     protected function boot(): void
@@ -45,12 +42,10 @@ class GameServer extends Server
         Board hexes, buildings, and bridges are positional rows: use each response's hex_fields, building_fields, and bridge_fields. Missing trailing dynamic hex values are null. Current terrain, ownership, towns, neutral buildings, annexes, and bridges are always included. Setup-only selections are omitted after setup; scoring goals and shared actions remain available.
         Action IDs are opaque and version-scoped; always refresh legal actions after a version change. finish_turn is the only fixed ID and still requires the current version.
         While authorized to keep playing, use wait_for_turn without timeout_seconds to wait up to 30 seconds on each call. On timeout, call it again; on game_ended, stop. On your_turn, use the returned state, actions, and shared version directly; do not call get_state, get_turn_context, or get_legal_actions again for the same version.
-        Keep context_id alongside the exact context returned by get_turn_context, successful wait_for_turn, or confirm_action.context_update. Pass it to wait_for_turn only while that context is still held. A wait delta requires matching base_context_id, game_id, and base_version; otherwise fetch get_turn_context. Unknown/expired/foreign IDs return a full context. Replace the held context_id with the new one after applying an update/full context; discard it if absent. Timeout leaves context and its ID unchanged. A confirmation without context_update also leaves the held snapshot/ID unchanged; do not advance its version from the confirmation summary alone. If context is lost or uncertain, omit context_id and request a full context. Use reconstructed state and fresh actions directly.
-        For selection review or approval-driven play: Stage an action, then explicitly confirm or roll back.
-        For authorized autonomous play, prefer execute_action(game_id, version, action_id): one call stages and confirms internally and returns the same confirmation/continuation/context_update protocol. This call commits the move, not a preview; do not follow it with confirm_action. The separate stage_action/confirm_action/rollback_action workflow remains for selection review or user approval. Never blindly repeat execute_action after an ambiguous response: get_turn_context first. Existing staged selections must be confirmed or rolled back before execute_action; never silently confirm an earlier selection. Apply all confirmation/context rules below to execute_action results too.
+        Keep context_id alongside the exact context returned by get_turn_context, successful wait_for_turn, or execute_action.context_update. Pass it to wait_for_turn only while that context is still held. A wait delta requires matching base_context_id, game_id, and base_version; otherwise fetch get_turn_context. Unknown/expired/foreign IDs return a full context. Replace the held context_id with the new one after applying an update/full context; discard it if absent. Timeout leaves context and its ID unchanged. A confirmation without context_update also leaves the held snapshot/ID unchanged; do not advance its version from the confirmation summary alone. If context is lost or uncertain, omit context_id and request a full context. Use reconstructed state and fresh actions directly.
+        Use execute_action(game_id, version, action_id) to commit a chosen legal action in one call. Staging and confirmation run internally; the call itself is the explicit commitment, not a preview. Never blindly repeat an ambiguous execution: get_turn_context first. If an existing staged selection blocks execution, ask the user to resolve it outside MCP; do not silently overwrite it.
         A round change forces a full context instead of a delta. Replace the previous context, review the new round goals, economy, board, and opponents, then choose from the returned actions. Do not reread the context just to start the round.
-        If stage_action fails or its result is uncertain, do not call confirm_action. Fetch get_turn_context, choose again from its current actions, and stage again. Confirm only after a successful stage_action response whose staged_action matches the intended action_id and version. Never batch stage_action and confirm_action in parallel or continue to confirmation without inspecting the staging result.
-        After confirm_action, follow continuation: your_turn -> use context_update and its fresh actions directly; wait_for_turn -> wait_for_turn without a redundant state/context read; game_ended -> stop. next_player_id identifies a game player, not a user. The action summary is not a state delta.
+        After execute_action, follow continuation: your_turn -> use context_update and its fresh actions directly; wait_for_turn -> wait_for_turn without a redundant state/context read; game_ended -> stop. next_player_id identifies a game player, not a user. The action summary is not a state delta.
         context_update format context-delta-v1 applies only to your held compact-v2 context with matching game_id and base_version. Apply changes in order: path is an array of literal object keys or zero-based array indices; set replaces/adds exactly that value (including null or an entire array), remove deletes that object key. Never merge arrays or infer resource changes from the action summary. Replace actions with context_update.actions and use its new version. For context-snapshot-v1 replace the entire context with context_update.context. If your baseline is missing, mismatched, or uncertain, fetch get_turn_context before acting. Do not replay the confirmed action to recover context.
         Use the current version for action mutations.
         Resolve pending choices before finishing the turn.
@@ -66,9 +61,6 @@ class GameServer extends Server
         GetGameComponentTool::class,
         WaitForGameTurnTool::class,
         GetLegalGameActionsTool::class,
-        StageGameActionTool::class,
-        ConfirmGameActionTool::class,
-        RollbackGameActionTool::class,
         ExecuteGameActionTool::class,
     ];
 

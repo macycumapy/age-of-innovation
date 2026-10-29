@@ -11,17 +11,19 @@ use App\Domain\GameEngine\Interactions\Services\GameActionOptionFinder;
 use App\Domain\GameEngine\Setup\Data\PlanningBundleOptionData;
 use App\Domain\GameEngine\State\Data\GameStateData;
 use App\Domain\GameEngine\Turns\Enums\GamePhase;
+use App\Domain\GameSession\Actions\RollbackGameAction;
+use App\Domain\GameSession\Actions\StageGameAction;
 use App\Domain\GameSession\Data\GameActionOptionsData;
 use App\Domain\GameSession\Data\GameStateViewData;
 use App\Domain\GameSession\Data\StagedGameActionData;
 use App\Domain\GameSession\Queries\GetGameStateQuery;
+use App\Domain\GameSession\Queries\GetLegalGameActionsQuery;
 use App\Events\GameChanged;
 use App\Events\GamePlayersChanged;
 use App\Mcp\Presentation\GameActionIdentifier;
 use App\Mcp\Presentation\GameActionPresenter;
 use App\Mcp\Presentation\GameStatePresenter;
 use App\Mcp\Server\GameServer;
-use App\Mcp\Tools\ConfirmGameActionTool;
 use App\Mcp\Tools\ExecuteGameActionTool;
 use App\Mcp\Tools\GetGameBoardLayoutTool;
 use App\Mcp\Tools\GetGameComponentTool;
@@ -29,8 +31,6 @@ use App\Mcp\Tools\GetGameStateTool;
 use App\Mcp\Tools\GetGameTurnContextTool;
 use App\Mcp\Tools\GetLegalGameActionsTool;
 use App\Mcp\Tools\JoinGameTool;
-use App\Mcp\Tools\RollbackGameActionTool;
-use App\Mcp\Tools\StageGameActionTool;
 use App\Models\Game;
 use App\Models\GamePlayer;
 use App\Models\User;
@@ -88,10 +88,7 @@ class GameServerTest extends TestCase
             GetGameBoardLayoutTool::class => ['get_board_layout', []],
             GetGameComponentTool::class => ['get_component', ['type', 'id']],
             GetLegalGameActionsTool::class => ['get_legal_actions', []],
-            StageGameActionTool::class => ['stage_action', ['version', 'action_id']],
-            ConfirmGameActionTool::class => ['confirm_action', ['version']],
             ExecuteGameActionTool::class => ['execute_action', ['version', 'action_id']],
-            RollbackGameActionTool::class => ['rollback_action', ['version']],
         ];
         foreach ($tools as $class => [$name, $required]) {
             $definition = app($class)->toArray();
@@ -106,29 +103,23 @@ class GameServerTest extends TestCase
     public function test_mutation_tools_require_their_own_parameters(): void
     {
         $this->createGameSession();
-        GameServer::tool(StageGameActionTool::class, ['version' => 0])->assertHasErrors();
-        GameServer::tool(ConfirmGameActionTool::class, [])->assertHasErrors();
-        GameServer::tool(RollbackGameActionTool::class, [])->assertHasErrors();
-        GameServer::tool(ConfirmGameActionTool::class, ['version' => -1])->assertHasErrors();
-        GameServer::tool(RollbackGameActionTool::class, ['version' => -1])->assertHasErrors();
+        foreach ([[], ['version' => 0], ['version' => -1, 'action_id' => 'finish_turn'], ['action_id' => 'finish_turn']] as $arguments) {
+            GameServer::tool(ExecuteGameActionTool::class, $arguments)->assertHasErrors();
+        }
     }
 
     public function test_server_context_contains_the_game_instructions(): void
     {
         $server = new GameServer($this->createMock(Transport::class));
         $instructions = $server->createContext()->instructions;
-
         $this->assertStringContainsString('Use join_game with game_id', $instructions);
         $this->assertStringContainsString('GAME_MCP_USER_ID', $instructions);
-        $this->assertStringContainsString('Stage an action, then explicitly confirm or roll back.', $instructions);
-        foreach ([$instructions, app(StageGameActionTool::class)->toArray()['description']] as $text) {
-            $this->assertStringContainsString('If stage_action fails or its result is uncertain, do not call confirm_action.', $text);
-            $this->assertStringContainsString('Fetch get_turn_context, choose again from its current actions, and stage again.', $text);
-            $this->assertStringContainsString('matches the intended action_id and version', $text);
-            $this->assertStringContainsString('Never batch stage_action and confirm_action in parallel', $text);
-        }
+        $this->assertStringContainsString('Use execute_action', $instructions);
         $this->assertStringContainsString('Use the current version for action mutations.', $instructions);
         $this->assertStringContainsString('specify game_id on each call.', $instructions);
+        foreach (['stage_action', 'confirm_action', 'rollback_action'] as $obsolete) {
+            $this->assertStringNotContainsString($obsolete, $instructions);
+        }
     }
 
     public function test_server_is_registered_and_requires_a_configured_user(): void
@@ -144,17 +135,13 @@ class GameServerTest extends TestCase
         [$game, $player, $actionId] = $this->createGameSession();
         $before = $game->fresh()->getAttributes();
         Event::fake([GameChanged::class]);
-
         GameServer::tool(GetGameStateTool::class, [])->assertOk()->assertDontSee('strategicPlan');
         GameServer::tool(GetLegalGameActionsTool::class, [])->assertOk()->assertSee($actionId);
-        GameServer::tool(StageGameActionTool::class, ['version' => $game->version, 'action_id' => $actionId])->assertOk();
+        $this->stageSelection($game, $player, $actionId);
         $this->assertSame($before, $game->fresh()->getAttributes());
-        $this->assertSame(0, $game->actions()->count());
-
-        GameServer::tool(RollbackGameActionTool::class, ['version' => $game->version])->assertOk();
+        app(RollbackGameAction::class)->execute($player->user, $game->id, $game->version);
         $this->assertSame($before, $game->fresh()->getAttributes());
         $this->assertNull(Cache::get('game:staged-action:'.$player->id));
-        GameServer::tool(ConfirmGameActionTool::class, ['version' => $game->version])->assertHasErrors();
         $this->assertSame(0, $game->actions()->count());
         Event::assertNotDispatched(GameChanged::class);
     }
@@ -282,14 +269,13 @@ class GameServerTest extends TestCase
     {
         [$game, $player, $actionId] = $this->createGameSession();
         Event::fake([GameChanged::class]);
-        GameServer::tool(StageGameActionTool::class, ['version' => $game->version, 'action_id' => $actionId])->assertOk();
-        GameServer::tool(ConfirmGameActionTool::class, ['version' => $game->version])->assertOk();
+        $arguments = ['version' => $game->version, 'action_id' => $actionId];
+        GameServer::tool(ExecuteGameActionTool::class, $arguments)->assertOk();
         $this->assertGreaterThan($game->version, $game->fresh()->version);
         $this->assertNotNull($player->fresh()->homeland);
         $this->assertSame(1, $game->actions()->count());
-        Event::assertDispatched(GameChanged::class, fn (GameChanged $event): bool => $event->gameId === $game->id);
         Event::assertDispatchedTimes(GameChanged::class, 1);
-        GameServer::tool(ConfirmGameActionTool::class, ['version' => $game->fresh()->version])->assertHasErrors();
+        GameServer::tool(ExecuteGameActionTool::class, $arguments)->assertHasErrors();
         $this->assertSame(1, $game->actions()->count());
         Event::assertDispatchedTimes(GameChanged::class, 1);
     }
@@ -298,12 +284,12 @@ class GameServerTest extends TestCase
     {
         [$game, $player, $actionId] = $this->createGameSession();
         Event::fake([GameChanged::class]);
-        GameServer::tool(StageGameActionTool::class, ['version' => $game->version + 1, 'action_id' => $actionId])->assertHasErrors();
-        GameServer::tool(StageGameActionTool::class, ['version' => $game->version, 'action_id' => 'invalid'])->assertHasErrors();
-        GameServer::tool(StageGameActionTool::class, ['action_id' => $actionId])->assertHasErrors();
-        GameServer::tool(StageGameActionTool::class, ['version' => $game->version, 'action_id' => $actionId])->assertOk();
+        GameServer::tool(ExecuteGameActionTool::class, ['version' => $game->version + 1, 'action_id' => $actionId])->assertHasErrors();
+        GameServer::tool(ExecuteGameActionTool::class, ['version' => $game->version, 'action_id' => 'invalid'])->assertHasErrors();
+        GameServer::tool(ExecuteGameActionTool::class, ['action_id' => $actionId])->assertHasErrors();
+        $oldVersion = $game->version;
         $game->increment('version');
-        GameServer::tool(ConfirmGameActionTool::class, ['version' => $game->version])->assertHasErrors();
+        GameServer::tool(ExecuteGameActionTool::class, ['version' => $oldVersion, 'action_id' => $actionId])->assertHasErrors();
         $this->assertNull($player->fresh()->homeland);
         $this->assertSame(0, $game->actions()->count());
         Event::assertNotDispatched(GameChanged::class);
@@ -314,15 +300,14 @@ class GameServerTest extends TestCase
         [$game, $player, $actionId] = $this->createGameSession();
         config(['game-mcp.user_id' => $game->players()->whereKeyNot($player->id)->sole()->user_id]);
         GameServer::tool(GetLegalGameActionsTool::class, [])->assertOk()->assertDontSee($actionId);
-        GameServer::tool(StageGameActionTool::class, ['version' => $game->version, 'action_id' => $actionId])->assertHasErrors();
+        GameServer::tool(ExecuteGameActionTool::class, ['version' => $game->version, 'action_id' => $actionId])->assertHasErrors();
     }
 
     public function test_finishing_the_turn_also_requires_staging_and_confirmation(): void
     {
         [$game, $player, $actionId] = $this->createGameSession();
         Event::fake([GameChanged::class]);
-        GameServer::tool(StageGameActionTool::class, ['version' => $game->version, 'action_id' => $actionId])->assertOk();
-        GameServer::tool(ConfirmGameActionTool::class, ['version' => $game->version])->assertOk();
+        GameServer::tool(ExecuteGameActionTool::class, ['version' => $game->version, 'action_id' => $actionId])->assertOk();
         $game->refresh();
         $state = $game->state;
         $state->round->phase = GamePhase::Actions;
@@ -330,16 +315,20 @@ class GameServerTest extends TestCase
         $state->round->turnStartVersion = $game->version;
         $game->update(['state' => $state, 'phase' => GamePhase::Actions, 'active_game_player_id' => $player->id]);
         $before = $game->fresh()->getAttributes();
-
         GameServer::tool(GetLegalGameActionsTool::class, [])->assertOk()->assertSee('finish_turn');
-        GameServer::tool(StageGameActionTool::class, ['version' => $game->version, 'action_id' => 'finish_turn'])->assertOk();
-        GameServer::tool(RollbackGameActionTool::class, ['version' => $game->version])->assertOk();
+        $this->stageSelection($game, $player, 'finish_turn');
+        app(RollbackGameAction::class)->execute($player->user, $game->id, $game->version);
         $this->assertSame($before, $game->fresh()->getAttributes());
-        GameServer::tool(StageGameActionTool::class, ['version' => $game->version, 'action_id' => 'finish_turn'])->assertOk();
-        GameServer::tool(ConfirmGameActionTool::class, ['version' => $game->version])->assertOk();
+        GameServer::tool(ExecuteGameActionTool::class, ['version' => $game->version, 'action_id' => 'finish_turn'])->assertOk();
         $this->assertNotSame($player->id, $game->fresh()->active_game_player_id);
         $this->assertFalse($game->fresh()->state->round->hasTakenMainAction);
         Event::assertDispatchedTimes(GameChanged::class, 2);
+    }
+
+    private function stageSelection(Game $game, GamePlayer $player, string $id): void
+    {
+        $options = app(GetLegalGameActionsQuery::class)->execute($player->user, $game->id);
+        app(StageGameAction::class)->execute($player->user, $game->id, $game->version, app(GameActionIdentifier::class)->resolve($id, $options));
     }
 
     /** @return array{Game, GamePlayer, string} */

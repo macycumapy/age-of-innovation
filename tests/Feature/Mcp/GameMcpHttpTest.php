@@ -42,7 +42,7 @@ class GameMcpHttpTest extends TestCase
         ])->assertOk()->assertJsonPath('result.serverInfo.name', 'Game Server');
         $this->withToken($token)->postJson('/mcp/game', [
             'jsonrpc' => '2.0', 'id' => 2, 'method' => 'tools/list',
-        ])->assertOk()->assertJsonCount(11, 'result.tools')->assertJsonPath('result.tools.0.name', 'join_game');
+        ])->assertOk()->assertJsonCount(8, 'result.tools')->assertJsonPath('result.tools.0.name', 'join_game');
     }
 
     public function test_http_join_uses_the_token_owner_instead_of_the_local_user(): void
@@ -95,17 +95,13 @@ class GameMcpHttpTest extends TestCase
         $selection = ['game_id' => $game->id, 'version' => $version, 'action_id' => $actions['actions'][0]['action_id']];
         $context = ['game_id' => $game->id, 'version' => $version];
 
-        $this->callTool($token, 'stage_action', $selection)->assertOk()->assertJsonPath('result.isError', false)
-            ->assertJsonPath('result.structuredContent.staged_action.action_id', $selection['action_id']);
+        foreach (['stage_action', 'confirm_action', 'rollback_action'] as $obsolete) {
+            $this->callTool($token, $obsolete, $selection)->assertOk()->assertJsonPath('error.code', -32602);
+        }
         $this->assertSame($version, $game->fresh()->version);
-        $this->callTool($token, 'rollback_action', $context)->assertOk()->assertJsonPath('result.isError', false)
-            ->assertJsonPath('result.structuredContent.rolled_back', true);
-        $this->callTool($token, 'confirm_action', $context)->assertOk()->assertJsonPath('result.isError', true);
         $this->assertSame($historyCount, $game->actions()->count());
         Event::assertNotDispatched(GameChanged::class);
-
-        $this->callTool($token, 'stage_action', $selection)->assertOk()->assertJsonPath('result.isError', false);
-        $this->callTool($token, 'confirm_action', $context)->assertOk()->assertJsonPath('result.isError', false)
+        $this->callTool($token, 'execute_action', $selection)->assertOk()->assertJsonPath('result.isError', false)
             ->assertJsonPath('result.structuredContent.confirmed', true);
         $this->assertGreaterThan($version, $game->fresh()->version);
         $this->assertSame($historyCount + 1, $game->actions()->count());

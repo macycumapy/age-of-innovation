@@ -58,16 +58,15 @@ class GameResourcesTest extends TestCase
             'jsonrpc' => '2.0', 'id' => 1, 'method' => 'resources/read', 'params' => ['uri' => 'game://quick-start'],
         ])->assertOk()->assertJsonPath('result.contents.0.mimeType', 'text/markdown');
         $text = $response->json('result.contents.0.text');
-        $this->assertStringContainsString('If stage_action fails or its result is uncertain, do not call confirm_action.', $text);
-        $this->assertStringContainsString('Fetch get_turn_context, choose again from its current actions, and stage again.', $text);
-        $this->assertStringContainsString('matches the intended action_id and version', $text);
-        $this->assertStringContainsString('Never batch stage_action and confirm_action in parallel', $text);
+        foreach (['stage_action', 'confirm_action', 'rollback_action'] as $obsolete) {
+            $this->assertStringNotContainsString($obsolete, $text);
+        }
         $this->assertStringContainsString('base_context_id, game_id, and base_version', $text);
         $this->assertStringContainsString('Timeout preserves context/ID', $text);
         GameServer::resource(GameQuickStartResource::class)->assertOk()->assertSee($text);
         $fullSize = strlen($this->content('SKILL.md')) + strlen($this->content('references/components.md')) + strlen($this->content('references/rules-and-strategy.md'));
         $this->assertLessThan($fullSize / 4, strlen($text));
-        foreach (['get_component', 'get_turn_context', 'execute_action', 'stage_action', 'confirm_action', 'rollback_action', 'wait_for_turn', 'layout_id'] as $name) {
+        foreach (['get_component', 'get_turn_context', 'execute_action', 'wait_for_turn', 'layout_id'] as $name) {
             $this->assertStringContainsString($name, $text);
         }
     }

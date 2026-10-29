@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Tests\Feature\Mcp;
 
 use App\Domain\GameEngine\Setup\Actions\StartGameAction;
+use App\Domain\GameSession\Actions\RollbackGameAction;
+use App\Domain\GameSession\Actions\StageGameAction;
 use App\Domain\GameSession\Data\GameTurnContextData;
 use App\Domain\GameSession\Queries\GetGameStateQuery;
 use App\Domain\GameSession\Queries\GetGameTurnContextQuery;
@@ -12,10 +14,8 @@ use App\Domain\GameSession\Queries\GetLegalGameActionsQuery;
 use App\Mcp\Presentation\GameActionPresenter;
 use App\Mcp\Presentation\GameStatePresenter;
 use App\Mcp\Server\GameServer;
-use App\Mcp\Tools\ConfirmGameActionTool;
+use App\Mcp\Tools\ExecuteGameActionTool;
 use App\Mcp\Tools\GetGameTurnContextTool;
-use App\Mcp\Tools\RollbackGameActionTool;
-use App\Mcp\Tools\StageGameActionTool;
 use App\Models\Game;
 use App\Models\GamePlayer;
 use App\Models\User;
@@ -93,17 +93,16 @@ class GameTurnContextTest extends TestCase
         $before = $game->fresh()->getAttributes();
         $historyCount = $game->actions()->count();
 
-        GameServer::tool(StageGameActionTool::class, $stage)->assertOk();
+        app(StageGameAction::class)->execute($user, $game->id, $payload['version'], $context->actions->options[0]);
         $staged = app(GameStatePresenter::class)->turnContext(app(GetGameTurnContextQuery::class)->execute($user, $game->id));
         $this->assertSame($stage['action_id'], $staged['staged_action']['action_id']);
         $this->assertSame($before, $game->fresh()->getAttributes());
-        GameServer::tool(RollbackGameActionTool::class, $arguments)->assertOk();
+        app(RollbackGameAction::class)->execute($user, $game->id, $payload['version']);
         $this->assertSame($before, $game->fresh()->getAttributes());
         $this->assertSame($historyCount, $game->actions()->count());
-        GameServer::tool(StageGameActionTool::class, $stage)->assertOk();
-        GameServer::tool(ConfirmGameActionTool::class, $arguments)->assertOk();
+        GameServer::tool(ExecuteGameActionTool::class, $stage)->assertOk();
         $this->assertSame($historyCount + 1, $game->actions()->count());
-        GameServer::tool(StageGameActionTool::class, $stage)->assertHasErrors();
+        GameServer::tool(ExecuteGameActionTool::class, $stage)->assertHasErrors();
     }
 
     public function test_http_context_uses_token_owner_and_single_version(): void
