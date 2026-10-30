@@ -22,7 +22,7 @@ jobs:
     env:
       APP_SERVICE: app
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Match Sail user to runner permissions
         run: |
@@ -110,7 +110,7 @@ jobs:
         run: vendor/bin/sail artisan test --compact
 
       - name: Upload frontend build
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: frontend-build
           path: public/build

@@ -67,3 +67,25 @@ test('CI does not pass Artisan interaction flags to PHPUnit', () => {
     const step = workflow.jobs['test-build'].steps.find(step => step.name === 'Run PHP tests');
     assert.equal(step.run, 'vendor/bin/sail artisan test --compact');
 });
+
+test('first-party actions use Node 24 versions', () => {
+    for (const file of ['ci.yml', 'cd.yml', 'ci-image.yml']) {
+        const config = require('js-yaml').load(readFileSync(new URL(`../.github/workflows/${file}`, import.meta.url), 'utf8'));
+
+        for (const job of Object.values(config.jobs)) {
+            for (const step of job.steps) {
+                if (step.uses?.startsWith('actions/checkout@')) {
+                    assert.equal(step.uses, 'actions/checkout@v5');
+                }
+
+                if (step.uses?.startsWith('actions/upload-artifact@')) {
+                    assert.equal(step.uses, 'actions/upload-artifact@v6');
+                }
+
+                if (step.uses?.startsWith('actions/download-artifact@')) {
+                    assert.equal(step.uses, 'actions/download-artifact@v7');
+                }
+            }
+        }
+    }
+});
