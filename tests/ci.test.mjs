@@ -62,3 +62,8 @@ test('Sail uses runner UID instead of a fixed UID before starting containers', (
     assert.ok(permissions > startStep && permissions < key);
     assert.match(job.steps[permissions].run, /--user sail/);
 });
+
+test('CI does not pass Artisan interaction flags to PHPUnit', () => {
+    const step = workflow.jobs['test-build'].steps.find(step => step.name === 'Run PHP tests');
+    assert.equal(step.run, 'vendor/bin/sail artisan test --compact');
+});

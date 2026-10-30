@@ -107,7 +107,7 @@ jobs:
           vendor/bin/sail composer analyse
 
       - name: Run PHP tests
-        run: vendor/bin/sail artisan test --compact --no-interaction
+        run: vendor/bin/sail artisan test --compact
 
       - name: Upload frontend build
         uses: actions/upload-artifact@v4
