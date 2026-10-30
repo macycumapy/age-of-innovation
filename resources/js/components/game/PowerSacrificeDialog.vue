@@ -47,8 +47,8 @@ watch(isOpen, (open) => {
                 <DialogHeader>
                     <DialogTitle>Пожертвовать Силу</DialogTitle>
                     <DialogDescription>
-                        За каждый сброшенный жетон ещё один жетон переместится из чаши II в чашу III.
-                        Ход после этого продолжится.
+                        За каждый сброшенный жетон ещё один жетон переместится из чаши II в чашу III. Ход после этого
+                        продолжится.
                     </DialogDescription>
                 </DialogHeader>
 
@@ -64,9 +64,7 @@ watch(isOpen, (open) => {
                         :max="maximumAmount"
                         required
                     />
-                    <p class="text-sm text-muted-foreground">
-                        Можно сбросить от 1 до {{ maximumAmount }}.
-                    </p>
+                    <p class="text-sm text-muted-foreground">Можно сбросить от 1 до {{ maximumAmount }}.</p>
                     <InputError :message="errors.amount ?? errors.game" />
                 </div>
 
@@ -74,10 +72,7 @@ watch(isOpen, (open) => {
                     <DialogClose as-child>
                         <Button type="button" variant="outline">Отмена</Button>
                     </DialogClose>
-                    <Button
-                        type="submit"
-                        :disabled="processing || amount < 1 || amount > maximumAmount"
-                    >
+                    <Button type="submit" :disabled="processing || amount < 1 || amount > maximumAmount">
                         {{ processing ? 'Подтверждение…' : 'Подтвердить' }}
                     </Button>
                 </DialogFooter>

@@ -23,9 +23,7 @@ const manualSetupKey = ref<string | null>(null);
 const qrCodeSvg = ref<string | null>(null);
 const recoveryCodesList = ref<string[]>([]);
 
-const hasSetupData = computed<boolean>(
-    () => qrCodeSvg.value !== null && manualSetupKey.value !== null,
-);
+const hasSetupData = computed<boolean>(() => qrCodeSvg.value !== null && manualSetupKey.value !== null);
 
 export const useTwoFactorAuth = (): UseTwoFactorAuthReturn => {
     const http = useHttp();
@@ -76,9 +74,7 @@ export const useTwoFactorAuth = (): UseTwoFactorAuthReturn => {
     const fetchRecoveryCodes = async (): Promise<void> => {
         try {
             clearErrors();
-            recoveryCodesList.value = (await http.submit(
-                recoveryCodes(),
-            )) as string[];
+            recoveryCodesList.value = (await http.submit(recoveryCodes())) as string[];
         } catch {
             errors.value.push('Failed to fetch recovery codes');
             recoveryCodesList.value = [];

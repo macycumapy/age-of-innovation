@@ -124,6 +124,7 @@ This project has domain-specific skills available in `**/skills/**`. You MUST ac
 # Frontend Lint Enforcement
 
 - After changing JavaScript, TypeScript, Vue files, frontend tests, or ESLint configuration, you MUST run `vendor/bin/sail npm run lint:check` before finalizing.
+- After changing files in `resources/`, you MUST also run `vendor/bin/sail npm run format:check`. Use `vendor/bin/sail npm run format` to fix formatting, then rerun both formatting and lint checks.
 - Fix all reported ESLint errors. You may use `vendor/bin/sail npm run lint` for automatic fixes, then rerun `vendor/bin/sail npm run lint:check`.
 - Do not disable lint rules merely to make checks pass. Any narrowly scoped exception must have a concrete explanation.
 - Run the affected tests after lint fixes that change component logic or test code.

@@ -26,9 +26,7 @@ defineOptions({
     <div class="flex h-full flex-1 flex-col gap-4 overflow-hidden p-4">
         <div>
             <h1 class="text-2xl font-semibold">Игровая карта</h1>
-            <p class="text-sm text-muted-foreground">
-                Статическое отображение стороны поля для 3–5 игроков
-            </p>
+            <p class="text-sm text-muted-foreground">Статическое отображение стороны поля для 3–5 игроков</p>
         </div>
 
         <BoardMap :board="board" />

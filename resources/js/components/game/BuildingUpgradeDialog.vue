@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import ArrowRight from "@lucide/vue/dist/esm/icons/arrow-right.mjs";
-import TriangleAlert from "@lucide/vue/dist/esm/icons/triangle-alert.mjs";
+import ArrowRight from '@lucide/vue/dist/esm/icons/arrow-right.mjs';
+import TriangleAlert from '@lucide/vue/dist/esm/icons/triangle-alert.mjs';
 import { computed, ref, watch } from 'vue';
 import AnnexPlacementController from '@/actions/App/Http/Controllers/Game/AnnexPlacementController';
 import BuildingUpgradeController from '@/actions/App/Http/Controllers/Game/BuildingUpgradeController';
@@ -162,7 +162,10 @@ function actionSucceeded(): void {
                     <input type="hidden" name="hex_id" :value="hexId ?? ''" />
                     <input type="hidden" name="target" :value="selectedTarget ?? ''" />
                     <InputError :message="errors.building ?? errors.target ?? errors.hex_id" />
-                    <Alert v-if="hasNeighboringOpponent" class="border-amber-400 bg-amber-50 text-amber-950 dark:border-amber-500 dark:bg-amber-950/60 dark:text-amber-100">
+                    <Alert
+                        v-if="hasNeighboringOpponent"
+                        class="border-amber-400 bg-amber-50 text-amber-950 dark:border-amber-500 dark:bg-amber-950/60 dark:text-amber-100"
+                    >
                         <TriangleAlert aria-hidden="true" />
                         <AlertDescription class="font-medium text-amber-950 dark:text-amber-100">
                             Если хотя бы один сосед примет Силу, отменить ход будет невозможно.

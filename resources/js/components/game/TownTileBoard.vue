@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { computed  } from 'vue';
-import type {CSSProperties} from 'vue';
+import { computed } from 'vue';
+import type { CSSProperties } from 'vue';
 import type { TownTile } from '@/types';
 
 const props = defineProps<{
@@ -8,10 +8,12 @@ const props = defineProps<{
 }>();
 
 const townTileLayerOffset = 3;
-const townTileStacks = computed(() => [...new Set(props.townTiles)].map((townTile) => ({
-    townTile,
-    count: props.townTiles.filter((candidate) => candidate === townTile).length,
-})));
+const townTileStacks = computed(() =>
+    [...new Set(props.townTiles)].map((townTile) => ({
+        townTile,
+        count: props.townTiles.filter((candidate) => candidate === townTile).length,
+    })),
+);
 
 const townTileImages = import.meta.glob('../../../images/cities/*.png', {
     eager: true,
@@ -33,10 +35,7 @@ function townTileLayerStyle(layer: number): CSSProperties {
 </script>
 
 <template>
-    <section
-        v-if="townTiles.length"
-        class="grid grid-cols-7 gap-3 rounded-xl bg-card/50 p-3 shadow-sm"
-    >
+    <section v-if="townTiles.length" class="grid grid-cols-7 gap-3 rounded-xl bg-card/50 p-3 shadow-sm">
         <span
             v-for="stack in townTileStacks"
             :key="stack.townTile"

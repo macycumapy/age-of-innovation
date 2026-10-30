@@ -19,10 +19,7 @@ withDefaults(defineProps<Props>(), {
 <template>
     <AppShell variant="header">
         <AppHeader :breadcrumbs="breadcrumbs" />
-        <AppContent
-            variant="header"
-            :class="fullWidth ? 'max-w-none' : undefined"
-        >
+        <AppContent variant="header" :class="fullWidth ? 'max-w-none' : undefined">
             <slot />
         </AppContent>
         <Toaster />

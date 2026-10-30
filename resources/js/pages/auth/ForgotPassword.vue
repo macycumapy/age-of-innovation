@@ -24,10 +24,7 @@ defineProps<{
 <template>
     <Head title="Forgot password" />
 
-    <div
-        v-if="status"
-        class="mb-4 text-center text-sm font-medium text-green-600"
-    >
+    <div v-if="status" class="mb-4 text-center text-sm font-medium text-green-600">
         {{ status }}
     </div>
 
@@ -47,11 +44,7 @@ defineProps<{
             </div>
 
             <div class="my-6 flex items-center justify-start">
-                <Button
-                    class="w-full"
-                    :disabled="processing"
-                    data-test="email-password-reset-link-button"
-                >
+                <Button class="w-full" :disabled="processing" data-test="email-password-reset-link-button">
                     <Spinner v-if="processing" />
                     Email password reset link
                 </Button>

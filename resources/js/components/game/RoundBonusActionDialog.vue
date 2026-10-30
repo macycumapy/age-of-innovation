@@ -71,13 +71,19 @@ function actionSucceeded(): void {
                         :key="discipline"
                         type="button"
                         class="relative grid gap-1 rounded-lg border-2 border-muted p-2 text-center text-xs transition-colors"
-                        :class="selectedDiscipline === discipline
-                            ? 'border-primary ring-2 ring-primary ring-offset-1 ring-offset-background'
-                            : 'hover:border-muted-foreground/40'"
+                        :class="
+                            selectedDiscipline === discipline
+                                ? 'border-primary ring-2 ring-primary ring-offset-1 ring-offset-background'
+                                : 'hover:border-muted-foreground/40'
+                        "
                         :aria-pressed="selectedDiscipline === discipline"
                         @click="selectedDiscipline = discipline"
                     >
-                        <img :src="disciplineImages[discipline]" :alt="disciplineNames[discipline]" class="mx-auto size-14 object-contain" />
+                        <img
+                            :src="disciplineImages[discipline]"
+                            :alt="disciplineNames[discipline]"
+                            class="mx-auto size-14 object-contain"
+                        />
                         <span>{{ disciplineNames[discipline] }}</span>
                     </button>
                 </div>

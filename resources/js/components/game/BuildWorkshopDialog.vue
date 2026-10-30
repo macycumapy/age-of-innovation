@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import TriangleAlert from "@lucide/vue/dist/esm/icons/triangle-alert.mjs";
+import TriangleAlert from '@lucide/vue/dist/esm/icons/triangle-alert.mjs';
 import { computed, ref, watch } from 'vue';
 import TerraformWorkshopController from '@/actions/App/Http/Controllers/Game/TerraformWorkshopController';
 import WorkshopController from '@/actions/App/Http/Controllers/Game/WorkshopController';
@@ -21,25 +21,28 @@ import type { BoardHexState, BoardState, PlayerColor } from '@/types';
 import toolUrl from '../../../images/token_parts/cube.png';
 import coinUrl from '../../../images/token_parts/gold_medallion.png';
 
-const props = withDefaults(defineProps<{
-    gameId: number;
-    board: BoardState;
-    playerId: number | null;
-    hexId?: string | null;
-    hexIds?: string[];
-    hexes?: BoardHexState[];
-    playerColor: PlayerColor | null;
-    afterTerraforming?: boolean;
-    toolCost?: number;
-    coinCost?: number;
-}>(), {
-    hexId: null,
-    hexIds: () => [],
-    hexes: () => [],
-    afterTerraforming: false,
-    toolCost: 1,
-    coinCost: 2,
-});
+const props = withDefaults(
+    defineProps<{
+        gameId: number;
+        board: BoardState;
+        playerId: number | null;
+        hexId?: string | null;
+        hexIds?: string[];
+        hexes?: BoardHexState[];
+        playerColor: PlayerColor | null;
+        afterTerraforming?: boolean;
+        toolCost?: number;
+        coinCost?: number;
+    }>(),
+    {
+        hexId: null,
+        hexIds: () => [],
+        hexes: () => [],
+        afterTerraforming: false,
+        toolCost: 1,
+        coinCost: 2,
+    },
+);
 
 const isOpen = defineModel<boolean>('open', { default: false });
 const dialogOpen = computed({
@@ -79,9 +82,11 @@ watch(
             <DialogHeader>
                 <DialogTitle>Построить дом?</DialogTitle>
                 <DialogDescription>
-                    {{ afterTerraforming
-                        ? 'Преобразованная земля стала родной. Можно построить дом.'
-                        : 'Подтвердите строительство на выбранной родной территории.' }}
+                    {{
+                        afterTerraforming
+                            ? 'Преобразованная земля стала родной. Можно построить дом.'
+                            : 'Подтвердите строительство на выбранной родной территории.'
+                    }}
                 </DialogDescription>
             </DialogHeader>
 
@@ -99,9 +104,7 @@ watch(
             </div>
 
             <Form
-                v-bind="afterTerraforming
-                    ? TerraformWorkshopController.form(gameId)
-                    : WorkshopController.form(gameId)"
+                v-bind="afterTerraforming ? TerraformWorkshopController.form(gameId) : WorkshopController.form(gameId)"
                 #default="{ errors, processing }"
                 class="grid gap-4"
                 @success="buildSucceeded"
@@ -122,7 +125,10 @@ watch(
 
                 <InputError :message="errors.build ?? errors.building ?? errors.hex_id ?? errors.game" />
 
-                <Alert v-if="hasNeighboringOpponent" class="border-amber-400 bg-amber-50 text-amber-950 dark:border-amber-500 dark:bg-amber-950/60 dark:text-amber-100">
+                <Alert
+                    v-if="hasNeighboringOpponent"
+                    class="border-amber-400 bg-amber-50 text-amber-950 dark:border-amber-500 dark:bg-amber-950/60 dark:text-amber-100"
+                >
                     <TriangleAlert aria-hidden="true" />
                     <AlertDescription class="font-medium text-amber-950 dark:text-amber-100">
                         Если хотя бы один сосед примет Силу, отменить ход будет невозможно.

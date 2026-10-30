@@ -3,7 +3,14 @@ import InnovationActionController from '@/actions/App/Http/Controllers/Game/Inno
 import Form from '@/components/game/GameActionForm.vue';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
 import type { Innovation } from '@/types';
 
 defineProps<{

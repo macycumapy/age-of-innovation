@@ -76,12 +76,7 @@ const inputEmail = ref(props.email);
                 <InputError :message="errors.password_confirmation" />
             </div>
 
-            <Button
-                type="submit"
-                class="mt-4 w-full"
-                :disabled="processing"
-                data-test="reset-password-button"
-            >
+            <Button type="submit" class="mt-4 w-full" :disabled="processing" data-test="reset-password-button">
                 <Spinner v-if="processing" />
                 Reset password
             </Button>

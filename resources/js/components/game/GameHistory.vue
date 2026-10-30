@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { useHttp, usePage } from '@inertiajs/vue3';
-import LoaderCircle from "@lucide/vue/dist/esm/icons/loader-circle.mjs";
-import History from "@lucide/vue/dist/esm/icons/rotate-ccw-clock.mjs";
-import RotateCcw from "@lucide/vue/dist/esm/icons/rotate-ccw.mjs";
+import LoaderCircle from '@lucide/vue/dist/esm/icons/loader-circle.mjs';
+import History from '@lucide/vue/dist/esm/icons/rotate-ccw-clock.mjs';
+import RotateCcw from '@lucide/vue/dist/esm/icons/rotate-ccw.mjs';
 import { computed, ref, watch } from 'vue';
 import { toast } from 'vue-sonner';
 import GameHistoryController from '@/actions/App/Http/Controllers/Game/GameHistoryController';
@@ -110,7 +110,8 @@ watch(
         entries.value = [...entriesById.values()].sort((first, second) => second.sequence - first.sequence);
 
         const newEntries = latestEntries.filter(
-            (entry) => !knownEntryIds.has(entry.id) && shouldNotifyAboutPlayerAction(entry.player, currentUserId, entry.type),
+            (entry) =>
+                !knownEntryIds.has(entry.id) && shouldNotifyAboutPlayerAction(entry.player, currentUserId, entry.type),
         );
 
         latestEntries.forEach((entry) => knownEntryIds.add(entry.id));

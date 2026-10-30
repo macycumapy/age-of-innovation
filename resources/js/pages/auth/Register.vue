@@ -103,12 +103,7 @@ defineOptions({
 
         <div class="text-center text-sm text-muted-foreground">
             Уже есть аккаунт?
-            <TextLink
-                :href="login()"
-                class="underline underline-offset-4"
-                :tabindex="6"
-                >Войти</TextLink
-            >
+            <TextLink :href="login()" class="underline underline-offset-4" :tabindex="6">Войти</TextLink>
         </div>
     </Form>
 </template>

@@ -4,11 +4,7 @@ import { computed, ref, watchEffect } from 'vue';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import {
-    InputOTP,
-    InputOTPGroup,
-    InputOTPSlot,
-} from '@/components/ui/input-otp';
+import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
 import { store } from '@/routes/two-factor/login';
 import type { TwoFactorConfigContent } from '@/types';
 
@@ -19,16 +15,14 @@ const authConfigContent = computed<TwoFactorConfigContent>(() => {
     if (showRecoveryInput.value) {
         return {
             title: 'Recovery code',
-            description:
-                'Please confirm access to your account by entering one of your emergency recovery codes.',
+            description: 'Please confirm access to your account by entering one of your emergency recovery codes.',
             buttonText: 'login using an authentication code',
         };
     }
 
     return {
         title: 'Authentication code',
-        description:
-            'Enter the authentication code provided by your authenticator application.',
+        description: 'Enter the authentication code provided by your authenticator application.',
         buttonText: 'login using a recovery code',
     };
 });
@@ -60,31 +54,17 @@ const toggleRecoveryMode = (clearErrors: () => void): void => {
                 #default="{ errors, processing, clearErrors }"
             >
                 <input type="hidden" name="code" :value="code" />
-                <div
-                    class="flex flex-col items-center justify-center space-y-3 text-center"
-                >
+                <div class="flex flex-col items-center justify-center space-y-3 text-center">
                     <div class="flex w-full items-center justify-center">
-                        <InputOTP
-                            id="otp"
-                            v-model="code"
-                            :maxlength="6"
-                            :disabled="processing"
-                            autofocus
-                        >
+                        <InputOTP id="otp" v-model="code" :maxlength="6" :disabled="processing" autofocus>
                             <InputOTPGroup>
-                                <InputOTPSlot
-                                    v-for="index in 6"
-                                    :key="index"
-                                    :index="index - 1"
-                                />
+                                <InputOTPSlot v-for="index in 6" :key="index" :index="index - 1" />
                             </InputOTPGroup>
                         </InputOTP>
                     </div>
                     <InputError :message="errors.code" />
                 </div>
-                <Button type="submit" class="w-full" :disabled="processing"
-                    >Continue</Button
-                >
+                <Button type="submit" class="w-full" :disabled="processing">Continue</Button>
                 <div class="text-center text-sm text-muted-foreground">
                     <span>or you can </span>
                     <button
@@ -99,12 +79,7 @@ const toggleRecoveryMode = (clearErrors: () => void): void => {
         </template>
 
         <template v-else>
-            <Form
-                v-bind="store.form()"
-                class="space-y-4"
-                reset-on-error
-                #default="{ errors, processing, clearErrors }"
-            >
+            <Form v-bind="store.form()" class="space-y-4" reset-on-error #default="{ errors, processing, clearErrors }">
                 <Input
                     name="recovery_code"
                     type="text"
@@ -113,9 +88,7 @@ const toggleRecoveryMode = (clearErrors: () => void): void => {
                     required
                 />
                 <InputError :message="errors.recovery_code" />
-                <Button type="submit" class="w-full" :disabled="processing"
-                    >Continue</Button
-                >
+                <Button type="submit" class="w-full" :disabled="processing">Continue</Button>
 
                 <div class="text-center text-sm text-muted-foreground">
                     <span>or you can </span>

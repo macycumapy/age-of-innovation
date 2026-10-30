@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import Monitor from "@lucide/vue/dist/esm/icons/monitor.mjs";
-import Moon from "@lucide/vue/dist/esm/icons/moon.mjs";
-import Sun from "@lucide/vue/dist/esm/icons/sun.mjs";
+import Monitor from '@lucide/vue/dist/esm/icons/monitor.mjs';
+import Moon from '@lucide/vue/dist/esm/icons/moon.mjs';
+import Sun from '@lucide/vue/dist/esm/icons/sun.mjs';
 import { useAppearance } from '@/composables/useAppearance';
 
 const { appearance, updateAppearance } = useAppearance();
@@ -14,9 +14,7 @@ const tabs = [
 </script>
 
 <template>
-    <div
-        class="inline-flex gap-1 rounded-lg bg-neutral-100 p-1 dark:bg-neutral-800"
-    >
+    <div class="inline-flex gap-1 rounded-lg bg-neutral-100 p-1 dark:bg-neutral-800">
         <button
             v-for="{ value, Icon, label } in tabs"
             :key="value"

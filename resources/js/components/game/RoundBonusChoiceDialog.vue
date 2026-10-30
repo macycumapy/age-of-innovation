@@ -29,7 +29,7 @@ function image(roundBonus: RoundBonus): string {
 </script>
 
 <template>
-    <Card class="mx-auto w-fit max-w-full bg-background/50 border-none p-2">
+    <Card class="mx-auto w-fit max-w-full border-none bg-background/50 p-2">
         <CardContent>
             <Form
                 v-bind="RoundBonusChoiceController.form(gameId)"
@@ -48,7 +48,7 @@ function image(roundBonus: RoundBonus): string {
                                     <button
                                         type="button"
                                         class="relative w-24 shrink-0 rounded-lg p-1 transition-colors sm:w-28"
-                                        :class="{'ring-2 ring-primary/50': selectedRoundBonus === offer.roundBonus}"
+                                        :class="{ 'ring-2 ring-primary/50': selectedRoundBonus === offer.roundBonus }"
                                         @click="selectedRoundBonus = offer.roundBonus"
                                     >
                                         <img

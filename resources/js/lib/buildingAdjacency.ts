@@ -17,9 +17,10 @@ export function hasAdjacentOpponent(board: BoardState, hexId: string | null, pla
         }
     }
 
-    return board.hexes.some((candidate) =>
-        neighborHexIds.has(candidate.id) &&
-        candidate.building !== null &&
-        candidate.building.ownerPlayerId !== playerId,
+    return board.hexes.some(
+        (candidate) =>
+            neighborHexIds.has(candidate.id) &&
+            candidate.building !== null &&
+            candidate.building.ownerPlayerId !== playerId,
     );
 }

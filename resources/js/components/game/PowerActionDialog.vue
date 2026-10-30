@@ -26,9 +26,7 @@ const isOpen = defineModel<boolean>('open', { required: true });
 const sacrificeAmount = computed(() =>
     Math.max(0, (props.action?.cost ?? 0) - (props.playerState?.power.bowlThree ?? 0)),
 );
-const canAfford = computed(() =>
-    sacrificeAmount.value * 2 <= (props.playerState?.power.bowlTwo ?? 0),
-);
+const canAfford = computed(() => sacrificeAmount.value * 2 <= (props.playerState?.power.bowlTwo ?? 0));
 
 function actionSucceeded(): void {
     isOpen.value = false;
@@ -67,8 +65,8 @@ function actionSucceeded(): void {
                     </div>
                     <p v-if="sacrificeAmount > 0 && canAfford" class="text-amber-700 dark:text-amber-300">
                         Для действия не хватает Силы в чаше III. Перед действием будет пожертвовано
-                        {{ sacrificeAmount }} Силы: из чаши II уйдёт {{ sacrificeAmount * 2 }} жетонов,
-                        а {{ sacrificeAmount }} жетонов перейдёт в чашу III.
+                        {{ sacrificeAmount }} Силы: из чаши II уйдёт {{ sacrificeAmount * 2 }} жетонов, а
+                        {{ sacrificeAmount }} жетонов перейдёт в чашу III.
                     </p>
                     <p v-else-if="!canAfford" class="text-destructive">
                         Даже после максимально возможного пожертвования Силы недостаточно.

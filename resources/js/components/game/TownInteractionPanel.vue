@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import Check from "@lucide/vue/dist/esm/icons/check.mjs";
+import Check from '@lucide/vue/dist/esm/icons/check.mjs';
 import { ref } from 'vue';
 import TownController from '@/actions/App/Http/Controllers/Game/TownController';
 import Form from '@/components/game/GameActionForm.vue';

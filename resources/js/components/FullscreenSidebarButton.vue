@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import Maximize from "@lucide/vue/dist/esm/icons/maximize.mjs";
-import Minimize from "@lucide/vue/dist/esm/icons/minimize.mjs";
+import Maximize from '@lucide/vue/dist/esm/icons/maximize.mjs';
+import Minimize from '@lucide/vue/dist/esm/icons/minimize.mjs';
 import { onBeforeUnmount, onMounted, ref } from 'vue';
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar';
 

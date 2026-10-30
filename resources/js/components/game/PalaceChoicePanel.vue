@@ -29,11 +29,7 @@ const selectedPalace = ref<PalaceAbility | null>(null);
                     :disabled="processing"
                 />
                 <InputError :message="errors.palace_id" />
-                <Button
-                    type="submit"
-                    class="justify-self-end"
-                    :disabled="selectedPalace === null || processing"
-                >
+                <Button type="submit" class="justify-self-end" :disabled="selectedPalace === null || processing">
                     {{ processing ? 'Подтверждение…' : 'Подтвердить выбор' }}
                 </Button>
             </Form>
