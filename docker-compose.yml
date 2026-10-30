@@ -56,9 +56,10 @@ services:
         networks:
             - sail
     mysql_test:
+      profiles:
+        - dev
       image: 'mysql:latest'
       container_name: '${APP_NAME}_mysql_test'
-      restart: unless-stopped
       tty: true
       ports:
         - '${FORWARD_DB_PORT_TEST:-3308}:3306'
