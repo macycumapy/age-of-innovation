@@ -11,8 +11,8 @@ WORKDIR /var/www/html
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV TZ=UTC
-ENV SUPERVISOR_PHP_COMMAND="/usr/bin/php -d variables_order=EGPCS /var/www/html/artisan serve --host=0.0.0.0 --port=80"
-ENV SUPERVISOR_PHP_USER="sail"
+ENV SUPERVISOR_PHP_COMMAND="/usr/sbin/php-fpm8.5 --nodaemonize"
+ENV SUPERVISOR_PHP_USER="root"
 ENV PLAYWRIGHT_BROWSERS_PATH=0
 
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
@@ -30,6 +30,7 @@ RUN apt-get update && apt-get upgrade -y \
     && apt-get install -y \
         libgd3 \
         php8.5-cli \
+        php8.5-fpm \
         php8.5-dev \
         php8.5-pgsql \
         php8.5-sqlite3 \
@@ -85,8 +86,10 @@ RUN git config --global --add safe.directory /var/www/html
 COPY start-container /usr/local/bin/start-container
 COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 COPY php.ini /etc/php/8.5/cli/conf.d/99-sail.ini
+COPY php.ini /etc/php/8.5/fpm/conf.d/99-sail.ini
+COPY www.conf /etc/php/8.5/fpm/pool.d/www.conf
 RUN chmod +x /usr/local/bin/start-container
 
-EXPOSE 80/tcp
+EXPOSE 9000/tcp
 
 ENTRYPOINT ["start-container"]
