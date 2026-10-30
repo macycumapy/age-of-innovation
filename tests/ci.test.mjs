@@ -4,7 +4,7 @@ import { createRequire } from 'node:module';
 import test from 'node:test';
 
 const require = createRequire(import.meta.url);
-const workflow = require('js-yaml').load(readFileSync(new URL('../.github/workflows/ci.yml', import.meta.url), 'utf8'));
+const workflow = require('js-yaml').load(readFileSync(new URL('../.github/workflows/ci-cd.yml', import.meta.url), 'utf8'));
 
 test('CI uses project containers for dependencies, build and checks', () => {
     const job = workflow.jobs['test-build'];
@@ -23,7 +23,7 @@ test('CI uses project containers for dependencies, build and checks', () => {
 });
 
 test('CD reads connection settings from repository variables', () => {
-    const source = readFileSync(new URL('../.github/workflows/ci.yml', import.meta.url), 'utf8');
+    const source = readFileSync(new URL('../.github/workflows/ci-cd.yml', import.meta.url), 'utf8');
     const cd = require('js-yaml').load(source);
     assert.ok(cd.jobs.deploy);
     assert.doesNotMatch(source, /\bvariables\./);
@@ -79,7 +79,7 @@ test('CI does not pass Artisan interaction flags to PHPUnit', () => {
 });
 
 test('first-party actions use Node 24 versions', () => {
-    for (const file of ['ci.yml']) {
+    for (const file of ['ci-cd.yml']) {
         const config = require('js-yaml').load(readFileSync(new URL(`../.github/workflows/${file}`, import.meta.url), 'utf8'));
 
         for (const job of Object.values(config.jobs)) {
@@ -114,4 +114,18 @@ test('deployment waits for successful tests and uses artifacts from the same run
     assert.ok(source.includes('github.sha'));
     assert.ok(source.includes('github.run_id'));
     assert.ok(!source.includes('workflow_run'));
+});
+
+test('Docker actions use Node 24 versions', () => {
+    for (const job of Object.values(workflow.jobs)) {
+        for (const step of job.steps) {
+            if (step.uses?.startsWith('docker/login-action@')) {
+                assert.equal(step.uses, 'docker/login-action@v4');
+            }
+
+            if (step.uses?.startsWith('docker/setup-buildx-action@')) {
+                assert.equal(step.uses, 'docker/setup-buildx-action@v4');
+            }
+        }
+    }
 });
