@@ -13,7 +13,6 @@ test('CI uses project containers for dependencies, build and checks', () => {
     assert.ok(job.steps.every(step => !/setup-(php|node)/.test(step.uses ?? '')));
     const commands = job.steps.map(step => step.run ?? '').join('\n');
     assert.equal(workflow.permissions['packages'], 'read');
-    assert.ok(job.steps.every(step => !step.uses?.startsWith('docker/build-push-action@')));
     assert.match(commands, /docker pull/);
     assert.match(commands, /docker tag .* sail-8.5\/app:latest/);
     assert.match(commands, /docker compose run --rm --no-deps/);
@@ -24,7 +23,7 @@ test('CI uses project containers for dependencies, build and checks', () => {
 });
 
 test('CD reads connection settings from repository variables', () => {
-    const source = readFileSync(new URL('../.github/workflows/cd.yml', import.meta.url), 'utf8');
+    const source = readFileSync(new URL('../.github/workflows/ci.yml', import.meta.url), 'utf8');
     const cd = require('js-yaml').load(source);
     assert.ok(cd.jobs.deploy);
     assert.doesNotMatch(source, /\bvariables\./);
@@ -36,15 +35,26 @@ test('CD reads connection settings from repository variables', () => {
     assert.ok(source.includes('secrets.SSH_PRIVATE_KEY'));
 });
 
-test('image publication is restricted to main and uses GHCR', () => {
-    const image = require('js-yaml').load(readFileSync(new URL('../.github/workflows/ci-image.yml', import.meta.url), 'utf8'));
-    assert.deepEqual(image.on.push.branches, ['main']);
-    assert.ok(image.on.push.paths.includes('docker/php/8.5/**'));
-    assert.equal(image.permissions.packages, 'write');
-    const build = image.jobs.publish.steps.find(step => step.uses?.startsWith('docker/build-push-action@'));
-    assert.equal(build.with.push, true);
-    assert.equal(build.with.context, './docker/php/8.5');
-    assert.equal(build.with['cache-to'], 'type=gha,scope=sail-php85,mode=max');
+test('tests wait for image preparation and build locally only when no registry image is available', () => {
+    const prepare = workflow.jobs['prepare-image'];
+    const checks = workflow.jobs['test-build'];
+    assert.equal(checks.needs, 'prepare-image');
+    assert.equal(prepare.permissions.packages, 'write');
+    assert.ok(prepare.outputs.available.includes("steps.publish.outcome == 'success'"));
+    const image = prepare.steps.find(step => step.id === 'image');
+    assert.equal(image.env.IMAGE_HASH, "${{ hashFiles('docker/php/8.5/**') }}");
+    const publish = prepare.steps.find(step => step.id === 'publish');
+    assert.ok(publish.if.includes("github.event_name != 'pull_request'"));
+    assert.ok(publish.if.includes("github.ref == 'refs/heads/main'"));
+    assert.ok(publish.if.includes("steps.cached-image.outputs.found != 'true'"));
+    assert.equal(publish.with.push, true);
+    const local = checks.steps.find(step => step.uses?.startsWith('docker/build-push-action@'));
+    assert.equal(local.if, "needs.prepare-image.outputs.available != 'true'");
+    assert.equal(local.with.push, false);
+    assert.equal(local.with.load, true);
+    assert.equal(local.with.tags, 'sail-8.5/app:latest');
+    assert.equal(local.with.context, publish.with.context);
+    assert.equal(local.with['build-args'], publish.with['build-args']);
 });
 
 test('Sail uses runner UID instead of a fixed UID before starting containers', () => {
@@ -69,7 +79,7 @@ test('CI does not pass Artisan interaction flags to PHPUnit', () => {
 });
 
 test('first-party actions use Node 24 versions', () => {
-    for (const file of ['ci.yml', 'cd.yml', 'ci-image.yml']) {
+    for (const file of ['ci.yml']) {
         const config = require('js-yaml').load(readFileSync(new URL(`../.github/workflows/${file}`, import.meta.url), 'utf8'));
 
         for (const job of Object.values(config.jobs)) {
@@ -88,4 +98,20 @@ test('first-party actions use Node 24 versions', () => {
             }
         }
     }
+});
+
+test('deployment waits for successful tests and uses artifacts from the same run', () => {
+    const deploy = workflow.jobs.deploy;
+    assert.equal(deploy.needs, 'test-build');
+    assert.equal(deploy.if, "github.event_name == 'push' && github.ref == 'refs/heads/main'");
+    const artifact = deploy.steps.find(step => step.uses?.startsWith('actions/download-artifact@'));
+    assert.equal(artifact.with.name, 'frontend-build');
+    assert.equal(artifact.with['run-id'], undefined);
+    assert.equal(workflow.on.workflow_run, undefined);
+    assert.equal(deploy.concurrency['cancel-in-progress'], false);
+    assert.equal(workflow.concurrency['cancel-in-progress'], "${{ github.ref != 'refs/heads/main' }}");
+    const source = JSON.stringify(deploy);
+    assert.ok(source.includes('github.sha'));
+    assert.ok(source.includes('github.run_id'));
+    assert.ok(!source.includes('workflow_run'));
 });
