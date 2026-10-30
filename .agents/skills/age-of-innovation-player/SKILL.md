@@ -53,6 +53,8 @@ Record why the selected line wins and what would invalidate it. Recheck that rea
 
 After confirmation, compare the actual reward, resources, and attainable continuation with the record. Correct a mismatch before the next discretionary action. Mandatory follow-ups, finish_turn, and successive quantity-limited exchanges can reuse the checked line while its assumptions still hold; they do not require another full comparison. These checkpoints are part of choosing a move, not a request for user approval, an extra game action, or permission to reread an already-held snapshot.
 
+Before a final pass, apply the reference's opponent-funding check to remaining players. A current network lead is not secured while an opponent can still fund a ranking-changing build through conversions, sacrifice, or an unused shared action. Compare that reply with preserving resources for final conversion.
+
 At round transitions, briefly tell the user the projected leader or deficit and the resulting priority. For a strategic commitment, briefly give the decisive comparison with the alternative, using numbers where they determine the choice. Distinguish confirmed outcomes from estimates. Do not claim that a move keeps pace or secures victory without an updated forecast supporting it. Keep these updates concise and continue playing.
 
 Bot evaluations can inform a decision but are heuristics, not game rules or proof of optimal play. Do not delegate a requested human-like decision to the automatic turn executor.
