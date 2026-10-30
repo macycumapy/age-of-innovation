@@ -20,13 +20,13 @@ final class FindEligibleNeutralBuildingHexesAction
         $reachableHexIds = $this->findReachableLandHexes->execute($state, $player);
         $toolCostPerSpade = max(1, 3 - $player->terraformingLevel);
 
-        return collect($state->board->hexes)
+        return array_values(collect($state->board->hexes)
             ->filter(static fn (BoardHexStateData $hex): bool => in_array($hex->id, $reachableHexIds, true)
                 && $hex->building === null
                 && $hex->terrain->isHomeland()
                 && ($ignoreResourceCost || $hex->terrain->spadesTo($player->homeland) * $toolCostPerSpade <= $player->resources->tools))
-            ->pluck('id')
+            ->map(static fn (BoardHexStateData $hex): string => $hex->id)
             ->values()
-            ->all();
+            ->all());
     }
 }

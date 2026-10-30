@@ -17,6 +17,7 @@ final class ExchangeResourcesRequest extends FormRequest
             && $game->active_player_id === $this->user()?->id;
     }
 
+    /** @return array<string, list<mixed>> */
     public function rules(): array
     {
         return [

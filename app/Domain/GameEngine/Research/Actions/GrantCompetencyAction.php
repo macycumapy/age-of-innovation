@@ -52,8 +52,9 @@ final class GrantCompetencyAction
         $competencyRow = intdiv($competencyIndex, count($disciplines));
 
         $playerState->competencyIds[] = $competency->value;
-        unset($state->availableCompetencyIds[$availableCompetencyIndex]);
-        $state->availableCompetencyIds = array_values($state->availableCompetencyIds);
+        $availableCompetencyIds = $state->availableCompetencyIds;
+        unset($availableCompetencyIds[$availableCompetencyIndex]);
+        $state->availableCompetencyIds = array_values($availableCompetencyIds);
         $knowledgeAdvance = $this->advanceKnowledge->execute($state, $playerState, $discipline, 3 - $competencyRow);
         $philosopherBonusBooks = $playerState->faction === Faction::Philosophers ? 1 : 0;
         $playerState->resources->books->{$discipline->value} += $competencyRow + $philosopherBonusBooks;

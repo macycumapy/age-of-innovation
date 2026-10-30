@@ -46,7 +46,7 @@ final class ApplyPassAction
         }
 
         $isFinalRound = $state->round->number >= 6;
-        $offerIndex = $isFinalRound ? null : collect($state->setupPool?->availableRoundBonuses ?? [])
+        $offerIndex = $isFinalRound ? null : collect($state->setupPool->availableRoundBonuses ?? [])
             ->search(static fn (RoundBonusOfferData $offer): bool => $offer->roundBonus === $roundBonus);
 
         if ($state->setupPool === null || (! $isFinalRound && ! is_int($offerIndex))) {
@@ -93,7 +93,7 @@ final class ApplyPassAction
             $player->resources->coins += $offer->coins;
         }
 
-        $bonusCoins = $offer?->coins ?? 0;
+        $bonusCoins = $offer->coins ?? 0;
         $state->passedPlayerIds[] = $player->playerId;
         $state->round->passOrder[] = $player->playerId;
         $passOrder = count($state->passedPlayerIds);

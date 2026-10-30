@@ -55,8 +55,8 @@ final class ApplyPlaceNeutralBuildingAction
                     ['reason' => 'innovation', 'innovation' => $interaction->context['innovation'] ?? null],
                 );
             } else {
-                $queuedBuiltHexIds = (array) ($interaction->context['queuedBuiltHexIds'] ?? []);
-                $queuedTownHexIds = (array) ($interaction->context['queuedTownHexIds'] ?? []);
+                $queuedBuiltHexIds = array_values(array_filter((array) ($interaction->context['queuedBuiltHexIds'] ?? []), 'is_string'));
+                $queuedTownHexIds = array_values(array_filter((array) ($interaction->context['queuedTownHexIds'] ?? []), 'is_string'));
                 $originalBuiltHexId = array_shift($queuedBuiltHexIds) ?? array_shift($queuedTownHexIds);
 
                 if (is_string($originalBuiltHexId)) {

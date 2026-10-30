@@ -301,7 +301,7 @@ class GameResource extends JsonResource
                     'faction' => $bundle->faction->value,
                     'roundBonus' => $bundle->roundBonus->value,
                 ],
-                $this->state->setupPool?->planningBundles ?? [],
+                $this->state->setupPool->planningBundles ?? [],
             ),
             'planningSelections' => array_map(
                 static fn (PlayerPlanningSelectionData $selection): array => [
@@ -349,17 +349,17 @@ class GameResource extends JsonResource
                 static fn (KnowledgeDiscipline $discipline): string => $discipline->displayName(),
             ),
             'roundScoringTiles' => $this->enumValues(
-                $this->state->setupPool?->roundScoringTiles ?? [],
+                $this->state->setupPool->roundScoringTiles ?? [],
             ),
             'finalRoundScoringTile' => $this->enumValue(
                 $this->state->setupPool?->additionalFinalRoundGoal,
             ),
             'twoPlayerTerritoryTile' => $this->twoPlayerTerritoryTile(),
             'bookActions' => $this->enumValues(
-                $this->state->setupPool?->bookActions ?? [],
+                $this->state->setupPool->bookActions ?? [],
             ),
             'usedBookActionIds' => array_values(array_filter(
-                $this->enumValues($this->state->setupPool?->bookActions ?? []),
+                $this->enumValues($this->state->setupPool->bookActions ?? []),
                 fn (string $actionId): bool => in_array($actionId, $this->state->round->usedBookActionIds, true),
             )),
             'bookActionStates' => array_map(
@@ -377,7 +377,7 @@ class GameResource extends JsonResource
                         ),
                     ];
                 },
-                $this->state->setupPool?->bookActions ?? [],
+                $this->state->setupPool->bookActions ?? [],
             ),
             'powerActions' => array_map(
                 fn (PowerAction $action): array => [
@@ -396,12 +396,12 @@ class GameResource extends JsonResource
                 ? $this->buildingUpgrades($currentPlayerState)
                 : [],
             'innovations' => $this->enumValues(
-                $this->state->setupPool?->innovations ?? [],
+                $this->state->setupPool->innovations ?? [],
             ),
             'availableInventionIds' => $this->enumValues($this->state->availableInventionIds),
             'innovationStates' => $innovationStates,
             'competencies' => $this->enumValues(
-                $this->state->setupPool?->competencies ?? [],
+                $this->state->setupPool->competencies ?? [],
             ),
             'competencyCounts' => array_count_values(CompetencySupply::availableIds($this->state)),
             'availablePalaceIds' => $this->state->availablePalaceIds,
@@ -414,7 +414,7 @@ class GameResource extends JsonResource
                     'roundBonus' => $offer->roundBonus->value,
                     'coins' => $offer->coins,
                 ],
-                $this->state->setupPool?->availableRoundBonuses ?? [],
+                $this->state->setupPool->availableRoundBonuses ?? [],
             ),
             'pendingInteraction' => $this->state->pendingInteraction === null ? null : [
                 'type' => $this->state->pendingInteraction->type->value,
@@ -496,8 +496,8 @@ class GameResource extends JsonResource
      */
     private function innovationStates(?GamePlayerStateData $player): array
     {
-        $innovations = $this->state->setupPool?->innovations ?? [];
-        $playerCount = $this->state->setupPool?->playerCount ?? count($this->state->players);
+        $innovations = $this->state->setupPool->innovations ?? [];
+        $playerCount = $this->state->setupPool->playerCount ?? count($this->state->players);
         $calculator = new InnovationPurchaseCostCalculator();
         $ownedCount = $player instanceof GamePlayerStateData ? count($player->inventionIds) : 0;
         $skipsSecondInventionSurcharge = $player instanceof GamePlayerStateData

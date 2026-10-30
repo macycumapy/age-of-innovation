@@ -47,7 +47,7 @@ final class FindEligibleTownHexesAction
         while ($frontier !== []) {
             $hexId = array_shift($frontier);
 
-            if (! is_string($hexId) || in_array($hexId, $visitedHexIds, true)) {
+            if (in_array($hexId, $visitedHexIds, true)) {
                 continue;
             }
 

@@ -21,7 +21,7 @@ final class StartNextRoundAction
      */
     public function execute(GameStateData $state): array
     {
-        foreach ($state->setupPool?->availableRoundBonuses ?? [] as $roundBonus) {
+        foreach ($state->setupPool->availableRoundBonuses ?? [] as $roundBonus) {
             $roundBonus->coins++;
         }
 

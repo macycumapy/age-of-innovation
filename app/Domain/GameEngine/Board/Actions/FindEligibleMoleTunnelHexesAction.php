@@ -34,7 +34,7 @@ final class FindEligibleMoleTunnelHexesAction
 
             foreach ($state->board->hexes as $targetHex) {
                 if (self::hexDistance($originHex, $targetHex) !== 2
-                    || ! self::hasIntermediateHex($originHex, $targetHex, $hexesById->keys()->all())
+                    || ! self::hasIntermediateHex($originHex, $targetHex, array_map(static fn (BoardHexStateData $hex): string => $hex->id, $state->board->hexes))
                     || $targetHex->building !== null
                     || ! $targetHex->terrain->isHomeland()
                     || $targetHex->terrain === $player->homeland

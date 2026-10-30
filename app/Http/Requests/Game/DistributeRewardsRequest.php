@@ -120,14 +120,6 @@ final class DistributeRewardsRequest extends FormRequest
             : 0;
     }
 
-    /** @return array<string, mixed> */
-    private function interactionContext(): array
-    {
-        $game = $this->route('game');
-
-        return $game instanceof Game ? $game->state->pendingInteraction?->context ?? [] : [];
-    }
-
     /** @return list<string> */
     private function competencyIds(): array
     {
@@ -135,7 +127,7 @@ final class DistributeRewardsRequest extends FormRequest
         $interaction = $game instanceof Game ? $game->state->pendingInteraction : null;
 
         return $interaction?->type === PendingInteractionType::ChooseCompetency
-            ? $interaction->optionIds
-            : (array) ($interaction?->context['competencyIds'] ?? []);
+            ? array_values(array_filter($interaction->optionIds, 'is_string'))
+            : array_values(array_filter((array) ($interaction?->context['competencyIds'] ?? []), 'is_string'));
     }
 }

@@ -127,7 +127,7 @@ final class ApplyPowerOfferDecisionAction
                         (string) $interaction->context['builtHexId'],
                         BuildingType::from($interaction->context['buildingFollowUpType']),
                         powerOffersResolved: true,
-                        queuedTownHexIds: (array) ($interaction->context['queuedTownHexIds'] ?? []),
+                        queuedTownHexIds: array_values(array_filter((array) ($interaction->context['queuedTownHexIds'] ?? []), 'is_string')),
                     );
                 } elseif (($interaction->context['lizardBonusPending'] ?? false) === true) {
                     $this->startLizardTownBonus->execute($state, $buildingPlayer, (string) $interaction->context['builtHexId']);

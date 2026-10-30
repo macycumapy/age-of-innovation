@@ -128,13 +128,12 @@ final class GameActionOptionFinder
         }
 
         $interactionOptions = match ($state->pendingInteraction->type) {
-            PendingInteractionType::PowerOffer => $this->powerOfferOptionFinder->execute($state, $player->playerId),
             PendingInteractionType::ChooseTown => $this->chooseTownOptionFinder->execute($state, $player->playerId),
             PendingInteractionType::ChooseRoundBonus => $this->chooseRoundBonusOptionFinder->execute($state, $player),
             PendingInteractionType::BuildWorkshopAfterTerraforming => $this->workshopAfterTerraformingOptionFinder->execute($state, $player),
             PendingInteractionType::OfferPalaceWaterTown => $this->palaceWaterTownOptionFinder->execute($state, $player->playerId),
             PendingInteractionType::ChoosePalace => $this->choosePalaceOptionFinder->execute($state, $player),
-            PendingInteractionType::ChoosePalaceRewardOrder => array_map(static fn (string $reward): ChoosePalaceRewardOrderOptionData => new ChoosePalaceRewardOrderOptionData($reward), $state->pendingInteraction->optionIds),
+            PendingInteractionType::ChoosePalaceRewardOrder => array_map(static fn (int|string $reward): ChoosePalaceRewardOrderOptionData => new ChoosePalaceRewardOrderOptionData((string) $reward), $state->pendingInteraction->optionIds),
             PendingInteractionType::ChooseCompetency => $this->chooseCompetencyOptionFinder->execute($state, $player),
             PendingInteractionType::PlaceNeutralBuilding => $this->placeNeutralBuildingOptionFinder->execute($state, $player),
             PendingInteractionType::PlaceBridge => $this->placeBridgeOptionFinder->execute($state, $player),

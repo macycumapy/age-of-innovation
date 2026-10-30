@@ -79,6 +79,7 @@ final class ApplyFinalScoringAction
      * @param array<int, int> $valuesByPlayerId
      * @param list<int> $placePoints
      * @param array<int, array{playerId: int, victoryPoints: int, sources: list<array{source: string, id: string, value: int, rank: int, tiedCount: int, points: int}>}> $scoringByPlayerId
+     * @param-out array<int, array{playerId: int, victoryPoints: int, sources: list<array{source: string, id: string, value: int, rank: int, tiedCount: int, points: int}>}> $scoringByPlayerId
      */
     private function awardRanking(
         GameStateData $state,
@@ -106,14 +107,18 @@ final class ApplyFinalScoringAction
             foreach ($state->players as $player) {
                 if (in_array($player->playerId, $tiedPlayerIds, true)) {
                     $player->addVictoryPoints($pointsPerPlayer, $source === 'knowledge' ? VictoryPointSource::FinalKnowledge : VictoryPointSource::FinalObjectives);
-                    $scoringByPlayerId[$player->playerId]['victoryPoints'] += $pointsPerPlayer;
-                    $scoringByPlayerId[$player->playerId]['sources'][] = [
-                        'source' => $source,
-                        'id' => $sourceId,
-                        'value' => $valuesByPlayerId[$player->playerId],
-                        'rank' => $rankIndex + 1,
-                        'tiedCount' => count($tiedPlayerIds),
-                        'points' => $pointsPerPlayer,
+                    $scoring = $scoringByPlayerId[$player->playerId];
+                    $scoringByPlayerId[$player->playerId] = [
+                        'playerId' => $player->playerId,
+                        'victoryPoints' => $scoring['victoryPoints'] + $pointsPerPlayer,
+                        'sources' => [...$scoring['sources'], [
+                            'source' => $source,
+                            'id' => $sourceId,
+                            'value' => $valuesByPlayerId[$player->playerId],
+                            'rank' => $rankIndex + 1,
+                            'tiedCount' => count($tiedPlayerIds),
+                            'points' => $pointsPerPlayer,
+                        ]],
                     ];
                 }
             }

@@ -36,6 +36,9 @@ final class GameSetupPoolFactoryTest extends TestCase
         $this->assertLessThan($playerCount, $pool->firstPlayerIndex);
         $this->assertCount(6, $pool->roundScoringTiles);
         $this->assertInstanceOf(FinalRoundScoringTile::class, $pool->additionalFinalRoundGoal);
+        $this->assertTrue(array_is_list($pool->palaces));
+        $this->assertTrue(array_is_list($pool->competencies));
+        $this->assertTrue(array_is_list($pool->roundScoringTiles));
         $this->assertCount(3, $pool->bookActions);
         $this->assertCount(12, $pool->competencies);
         $this->assertCount($expectedInnovationCount, $pool->innovations);

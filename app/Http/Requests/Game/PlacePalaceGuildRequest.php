@@ -29,7 +29,7 @@ final class PlacePalaceGuildRequest extends FormRequest
             'hex_id' => [
                 'required',
                 'string',
-                Rule::in($game instanceof Game ? $game->state->pendingInteraction?->optionIds ?? [] : []),
+                Rule::in($game instanceof Game ? $game->state->pendingInteraction->optionIds ?? [] : []),
             ],
         ];
     }

@@ -22,9 +22,9 @@ use Spatie\LaravelData\Data;
  * @property int $firstPlayerIndex Индекс случайно выбранного первого игрока.
  * @property list<RoundScoringTile|string> $roundScoringTiles Жетоны раундов 1–6 по порядку.
  * @property FinalRoundScoringTile $additionalFinalRoundGoal Дополнительный жетон подсчёта шестого раунда.
- * @property list<BookAction> $bookActions Три общих книжных действия партии.
- * @property list<Competency> $competencies Случайный порядок двенадцати стопок компетенций.
- * @property list<Innovation> $innovations Открытые изобретения на планшете инноваций.
+ * @property list<BookAction|string> $bookActions Три общих книжных действия партии.
+ * @property list<Competency|string> $competencies Случайный порядок двенадцати стопок компетенций.
+ * @property list<Innovation|string> $innovations Открытые изобретения на планшете инноваций.
  * @property list<PalaceAbility> $palaces Доступные свойства дворцов, включая дворец №17.
  * @property list<PlanningBundleData> $planningBundles Семь комплектов местности, сообщества и бонуса.
  * @property list<RoundBonusOfferData> $availableRoundBonuses Три оставшихся бонуса с монетами.
@@ -36,9 +36,9 @@ final class GameSetupPoolData extends Data
 {
     /**
      * @param list<RoundScoringTile|string> $roundScoringTiles
-     * @param list<BookAction> $bookActions
-     * @param list<Competency> $competencies
-     * @param list<Innovation> $innovations
+     * @param list<BookAction|string> $bookActions
+     * @param list<Competency|string> $competencies
+     * @param list<Innovation|string> $innovations
      * @param list<PalaceAbility> $palaces
      * @param list<PlanningBundleData> $planningBundles
      * @param list<RoundBonusOfferData> $availableRoundBonuses

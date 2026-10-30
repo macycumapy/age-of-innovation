@@ -19,7 +19,7 @@ final class CompletePassTurnAction
 
     /**
      * @param Collection<int, GamePlayer> $players
-     * @return array{nextActivePlayerId: int|null, phase: GamePhase, nextRoundStarted: bool, incomeReceipts: list<IncomeReceiptData>, finalScoring: array, scienceBonusReceipts?: array}
+     * @return array{nextActivePlayerId: int|null, phase: GamePhase, nextRoundStarted: bool, incomeReceipts: list<IncomeReceiptData>, finalScoring: list<array<string, mixed>>, scienceBonusReceipts?: list<array<string, mixed>>}
      */
     public function execute(GameStateData $state, int $currentPlayerId, Collection $players): array
     {

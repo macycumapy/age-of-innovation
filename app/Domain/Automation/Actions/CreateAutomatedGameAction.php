@@ -131,11 +131,11 @@ final class CreateAutomatedGameAction
     }
 
     /**
-     * @param list<BackedEnum> $cases
+     * @param list<BackedEnum|string> $cases
      * @return list<string>
      */
     private function enumValues(array $cases): array
     {
-        return array_map(static fn (BackedEnum $case): string => (string) $case->value, $cases);
+        return array_map(static fn (BackedEnum|string $case): string => $case instanceof BackedEnum ? (string) $case->value : $case, $cases);
     }
 }

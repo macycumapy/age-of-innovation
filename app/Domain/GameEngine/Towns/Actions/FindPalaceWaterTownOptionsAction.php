@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Domain\GameEngine\Towns\Actions;
 
-use App\Domain\GameEngine\Board\Data\BoardHexStateData;
 use App\Domain\GameEngine\Board\Enums\TerrainType;
 use App\Domain\GameEngine\PlayerAbilities\Enums\PalaceAbility;
 use App\Domain\GameEngine\State\Data\GamePlayerStateData;
@@ -26,8 +25,7 @@ class FindPalaceWaterTownOptionsAction
         $options = [];
 
         foreach ($state->board->hexes as $hex) {
-            if (! $hex instanceof BoardHexStateData
-                || $hex->terrain !== TerrainType::Water
+            if ($hex->terrain !== TerrainType::Water
                 || $hex->building !== null
                 || $hex->townId !== null) {
                 continue;

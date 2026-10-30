@@ -196,7 +196,7 @@ final class LargestNetworkSizeCalculator
             while ($frontier !== []) {
                 $hexId = array_pop($frontier);
 
-                if ($hexId === null || isset($visitedHexIds[$hexId])) {
+                if (isset($visitedHexIds[$hexId])) {
                     continue;
                 }
 

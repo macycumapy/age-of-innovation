@@ -84,12 +84,12 @@ final class StartGameAction
                 'version' => $lockedGame->version + 1,
                 'state' => new GameStateData(
                     schemaVersion: CompetencySupply::CURRENT_SCHEMA_VERSION,
-                    turnOrder: $orderedPlayers->pluck('id')->all(),
+                    turnOrder: array_values($orderedPlayers->map(static fn (GamePlayer $player): int => $player->id)->all()),
                     board: $lockedGame->state->board,
                     round: new RoundStateData(
                         number: 1,
                         phase: GamePhase::Setup,
-                        scoringTileId: $setupPool->roundScoringTiles[0]->value,
+                        scoringTileId: ($setupPool->roundScoringTiles[0] instanceof \App\Domain\GameEngine\Scoring\Enums\RoundScoringTile ? $setupPool->roundScoringTiles[0]->value : $setupPool->roundScoringTiles[0]),
                         additionalScoringTileId: $setupPool->additionalFinalRoundGoal->value,
                     ),
                     availableTownTileIds: array_merge(...array_fill(
@@ -125,7 +125,7 @@ final class StartGameAction
                 [],
                 [[
                     'type' => GameEventType::GameStarted->value,
-                    'turn_order' => $orderedPlayers->pluck('id')->all(),
+                    'turn_order' => array_values($orderedPlayers->map(static fn (GamePlayer $player): int => $player->id)->all()),
                     'active_game_player_id' => $activePlayer->id,
                     'map_variant' => $lockedGame->state->board->variant->value,
                     'random_seed' => $lockedGame->random_seed,
@@ -141,13 +141,13 @@ final class StartGameAction
     }
 
     /**
-     * @param list<\BackedEnum> $cases
+     * @param list<\BackedEnum|string> $cases
      * @return list<string>
      */
     private function enumValues(array $cases): array
     {
         return array_map(
-            static fn (\BackedEnum $case): string => (string) $case->value,
+            static fn (\BackedEnum|string $case): string => $case instanceof \BackedEnum ? (string) $case->value : $case,
             $cases,
         );
     }

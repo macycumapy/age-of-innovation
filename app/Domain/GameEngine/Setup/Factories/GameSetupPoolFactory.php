@@ -122,6 +122,10 @@ final class GameSetupPoolFactory
             static fn (FinalRoundScoringTile $tile): bool => $tile->goal() !== $sixthRoundTile->goal(),
         ));
 
+        if ($tiles === []) {
+            throw new RuntimeException('Нет доступных жетонов финального раунда.');
+        }
+
         return $tiles[$this->randomizer->getInt(0, count($tiles) - 1)];
     }
 
@@ -161,10 +165,10 @@ final class GameSetupPoolFactory
             static fn (PalaceAbility $palace): bool => $palace !== PalaceAbility::Palace17,
         );
 
-        return [
+        return array_values([
             PalaceAbility::Palace17,
             ...array_slice($this->randomizer->shuffleArray($randomPalaces), 0, $playerCount + 1),
-        ];
+        ]);
     }
 
     private function innovationSlotCount(int $playerCount): int
@@ -179,6 +183,6 @@ final class GameSetupPoolFactory
      */
     private function shuffledCases(string $enum): array
     {
-        return $this->randomizer->shuffleArray($enum::cases());
+        return array_values($this->randomizer->shuffleArray($enum::cases()));
     }
 }

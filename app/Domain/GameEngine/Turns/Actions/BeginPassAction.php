@@ -87,7 +87,7 @@ final class BeginPassAction
                 $player->playerId,
                 array_map(
                     static fn (RoundBonusOfferData $offer): string => $offer->roundBonus->value,
-                    $state->setupPool?->availableRoundBonuses ?? [],
+                    $state->setupPool->availableRoundBonuses ?? [],
                 ),
             );
         }

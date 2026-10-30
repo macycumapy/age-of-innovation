@@ -57,7 +57,7 @@ final class ApplyPowerActionAction
         $playerState->resources->power->bowlOne += $cost;
         $playerState->addVictoryPoints($action->victoryPoints(
             $playerState->faction,
-            $state->setupPool?->playerCount ?? count($state->players),
+            $state->setupPool->playerCount ?? count($state->players),
         ), VictoryPointSource::Faction);
 
         match ($action) {

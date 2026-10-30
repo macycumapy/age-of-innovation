@@ -17,6 +17,7 @@ final class ChoosePalaceRewardOrderRequest extends FormRequest
         return $game instanceof Game && $game->active_player_id === $this->user()?->id
             && $game->state->pendingInteraction?->type === PendingInteractionType::ChoosePalaceRewardOrder;
     }
+    /** @return array<string, list<mixed>> */
     public function rules(): array
     {
         return ['first_reward' => ['required', Rule::in(['spades', 'bridges'])]];

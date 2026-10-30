@@ -21,9 +21,9 @@ final class FindEligiblePalaceFlightHexesAction
         $ownedBuildingHexes = collect($state->board->hexes)->filter(
             static fn (BoardHexStateData $hex): bool => $hex->building?->ownerPlayerId === $player->playerId,
         );
-        $ownedBuildingHexIds = $ownedBuildingHexes->pluck('id')->all();
+        $ownedBuildingHexIds = $ownedBuildingHexes->map(static fn (BoardHexStateData $hex): string => $hex->id)->all();
 
-        return collect($state->board->hexes)
+        return array_values(collect($state->board->hexes)
             ->filter(static fn (BoardHexStateData $targetHex): bool => $targetHex->building === null
                 && $targetHex->terrain->isHomeland()
                 && $targetHex->terrain !== $player->homeland
@@ -33,10 +33,10 @@ final class FindEligiblePalaceFlightHexesAction
                 && $ownedBuildingHexes->contains(
                     static fn (BoardHexStateData $originHex): bool => self::hexDistance($originHex, $targetHex) <= 3,
                 ))
-            ->pluck('id')
+            ->map(static fn (BoardHexStateData $hex): string => $hex->id)
             ->unique()
             ->values()
-            ->all();
+            ->all());
     }
 
     private static function hexDistance(BoardHexStateData $firstHex, BoardHexStateData $secondHex): int
