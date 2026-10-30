@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import Form from '@/components/game/GameActionForm.vue';
 import TriangleAlert from "@lucide/vue/dist/esm/icons/triangle-alert.mjs";
 import { computed, ref, watch } from 'vue';
 import TerraformWorkshopController from '@/actions/App/Http/Controllers/Game/TerraformWorkshopController';
 import WorkshopController from '@/actions/App/Http/Controllers/Game/WorkshopController';
+import Form from '@/components/game/GameActionForm.vue';
 import InputError from '@/components/InputError.vue';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -16,8 +16,8 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
-import type { BoardHexState, BoardState, PlayerColor } from '@/types';
 import { hasAdjacentOpponent } from '@/lib/buildingAdjacency';
+import type { BoardHexState, BoardState, PlayerColor } from '@/types';
 import toolUrl from '../../../images/token_parts/cube.png';
 import coinUrl from '../../../images/token_parts/gold_medallion.png';
 

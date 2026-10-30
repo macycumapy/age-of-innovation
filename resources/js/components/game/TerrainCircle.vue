@@ -13,6 +13,7 @@ const images = import.meta.glob<string>('../../../images/terrain_tokens/*.png', 
 
 function terrainPosition(index: number): { left: string; top: string } {
     const angle = (index * 2 * Math.PI) / terrains.length - Math.PI / 2;
+
     return { left: `${50 + 36 * Math.cos(angle)}%`, top: `${50 + 36 * Math.sin(angle)}%` };
 }
 </script>

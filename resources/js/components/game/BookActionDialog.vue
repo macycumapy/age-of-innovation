@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import Form from '@/components/game/GameActionForm.vue';
 import { computed, reactive, ref, watch } from 'vue';
 import BookActionController from '@/actions/App/Http/Controllers/Game/BookActionController';
+import Form from '@/components/game/GameActionForm.vue';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
 import {
@@ -36,7 +36,7 @@ const props = defineProps<{
 
 const isOpen = defineModel<boolean>('open', { required: true });
 const selectedDiscipline = ref<KnowledgeDiscipline | null>(null);
-const selectedHexId = ref<string | null>(null);
+const chosenHexId = ref<string | null>(null);
 const bookCounts = reactive<Record<BookType, number>>({
     banking: 0,
     law: 0,
@@ -64,7 +64,7 @@ const hasRequiredChoice = computed(() => {
     }
 
     if (props.action?.id === 'upgrade_to_guild') {
-        return selectedHexId.value !== null;
+        return chosenHexId.value !== null;
     }
 
     return true;
@@ -79,7 +79,7 @@ watch([isOpen, () => props.action], ([open]) => {
     }
 
     selectedDiscipline.value = null;
-    selectedHexId.value = props.selectedHexId ?? null;
+    chosenHexId.value = props.selectedHexId ?? null;
     let remaining = props.action?.cost ?? 0;
 
     for (const bookType of bookTypes) {
@@ -113,7 +113,7 @@ function actionSucceeded(): void {
             >
                 <input type="hidden" name="action" :value="action.id" />
                 <input type="hidden" name="discipline" :value="selectedDiscipline ?? ''" />
-                <input type="hidden" name="hex_id" :value="selectedHexId ?? ''" />
+                <input type="hidden" name="hex_id" :value="chosenHexId ?? ''" />
 
                 <DialogHeader>
                     <DialogTitle>Действие за книги</DialogTitle>
@@ -167,8 +167,8 @@ function actionSucceeded(): void {
                     </div>
                 </div>
 
-                <p v-if="action.id === 'upgrade_to_guild' && selectedHexId" class="text-sm text-muted-foreground">
-                    Выбран дом в области {{ selectedHexId }}.
+                <p v-if="action.id === 'upgrade_to_guild' && chosenHexId" class="text-sm text-muted-foreground">
+                    Выбран дом в области {{ chosenHexId }}.
                 </p>
 
                 <InputError

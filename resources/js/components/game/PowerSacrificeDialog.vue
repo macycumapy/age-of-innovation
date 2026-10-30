@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import Form from '@/components/game/GameActionForm.vue';
 import { ref, watch } from 'vue';
 import PowerSacrificeController from '@/actions/App/Http/Controllers/Game/PowerSacrificeController';
+import Form from '@/components/game/GameActionForm.vue';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
 import {

@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
-import { parse } from '@vue/compiler-sfc';
-import ts from 'typescript';
 import { compile } from '@vue/compiler-dom';
+import { parse } from '@vue/compiler-sfc';
 import { renderToString } from '@vue/server-renderer';
+import ts from 'typescript';
 import * as Vue from 'vue';
 
 const source = readFileSync(
@@ -82,6 +82,7 @@ test('player panels collapse independently and can be expanded again', async () 
                 return () => Vue.h('span', attrs);
             },
         });
+
         return renderToString(app);
     }
     const expandedHtml = await render();

@@ -119,6 +119,15 @@ This project has domain-specific skills available in `**/skills/**`. You MUST ac
 - Every change must be programmatically tested. Write a new test or update an existing test, then run the affected tests to make sure they pass.
 - Run the minimum number of tests needed to ensure code quality and speed. Use `vendor/bin/sail artisan test --compact` with a specific filename or filter.
 
+=== frontend lint rules ===
+
+# Frontend Lint Enforcement
+
+- After changing JavaScript, TypeScript, Vue files, frontend tests, or ESLint configuration, you MUST run `vendor/bin/sail npm run lint:check` before finalizing.
+- Fix all reported ESLint errors. You may use `vendor/bin/sail npm run lint` for automatic fixes, then rerun `vendor/bin/sail npm run lint:check`.
+- Do not disable lint rules merely to make checks pass. Any narrowly scoped exception must have a concrete explanation.
+- Run the affected tests after lint fixes that change component logic or test code.
+
 === inertia-laravel/core rules ===
 
 # Inertia

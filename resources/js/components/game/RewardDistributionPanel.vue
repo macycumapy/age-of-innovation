@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import Form from '@/components/game/GameActionForm.vue';
 import { computed, reactive, ref, watch } from 'vue';
 import RewardDistributionController from '@/actions/App/Http/Controllers/Game/RewardDistributionController';
 import CompetencySelector from '@/components/game/CompetencySelector.vue';
+import Form from '@/components/game/GameActionForm.vue';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -19,12 +19,12 @@ import {
 import { NumberStepper } from '@/components/ui/number-stepper';
 import type { Competency, KnowledgeDiscipline } from '@/types';
 import bankingBookUrl from '../../../images/token_parts/coin_book.png';
-import engineeringBookUrl from '../../../images/token_parts/engineering_book.png';
-import lawBookUrl from '../../../images/token_parts/law_book.png';
-import medicineBookUrl from '../../../images/token_parts/medicine_book.png';
 import bankingKnowledgeUrl from '../../../images/token_parts/coin_round.png';
+import engineeringBookUrl from '../../../images/token_parts/engineering_book.png';
 import engineeringKnowledgeUrl from '../../../images/token_parts/engineering_round.png';
+import lawBookUrl from '../../../images/token_parts/law_book.png';
 import lawKnowledgeUrl from '../../../images/token_parts/law_round.png';
+import medicineBookUrl from '../../../images/token_parts/medicine_book.png';
 import medicineKnowledgeUrl from '../../../images/token_parts/medicine_round.png';
 
 type RewardDistributionType =

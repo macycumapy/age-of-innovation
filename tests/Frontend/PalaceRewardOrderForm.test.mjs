@@ -1,3 +1,4 @@
+/* eslint-disable vue/no-reserved-component-names -- Stubs must match the component names used by the compiled template. */
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
@@ -32,6 +33,7 @@ test('palace reward order is selected locally, can be canceled, and requires con
             setup(_props, { attrs, slots }) {
                 return () => {
                     clicks.push(attrs.onClick);
+
                     return Vue.h('button', attrs, slots.default?.());
                 };
             },
@@ -39,6 +41,7 @@ test('palace reward order is selected locally, can be canceled, and requires con
         app.component('Form', {
             setup(_props, { attrs, slots }) {
                 confirm = attrs.onSuccess;
+
                 return () => Vue.h('form', attrs, slots.default?.({ processing: false }));
             },
         });
@@ -46,9 +49,11 @@ test('palace reward order is selected locally, can be canceled, and requires con
             props: ['open'],
             setup(props, { attrs, slots }) {
                 closeDialog = attrs['onUpdate:open'];
+
                 return () => (props.open ? Vue.h('div', { role: 'dialog' }, slots.default?.()) : null);
             },
         });
+
         for (const name of ['DialogContent', 'DialogHeader', 'DialogTitle', 'DialogDescription', 'DialogFooter']) {
             app.component(name, {
                 setup:
@@ -57,6 +62,7 @@ test('palace reward order is selected locally, can be canceled, and requires con
                         Vue.h('div', slots.default?.()),
             });
         }
+
         return renderToString(app);
     }
     const initial = await render();

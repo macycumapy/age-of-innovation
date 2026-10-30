@@ -25,10 +25,13 @@ const loadModule = (name) => {
         }).outputText;
         const iconModule = { exports: {} };
         new Function('require', 'module', 'exports', iconCode)(loadModule, iconModule, iconModule.exports);
+
         return iconModule.exports;
     }
+
     if (name === '@/components/ui/tooltip') {
         const passthrough = (_, { slots }) => slots.default?.();
+
         return {
             Tooltip: passthrough,
             TooltipProvider: passthrough,
@@ -36,16 +39,21 @@ const loadModule = (name) => {
             TooltipContent: (_, { slots }) => h('div', { role: 'tooltip' }, slots.default?.()),
         };
     }
+
     if (name === '@/lib/gameDisplay') {
         return { factionNames: {}, playerColorValues: {} };
     }
+
     if (/\.(png|jpg)$/.test(name)) {
         return { default: `/images/${name.split('/').slice(-2).join('/')}` };
     }
+
     if (name === '@lucide/vue') {
         const icon = () => h('svg');
+
         return { Crown: icon, Medal: icon, Trophy: icon };
     }
+
     return require(name);
 };
 new Function('require', 'module', 'exports', outputText)(loadModule, componentModule, componentModule.exports);
@@ -87,6 +95,7 @@ test('shows score icons beside each player total including losses and legacy poi
     for (const label of ['Статистика победных очков', 'Цели раундов', 'Федерации', 'Инновации', 'Компетенции', 'Финальные цели игры', 'Бонусы раундов', 'Бонусы расы', 'Бонусы дворца', 'Потери за принятую Силу']) {
         assert.ok(html.includes(label), label);
     }
+
     const rows = html.match(/<li\b.*?<\/li>/g);
     assert.equal(rows.length, 2);
     assert.match(rows[0], /Анна/);
@@ -124,12 +133,14 @@ test('renders distinct illustrated score sources without replacing the player po
     const illustrations = [];
     const categories = [...html.matchAll(/data-score-category="([^"]+)".*?(?=data-score-category=|Итоговые победные очки)/g)];
     assert.equal(categories.length, 16);
+
     for (const [cell, category] of categories) {
         const illustration = cell.match(/<img[^>]+>/);
         assert.ok(illustration, `${category} has a decorative illustration beside its accessible label`);
         assert.match(illustration[0], /\balt(?:="")?(?=[ >])/);
         illustrations.push(illustration[0].match(/src="([^"]+)"/)[1]);
     }
+
     assert.doesNotMatch(html, /<image href="\/images\/factions/);
     assert.doesNotMatch(html, /\/images\/competencies\/|\/images\/round_bonus_cards\//);
     assert.equal(new Set(illustrations).size, 16);
@@ -174,6 +185,7 @@ test('uses five columns for three rows of the fifteen standard score categories'
     assert.match(html, /size-12 max-w-full/);
     const scoreCells = [...html.matchAll(/<span class="([^"]+)"[^>]*data-score-category=/g)];
     assert.equal(scoreCells.length, 15);
+
     for (const [, classes] of scoreCells) {
         assert.ok(classes.split(' ').includes('@min-[76rem]:border-l'));
         assert.ok(classes.split(' ').includes('@min-[76rem]:first:border-l-0'));

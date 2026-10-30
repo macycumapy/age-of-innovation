@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue';
-import TerraformedTerrainTokens from '@/components/game/TerraformedTerrainTokens.vue';
 import BridgeTokens from '@/components/game/BridgeTokens.vue';
+import TerraformedTerrainTokens from '@/components/game/TerraformedTerrainTokens.vue';
 import { terrainColors, terrainNames } from '@/lib/gameDisplay';
 import type {
     BoardState,
@@ -14,11 +14,11 @@ import type {
     RoundScoringTile,
     TwoPlayerTerritoryTile,
 } from '@/types';
+import annexUrl from '../../../images/buildings/white/annex.png';
 import gameBoardUrl from '../../../images/game_board.webp';
 import gameBoardTwoPlayerUrl from '../../../images/game_board_2p.webp';
 import finishedRoundScoringTileUrl from '../../../images/round_scoring_tiles/finished.png';
 import goldCrossUrl from '../../../images/token_parts/gold_cross.png';
-import annexUrl from '../../../images/buildings/white/annex.png';
 
 type Props = {
     board: BoardState;

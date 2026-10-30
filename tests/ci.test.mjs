@@ -1,7 +1,7 @@
-import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
+import test from 'node:test';
 
 const require = createRequire(import.meta.url);
 const workflow = require('js-yaml').load(readFileSync(new URL('../.github/workflows/ci.yml', import.meta.url), 'utf8'));
@@ -28,9 +28,11 @@ test('CD reads connection settings from repository variables', () => {
     const cd = require('js-yaml').load(source);
     assert.ok(cd.jobs.deploy);
     assert.doesNotMatch(source, /\bvariables\./);
+
     for (const name of ['SSH_HOST', 'SSH_USER', 'PROJECT_FOLDER']) {
         assert.ok(source.includes(`vars.${name}`));
     }
+
     assert.ok(source.includes('secrets.SSH_PRIVATE_KEY'));
 });
 

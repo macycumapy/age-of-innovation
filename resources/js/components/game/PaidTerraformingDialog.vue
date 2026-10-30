@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import Form from '@/components/game/GameActionForm.vue';
 import { computed, ref, watch } from 'vue';
-import PaidTerraformingController from '@/actions/App/Http/Controllers/Game/PaidTerraformingController';
 import NeutralInnovationBuildingController from '@/actions/App/Http/Controllers/Game/NeutralInnovationBuildingController';
+import PaidTerraformingController from '@/actions/App/Http/Controllers/Game/PaidTerraformingController';
+import Form from '@/components/game/GameActionForm.vue';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
 import {

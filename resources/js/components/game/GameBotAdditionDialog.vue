@@ -4,7 +4,6 @@ import GameBotController from '@/actions/App/Http/Controllers/Game/GameBotContro
 import Form from '@/components/game/GameActionForm.vue';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
-import { SegmentedRadio } from '@/components/ui/segmented-radio';
 import {
     Dialog,
     DialogClose,
@@ -15,6 +14,7 @@ import {
     DialogTitle,
     DialogTrigger,
 } from '@/components/ui/dialog';
+import { SegmentedRadio } from '@/components/ui/segmented-radio';
 import type { GameBotDifficulty } from '@/types';
 
 const props = defineProps<{ gameId: number; difficulties: GameBotDifficulty[] }>();

@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import Form from '@/components/game/GameActionForm.vue';
 import { computed, ref, watch } from 'vue';
 import ScholarController from '@/actions/App/Http/Controllers/Game/ScholarController';
+import Form from '@/components/game/GameActionForm.vue';
+import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
@@ -12,7 +13,6 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
-import InputError from '@/components/InputError.vue';
 import type { GamePlayerBoardState, KnowledgeDiscipline } from '@/types';
 import bankingUrl from '../../../images/token_parts/coin_round.png';
 import engineeringUrl from '../../../images/token_parts/engineering_round.png';

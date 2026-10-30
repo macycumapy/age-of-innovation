@@ -1,10 +1,12 @@
 <script setup lang="ts">
-import Form from '@/components/game/GameActionForm.vue';
 import ArrowRight from "@lucide/vue/dist/esm/icons/arrow-right.mjs";
 import TriangleAlert from "@lucide/vue/dist/esm/icons/triangle-alert.mjs";
 import { computed, ref, watch } from 'vue';
-import BuildingUpgradeController from '@/actions/App/Http/Controllers/Game/BuildingUpgradeController';
 import AnnexPlacementController from '@/actions/App/Http/Controllers/Game/AnnexPlacementController';
+import BuildingUpgradeController from '@/actions/App/Http/Controllers/Game/BuildingUpgradeController';
+import Form from '@/components/game/GameActionForm.vue';
+import InputError from '@/components/InputError.vue';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
@@ -15,13 +17,11 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
-import InputError from '@/components/InputError.vue';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import type { BoardState, BuildingType, BuildingUpgradeOption, PlayerColor } from '@/types';
 import { hasAdjacentOpponent } from '@/lib/buildingAdjacency';
+import type { BoardState, BuildingType, BuildingUpgradeOption, PlayerColor } from '@/types';
+import annexUrl from '../../../images/buildings/white/annex.png';
 import toolUrl from '../../../images/token_parts/cube.png';
 import coinUrl from '../../../images/token_parts/gold_medallion.png';
-import annexUrl from '../../../images/buildings/white/annex.png';
 
 const props = defineProps<{
     gameId: number;

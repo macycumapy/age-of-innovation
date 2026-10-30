@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import type { CSSProperties } from 'vue';
-import type { Competency, Innovation, InnovationPurchaseState } from '@/types';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import type { Competency, Innovation, InnovationPurchaseState } from '@/types';
 import competencyBoardUrl from '../../../images/competency_board.png';
 import twoPlayerInventionBoardUrl from '../../../images/invention_board_2.jpg';
 import threePlayerInventionBoardUrl from '../../../images/invention_board_3.jpg';

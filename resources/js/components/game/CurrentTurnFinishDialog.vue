@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import Form from '@/components/game/GameActionForm.vue';
 import CurrentTurnFinishController from '@/actions/App/Http/Controllers/Game/CurrentTurnFinishController';
+import Form from '@/components/game/GameActionForm.vue';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,

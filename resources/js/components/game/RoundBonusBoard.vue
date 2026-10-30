@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import type { RoundBonus, RoundBonusOffer } from '@/types';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import type { RoundBonus, RoundBonusOffer } from '@/types';
 import goldMedallionUrl from '../../../images/token_parts/gold_medallion.png';
 
 defineProps<{

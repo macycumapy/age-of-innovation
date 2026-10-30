@@ -1,10 +1,9 @@
 <script setup lang="ts">
-import Form from '@/components/game/GameActionForm.vue';
 import { computed, nextTick, reactive, ref, watch } from 'vue';
 import PassController from '@/actions/App/Http/Controllers/Game/PassController';
+import Form from '@/components/game/GameActionForm.vue';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
-import { NumberStepper } from '@/components/ui/number-stepper';
 import {
     Dialog,
     DialogClose,
@@ -14,6 +13,7 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
+import { NumberStepper } from '@/components/ui/number-stepper';
 import type { KnowledgeDiscipline, RoundBonus } from '@/types';
 import bankingRoundUrl from '../../../images/token_parts/coin_round.png';
 import engineeringRoundUrl from '../../../images/token_parts/engineering_round.png';

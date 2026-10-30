@@ -4,8 +4,8 @@ import { createRequire } from 'node:module';
 import test from 'node:test';
 import { compileScript, parse } from '@vue/compiler-sfc';
 import { renderToString } from '@vue/server-renderer';
-import { createSSRApp } from 'vue';
 import ts from 'typescript';
+import { createSSRApp } from 'vue';
 
 const source = readFileSync(new URL('../../resources/js/components/game/CultBoard.vue', import.meta.url), 'utf8');
 const { descriptor } = parse(source);
@@ -43,6 +43,7 @@ for (const playerCount of [2, 3]) {
         for (const player of players) {
             assert.equal((html.match(new RegExp(`src="/images/${player.color}/token.png"`, 'g')) ?? []).length, 4);
         }
+
         assert.equal((html.match(/src="\/images\/black\/token.png"/g) ?? []).length, playerCount === 2 ? 4 : 0);
         assert.equal((html.match(/src="\/images\/black\/scientist.png"/g) ?? []).length, playerCount === 2 ? 4 : 0);
         assert.equal((html.match(/<img /g) ?? []).length, playerCount === 2 ? 17 : 13);

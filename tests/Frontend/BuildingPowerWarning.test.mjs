@@ -21,9 +21,11 @@ async function renderDialog(filename, state) {
         render: new Function('Vue', code)(Vue),
         data: () => state,
     });
+
     for (const name of ['Dialog', 'DialogContent', 'DialogHeader', 'DialogTitle', 'DialogDescription', 'DialogFooter', 'DialogClose', 'Form', 'Button', 'InputError', 'Alert', 'AlertDescription', 'ArrowRight', 'TriangleAlert']) {
         app.component(name, passthrough);
     }
+
     return renderToString(app);
 }
 
@@ -50,6 +52,7 @@ for (const selectedAction of ['upgrade', 'annex']) {
             BuildingUpgradeController: { form: () => ({}) }, AnnexPlacementController: { create: { form: () => ({}) } },
         });
         assert.equal(html.includes(warning), selectedAction === 'upgrade');
+
         if (selectedAction === 'upgrade') {
             assert.match(html, /bg-amber-50/);
             assert.match(html, /font-medium text-amber-950 dark:text-amber-100/);

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue';
+import type { Faction } from '@/types';
 import blessedUrl from '../../../images/factions/blessed.jpg';
 import felinesUrl from '../../../images/factions/felines.jpg';
 import goblinsUrl from '../../../images/factions/goblins.jpg';
@@ -28,7 +29,6 @@ import roundScoringUrl from '../../../images/token_parts/score_round_scoring.png
 import startingUrl from '../../../images/token_parts/score_starting.png';
 import townUrl from '../../../images/token_parts/score_town.png';
 import untrackedUrl from '../../../images/token_parts/score_untracked.png';
-import type { Faction } from '@/types';
 
 const props = defineProps<{
     source: string;

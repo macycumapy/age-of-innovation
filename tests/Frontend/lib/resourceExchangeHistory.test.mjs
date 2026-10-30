@@ -44,6 +44,7 @@ test('resource exchange history ignores empty and malformed counts', () => {
     for (const count of [0, '0', -1, '-1', 1.5, '1.5', '', 'abc', true, null, undefined, [], {}, Infinity]) {
         assert.deepEqual(resourceExchangeDetails({ power_to_coin: count, power_to_book: { law: count } }, {}), []);
     }
+
     for (const value of [null, undefined, [], 'invalid']) {
         assert.deepEqual(resourceExchangeDetails(value, {}), []);
     }

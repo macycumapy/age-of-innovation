@@ -32,6 +32,7 @@ export function resourceExchangeDetails(exchanges: unknown, disciplineNames: Rec
 
         for (const [discipline, value] of Object.entries(books)) {
             const count = exchangeCount(value);
+
             if (count === 0) {
                 continue;
             }

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Form } from '@inertiajs/vue3';
-import Eye from "@lucide/vue/dist/esm/icons/eye.mjs";
 import EyeOff from "@lucide/vue/dist/esm/icons/eye-off.mjs";
+import Eye from "@lucide/vue/dist/esm/icons/eye.mjs";
 import LockKeyhole from "@lucide/vue/dist/esm/icons/lock-keyhole.mjs";
 import RefreshCw from "@lucide/vue/dist/esm/icons/refresh-cw.mjs";
 import { nextTick, onMounted, ref, useTemplateRef } from 'vue';

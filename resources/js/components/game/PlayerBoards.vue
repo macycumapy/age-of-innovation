@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import type { CSSProperties } from 'vue';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { factionNames } from '@/lib/gameDisplay';
 import type {
     Competency,
     Faction,
@@ -12,15 +14,13 @@ import type {
     RoundBonus,
     TownTile,
 } from '@/types';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { factionNames } from '@/lib/gameDisplay';
 import annexUrl from '../../../images/buildings/white/annex.png';
 import bankingBookUrl from '../../../images/token_parts/coin_book.png';
-import coinUrl from '../../../images/token_parts/gold_medallion.png';
-import engineeringBookUrl from '../../../images/token_parts/engineering_book.png';
-import unassignedBookUrl from '../../../images/token_parts/gray_book.png';
 import handUrl from '../../../images/token_parts/cube.png';
+import engineeringBookUrl from '../../../images/token_parts/engineering_book.png';
 import goldCrossUrl from '../../../images/token_parts/gold_cross.png';
+import coinUrl from '../../../images/token_parts/gold_medallion.png';
+import unassignedBookUrl from '../../../images/token_parts/gray_book.png';
 import lawBookUrl from '../../../images/token_parts/law_book.png';
 import manaUrl from '../../../images/token_parts/mana.png';
 import medicineBookUrl from '../../../images/token_parts/medicine_book.png';

@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
-import { parse } from '@vue/compiler-sfc';
 import { compile } from '@vue/compiler-dom';
+import { parse } from '@vue/compiler-sfc';
+import { renderToString } from '@vue/server-renderer';
 import { createSSRApp } from 'vue';
 import * as Vue from 'vue';
-import { renderToString } from '@vue/server-renderer';
 
 const source = readFileSync(new URL('../../resources/js/components/game/TerrainCircle.vue', import.meta.url), 'utf8');
 const { descriptor } = parse(source);
@@ -38,10 +38,12 @@ test('terrain circle shows seven terrains and players on their chosen homeland',
     });
     const html = await renderToString(app);
     assert.equal(html.match(/<img /g).length, 7);
+
     for (const terrain of terrains) {
         assert.match(html, new RegExp(`title="${terrain}"`));
         assert.equal(html.includes(`>${terrain}</span>`), false);
     }
+
     assert.equal(html.match(/class="size-18 rounded-full object-contain drop-shadow-sm"/g).length, 7);
     assert.match(html, /Лесной игрок/);
     assert.equal(html.includes('Не выбрал'), false);

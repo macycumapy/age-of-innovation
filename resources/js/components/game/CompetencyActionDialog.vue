@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import Form from '@/components/game/GameActionForm.vue';
 import CompetencyActionController from '@/actions/App/Http/Controllers/Game/CompetencyActionController';
+import Form from '@/components/game/GameActionForm.vue';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
 import {

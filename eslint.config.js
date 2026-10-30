@@ -74,6 +74,7 @@ export default defineConfigWithVueTs(
     },
     {
         ignores: [
+            'docker/databases/**',
             'vendor',
             'node_modules',
             'public',

@@ -1,13 +1,14 @@
-import test from 'node:test';
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import { mkdtempSync, mkdirSync, writeFileSync, copyFileSync, readFileSync, existsSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { spawnSync } from 'node:child_process';
+import test from 'node:test';
 
 for (const failMigration of [false, true]) {
     test(`deployment ${failMigration ? 'restores availability after migration failure' : 'publishes build and restarts services'}`, () => {
         const directory = mkdtempSync(join(tmpdir(), 'deployment-'));
+
         try {
             mkdirSync(join(directory, 'vendor/bin'), { recursive: true });
             mkdirSync(join(directory, '.deploy/build'), { recursive: true });

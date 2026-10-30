@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useHttp, usePage } from '@inertiajs/vue3';
-import History from "@lucide/vue/dist/esm/icons/rotate-ccw-clock.mjs";
 import LoaderCircle from "@lucide/vue/dist/esm/icons/loader-circle.mjs";
+import History from "@lucide/vue/dist/esm/icons/rotate-ccw-clock.mjs";
 import RotateCcw from "@lucide/vue/dist/esm/icons/rotate-ccw.mjs";
 import { computed, ref, watch } from 'vue';
 import { toast } from 'vue-sonner';
@@ -458,6 +458,7 @@ function powerActionReward(action: PowerAction): string {
 function bookActionReward(entry: GameHistoryEntry, action: BookAction): string | null {
     if (action === 'advance_knowledge') {
         const discipline = payloadString(entry, 'discipline');
+
         return discipline === null ? 'получено 2 шага знаний' : `получено 2 шага знаний: ${disciplineName(discipline)}`;
     }
 
@@ -491,6 +492,7 @@ function palaceActionReward(entry: GameHistoryEntry, palace: string): string | n
 
     if (palace === 'palace_13') {
         const discipline = payloadString(entry, 'discipline');
+
         return discipline === null
             ? 'получено 3 золота и книга'
             : `получено 3 золота и книга: ${disciplineName(discipline)}`;
@@ -696,9 +698,11 @@ function actionDetails(entry: GameHistoryEntry): string | null {
 
     if (typeof entry.payload.neutral_building === 'object' && entry.payload.neutral_building !== null) {
         const neutralBuilding = entry.payload.neutral_building as Record<string, unknown>;
+
         if (neutralBuilding.skipped === true) {
             details.push('отказ от установки нейтрального здания');
         }
+
         const victoryPoints = Number(neutralBuilding.victory_points ?? 0);
 
         if (Number.isFinite(victoryPoints) && victoryPoints > 0) {
