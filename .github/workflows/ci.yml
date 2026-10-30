@@ -1,5 +1,6 @@
 name: CI
 on:
+  workflow_dispatch:
   push:
     branches: [main]
   pull_request:
@@ -7,6 +8,7 @@ on:
 
 permissions:
   contents: read
+  packages: read
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
@@ -19,10 +21,13 @@ jobs:
     timeout-minutes: 40
     env:
       APP_SERVICE: app
-      WWWUSER: 1000
-      WWWGROUP: 1000
     steps:
       - uses: actions/checkout@v4
+
+      - name: Match Sail user to runner permissions
+        run: |
+          echo "WWWUSER=$(id -u)" >> "$GITHUB_ENV"
+          echo "WWWGROUP=$(id -g)" >> "$GITHUB_ENV"
 
       - name: Prepare CI environment
         run: |
@@ -39,20 +44,18 @@ jobs:
           DB_PASSWORD=password
           ENV
 
-      # Sail is installed by Composer, so bootstrap it using the project's image.
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Build application image
-        uses: docker/build-push-action@v7
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
         with:
-          context: ./docker/php/8.5
-          load: true
-          tags: sail-8.5/app:latest
-          build-args: |
-            WWWGROUP=${{ env.WWWGROUP }}
-          cache-from: type=gha,scope=sail-php85
-          cache-to: type=gha,scope=sail-php85,mode=max
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Download application image
+        run: |
+          image="ghcr.io/${GITHUB_REPOSITORY,,}-ci:php85"
+          docker pull "$image"
+          docker tag "$image" sail-8.5/app:latest
 
       - name: Install dependencies and bootstrap Sail
         run: >-
@@ -62,6 +65,11 @@ jobs:
 
       - name: Start application services
         run: vendor/bin/sail up -d app mysql redis
+
+      - name: Verify application write permissions
+        run: >-
+          vendor/bin/sail exec -T --user sail app sh -c
+          'test -w .env && test -w storage && test -w storage/logs && test -w bootstrap/cache'
 
       - name: Wait for MySQL
         run: |

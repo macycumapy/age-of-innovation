@@ -12,14 +12,10 @@ test('CI uses project containers for dependencies, build and checks', () => {
     assert.equal(job.services, undefined);
     assert.ok(job.steps.every(step => !/setup-(php|node)/.test(step.uses ?? '')));
     const commands = job.steps.map(step => step.run ?? '').join('\n');
-    const build = job.steps.find(step => step.uses?.startsWith('docker/build-push-action@'));
-    assert.ok(job.steps.some(step => step.uses?.startsWith('docker/setup-buildx-action@')));
-    assert.equal(build.with.context, './docker/php/8.5');
-    assert.equal(build.with.load, true);
-    assert.equal(build.with.tags, 'sail-8.5/app:latest');
-    assert.equal(build.with['cache-from'], 'type=gha,scope=sail-php85');
-    assert.equal(build.with['cache-to'], 'type=gha,scope=sail-php85,mode=max');
-    assert.equal(build.with['build-args'].trim(), 'WWWGROUP=${{ env.WWWGROUP }}');
+    assert.equal(workflow.permissions['packages'], 'read');
+    assert.ok(job.steps.every(step => !step.uses?.startsWith('docker/build-push-action@')));
+    assert.match(commands, /docker pull/);
+    assert.match(commands, /docker tag .* sail-8.5\/app:latest/);
     assert.match(commands, /docker compose run --rm --no-deps/);
     assert.match(commands, /vendor\/bin\/sail npm run build/);
     assert.match(commands, /vendor\/bin\/sail artisan test --compact/);
@@ -36,4 +32,31 @@ test('CD reads connection settings from repository variables', () => {
         assert.ok(source.includes(`vars.${name}`));
     }
     assert.ok(source.includes('secrets.SSH_PRIVATE_KEY'));
+});
+
+test('image publication is restricted to main and uses GHCR', () => {
+    const image = require('js-yaml').load(readFileSync(new URL('../.github/workflows/ci-image.yml', import.meta.url), 'utf8'));
+    assert.deepEqual(image.on.push.branches, ['main']);
+    assert.ok(image.on.push.paths.includes('docker/php/8.5/**'));
+    assert.equal(image.permissions.packages, 'write');
+    const build = image.jobs.publish.steps.find(step => step.uses?.startsWith('docker/build-push-action@'));
+    assert.equal(build.with.push, true);
+    assert.equal(build.with.context, './docker/php/8.5');
+    assert.equal(build.with['cache-to'], 'type=gha,scope=sail-php85,mode=max');
+});
+
+test('Sail uses runner UID instead of a fixed UID before starting containers', () => {
+    const job = workflow.jobs['test-build'];
+    assert.equal(job.env.WWWUSER, undefined);
+    assert.equal(job.env.WWWGROUP, undefined);
+    const userStep = job.steps.findIndex(step => step.name === 'Match Sail user to runner permissions');
+    const startStep = job.steps.findIndex(step => step.name === 'Start application services');
+    assert.ok(userStep >= 0 && userStep < startStep);
+    assert.ok(job.steps[userStep].run.includes('WWWUSER=$(id -u)'));
+    assert.ok(job.steps[userStep].run.includes('WWWGROUP=$(id -g)'));
+    assert.ok(job.steps[userStep].run.includes('$GITHUB_ENV'));
+    const permissions = job.steps.findIndex(step => step.name === 'Verify application write permissions');
+    const key = job.steps.findIndex(step => step.name === 'Prepare application');
+    assert.ok(permissions > startStep && permissions < key);
+    assert.match(job.steps[permissions].run, /--user sail/);
 });
