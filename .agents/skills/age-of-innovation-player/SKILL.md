@@ -23,7 +23,7 @@ Start with get_turn_context to obtain state and legal actions at one shared vers
 
 A request to play (such as “Играем”) authorizes continuing play for the configured seat across turns until the user stops or pauses, the game ends, or a decision requires clarification. Joining alone and requests for advice do not authorize autonomous play.
 
-When another player must act during authorized play, briefly report the move and call wait_for_turn with the requested game_id and the context_id of the exact snapshot still held. Use its default timeout. On reason=timeout, repeat the wait while play remains authorized, preserving the context and its ID; do not fetch state or actions because of this normal timeout. On your_turn, apply the returned update or replace the full context and choose directly from its actions. On game_ended, stop and report the result. Keep the user informed during extended waits without ending the response or requiring another “Играем”.
+When another player must act during authorized play, call wait_for_turn with the requested game_id and the context_id of the exact snapshot still held. Use its default timeout. On reason=timeout, repeat the wait while play remains authorized, preserving the context and its ID; do not fetch state or actions because of this normal timeout. On your_turn, apply the returned update or replace the full context and choose directly from its actions. On game_ended, stop and report the result. Continue authorized waiting without routine progress messages or requiring another “Играем”.
 
 After execute_action, follow continuation: your_turn means apply context_update and use its fresh actions; wait_for_turn means wait directly; game_ended means stop. If no context_update is returned, retain the previous snapshot and context_id unchanged: the confirmation's new version and action summary do not update that snapshot. Never assign the confirmation version to an older snapshot or infer a state delta from the action summary. If waiting is unavailable or fails in a way that prevents continuing, explain the limitation and yield. Do not claim that waiting continues after the response ends.
 
@@ -31,7 +31,7 @@ Keep context_id paired with the exact held context, not just its version. A full
 
 Recover with get_turn_context when the baseline is actually missing, required fields cannot be reconstructed, or delta identifiers do not match. If already waiting with a lost baseline, omit context_id to obtain a full response on your_turn. Strategic uncertainty alone is not a reason to discard a valid snapshot. Round changes automatically return full context: replace it and reassess the position without fetching another snapshot. Fetch get_board_layout only when geometry for state.board.layout_id is missing, not on every full context or round change; join geometry and dynamic rows by hex ID.
 
-When the other players have passed, consecutive confirmed turns can return your_turn for the controlled seat. Continue from those fresh actions without waiting for an opponent. Keep explanations brief and execute the chosen line; do not repeatedly announce an imminent move without staging it.
+When the other players have passed, consecutive confirmed turns can return your_turn for the controlled seat. Continue from those fresh actions without waiting for an opponent. Execute the chosen line without announcing each move.
 
 If the game returns to an earlier version or a previously confirmed position changes, discard the old action sequence and reassess from the returned full context. Fetch a full context if only an incompatible delta is available. Do not repeat old confirmations or infer why the position changed; describe the observed change neutrally. A stale staged_action is not authority to commit or overwrite it: ask the user to resolve the selection outside MCP.
 
@@ -55,7 +55,7 @@ After confirmation, compare the actual reward, resources, and attainable continu
 
 Before a final pass, apply the reference's opponent-funding check to remaining players. A current network lead is not secured while an opponent can still fund a ranking-changing build through conversions, sacrifice, or an unused shared action. Compare that reply with preserving resources for final conversion.
 
-At round transitions, briefly tell the user the projected leader or deficit and the resulting priority. For a strategic commitment, briefly give the decisive comparison with the alternative, using numbers where they determine the choice. Distinguish confirmed outcomes from estimates. Do not claim that a move keeps pace or secures victory without an updated forecast supporting it. Keep these updates concise and continue playing.
+Keep strategic checks and the compact decision record in working context; do not publish forecasts, alternative comparisons, or intermediate calculations by default. At the start of a round, optionally give at most one short sentence about the priority, then continue playing. Explain a decision only when the user asks, using a concise outcome-focused summary rather than a reasoning transcript.
 
 Bot evaluations can inform a decision but are heuristics, not game rules or proof of optimal play. Do not delegate a requested human-like decision to the automatic turn executor.
 
@@ -72,4 +72,4 @@ After a stale-version error, get_turn_context and reassess. After a transport ti
 
 preview_action is not currently exposed. Do not claim to have simulated a line or describe a heuristic estimate as verified. Repository inspection during play is read-only; do not inspect internal snapshots or opponents' stored plans for information beyond the player view.
 
-After each turn, briefly explain the move, its main reason, unresolved choices, and whose turn is next in the user's language. During authorized play, give this update without ending the response, then continue through wait_for_turn.
+Use quiet gameplay mode by default. Do not narrate ordinary moves, resource conversions, mandatory choices, tool calls, or successful waits/timeouts. Report only errors that block play or require user intervention, necessary approval questions, and a short final result. Follow higher-priority client communication requirements with the shortest necessary update, not move-by-move commentary. Keep necessary messages in the user's language. Quiet mode changes output, not strategic evaluation, authorization, context recovery, or continued authorized play.
