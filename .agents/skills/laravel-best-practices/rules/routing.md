@@ -40,6 +40,20 @@ Route::resource('posts', PostController::class);
 Route::apiResource('posts', Api\PostController::class);
 ```
 
+## Keep Query Construction in Custom Model Builders
+
+Controllers handle validated input, authorization, orchestration, and responses. Define query filters, sorting, eager loading, selected columns, and pagination limits in model-specific builders under `app/Models/Builders/`. Accept typed domain values in builder methods, not HTTP requests. Bind each custom builder with `#[UseEloquentBuilder(...)]` and declare `@method static ... query()` on the model, following `GameBuilder` and `ChatMessageBuilder`.
+
+A controller may execute a prepared query, for example:
+
+```php
+$messages = ChatMessage::query()
+    ->historyPageFor($game, $request->beforeId(), $request->afterId())
+    ->get();
+```
+
+Keep mutations and transactions in domain actions. Do not move query-building chains into controller helper methods or introduce repositories to bypass this convention.
+
 ## Keep Controllers Thin
 
 Aim for under 10 lines per method. Extract business logic to action or service classes.
@@ -90,10 +104,10 @@ public function store(Request $request): RedirectResponse
 
 Correct:
 ```php
-public function store(StorePostRequest $request): RedirectResponse
+public function store(StorePostRequest $request, CreatePostAction $create): RedirectResponse
 {
-    Post::create($request->validated());
+    $post = $create->execute($request->validated());
 
-    return redirect()->route('posts.index');
+    return to_route('posts.show', $post);
 }
 ```

@@ -6,6 +6,7 @@ use App\Http\Controllers\Admin\AdminController;
 use App\Http\Controllers\Admin\AdminSettingsController;
 use App\Http\Controllers\Admin\AdminUserController;
 use App\Http\Controllers\Admin\AdminUserPasswordController;
+use App\Http\Controllers\Chat\ChatMessageController;
 use App\Http\Controllers\Game\AnnexPlacementController;
 use App\Http\Controllers\Game\BookActionController;
 use App\Http\Controllers\Game\BridgeConfirmationController;
@@ -69,6 +70,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::resource('games', GameController::class)->only(['index', 'store', 'show']);
     Route::prefix('games/{game}')->name('games.')->group(function () {
+        Route::prefix('chat/messages')->name('chat.messages.')->group(function () {
+            Route::get('', [ChatMessageController::class, 'index'])->name('index');
+            Route::post('', [ChatMessageController::class, 'store'])->name('store')
+                ->middleware('throttle:30,1');
+        });
+
         Route::prefix('history')->group(function () {
             Route::get('', GameHistoryController::class)->name('history');
             Route::delete('latest', GameHistoryUndoController::class)->name('history.latest.destroy');

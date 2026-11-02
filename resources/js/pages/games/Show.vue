@@ -16,6 +16,7 @@ import CurrentTurnFinishDialog from '@/components/game/CurrentTurnFinishDialog.v
 import CurrentTurnPanel from '@/components/game/CurrentTurnPanel.vue';
 import FactionActionDialog from '@/components/game/FactionActionDialog.vue';
 import FinalLeaderboard from '@/components/game/FinalLeaderboard.vue';
+import GameChat from '@/components/game/GameChat.vue';
 import GameLobby from '@/components/game/GameLobby.vue';
 import InnovationActionDialog from '@/components/game/InnovationActionDialog.vue';
 import InnovationBoard from '@/components/game/InnovationBoard.vue';
@@ -1439,6 +1440,14 @@ defineOptions({
                     </aside>
                 </div>
             </section>
+
+            <GameChat
+                v-if="currentPlayer"
+                :key="`${game.data.id}:${currentPlayer.id}`"
+                :game-id="game.data.id"
+                :game-player-id="currentPlayer.id"
+                :current-user-id="page.props.auth.user.id"
+            />
 
             <PowerSacrificeDialog
                 v-model:open="isPowerSacrificeDialogOpen"

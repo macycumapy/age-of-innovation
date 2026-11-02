@@ -563,6 +563,10 @@ The server must use `Inertia::scroll()` to configure the paginated data. Use the
 
 Server-side patterns (Inertia::render, props, middleware) are covered in inertia-laravel guidelines.
 
+## Project Check Scheduling
+
+This development machine cannot handle concurrent checks. Run tests, formatters, linters, type/static-analysis checks, and builds strictly one at a time, waiting for each process to exit before starting the next. Do not overlap background checks or use parallel tool calls for them.
+
 ## Common Pitfalls
 
 - Using traditional `<a>` links instead of Inertia's `<Link>` component (breaks SPA behavior)

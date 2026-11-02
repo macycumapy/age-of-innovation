@@ -1,8 +1,11 @@
 <script setup lang="ts">
+import { shallowRef } from 'vue';
 import AppContent from '@/components/AppContent.vue';
 import AppShell from '@/components/AppShell.vue';
 import AppSidebar from '@/components/AppSidebar.vue';
 import { Toaster } from '@/components/ui/sonner';
+import { provideGameChatControls } from '@/composables/useGameChatControls';
+import type { GameChatControls } from '@/composables/useGameChatControls';
 import type { BreadcrumbItem } from '@/types';
 
 type Props = {
@@ -13,6 +16,8 @@ type Props = {
 withDefaults(defineProps<Props>(), {
     breadcrumbs: () => [],
 });
+
+provideGameChatControls({ activeChat: shallowRef<GameChatControls | null>(null) });
 </script>
 
 <template>

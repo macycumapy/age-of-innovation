@@ -5,6 +5,7 @@ import Gamepad2 from '@lucide/vue/dist/esm/icons/gamepad-2.mjs';
 import Shield from '@lucide/vue/dist/esm/icons/shield.mjs';
 import { computed } from 'vue';
 import AppLogo from '@/components/AppLogo.vue';
+import ChatSidebarButton from '@/components/ChatSidebarButton.vue';
 import FullscreenSidebarButton from '@/components/FullscreenSidebarButton.vue';
 import NavFooter from '@/components/NavFooter.vue';
 import NavMain from '@/components/NavMain.vue';
@@ -64,6 +65,7 @@ const footerNavItems: NavItem[] = [];
 
         <SidebarFooter class="group-data-[collapsible=icon]:p-1">
             <NavFooter :items="footerNavItems" />
+            <ChatSidebarButton />
             <FullscreenSidebarButton />
             <NavUser />
         </SidebarFooter>

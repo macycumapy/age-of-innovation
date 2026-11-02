@@ -16,33 +16,33 @@ public function author(): BelongsTo
 }
 ```
 
-## Use Local Scopes for Reusable Queries
+## Use Custom Model Builders for Query Construction
 
-Extract reusable query constraints into local scopes to avoid duplication.
+This project keeps query construction in `app/Models/Builders/`, following `GameBuilder` and `SettingBuilder`. Add descriptive methods for use cases such as `historyPageFor()` or `visibleSummariesFor()`. Keep HTTP request objects out of builders; pass models, DTOs, and typed scalar values. Keep query pagination constants, such as `PAGE_SIZE`, in the builder that uses them.
 
-Incorrect:
 ```php
-$active = User::where('verified', true)->whereNotNull('activated_at')->get();
-$articles = Article::whereHas('user', function ($q) {
-    $q->where('verified', true)->whereNotNull('activated_at');
-})->get();
-```
-
-Correct:
-```php
-public function scopeActive(Builder $query): Builder
+/** @extends Builder<ChatMessage> */
+final class ChatMessageBuilder extends Builder
 {
-    return $query->where('verified', true)->whereNotNull('activated_at');
-}
+    public const int PAGE_SIZE = 50;
 
-// Usage
-$active = User::active()->get();
-$articles = Article::whereHas('user', fn ($q) => $q->active())->get();
+    public function historyPageFor(Game $game, ?int $beforeId = null, ?int $afterId = null): self
+    {
+        return $this
+            ->whereBelongsTo($game)
+            ->when($beforeId !== null, fn (self $query): self => $query->where('id', '<', $beforeId))
+            ->when($afterId !== null, fn (self $query): self => $query->where('id', '>', $afterId))
+            ->orderBy('id', $afterId !== null ? 'asc' : 'desc')
+            ->limit(self::PAGE_SIZE + 1);
+    }
+}
 ```
+
+Register the builder with `#[UseEloquentBuilder(ChatMessageBuilder::class)]` on the model and add `@method static ChatMessageBuilder query()` to its PHPDoc. Controllers call these descriptive methods instead of building query chains themselves.
 
 ## Apply Global Scopes Sparingly
 
-Global scopes silently modify every query on the model, making debugging difficult. Prefer local scopes and reserve global scopes for truly universal constraints like soft deletes or multi-tenancy.
+Global scopes silently modify every query on the model, making debugging difficult. Keep conditional constraints in custom builder methods and reserve global scopes for truly universal constraints like soft deletes or multi-tenancy.
 
 Incorrect (global scope for a conditional filter):
 ```php

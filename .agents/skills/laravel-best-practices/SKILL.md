@@ -16,13 +16,17 @@ Before applying any rule, check what the application already does. Laravel offer
 
 Check sibling files, related controllers, models, or tests for established patterns. If one exists, follow it. Don't introduce a second way. These rules are defaults for when no pattern exists yet, not overrides.
 
+## Project Convention: Controller Queries
+
+In this project, controllers must not construct database queries. Put filters, ordering, eager loading, projections, and pagination limits in custom model builders under `app/Models/Builders/`. Controllers may call descriptive builder methods and execute the prepared query. Read [rules/routing.md](rules/routing.md) and [rules/eloquent.md](rules/eloquent.md) when adding or changing controller data access.
+
 ## How to Apply
 
 1. Check the changed files, nearby code, project configuration, and relevant tests for established patterns. Deviate only for a correctness or security defect, and call the deviation out.
 2. Map every affected concern to the rule index below. Read each mapped rule file before editing. Skip unrelated rule files.
 3. Make the smallest coherent change. Keep the application's architecture and naming instead of introducing a second pattern for the same job.
 4. Verify version-sensitive Laravel APIs for the installed version with `search-docs`, or inspect the installed framework when it is unavailable.
-5. Run the narrowest relevant tests first, then the project's formatting and static-analysis checks when the change warrants them.
+5. Run the narrowest relevant tests first, then the project's formatting and static-analysis checks when the change warrants them. On this development machine, run tests, formatters, linters, type/static-analysis checks, and builds strictly one at a time. Wait for each process to exit before starting another check; do not overlap background checks or use parallel tool calls for them.
 6. Re-read the diff against every mapped rule before finishing.
 
 ## Rule Index

@@ -46,6 +46,11 @@ class AppServiceProvider extends ServiceProvider
             (string) $user->id === (string) config('auth.admin_user_id')
         );
 
+        Gate::define(
+            'access-game-chat',
+            fn (User $user, Game $game): bool => $game->players()->where('user_id', $user->id)->exists(),
+        );
+
         Game::observe(GameObserver::class);
 
         Event::listen([GameChanged::class, GamePlayersChanged::class], function (GameChanged|GamePlayersChanged $event): void {

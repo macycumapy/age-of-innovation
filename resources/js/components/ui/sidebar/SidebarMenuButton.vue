@@ -12,6 +12,7 @@ defineOptions({
 
 const props = withDefaults(defineProps<SidebarMenuButtonProps & {
   tooltip?: string | Component
+  tooltipDisabled?: boolean
 }>(), {
   as: "button",
   variant: "default",
@@ -20,7 +21,7 @@ const props = withDefaults(defineProps<SidebarMenuButtonProps & {
 
 const { isMobile, state } = useSidebar()
 
-const delegatedProps = reactiveOmit(props, "tooltip")
+const delegatedProps = reactiveOmit(props, "tooltip", "tooltipDisabled")
 </script>
 
 <template>
@@ -28,7 +29,7 @@ const delegatedProps = reactiveOmit(props, "tooltip")
     <slot />
   </SidebarMenuButtonChild>
 
-  <Tooltip v-else>
+  <Tooltip v-else :disabled="tooltipDisabled">
     <TooltipTrigger as-child>
       <SidebarMenuButtonChild v-bind="{ ...delegatedProps, ...$attrs }">
         <slot />

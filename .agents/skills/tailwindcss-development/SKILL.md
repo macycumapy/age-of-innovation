@@ -120,6 +120,8 @@ If existing pages and components support dark mode, new pages and components mus
 
 ## Required Project Checks
 
+- Run tests, formatters, linters, type/static-analysis checks, and builds strictly one at a time on this development machine. Wait for each process to exit before starting another check; do not overlap background checks or use parallel tool calls for them.
+
 - After editing JavaScript, TypeScript, Vue files, frontend tests, or ESLint configuration, run `vendor/bin/sail npm run lint:check` before finalizing, including changes limited to formatting or styles.
 - After editing files in `resources/`, also run `vendor/bin/sail npm run format:check`.
 - Fix reported errors without disabling lint rules, then rerun both checks after fixes. Run affected tests again if a fix changes logic.
