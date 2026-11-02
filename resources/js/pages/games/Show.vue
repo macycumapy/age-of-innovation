@@ -120,28 +120,46 @@ watch(
     (current, previous) => {
         const townMarkerHex = current.board.hexes.find((entry) => {
             const old = previous.board.hexes.find((candidate) => candidate.id === entry.id);
+
             return old && entry.townTileId !== null && old.townTileId !== entry.townTileId;
         });
         const changedHex =
             townMarkerHex ??
             current.board.hexes.find((entry) => {
                 const old = previous.board.hexes.find((candidate) => candidate.id === entry.id);
+
                 return (
                     old &&
                     (old.terrain !== entry.terrain || JSON.stringify(old.building) !== JSON.stringify(entry.building))
                 );
             });
-        if (changedHex) lastChangedHexId = changedHex.id;
+
+        if (changedHex) {
+            lastChangedHexId = changedHex.id;
+        }
+
         for (const state of current.playerBoardStates) {
             const before = previous.playerBoardStates.find((entry) => entry.playerId === state.playerId);
-            if (!before) continue;
+
+            if (!before) {
+                continue;
+            }
+
             const placedDiscipline =
                 state.scholarDisciplineIds.length > before.scholarDisciplineIds.length
                     ? state.scholarDisciplineIds.at(-1)
                     : undefined;
-            if (placedDiscipline) lastChangedDiscipline = placedDiscipline;
+
+            if (placedDiscipline) {
+                lastChangedDiscipline = placedDiscipline;
+            }
+
             const points = state.victoryPoints - before.victoryPoints;
-            if (points <= 0) continue;
+
+            if (points <= 0) {
+                continue;
+            }
+
             const previousActionIds = new Set(previous.history.data.map((action) => action.id));
             const scoringAction = current.history.data.find(
                 (action) =>
@@ -153,7 +171,11 @@ watch(
                 scoringAction?.payload.marker_hex_id ?? scoringAction?.payload.hex_id ?? scoringAction?.payload.hexId;
             const hexId = changedHex?.id ?? (typeof actionHexId === 'string' ? actionHexId : lastChangedHexId);
             const discipline = placedDiscipline ?? lastChangedDiscipline;
-            if (!hexId && !discipline) continue;
+
+            if (!hexId && !discipline) {
+                continue;
+            }
+
             const id = ++pointPopupId;
             pointPopups.value.push({ id, points, hexId, discipline });
             lastChangedHexId = undefined;

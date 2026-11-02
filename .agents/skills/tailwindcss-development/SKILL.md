@@ -117,3 +117,10 @@ If existing pages and components support dark mode, new pages and components mus
 - Trying to use `tailwind.config.js` instead of CSS `@theme` directive
 - Using margins for spacing between siblings instead of gap utilities
 - Forgetting to add dark mode variants when the project uses dark mode
+
+## Required Project Checks
+
+- After editing JavaScript, TypeScript, Vue files, frontend tests, or ESLint configuration, run `vendor/bin/sail npm run lint:check` before finalizing, including changes limited to formatting or styles.
+- After editing files in `resources/`, also run `vendor/bin/sail npm run format:check`.
+- Fix reported errors without disabling lint rules, then rerun both checks after fixes. Run affected tests again if a fix changes logic.
+- Run Sail outside the sandbox with escalated permissions because Docker socket access is restricted. A check that exits with an infrastructure or permissions error has not passed: report the blocker and do not claim lint succeeded.
