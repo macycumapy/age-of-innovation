@@ -22,6 +22,7 @@ import goldCrossUrl from '../../../images/token_parts/gold_cross.png';
 
 type Props = {
     board: BoardState;
+    pointPopups?: { id: number; points: number; hexId?: string }[];
     currentRound?: number | null;
     roundScoringTiles?: RoundScoringTile[];
     finalRoundScoringTile?: FinalRoundScoringTile | null;
@@ -658,6 +659,23 @@ function closedActionTokenX(actionX: number, actionWidth: number): number {
                     <circle cx="32" cy="20" r="16" />
                     <circle cx="2" cy="-5" r="18" />
                 </g>
+            </g>
+            <g v-for="popup in pointPopups" :key="`points-${popup.id}`" class="pointer-events-none">
+                <text
+                    v-if="[...visibleHexes, ...waterTownTokens].find((hex) => hex.id === popup.hexId)"
+                    :x="[...visibleHexes, ...waterTownTokens].find((hex) => hex.id === popup.hexId)!.x"
+                    :y="[...visibleHexes, ...waterTownTokens].find((hex) => hex.id === popup.hexId)!.y - 40"
+                    text-anchor="middle"
+                    class="score-popup"
+                    fill="#ffe175"
+                    stroke="#38230b"
+                    stroke-width="2"
+                    paint-order="stroke"
+                    font-size="42"
+                    font-weight="900"
+                >
+                    +{{ popup.points }} ПО
+                </text>
             </g>
         </svg>
     </div>

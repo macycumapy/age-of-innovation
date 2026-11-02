@@ -27,6 +27,7 @@ type ScholarMarker = {
 };
 
 const props = defineProps<{
+    pointPopups?: { id: number; points: number; discipline?: string }[];
     players: GamePlayerSummary[];
     playerStates: GamePlayerBoardState[];
     neutralKnowledgeState: NeutralKnowledgeState | null;
@@ -222,6 +223,16 @@ function disciplineOverlayStyle(discipline: KnowledgeDiscipline): CSSProperties 
             class="pointer-events-none absolute z-20 -translate-x-1/2 -translate-y-1/2 drop-shadow-md"
         />
 
+        <span
+            v-for="popup in pointPopups?.filter((entry) => entry.discipline)"
+            :key="popup.id"
+            class="score-popup pointer-events-none absolute top-[82%] z-40 text-3xl font-black text-amber-200"
+            :style="{
+                left: `${(disciplineX[popup.discipline as KnowledgeDiscipline] / boardWidth) * 100}%`,
+                textShadow: '0 2px 3px #38230b',
+            }"
+            >+{{ popup.points }} ПО</span
+        >
         <button
             v-for="discipline in disciplines"
             v-show="canSendScholar"

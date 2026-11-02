@@ -201,3 +201,17 @@
         @apply bg-background text-foreground;
     }
 }
+
+@keyframes score-rise {
+    0% {
+        opacity: 1;
+        transform: translateY(0);
+    }
+    100% {
+        opacity: 0;
+        transform: translateY(-75px);
+    }
+}
+.score-popup {
+    animation: score-rise 1.8s ease-out forwards;
+}

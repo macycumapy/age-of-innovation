@@ -49,3 +49,33 @@ for (const playerCount of [2, 3]) {
         assert.equal((html.match(/<img /g) ?? []).length, playerCount === 2 ? 17 : 13);
     });
 }
+
+test('score popups use the scored discipline and an upward fading animation', () => {
+    assert.match(source, /popup\.discipline/);
+    assert.match(source, /\+\{\{ popup.points \}\}/);
+    const css = readFileSync(new URL('../../resources/css/app.css', import.meta.url), 'utf8');
+    assert.match(css, /translateY\(-75px\)/);
+    assert.match(css, /opacity: 0/);
+});
+
+test('score popups retain the hex between staging and confirmation', () => {
+    const page = readFileSync(new URL('../../resources/js/pages/games/Show.vue', import.meta.url), 'utf8');
+    assert.match(page, /lastChangedHexId/ );
+    assert.ok(page.indexOf('if (changedHex) lastChangedHexId') < page.indexOf('if (points <= 0) continue'));
+});
+
+test('remote score updates can locate the hex from shared confirmed history', () => {
+    const page = readFileSync(new URL('../../resources/js/pages/games/Show.vue', import.meta.url), 'utf8');
+    assert.match(page, /current.history.data.find/);
+    assert.match(page, /action.player\?\.id === state.playerId/);
+    assert.match(page, /scoringAction\?\.payload.hex_id/);
+});
+
+test('town scoring uses the town marker, including water towns', () => {
+    const page = readFileSync(new URL('../../resources/js/pages/games/Show.vue', import.meta.url), 'utf8');
+    assert.match(page, /old.townTileId !== entry.townTileId/);
+    assert.match(page, /townMarkerHex \?\?/);
+    assert.match(page, /payload.marker_hex_id/);
+    const board = readFileSync(new URL('../../resources/js/components/game/BoardMap.vue', import.meta.url), 'utf8');
+    assert.match(board, /\[\.\.\.visibleHexes, \.\.\.waterTownTokens\]/);
+});
