@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Head, router, useHttp, usePage } from '@inertiajs/vue3';
 import { useEcho } from '@laravel/echo-vue';
-import { computed, ref, watch } from 'vue';
+import { computed, ref, useTemplateRef, watch } from 'vue';
 import BridgeController from '@/actions/App/Http/Controllers/Game/BridgeController';
 import NeutralInnovationBuildingController from '@/actions/App/Http/Controllers/Game/NeutralInnovationBuildingController';
 import PalaceGuildController from '@/actions/App/Http/Controllers/Game/PalaceGuildController';
@@ -43,6 +43,7 @@ import TownTileBoard from '@/components/game/TownTileBoard.vue';
 import TurnNotification from '@/components/game/TurnNotification.vue';
 import { Card, CardContent } from '@/components/ui/card';
 import { Collapsible, CollapsibleContent } from '@/components/ui/collapsible';
+import { GameAction } from '@/lib/gameActions';
 import { index } from '@/routes/games';
 import type {
     BookActionState,
@@ -865,6 +866,40 @@ const buildableWorkshopHexIds = computed(() => {
 const selectedPaidTerraformHex = computed(() =>
     props.game.data.board.hexes.find((hex) => hex.id === selectedPaidTerraformHexId.value),
 );
+const boardMapRef = useTemplateRef<InstanceType<typeof BoardMap>>('boardMapRef');
+const playerBoardsRef = useTemplateRef<InstanceType<typeof PlayerBoards>>('playerBoardsRef');
+const cultBoardRef = useTemplateRef<InstanceType<typeof CultBoard>>('cultBoardRef');
+const innovationBoardRef = useTemplateRef<InstanceType<typeof InnovationBoard>>('innovationBoardRef');
+
+function navigateToAvailableAction(action: GameAction): void {
+    if (action === GameAction.AdvanceShipping) {
+        isShippingAdvancementDialogOpen.value = true;
+
+        return;
+    }
+
+    if (action === GameAction.AdvanceTerraforming) {
+        isTerraformingAdvancementDialogOpen.value = true;
+
+        return;
+    }
+
+    const target =
+        action === GameAction.SendScholar
+            ? cultBoardRef.value
+            : action === GameAction.PurchaseInnovation
+              ? innovationBoardRef.value
+              : [
+                      GameAction.PowerAction,
+                      GameAction.BookAction,
+                      GameAction.UpgradeBuilding,
+                      GameAction.BuildWorkshop,
+                  ].includes(action)
+                ? boardMapRef.value
+                : playerBoardsRef.value;
+
+    target?.$el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
 
 const availableActionsBeforePass = computed(() => {
     const state = currentPlayerState.value;
@@ -873,53 +908,61 @@ const availableActionsBeforePass = computed(() => {
         return [];
     }
 
-    const actions: string[] = [];
+    const actions: GameAction[] = [];
     const availablePower = state.power.bowlThree + Math.floor(state.power.bowlTwo / 2);
 
     if (props.game.data.powerActions.some((action) => !action.isUsed && action.cost <= availablePower)) {
-        actions.push('действие за Силу');
+        actions.push(GameAction.PowerAction);
     }
 
     const availableBooks = state.books.banking + state.books.law + state.books.engineering + state.books.medicine;
 
     if (props.game.data.bookActionStates.some((action) => !action.isUsed && action.cost <= availableBooks)) {
-        actions.push('действие за книги');
+        actions.push(GameAction.BookAction);
     }
 
     if (props.game.data.buildingUpgrades.length > 0) {
-        actions.push('улучшение здания');
+        actions.push(GameAction.UpgradeBuilding);
     }
 
     if (buildableWorkshopHexIds.value.length > 0) {
-        actions.push('строительство дома');
+        actions.push(GameAction.BuildWorkshop);
+    }
+
+    if (state.canAdvanceShipping) {
+        actions.push(GameAction.AdvanceShipping);
+    }
+
+    if (state.canAdvanceTerraforming) {
+        actions.push(GameAction.AdvanceTerraforming);
     }
 
     if (props.game.data.canSendScholar) {
-        actions.push('отправка учёного');
+        actions.push(GameAction.SendScholar);
     }
 
     if (props.game.data.canMakeInnovation) {
-        actions.push('покупка инновации');
+        actions.push(GameAction.PurchaseInnovation);
     }
 
     if (state.canUseFactionAction) {
-        actions.push('действие расы');
+        actions.push(GameAction.FactionAction);
     }
 
     if (state.canUseCompetencyAction) {
-        actions.push('действие Компетенции Силы');
+        actions.push(GameAction.CompetencyAction);
     }
 
     if (state.canUseRoundBonusAction) {
-        actions.push('действие бонуса раунда');
+        actions.push(GameAction.RoundBonusAction);
     }
 
     if (state.canUsePalaceAction) {
-        actions.push('действие жетона Дворца');
+        actions.push(GameAction.PalaceAction);
     }
 
     if (state.availableInnovationActionIds.length > 0) {
-        actions.push('действие инновации');
+        actions.push(GameAction.InnovationAction);
     }
 
     return actions;
@@ -1087,12 +1130,14 @@ defineOptions({
                 :is-book-building-selection-active="isBookBuildingSelectionActive"
                 :palace-building-selection-source="palaceActionBuildingSource"
                 :selected-palace-water-hex-id="selectedPalaceWaterHexId"
+                :available-actions="availableActionsBeforePass"
                 @reset-bridge-selection="selectedBridgeFromHexId = null"
                 @cancel-palace-building-selection="cancelPalaceBuildingSelection"
                 @cancel-book-building-selection="cancelBookBuildingSelection"
                 @reset-palace-water-selection="selectedPalaceWaterHexId = null"
                 @finish-turn="isCurrentTurnFinishDialogOpen = true"
                 @pass="isPassDialogOpen = true"
+                @select-action="navigateToAvailableAction"
             />
 
             <Transition v-bind="choicePanelTransition">
@@ -1212,6 +1257,7 @@ defineOptions({
                 <div class="grid items-start gap-4 lg:grid-cols-[minmax(0,7fr)_minmax(16rem,3fr)]">
                     <div class="grid gap-4">
                         <BoardMap
+                            ref="boardMapRef"
                             :board="game.data.board"
                             :players="game.data.players"
                             :selectable-hex-ids="selectableStartingHexIds"
@@ -1241,6 +1287,7 @@ defineOptions({
                         />
 
                         <PlayerBoards
+                            ref="playerBoardsRef"
                             v-if="playersWithSelectedFactions.length > 0"
                             :players="playersWithSelectedFactions"
                             :player-states="game.data.playerBoardStates"
@@ -1277,6 +1324,7 @@ defineOptions({
 
                     <aside class="grid gap-4">
                         <CultBoard
+                            ref="cultBoardRef"
                             :players="orderedPlayers"
                             :player-states="game.data.playerBoardStates"
                             :neutral-knowledge-state="game.data.neutralKnowledgeState"
@@ -1284,6 +1332,7 @@ defineOptions({
                             @send-scholar="selectScholarDiscipline"
                         />
                         <InnovationBoard
+                            ref="innovationBoardRef"
                             v-if="game.data.status === 'active'"
                             :player-count="game.data.playersCount"
                             :innovations="game.data.innovations"

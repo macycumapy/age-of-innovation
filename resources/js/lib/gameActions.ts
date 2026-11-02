@@ -1,0 +1,31 @@
+export enum GameAction {
+    PowerAction = 'power_action',
+    BookAction = 'book_action',
+    UpgradeBuilding = 'upgrade_building',
+    BuildWorkshop = 'build_workshop',
+    AdvanceShipping = 'advance_shipping',
+    AdvanceTerraforming = 'advance_terraforming',
+    SendScholar = 'send_scholar',
+    PurchaseInnovation = 'purchase_innovation',
+    FactionAction = 'faction_action',
+    CompetencyAction = 'competency_action',
+    RoundBonusAction = 'round_bonus_action',
+    PalaceAction = 'palace_action',
+    InnovationAction = 'innovation_action',
+}
+
+export const gameActionTitles: Record<GameAction, string> = {
+    [GameAction.PowerAction]: 'действие за Силу',
+    [GameAction.BookAction]: 'действие за книги',
+    [GameAction.UpgradeBuilding]: 'улучшение здания',
+    [GameAction.BuildWorkshop]: 'строительство дома',
+    [GameAction.AdvanceShipping]: 'прокачка навигации',
+    [GameAction.AdvanceTerraforming]: 'прокачка лопаты',
+    [GameAction.SendScholar]: 'отправка учёного',
+    [GameAction.PurchaseInnovation]: 'покупка инновации',
+    [GameAction.FactionAction]: 'действие расы',
+    [GameAction.CompetencyAction]: 'действие Компетенции Силы',
+    [GameAction.RoundBonusAction]: 'действие бонуса раунда',
+    [GameAction.PalaceAction]: 'действие жетона Дворца',
+    [GameAction.InnovationAction]: 'действие инновации',
+};

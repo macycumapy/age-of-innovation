@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useHttp } from '@inertiajs/vue3';
 import Check from '@lucide/vue/dist/esm/icons/check.mjs';
+import ChevronDown from '@lucide/vue/dist/esm/icons/chevron-down.mjs';
 import RotateCcw from '@lucide/vue/dist/esm/icons/rotate-ccw.mjs';
 import { computed } from 'vue';
 import BridgeConfirmationController from '@/actions/App/Http/Controllers/Game/BridgeConfirmationController';
@@ -20,7 +21,15 @@ import Form from '@/components/game/GameActionForm.vue';
 import PalaceRewardOrderForm from '@/components/game/PalaceRewardOrderForm.vue';
 import PalaceWaterTownForm from '@/components/game/PalaceWaterTownForm.vue';
 import { Button } from '@/components/ui/button';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { gameActionTitles } from '@/lib/gameActions';
+import type { GameAction } from '@/lib/gameActions';
 import type { GamePlayerBoardState, GamePlayerSummary, GameResource } from '@/types';
 
 const props = defineProps<{
@@ -39,11 +48,13 @@ const props = defineProps<{
     isBookBuildingSelectionActive: boolean;
     palaceBuildingSelectionSource: 'workshop' | 'school' | null;
     selectedPalaceWaterHexId: string | null;
+    availableActions: GameAction[];
 }>();
 
 const emit = defineEmits<{
     finishTurn: [];
     pass: [];
+    selectAction: [action: GameAction];
     resetBridgeSelection: [];
     cancelPalaceBuildingSelection: [];
     cancelBookBuildingSelection: [];
@@ -164,7 +175,7 @@ function scrollToPageTop(event: MouseEvent): void {
 <template>
     <div
         v-if="game.data.status === 'active'"
-        class="sticky top-0 z-40 -mx-4 flex cursor-pointer items-center justify-center gap-4 border-y border-border/80 bg-background/65 px-4 py-3 shadow-sm backdrop-blur"
+        class="sticky top-0 z-40 -mx-4 flex cursor-pointer flex-wrap items-center justify-center gap-x-3 gap-y-2 border-y border-border/80 bg-background/65 py-3 pr-24 pl-4 shadow-sm backdrop-blur sm:pl-24"
         @click="scrollToPageTop"
     >
         <span
@@ -624,8 +635,27 @@ function scrollToPageTop(event: MouseEvent): void {
                 (game.data.pendingInteraction === null ||
                     game.data.pendingInteraction.type === 'build_workshop_after_terraforming')
             "
-            class="flex shrink-0 items-center gap-2"
+            class="flex flex-wrap items-center justify-center gap-2"
         >
+            <DropdownMenu v-if="game.data.canPass && availableActions.length > 0">
+                <DropdownMenuTrigger as-child>
+                    <Button type="button" variant="ghost" size="sm" aria-label="Доступные действия" class="gap-1.5">
+                        Действия
+                        <span class="text-xs text-muted-foreground tabular-nums">{{ availableActions.length }}</span>
+                        <ChevronDown class="size-3.5 text-muted-foreground" aria-hidden="true" />
+                    </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" class="w-64 max-w-[calc(100vw-2rem)]" aria-label="Доступные действия">
+                    <DropdownMenuItem
+                        v-for="action in availableActions"
+                        :key="action"
+                        class="cursor-pointer"
+                        @select="emit('selectAction', action)"
+                    >
+                        <span class="first-letter:uppercase">{{ gameActionTitles[action] }}</span>
+                    </DropdownMenuItem>
+                </DropdownMenuContent>
+            </DropdownMenu>
             <CurrentTurnRestartDialog v-if="game.data.canRestartCurrentTurn" :game-id="game.data.id" />
             <Button v-if="game.data.canFinishCurrentTurn" type="button" @click="emit('finishTurn')">
                 Завершить ход

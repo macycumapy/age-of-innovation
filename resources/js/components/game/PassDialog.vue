@@ -14,6 +14,8 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import { NumberStepper } from '@/components/ui/number-stepper';
+import { gameActionTitles } from '@/lib/gameActions';
+import type { GameAction } from '@/lib/gameActions';
 import type { KnowledgeDiscipline, RoundBonus } from '@/types';
 import bankingRoundUrl from '../../../images/token_parts/coin_round.png';
 import engineeringRoundUrl from '../../../images/token_parts/engineering_round.png';
@@ -22,7 +24,7 @@ import medicineRoundUrl from '../../../images/token_parts/medicine_round.png';
 
 const props = defineProps<{
     gameId: number;
-    availableActions: string[];
+    availableActions: GameAction[];
     isFinalRound: boolean;
     currentRoundBonus: RoundBonus | null;
     schoolCount: number;
@@ -84,7 +86,7 @@ function focusDialogTitle(event: Event): void {
                     class="rounded-lg border border-amber-500/50 bg-amber-500/10 px-3 py-2 text-sm"
                 >
                     <p class="font-semibold">У вас ещё есть доступные действия:</p>
-                    <p>{{ availableActions.join(', ') }}.</p>
+                    <p>{{ availableActions.map((action) => gameActionTitles[action]).join(', ') }}.</p>
                     <p class="mt-1 text-muted-foreground">После паса выполнить их в этом раунде уже не получится.</p>
                 </div>
 
