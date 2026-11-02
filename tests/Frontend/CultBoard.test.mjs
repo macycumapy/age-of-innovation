@@ -5,7 +5,7 @@ import test from 'node:test';
 import { compileScript, parse } from '@vue/compiler-sfc';
 import { renderToString } from '@vue/server-renderer';
 import ts from 'typescript';
-import { createSSRApp } from 'vue';
+import { createSSRApp, ref } from 'vue';
 
 const source = readFileSync(new URL('../../resources/js/components/game/CultBoard.vue', import.meta.url), 'utf8');
 const { descriptor } = parse(source);
@@ -60,8 +60,51 @@ test('score popups use the scored discipline and an upward fading animation', ()
 
 test('score popups retain the hex between staging and confirmation', () => {
     const page = readFileSync(new URL('../../resources/js/pages/games/Show.vue', import.meta.url), 'utf8');
-    assert.match(page, /lastChangedHexId/ );
-    assert.ok(page.indexOf('if (changedHex) lastChangedHexId') < page.indexOf('if (points <= 0) continue'));
+    const { descriptor } = parse(page);
+    const script = ts.createSourceFile('Show.ts', descriptor.scriptSetup.content, ts.ScriptTarget.Latest, true);
+    const start = script.statements.findIndex((statement) => ts.isVariableStatement(statement)
+        && statement.declarationList.declarations.some((declaration) => declaration.name.getText(script) === 'pointPopups'));
+    assert.ok(start >= 0, 'score popup state must exist');
+    const statements = script.statements.slice(start);
+    const end = statements.findIndex((statement) => ts.isExpressionStatement(statement)
+        && ts.isCallExpression(statement.expression) && statement.expression.expression.getText(script) === 'watch');
+    assert.ok(end >= 0, 'score popup watcher must exist');
+    const { outputText } = ts.transpileModule(
+        statements.slice(0, end + 1).map((statement) => statement.getText(script)).join('\n'),
+        { compilerOptions: { target: ts.ScriptTarget.ES2022 } },
+    );
+    let update;
+    const timeouts = [];
+    const popups = new Function('ref', 'watch', 'window', `${outputText}; return pointPopups;`)(
+        ref,
+        (_source, callback) => {
+            update = callback;
+        },
+        { setTimeout: (callback) => timeouts.push(callback) },
+    );
+    const initial = {
+        board: { hexes: [{ id: '2:3', townTileId: null, terrain: 'plains', building: null }] },
+        playerBoardStates: [{ playerId: 1, scholarDisciplineIds: [], victoryPoints: 20 }],
+        history: { data: [] },
+    };
+    const staged = structuredClone(initial);
+    staged.board.hexes[0].building = { type: 'workshop', playerId: 1 };
+    update(staged, initial);
+    assert.deepEqual(popups.value, []);
+    assert.equal(timeouts.length, 0);
+
+    const confirmed = structuredClone(staged);
+    confirmed.playerBoardStates[0].victoryPoints += 2;
+    update(confirmed, staged);
+    assert.deepEqual(popups.value, [{ id: 1, points: 2, hexId: '2:3', discipline: undefined }]);
+    assert.equal(timeouts.length, 1);
+    timeouts[0]();
+    assert.deepEqual(popups.value, []);
+
+    const unrelatedScore = structuredClone(confirmed);
+    unrelatedScore.playerBoardStates[0].victoryPoints += 1;
+    update(unrelatedScore, confirmed);
+    assert.deepEqual(popups.value, []);
 });
 
 test('remote score updates can locate the hex from shared confirmed history', () => {
