@@ -17,6 +17,8 @@ use App\Mcp\Validators\WaitForGameTurnValidator;
 use App\Models\Game;
 use App\Models\GamePlayer;
 use App\Models\User;
+use DomainException;
+use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -96,6 +98,105 @@ class WaitForGameTurnTest extends TestCase
         $this->assertNull($result->actions);
         Cache::shouldNotHaveReceived('get');
         Sleep::assertSleptTimes(2);
+    }
+
+    public function test_each_waiting_poll_uses_one_projected_query_without_a_lock_or_transaction(): void
+    {
+        [$game, $player] = $this->createGameSession();
+        $user = $player->user;
+        $level = DB::transactionLevel();
+        $queries = [];
+        Sleep::fake();
+        DB::listen(function (QueryExecuted $query) use (&$queries): void {
+            $queries[] = ['sql' => $query->sql, 'level' => DB::transactionLevel()];
+        });
+
+        $result = app(WaitForGameTurnQuery::class)->execute($user, $game->id, 2);
+
+        $this->assertSame(GameTurnWaitReason::Timeout, $result->reason);
+        $this->assertCount(3, $queries);
+        foreach ($queries as $query) {
+            $this->assertSame($level, $query['level']);
+            $this->assertStringNotContainsString('for update', strtolower($query['sql']));
+            $this->assertStringNotContainsString('*', $query['sql']);
+            $this->assertStringContainsString('pending_player_id', $query['sql']);
+        }
+    }
+
+    public function test_a_turn_that_changes_after_the_lightweight_check_is_rechecked_before_returning(): void
+    {
+        [$game, $player] = $this->createGameSession();
+        $game->update(['active_game_player_id' => $player->id]);
+        $user = $player->user;
+        $changeTurn = true;
+        Sleep::fake();
+        DB::listen(function (QueryExecuted $query) use ($game, &$changeTurn): void {
+            if ($changeTurn && str_contains($query->sql, 'pending_player_id')) {
+                $changeTurn = false;
+                $game->update(['active_game_player_id' => null]);
+            }
+        });
+
+        $result = app(WaitForGameTurnQuery::class)->execute($user, $game->id, 0);
+
+        $this->assertSame(GameTurnWaitReason::Timeout, $result->reason);
+        $this->assertNull($result->view);
+        $this->assertNull($result->actions);
+        Sleep::assertNeverSlept();
+    }
+
+    public function test_membership_is_rechecked_before_returning_a_ready_context(): void
+    {
+        [$game, $player] = $this->createGameSession();
+        $game->update(['active_game_player_id' => $player->id]);
+        $user = $player->user;
+        $removePlayer = true;
+        DB::listen(function (QueryExecuted $query) use ($player, &$removePlayer): void {
+            if ($removePlayer && str_contains($query->sql, 'pending_player_id')) {
+                $removePlayer = false;
+                $player->delete();
+            }
+        });
+
+        $this->expectException(DomainException::class);
+        $this->expectExceptionMessage('The user does not participate in this game');
+
+        app(WaitForGameTurnQuery::class)->execute($user, $game->id, 0);
+    }
+
+    public function test_a_game_that_ends_after_the_lightweight_check_returns_the_final_state(): void
+    {
+        [$game, $player] = $this->createGameSession();
+        $game->update(['active_game_player_id' => $player->id]);
+        $user = $player->user;
+        $finishGame = true;
+        DB::listen(function (QueryExecuted $query) use ($game, &$finishGame): void {
+            if ($finishGame && str_contains($query->sql, 'pending_player_id')) {
+                $finishGame = false;
+                $game->update(['status' => GameStatus::Finished]);
+            }
+        });
+
+        $result = app(WaitForGameTurnQuery::class)->execute($user, $game->id, 0);
+
+        $this->assertSame(GameTurnWaitReason::GameEnded, $result->reason);
+        $this->assertNotNull($result->view);
+        $this->assertNull($result->actions);
+    }
+
+    public function test_the_lightweight_check_supports_the_legacy_active_user_id(): void
+    {
+        [$game, $player] = $this->createGameSession();
+        DB::table($game->getTable())->where('id', $game->id)->update([
+            'active_player_id' => $player->user_id,
+            'active_game_player_id' => null,
+        ]);
+
+        $result = app(WaitForGameTurnQuery::class)->execute($player->user, $game->id, 0);
+
+        $this->assertSame(GameTurnWaitReason::YourTurn, $result->reason);
+        $this->assertNotNull($result->view);
+        $this->assertNotNull($result->actions);
     }
 
     public function test_pending_choice_takes_precedence_over_active_player(): void

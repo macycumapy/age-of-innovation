@@ -18,6 +18,7 @@ final class WaitForGameTurnQuery
     public const int TIMEOUT_SECONDS = 30;
 
     public function __construct(
+        private GetGameTurnWaitStatusQuery $status,
         private GamePlayerResolver $players,
         private GetGameStateQuery $state,
         private GetLegalGameActionsQuery $actions,
@@ -33,29 +34,13 @@ final class WaitForGameTurnQuery
         $deadline = hrtime(true) + $timeoutSeconds * 1_000_000_000;
 
         for ($attempt = 0; ; $attempt++) {
-            $result = DB::transaction(function () use ($user, $gameId): GameTurnWaitResultData {
-                $context = $this->players->resolve($user, $gameId);
-                $game = $context->game;
-                $reason = GameTurnWaitReason::Timeout;
-
-                if (in_array($game->status, [GameStatus::Finished, GameStatus::Abandoned], true)) {
-                    $reason = GameTurnWaitReason::GameEnded;
-                } elseif ($game->status === GameStatus::Active) {
-                    $pending = $game->state->pendingInteraction;
-                    if ($pending !== null ? $pending->playerId === $context->player->id : $game->isActivePlayer($context->player)) {
-                        $reason = GameTurnWaitReason::YourTurn;
-                    }
-                }
-
-                return new GameTurnWaitResultData(
-                    reason: $reason,
-                    gameId: $game->id,
-                    view: $reason === GameTurnWaitReason::Timeout ? null : $this->state->execute($user, $game->id),
-                    actions: $reason === GameTurnWaitReason::YourTurn ? $this->actions->execute($user, $game->id) : null,
-                );
-            });
-
+            $result = $this->status->execute($user, $gameId);
             $gameId = $result->gameId;
+
+            if ($result->reason !== GameTurnWaitReason::Timeout) {
+                $result = $this->readyResult($user, $gameId);
+            }
+
             if ($result->reason !== GameTurnWaitReason::Timeout) {
                 return $result;
             }
@@ -67,5 +52,30 @@ final class WaitForGameTurnQuery
             $remainingMicroseconds = max(0, (int) ceil(($deadline - hrtime(true)) / 1000));
             Sleep::for(min(1_000_000, $remainingMicroseconds))->microseconds();
         }
+    }
+
+    private function readyResult(User $user, int $gameId): GameTurnWaitResultData
+    {
+        return DB::transaction(function () use ($user, $gameId): GameTurnWaitResultData {
+            $context = $this->players->resolve($user, $gameId);
+            $game = $context->game;
+            $reason = GameTurnWaitReason::Timeout;
+
+            if (in_array($game->status, [GameStatus::Finished, GameStatus::Abandoned], true)) {
+                $reason = GameTurnWaitReason::GameEnded;
+            } elseif ($game->status === GameStatus::Active) {
+                $pending = $game->state->pendingInteraction;
+                if ($pending !== null ? $pending->playerId === $context->player->id : $game->isActivePlayer($context->player)) {
+                    $reason = GameTurnWaitReason::YourTurn;
+                }
+            }
+
+            return new GameTurnWaitResultData(
+                reason: $reason,
+                gameId: $game->id,
+                view: $reason === GameTurnWaitReason::Timeout ? null : $this->state->execute($user, $game->id),
+                actions: $reason === GameTurnWaitReason::YourTurn ? $this->actions->execute($user, $game->id) : null,
+            );
+        });
     }
 }
