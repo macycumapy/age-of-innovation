@@ -48,6 +48,7 @@ import type {
     BookActionState,
     Settings,
     GamePlayerSummary,
+    GameHistoryPage,
     GameResource,
     KnowledgeDiscipline,
     Innovation,
@@ -59,6 +60,7 @@ import gameBackgroundImage from '../../../images/background_game.jpg';
 
 const props = defineProps<{
     game: GameResource;
+    history: GameHistoryPage;
     settings: Settings;
 }>();
 
@@ -122,77 +124,84 @@ const pointPopups = ref<{ id: number; points: number; hexId?: string; discipline
 let pointPopupId = 0;
 let lastChangedHexId: string | undefined;
 let lastChangedDiscipline: KnowledgeDiscipline | undefined;
-watch(
-    () => props.game.data,
-    (current, previous) => {
-        const townMarkerHex = current.board.hexes.find((entry) => {
+let previousGame = props.game.data;
+let previousHistory = props.history;
+watch([() => props.game.data, () => props.history], ([current, history]) => {
+    if (current === previousGame || history.version < current.version) {
+        return;
+    }
+
+    const previous = previousGame;
+    const previousActionIds = new Set(previousHistory.data.map((action) => action.id));
+    previousGame = current;
+    previousHistory = history;
+
+    const townMarkerHex = current.board.hexes.find((entry) => {
+        const old = previous.board.hexes.find((candidate) => candidate.id === entry.id);
+
+        return old && entry.townTileId !== null && old.townTileId !== entry.townTileId;
+    });
+    const changedHex =
+        townMarkerHex ??
+        current.board.hexes.find((entry) => {
             const old = previous.board.hexes.find((candidate) => candidate.id === entry.id);
 
-            return old && entry.townTileId !== null && old.townTileId !== entry.townTileId;
-        });
-        const changedHex =
-            townMarkerHex ??
-            current.board.hexes.find((entry) => {
-                const old = previous.board.hexes.find((candidate) => candidate.id === entry.id);
-
-                return (
-                    old &&
-                    (old.terrain !== entry.terrain || JSON.stringify(old.building) !== JSON.stringify(entry.building))
-                );
-            });
-
-        if (changedHex) {
-            lastChangedHexId = changedHex.id;
-        }
-
-        for (const state of current.playerBoardStates) {
-            const before = previous.playerBoardStates.find((entry) => entry.playerId === state.playerId);
-
-            if (!before) {
-                continue;
-            }
-
-            const placedDiscipline =
-                state.scholarDisciplineIds.length > before.scholarDisciplineIds.length
-                    ? state.scholarDisciplineIds.at(-1)
-                    : undefined;
-
-            if (placedDiscipline) {
-                lastChangedDiscipline = placedDiscipline;
-            }
-
-            const points = state.victoryPoints - before.victoryPoints;
-
-            if (points <= 0) {
-                continue;
-            }
-
-            const previousActionIds = new Set(previous.history.data.map((action) => action.id));
-            const scoringAction = current.history.data.find(
-                (action) =>
-                    !previousActionIds.has(action.id) &&
-                    action.player?.id === state.playerId &&
-                    ['terraform_and_build', 'upgrade_building', 'send_scholar', 'choose_town'].includes(action.type),
+            return (
+                old &&
+                (old.terrain !== entry.terrain || JSON.stringify(old.building) !== JSON.stringify(entry.building))
             );
-            const actionHexId =
-                scoringAction?.payload.marker_hex_id ?? scoringAction?.payload.hex_id ?? scoringAction?.payload.hexId;
-            const hexId = changedHex?.id ?? (typeof actionHexId === 'string' ? actionHexId : lastChangedHexId);
-            const discipline = placedDiscipline ?? lastChangedDiscipline;
+        });
 
-            if (!hexId && !discipline) {
-                continue;
-            }
+    if (changedHex) {
+        lastChangedHexId = changedHex.id;
+    }
 
-            const id = ++pointPopupId;
-            pointPopups.value.push({ id, points, hexId, discipline });
-            lastChangedHexId = undefined;
-            lastChangedDiscipline = undefined;
-            window.setTimeout(() => {
-                pointPopups.value = pointPopups.value.filter((entry) => entry.id !== id);
-            }, 1800);
+    for (const state of current.playerBoardStates) {
+        const before = previous.playerBoardStates.find((entry) => entry.playerId === state.playerId);
+
+        if (!before) {
+            continue;
         }
-    },
-);
+
+        const placedDiscipline =
+            state.scholarDisciplineIds.length > before.scholarDisciplineIds.length
+                ? state.scholarDisciplineIds.at(-1)
+                : undefined;
+
+        if (placedDiscipline) {
+            lastChangedDiscipline = placedDiscipline;
+        }
+
+        const points = state.victoryPoints - before.victoryPoints;
+
+        if (points <= 0) {
+            continue;
+        }
+
+        const scoringAction = history.data.find(
+            (action) =>
+                !previousActionIds.has(action.id) &&
+                action.player?.id === state.playerId &&
+                ['terraform_and_build', 'upgrade_building', 'send_scholar', 'choose_town'].includes(action.type),
+        );
+        const actionHexId =
+            scoringAction?.payload.marker_hex_id ?? scoringAction?.payload.hex_id ?? scoringAction?.payload.hexId;
+        const hexId = changedHex?.id ?? (typeof actionHexId === 'string' ? actionHexId : lastChangedHexId);
+        const discipline = placedDiscipline ?? lastChangedDiscipline;
+
+        if (!hexId && !discipline) {
+            continue;
+        }
+
+        const id = ++pointPopupId;
+        pointPopups.value.push({ id, points, hexId, discipline });
+        lastChangedHexId = undefined;
+        lastChangedDiscipline = undefined;
+        window.setTimeout(() => {
+            pointPopups.value = pointPopups.value.filter((entry) => entry.id !== id);
+        }, 1800);
+    }
+});
 
 watch(pendingInteractionShownAboveBoard, (interaction, previousInteraction) => {
     if (interaction !== null && interaction !== previousInteraction) {
@@ -1617,7 +1626,7 @@ defineOptions({
             :current-player-id="currentPlayer?.id ?? null"
             :active-player-id="activePlayer?.id ?? null"
             :game-id="game.data.id"
-            :history="game.data.history"
+            :history="history"
             :can-undo-last-action="game.data.canUndoLastAction"
         />
     </div>

@@ -33,7 +33,6 @@ use App\Domain\GameEngine\State\Enums\PlayerColor;
 use App\Domain\GameEngine\Towns\Enums\TownTile;
 use App\Domain\GameEngine\Turns\Enums\GamePhase;
 use App\Models\Game;
-use App\Models\GameAction;
 use App\Models\GamePlayer;
 use BackedEnum;
 use Illuminate\Http\Request;
@@ -59,7 +58,7 @@ class GameResource extends JsonResource
         $owner = $playersLoaded ? $this->players->firstWhere('seat', 1) : null;
         $isOwner = $owner?->user_id === $request->user()?->id;
         $canRollbackHistory = $request->user()?->can('access-admin') ?? false;
-        $hasActions = $this->relationLoaded('actions') && $this->actions->isNotEmpty();
+        $hasActions = $canRollbackHistory && $this->actions()->exists();
         $hasUnsupportedActions = $hasActions && $this->actions()
             ->whereNotIn(
                 'type',
@@ -74,6 +73,7 @@ class GameResource extends JsonResource
 
         return [
             'id' => $this->id,
+            'version' => $this->version,
             'status' => $this->status->value,
             'currentRound' => $this->status === GameStatus::Lobby ? null : $this->state->round->number,
             'mapVariant' => $this->state->board->variant->value,
@@ -425,12 +425,6 @@ class GameResource extends JsonResource
             'startingBuildingTurnIndex' => $this->state->startingBuildingTurnIndex,
             'pendingStartingBuildingHexId' => $this->state->pendingStartingBuildingHexId,
             'phase' => $this->phase->value,
-            'history' => $this->whenLoaded('actions', fn (): array => [
-                'data' => GameHistoryEntryResource::collection(
-                    $this->actions->take(GameAction::HISTORY_PAGE_SIZE),
-                )->resolve($request),
-                'hasMore' => $this->actions->count() > GameAction::HISTORY_PAGE_SIZE,
-            ]),
             'createdAt' => $this->created_at?->toISOString(),
         ];
     }

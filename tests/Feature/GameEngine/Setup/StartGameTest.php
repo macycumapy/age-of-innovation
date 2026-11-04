@@ -85,12 +85,12 @@ class StartGameTest extends TestCase
                     ->where('game.data.turnOrder', $game->state->turnOrder)
                     ->where('game.data.activePlayerId', $game->active_player_id)
                     ->where('game.data.currentTurnStartedAt', $game->current_turn_started_at->toISOString())
-                    ->has('game.data.history.data', 2)
-                    ->where('game.data.history.hasMore', false)
-                    ->where('game.data.history.data.0.sequence', 2)
-                    ->where('game.data.history.data.0.type', GameActionType::PhaseCheckpoint->value)
-                    ->where('game.data.history.data.0.player', null)
-                    ->where('game.data.history.data.1.type', GameActionType::StartGame->value)
+                    ->has('history.data', 2)
+                    ->where('history.hasMore', false)
+                    ->where('history.data.0.sequence', 2)
+                    ->where('history.data.0.type', GameActionType::PhaseCheckpoint->value)
+                    ->where('history.data.0.player', null)
+                    ->where('history.data.1.type', GameActionType::StartGame->value)
                     ->where(
                         'game.data.availablePalaceIds',
                         $game->state->availablePalaceIds,

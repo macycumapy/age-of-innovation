@@ -58,7 +58,7 @@ test('score popups use the scored discipline and an upward fading animation', ()
     assert.match(css, /opacity: 0/);
 });
 
-test('score popups retain the hex between staging and confirmation', () => {
+function createPopupTracker(initial) {
     const page = readFileSync(new URL('../../resources/js/pages/games/Show.vue', import.meta.url), 'utf8');
     const { descriptor } = parse(page);
     const script = ts.createSourceFile('Show.ts', descriptor.scriptSetup.content, ts.ScriptTarget.Latest, true);
@@ -75,44 +75,84 @@ test('score popups retain the hex between staging and confirmation', () => {
     );
     let update;
     const timeouts = [];
-    const popups = new Function('ref', 'watch', 'window', `${outputText}; return pointPopups;`)(
+    const popups = new Function('props', 'ref', 'watch', 'window', `${outputText}; return pointPopups;`)(
+        { game: { data: initial }, history: { data: [], version: initial.version } },
         ref,
         (_source, callback) => {
             update = callback;
         },
         { setTimeout: (callback) => timeouts.push(callback) },
     );
+
+    return { popups, timeouts, update: (game, history = { data: [], version: game.version }) => update([game, history]) };
+}
+
+test('score popups retain the hex between staging and confirmation', () => {
     const initial = {
+        version: 0,
         board: { hexes: [{ id: '2:3', townTileId: null, terrain: 'plains', building: null }] },
         playerBoardStates: [{ playerId: 1, scholarDisciplineIds: [], victoryPoints: 20 }],
-        history: { data: [] },
     };
+    const { popups, timeouts, update } = createPopupTracker(initial);
     const staged = structuredClone(initial);
+    staged.version = 1;
     staged.board.hexes[0].building = { type: 'workshop', playerId: 1 };
-    update(staged, initial);
+    update(staged);
     assert.deepEqual(popups.value, []);
     assert.equal(timeouts.length, 0);
 
     const confirmed = structuredClone(staged);
+    confirmed.version = 2;
     confirmed.playerBoardStates[0].victoryPoints += 2;
-    update(confirmed, staged);
+    update(confirmed);
     assert.deepEqual(popups.value, [{ id: 1, points: 2, hexId: '2:3', discipline: undefined }]);
     assert.equal(timeouts.length, 1);
     timeouts[0]();
     assert.deepEqual(popups.value, []);
 
     const unrelatedScore = structuredClone(confirmed);
+    unrelatedScore.version = 3;
     unrelatedScore.playerBoardStates[0].victoryPoints += 1;
-    update(unrelatedScore, confirmed);
+    update(unrelatedScore);
     assert.deepEqual(popups.value, []);
 });
 
 test('remote score updates can locate the hex from shared confirmed history', () => {
     const page = readFileSync(new URL('../../resources/js/pages/games/Show.vue', import.meta.url), 'utf8');
-    assert.match(page, /current.history.data.find/);
+    assert.match(page, /history.data.find/);
     assert.match(page, /action.player\?\.id === state.playerId/);
     assert.match(page, /scoringAction\?\.payload.hex_id/);
 });
+
+for (const firstUpdate of ['game', 'history']) {
+    test(`score popups wait for matching live snapshots when ${firstUpdate} arrives first`, () => {
+        const initial = {
+            version: 0,
+            board: { hexes: [{ id: '2:3', townTileId: null, terrain: 'plains', building: null }] },
+            playerBoardStates: [{ playerId: 1, scholarDisciplineIds: [], victoryPoints: 20 }],
+        };
+        const { popups, update } = createPopupTracker(initial);
+        const confirmed = structuredClone(initial);
+        confirmed.version = 1;
+        confirmed.playerBoardStates[0].victoryPoints = 22;
+        const history = {
+            version: 1,
+            data: [{ id: 1, type: 'terraform_and_build', player: { id: 1 }, payload: { hex_id: '2:3' } }],
+        };
+
+        if (firstUpdate === 'game') {
+            update(confirmed, { version: 0, data: [] });
+        } else {
+            update(initial, history);
+        }
+
+        assert.deepEqual(popups.value, []);
+        update(confirmed, history);
+        assert.deepEqual(popups.value, [{ id: 1, points: 2, hexId: '2:3', discipline: undefined }]);
+        update(confirmed, history);
+        assert.equal(popups.value.length, 1);
+    });
+}
 
 test('town scoring uses the town marker, including water towns', () => {
     const page = readFileSync(new URL('../../resources/js/pages/games/Show.vue', import.meta.url), 'utf8');

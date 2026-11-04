@@ -6,7 +6,7 @@ namespace App\Http\Controllers\Game;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Game\GameHistoryRequest;
-use App\Http\Resources\GameHistoryEntryResource;
+use App\Http\Resources\GameHistoryCollection;
 use App\Models\Game;
 use App\Models\GameAction;
 use Illuminate\Database\Eloquent\Builder;
@@ -26,11 +26,6 @@ final class GameHistoryController extends Controller
             ->limit(GameAction::HISTORY_PAGE_SIZE + 1)
             ->get();
 
-        return response()->json([
-            'data' => GameHistoryEntryResource::collection(
-                $actions->take(GameAction::HISTORY_PAGE_SIZE),
-            )->resolve($request),
-            'hasMore' => $actions->count() > GameAction::HISTORY_PAGE_SIZE,
-        ]);
+        return (new GameHistoryCollection($actions))->additional(['version' => $game->version])->response();
     }
 }

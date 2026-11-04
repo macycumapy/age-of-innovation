@@ -97,8 +97,11 @@ const currentUserId = usePage().props.auth.user.id;
 watch(
     () => props.history.data,
     (latestEntries) => {
+        const isRollback = (latestEntries[0]?.sequence ?? 0) < latestSequence.value;
+
         if (latestEntries.length === 0) {
             entries.value = [];
+            hasMore.value = false;
 
             return;
         }
@@ -108,10 +111,13 @@ watch(
         const entriesById = new Map([...latestEntries, ...retainedOlderEntries].map((entry) => [entry.id, entry]));
 
         entries.value = [...entriesById.values()].sort((first, second) => second.sequence - first.sequence);
+        hasMore.value = props.history.hasMore && (hasMore.value || retainedOlderEntries.length === 0);
 
         const newEntries = latestEntries.filter(
             (entry) =>
-                !knownEntryIds.has(entry.id) && shouldNotifyAboutPlayerAction(entry.player, currentUserId, entry.type),
+                !isRollback &&
+                !knownEntryIds.has(entry.id) &&
+                shouldNotifyAboutPlayerAction(entry.player, currentUserId, entry.type),
         );
 
         latestEntries.forEach((entry) => knownEntryIds.add(entry.id));
@@ -151,12 +157,19 @@ async function loadMore(): Promise<void> {
         return;
     }
 
+    const version = props.history.version;
+
     try {
         const page = (await historyRequest.submit(
             GameHistoryController(props.gameId, {
                 query: { before_sequence: oldestSequence },
             }),
         )) as GameHistoryPage;
+
+        if (props.history.version !== version || page.version !== version) {
+            return;
+        }
+
         const entryIds = new Set(entries.value.map((entry) => entry.id));
 
         entries.value.push(...page.data.filter((entry) => !entryIds.has(entry.id)));

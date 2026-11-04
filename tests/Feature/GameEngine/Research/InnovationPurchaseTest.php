@@ -543,9 +543,9 @@ class InnovationPurchaseTest extends TestCase
         ], $game->actions()->sole()->payload['neutral_building']['scoring_sources']);
         $this->get(route('games.show', $game))->assertInertia(
             fn (Assert $page) => $page
-                ->where('game.data.history.data.0.payload.neutral_building.victory_points', 3)
+                ->where('history.data.0.payload.neutral_building.victory_points', 3)
                 ->where(
-                    'game.data.history.data.0.payload.neutral_building.scoring_sources.0.source',
+                    'history.data.0.payload.neutral_building.scoring_sources.0.source',
                     'round_bonus',
                 ),
         );

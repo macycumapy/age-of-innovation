@@ -7,9 +7,11 @@ namespace App\Http\Controllers\Game;
 use App\Domain\Game\Actions\CreateGameAction;
 use App\Domain\Settings\Services\SettingsService;
 use App\Events\GameChanged;
+use App\Events\GameHistoryChanged;
 use App\Events\GameListChanged;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Game\StoreGameRequest;
+use App\Http\Resources\GameHistoryCollection;
 use App\Http\Resources\GameResource;
 use App\Http\Resources\GameSummaryResource;
 use App\Models\Game;
@@ -46,18 +48,20 @@ class GameController extends Controller
         return Inertia::render('games/Show', [
             'game' => Inertia::live(function () use ($game, $user): GameResource {
                 $game->load(['players.user'])->loadCount('players');
-                $game->setRelation(
-                    'actions',
-                    $game->actions()
-                        ->with('gamePlayer.user')
-                        ->orderByDesc('sequence')
-                        ->limit(GameAction::HISTORY_PAGE_SIZE + 1)
-                        ->get(),
-                );
                 $game->setAttribute('is_joined', $game->players->contains('user_id', $user->id));
 
                 return new GameResource($game);
             }, on: new GameChanged($game->id), throttle: 100),
+            'history' => Inertia::live(
+                fn (): GameHistoryCollection => (new GameHistoryCollection(
+                    $game->actions()->with('gamePlayer.user')
+                        ->orderByDesc('sequence')
+                        ->limit(GameAction::HISTORY_PAGE_SIZE + 1)
+                        ->get(),
+                ))->additional(['version' => $game->version]),
+                on: new GameHistoryChanged($game->id),
+                throttle: 100,
+            ),
             'settings' => fn (): array => $settings->get()->toArray(),
         ]);
     }

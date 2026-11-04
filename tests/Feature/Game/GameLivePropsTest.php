@@ -39,6 +39,13 @@ final class GameLivePropsTest extends TestCase
                 ]],
                 'throttle' => 100,
             ],
+            'history' => [
+                'listeners' => [[
+                    'channel' => ['name' => "games.{$game->id}", 'type' => 'private'],
+                    'events' => ['history.changed'],
+                ]],
+                'throttle' => 100,
+            ],
         ], $response->viewData('page')['liveProps']);
     }
 

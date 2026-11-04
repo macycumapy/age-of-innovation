@@ -20,6 +20,7 @@ export type GameCollection = {
 
 export type GameResource = {
     data: GameSummary & {
+        version: number;
         players: GamePlayerSummary[];
         playerBoardStates: GamePlayerBoardState[];
         neutralKnowledgeState: NeutralKnowledgeState | null;
@@ -65,7 +66,6 @@ export type GameResource = {
         startingBuildingTurnIndex: number;
         pendingStartingBuildingHexId: string | null;
         phase: 'setup' | 'income' | 'actions' | 'science_bonus' | 'finished';
-        history: GameHistoryPage;
     };
 };
 
@@ -127,6 +127,7 @@ export type GameHistoryEntry = {
 export type GameHistoryPage = {
     data: GameHistoryEntry[];
     hasMore: boolean;
+    version: number;
 };
 
 export type GamePlayerBoardState = {
