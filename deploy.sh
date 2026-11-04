@@ -7,6 +7,7 @@ export APP_SERVICE=app
 build_directory="${1:?Usage: deploy.sh BUILD_DIRECTORY}"
 test -s "$build_directory/manifest.json" || { echo "Frontend build is missing" >&2; exit 1; }
 
+./vendor/bin/sail exec -T --user root app chown -R sail:sail vendor bootstrap/cache storage
 ./vendor/bin/sail composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader
 ./vendor/bin/sail artisan down --retry=60
 trap './vendor/bin/sail artisan up' EXIT

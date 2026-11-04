@@ -61,8 +61,8 @@ printf '%s' "$1" > deployed-build
     });
 }
 
-for (const failMigration of [false, true]) {
-    test(`deployment ${failMigration ? 'restores availability after migration failure' : 'publishes build and restarts services'}`, () => {
+for (const failure of ['none', 'permissions', 'composer', 'migration']) {
+    test(`deployment repairs ownership before Composer and handles failures (${failure})`, () => {
         const directory = mkdtempSync(join(tmpdir(), 'deployment-'));
 
         try {
@@ -74,17 +74,35 @@ for (const failMigration of [false, true]) {
 set -eu
 test "$APP_SERVICE" = app
 printf '%s\\n' "$*" >> commands.log
-${failMigration ? 'if [[ "$*" == artisan\\ migrate* ]]; then exit 1; fi' : ''}
+if [ "$DEPLOY_TEST_FAILURE" = permissions ] && [ "$1" = exec ]; then
+    exit 1
+fi
+if [ "$DEPLOY_TEST_FAILURE" = composer ] && [ "$1" = composer ]; then
+    exit 1
+fi
+if [ "$DEPLOY_TEST_FAILURE" = migration ] && [[ "$*" == artisan\\ migrate* ]]; then
+    exit 1
+fi
 `, { mode: 0o755 });
-            const result = spawnSync('bash', ['deploy.sh', '.deploy/build'], { cwd: directory });
-            assert.equal(result.status, failMigration ? 1 : 0, result.stderr.toString());
+            const result = spawnSync('bash', ['deploy.sh', '.deploy/build'], {
+                cwd: directory,
+                env: { ...process.env, DEPLOY_TEST_FAILURE: failure },
+            });
+            assert.equal(result.status, failure === 'none' ? 0 : 1, result.stderr.toString());
             const commands = readFileSync(join(directory, 'commands.log'), 'utf8');
-            assert.match(commands, /composer install --no-dev --no-interaction/);
-            assert.ok(commands.trimEnd().endsWith('artisan up'));
-            assert.equal(existsSync(join(directory, 'public/build/manifest.json')), !failMigration);
-            assert.equal(commands.includes('restart app horizon reverb'), !failMigration);
-            assert.equal(commands.includes('up -d --no-deps --force-recreate mcp nginx'), !failMigration);
-            assert.equal(existsSync(join(directory, '.deploy/build')), failMigration);
+            const operations = commands.trimEnd().split('\n');
+            assert.equal(operations[0], 'exec -T --user root app chown -R sail:sail vendor bootstrap/cache storage');
+            assert.equal(commands.includes('composer install --no-dev --no-interaction'), failure !== 'permissions');
+            assert.equal(commands.includes('artisan down --retry=60'), ['none', 'migration'].includes(failure));
+
+            if (failure === 'none' || failure === 'migration') {
+                assert.ok(commands.trimEnd().endsWith('artisan up'));
+            }
+
+            assert.equal(existsSync(join(directory, 'public/build/manifest.json')), failure === 'none');
+            assert.equal(commands.includes('restart app horizon reverb'), failure === 'none');
+            assert.equal(commands.includes('up -d --no-deps --force-recreate mcp nginx'), failure === 'none');
+            assert.equal(existsSync(join(directory, '.deploy/build')), failure !== 'none');
         } finally {
             rmSync(directory, { recursive: true, force: true });
         }
