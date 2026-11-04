@@ -38,13 +38,14 @@ for (const { port, scheme } of [
             (options) => {
                 echoOptions = options;
             },
-            () => liveOptions,
+            (options) => ({ ...liveOptions, ...options }),
             {},
             {},
             {},
         );
         assert.equal(echoOptions, undefined);
-        assert.equal(inertiaOptions.live, liveOptions);
+        assert.equal(inertiaOptions.live.transport, liveOptions.transport);
+        assert.equal(inertiaOptions.live.pauseWhenHidden, false);
         inertiaOptions.withApp({}, {
             page: {
                 props: {

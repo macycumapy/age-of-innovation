@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { router } from '@inertiajs/vue3';
 import { computed, reactive, watch } from 'vue';
 import ResourceExchangeController from '@/actions/App/Http/Controllers/Game/ResourceExchangeController';
 import Form from '@/components/game/GameActionForm.vue';
@@ -194,7 +193,6 @@ function resetCounts(): void {
 
 function exchangeSucceeded(): void {
     isOpen.value = false;
-    router.reload({ only: ['game'] });
 }
 
 watch(isOpen, (open) => {

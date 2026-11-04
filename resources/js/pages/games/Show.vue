@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { Head, router, useHttp, usePage } from '@inertiajs/vue3';
-import { useEcho } from '@laravel/echo-vue';
-import { computed, ref, useTemplateRef, watch } from 'vue';
+import { computed, onBeforeUnmount, ref, useTemplateRef, watch } from 'vue';
 import BridgeController from '@/actions/App/Http/Controllers/Game/BridgeController';
 import NeutralInnovationBuildingController from '@/actions/App/Http/Controllers/Game/NeutralInnovationBuildingController';
 import PalaceGuildController from '@/actions/App/Http/Controllers/Game/PalaceGuildController';
@@ -65,15 +64,17 @@ const props = defineProps<{
 
 const page = usePage();
 
-useEcho(`games.${props.game.data.id}`, '.game.changed', (event: { deleted?: boolean }) => {
-    if (event.deleted) {
-        router.visit(index());
+onBeforeUnmount(
+    router.on('live', ({ detail }) => {
+        const change = detail.payload as { gameId: number; deleted?: boolean } | null;
 
-        return;
-    }
+        if (detail.event === 'game.changed' && change?.gameId === props.game.data.id && change.deleted === true) {
+            router.visit(index());
 
-    router.reload({ only: ['game'] });
-});
+            return false;
+        }
+    }),
+);
 
 const currentPlayer = computed(() =>
     props.game.data.players.find((player) => player.user_id === page.props.auth.user.id),
@@ -1179,15 +1180,15 @@ defineOptions({
 </script>
 
 <template>
-    <Head :title="pageTitle" />
-
-    <TurnNotification
-        :active-player-id="game.data.activePlayerId"
-        :current-user-id="page.props.auth.user.id"
-        :enabled="game.data.status === 'active'"
-    />
-
     <div class="flex h-full min-w-0 flex-1">
+        <Head :title="pageTitle" />
+
+        <TurnNotification
+            :active-player-id="game.data.activePlayerId"
+            :current-user-id="page.props.auth.user.id"
+            :enabled="game.data.status === 'active'"
+        />
+
         <div class="flex min-w-0 flex-1 flex-col gap-6 p-4">
             <GameLobby
                 v-if="game.data.status === 'lobby'"

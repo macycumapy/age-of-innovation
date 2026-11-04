@@ -6,6 +6,7 @@ namespace App\Http\Controllers\Game;
 
 use App\Domain\Game\Actions\CreateGameAction;
 use App\Domain\Settings\Services\SettingsService;
+use App\Events\GameChanged;
 use App\Events\GameListChanged;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Game\StoreGameRequest;
@@ -42,20 +43,22 @@ class GameController extends Controller
         /** @var User $user */
         $user = $request->user();
 
-        $game->load(['players.user'])->loadCount('players');
-        $game->setRelation(
-            'actions',
-            $game->actions()
-                ->with('gamePlayer.user')
-                ->orderByDesc('sequence')
-                ->limit(GameAction::HISTORY_PAGE_SIZE + 1)
-                ->get(),
-        );
-        $game->setAttribute('is_joined', $game->players->contains('user_id', $user->id));
-
         return Inertia::render('games/Show', [
-            'game' => new GameResource($game),
-            'settings' => $settings->get()->toArray(),
+            'game' => Inertia::live(function () use ($game, $user): GameResource {
+                $game->load(['players.user'])->loadCount('players');
+                $game->setRelation(
+                    'actions',
+                    $game->actions()
+                        ->with('gamePlayer.user')
+                        ->orderByDesc('sequence')
+                        ->limit(GameAction::HISTORY_PAGE_SIZE + 1)
+                        ->get(),
+                );
+                $game->setAttribute('is_joined', $game->players->contains('user_id', $user->id));
+
+                return new GameResource($game);
+            }, on: new GameChanged($game->id), throttle: 100),
+            'settings' => fn (): array => $settings->get()->toArray(),
         ]);
     }
 

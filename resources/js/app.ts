@@ -10,7 +10,7 @@ import { initializeFlashToast } from '@/lib/flashToast';
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
 
 createInertiaApp({
-    live: echo(),
+    live: echo({ pauseWhenHidden: false }),
     title: (title) => (title ? `${title} - ${appName}` : appName),
     withApp: (_app, { page }) => {
         configureEcho({
