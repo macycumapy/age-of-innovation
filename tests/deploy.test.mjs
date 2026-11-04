@@ -27,6 +27,7 @@ ${failMigration ? 'if [[ "$*" == artisan\\ migrate* ]]; then exit 1; fi' : ''}
             assert.ok(commands.trimEnd().endsWith('artisan up'));
             assert.equal(existsSync(join(directory, 'public/build/manifest.json')), !failMigration);
             assert.equal(commands.includes('restart app horizon reverb'), !failMigration);
+            assert.equal(commands.includes('up -d --no-deps --force-recreate mcp nginx'), !failMigration);
             assert.equal(existsSync(join(directory, '.deploy/build')), failMigration);
         } finally {
             rmSync(directory, { recursive: true, force: true });

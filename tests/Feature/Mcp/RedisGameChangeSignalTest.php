@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace Tests\Feature\Mcp;
 
 use App\Domain\GameSession\Services\GameChangeSignal;
-use App\Domain\GameSession\Services\GameWaitMetrics;
-use App\Domain\GameSession\Services\RedisGameChangeSignal;
 use App\Events\GameChanged;
 use App\Events\GamePlayersChanged;
+use App\Mcp\Server\Services\GameWaitMetrics;
+use App\Mcp\Server\Services\RedisGameChangeSignal;
 use App\Models\Game;
 use Illuminate\Contracts\Redis\Factory;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -73,8 +73,8 @@ final class RedisGameChangeSignalTest extends TestCase
             $container->instance('config', new Illuminate\Config\Repository(['game-mcp' => ['wait' => ['enabled' => true]]]));
             Illuminate\Container\Container::setInstance($container);
             $redis = new Illuminate\Redis\RedisManager($container, $input['redis']['client'], $input['redis']);
-            $metrics = new App\Domain\GameSession\Services\GameWaitMetrics(new Illuminate\Log\LogManager($container));
-            $signals = new App\Domain\GameSession\Services\RedisGameChangeSignal($redis, $metrics);
+            $metrics = new App\Mcp\Server\Services\GameWaitMetrics(new Illuminate\Log\LogManager($container));
+            $signals = new App\Mcp\Server\Services\RedisGameChangeSignal($redis, $metrics);
             echo "ready\n";
             flush();
             echo json_encode($signals->wait(1, '0-0', 2000), JSON_THROW_ON_ERROR)."\n";

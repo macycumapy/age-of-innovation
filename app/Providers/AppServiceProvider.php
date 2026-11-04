@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace App\Providers;
 
 use App\Domain\GameSession\Services\GameChangeSignal;
-use App\Domain\GameSession\Services\RedisGameChangeSignal;
+use App\Domain\GameSession\Services\GameWaitObserver;
 use App\Events\GameChanged;
 use App\Events\GamePlayersChanged;
+use App\Mcp\Server\Services\GameWaitMetrics;
+use App\Mcp\Server\Services\RedisGameChangeSignal;
 use App\Models\Game;
 use App\Models\User;
 use App\Observers\GameObserver;
@@ -28,6 +30,7 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->bind(GameChangeSignal::class, RedisGameChangeSignal::class);
+        $this->app->bind(GameWaitObserver::class, GameWaitMetrics::class);
     }
 
     /**

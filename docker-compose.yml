@@ -41,7 +41,33 @@ services:
         networks:
             - sail
         depends_on:
-            - app
+            app:
+                condition: service_started
+            mcp:
+                condition: service_healthy
+    mcp:
+        image: sail-8.5/app
+        restart: unless-stopped
+        command: php artisan game:mcp-serve
+        expose:
+            - '8090'
+        environment:
+            WWWUSER: '${WWWUSER:-1000}'
+            LARAVEL_SAIL: 1
+        volumes:
+            - '.:/var/www/html'
+        networks:
+            - sail
+        depends_on:
+            app:
+                condition: service_started
+            redis:
+                condition: service_healthy
+        healthcheck:
+            test: ['CMD', 'curl', '-fsS', 'http://127.0.0.1:8090/health']
+            interval: 5s
+            timeout: 2s
+            retries: 5
     mysql:
         image: 'mysql:latest'
         container_name: '${APP_NAME}_mysql'

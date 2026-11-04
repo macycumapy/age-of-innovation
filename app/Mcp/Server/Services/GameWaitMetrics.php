@@ -2,15 +2,28 @@
 
 declare(strict_types=1);
 
-namespace App\Domain\GameSession\Services;
+namespace App\Mcp\Server\Services;
 
+use App\Domain\GameSession\Services\GameWaitObserver;
 use Illuminate\Log\LogManager;
 use Throwable;
 
-final class GameWaitMetrics
+final class GameWaitMetrics implements GameWaitObserver
 {
     public function __construct(private LogManager $logs)
     {
+    }
+
+    public function waiting(int $gameId, bool $notificationsAvailable): void
+    {
+        $this->transport($gameId, $notificationsAvailable ? 'redis' : 'poll', $notificationsAvailable
+            ? null
+            : (config('game-mcp.wait.enabled') ? 'redis_unavailable' : 'disabled'));
+    }
+
+    public function notificationsUnavailable(int $gameId): void
+    {
+        $this->transport($gameId, 'poll', 'redis_unavailable');
     }
 
     public function transport(int $gameId, string $transport, ?string $reason = null): void
@@ -27,7 +40,12 @@ final class GameWaitMetrics
         ]);
     }
 
-    /** @param array<string, int|string|null> $context */
+    public function asyncWait(int $gameId, string $reason, float $durationMilliseconds, int $checks): void
+    {
+        $this->record('info', 'mcp.async_wait', ['game_id' => $gameId, 'reason' => $reason, 'duration_ms' => round($durationMilliseconds, 3), 'checks' => $checks]);
+    }
+
+    /** @param array<string, int|float|string|null> $context */
     private function record(string $level, string $event, array $context): void
     {
         if (! config('game-mcp.metrics.enabled')) {

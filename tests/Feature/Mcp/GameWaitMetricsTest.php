@@ -7,8 +7,8 @@ namespace Tests\Feature\Mcp;
 use App\Domain\GameSession\Enums\GameTurnWaitReason;
 use App\Domain\GameSession\Queries\WaitForGameTurnQuery;
 use App\Domain\GameSession\Services\GameChangeSignal;
-use App\Domain\GameSession\Services\GameWaitMetrics;
-use App\Domain\GameSession\Services\RedisGameChangeSignal;
+use App\Mcp\Server\Services\GameWaitMetrics;
+use App\Mcp\Server\Services\RedisGameChangeSignal;
 use App\Models\Game;
 use App\Models\GamePlayer;
 use Illuminate\Contracts\Redis\Factory;
@@ -182,6 +182,15 @@ final class GameWaitMetricsTest extends TestCase
 
         $this->assertSame(GameTurnWaitReason::Timeout, $result->reason);
         $this->assertSame([], $this->records);
+    }
+
+    public function test_async_waits_record_the_complete_duration_and_number_of_authorized_checks(): void
+    {
+        $this->metrics->asyncWait(7, 'your_turn', 1234.5678, 3);
+        $this->assertSame([[
+            'level' => 'info', 'event' => 'mcp.async_wait',
+            'context' => ['game_id' => 7, 'reason' => 'your_turn', 'duration_ms' => 1234.568, 'checks' => 3],
+        ]], $this->records);
     }
 
     public function test_logger_failures_do_not_interrupt_redis_failure_handling(): void

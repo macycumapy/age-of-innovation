@@ -2,8 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Domain\GameSession\Services;
+namespace App\Mcp\Server\Services;
 
+use App\Domain\GameSession\Services\GameChangeSignal;
 use Illuminate\Contracts\Redis\Factory;
 use Throwable;
 

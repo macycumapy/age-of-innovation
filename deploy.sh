@@ -20,6 +20,7 @@ cp -a "$build_directory/." public/build/
 rm -f public/hot
 
 ./vendor/bin/sail restart app horizon reverb
+./vendor/bin/sail up -d --no-deps --force-recreate mcp nginx
 ./vendor/bin/sail artisan up
 trap - EXIT
 rm -rf -- "$build_directory"

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Mcp\Server\Methods;
 
+use App\Mcp\Server\AsyncMcpProbe;
 use Generator;
 use Illuminate\Log\LogManager;
 use Illuminate\Support\Facades\Context;
@@ -22,7 +23,7 @@ final class MeasuredCallTool extends CallTool
     public function handle(JsonRpcRequest $request, ServerContext $context): Generator|JsonRpcResponse
     {
         Context::forgetHidden('mcp.full_snapshot_reason');
-        if (! config('game-mcp.metrics.enabled')) {
+        if (! config('game-mcp.metrics.enabled') || Context::getHidden(AsyncMcpProbe::CONTEXT) !== null) {
             return parent::handle($request, $context);
         }
 

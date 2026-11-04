@@ -8,6 +8,7 @@ use App\Domain\GameSession\Data\GameTurnContextData;
 use App\Domain\GameSession\Queries\WaitForGameTurnQuery;
 use App\Mcp\Presentation\GameContextUpdatePresenter;
 use App\Mcp\Presentation\GameStatePresenter;
+use App\Mcp\Server\AsyncMcpProbe;
 use App\Mcp\Stores\GameContextSnapshotStore;
 use App\Mcp\Validators\WaitForGameTurnValidator;
 use App\Models\User;
@@ -30,7 +31,11 @@ final class WaitForGameTurnTool extends GameTool
         $data = $validator->validate($request);
 
         return $this->respond($request, function (User $user) use ($data, $query, $presenter, $snapshots, $updates): array {
-            $result = $query->execute($user, $data->gameId, $data->timeoutSeconds);
+            $isProbe = Context::getHidden(AsyncMcpProbe::CONTEXT) !== null;
+            $result = $query->execute($user, $data->gameId, $isProbe ? 0 : $data->timeoutSeconds);
+            if ($isProbe) {
+                Context::addHidden(AsyncMcpProbe::GAME_CONTEXT, $result->gameId);
+            }
 
             if ($result->view === null) {
                 return ['reason' => $result->reason->value];

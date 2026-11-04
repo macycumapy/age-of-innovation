@@ -10,6 +10,7 @@ use App\Domain\GameEngine\Interactions\Enums\PendingInteractionType;
 use App\Domain\GameSession\Enums\GameTurnWaitReason;
 use App\Domain\GameSession\Queries\WaitForGameTurnQuery;
 use App\Domain\GameSession\Services\GameChangeSignal;
+use App\Domain\GameSession\Services\GameWaitObserver;
 use App\Models\Game;
 use App\Models\GamePlayer;
 use DomainException;
@@ -171,6 +172,14 @@ final class WaitForGameTurnSignalsTest extends TestCase
             $signals->shouldNotReceive('wait');
         }
         $this->app->instance(GameChangeSignal::class, $signals);
+        $observer = Mockery::mock(GameWaitObserver::class);
+        $observer->shouldReceive('waiting')->once()->with($game->id, $failsDuringWait);
+        if ($failsDuringWait) {
+            $observer->shouldReceive('notificationsUnavailable')->once()->with($game->id);
+        } else {
+            $observer->shouldNotReceive('notificationsUnavailable');
+        }
+        $this->app->instance(GameWaitObserver::class, $observer);
 
         $result = app(WaitForGameTurnQuery::class)->execute($player->user, $game->id, 2);
 
@@ -210,6 +219,10 @@ final class WaitForGameTurnSignalsTest extends TestCase
         $signals->shouldNotReceive('cursor');
         $signals->shouldNotReceive('wait');
         $this->app->instance(GameChangeSignal::class, $signals);
+        $observer = Mockery::mock(GameWaitObserver::class);
+        $observer->shouldNotReceive('waiting');
+        $observer->shouldNotReceive('notificationsUnavailable');
+        $this->app->instance(GameWaitObserver::class, $observer);
 
         $this->assertSame(GameTurnWaitReason::Timeout, app(WaitForGameTurnQuery::class)->execute($player->user, $game->id, 0)->reason);
     }
