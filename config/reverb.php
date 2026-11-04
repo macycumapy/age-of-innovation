@@ -17,6 +17,13 @@ return [
 
     'default' => env('REVERB_SERVER', 'reverb'),
 
+    'client' => [
+        'key' => env('VITE_REVERB_APP_KEY', env('REVERB_APP_KEY')),
+        'host' => env('VITE_REVERB_HOST', env('REVERB_HOST', 'localhost')),
+        'port' => (int) env('VITE_REVERB_PORT', env('REVERB_PORT', 443)),
+        'scheme' => env('VITE_REVERB_SCHEME', env('REVERB_SCHEME', 'https')),
+    ],
+
     /*
     |--------------------------------------------------------------------------
     | Reverb Servers

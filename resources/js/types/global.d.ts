@@ -17,6 +17,12 @@ declare module '@inertiajs/core' {
     export interface InertiaConfig {
         sharedPageProps: {
             name: string;
+            reverb: {
+                key: string;
+                host: string;
+                port: number;
+                scheme: string;
+            };
             auth: Auth;
             sidebarOpen: boolean;
             horizonUrl: string | null;

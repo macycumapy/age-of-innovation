@@ -163,9 +163,11 @@ jobs:
           vendor/bin/sail composer check-platform-reqs
 
       - name: Build frontend and generate route types
+        env:
+          VITE_APP_NAME: ${{ vars.VITE_APP_NAME || 'Age of Innovation' }}
         run: |
           vendor/bin/sail npm ci --include=dev
-          vendor/bin/sail npm run build
+          vendor/bin/sail exec -T -e VITE_APP_NAME="$VITE_APP_NAME" app npm run build
 
       - name: Check frontend lint, formatting and types
         run: |

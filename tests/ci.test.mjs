@@ -16,7 +16,7 @@ test('CI uses project containers for dependencies, build and checks', () => {
     assert.match(commands, /docker pull/);
     assert.match(commands, /docker tag .* sail-8.5\/app:latest/);
     assert.match(commands, /docker compose run --rm --no-deps/);
-    assert.match(commands, /vendor\/bin\/sail npm run build/);
+    assert.match(commands, /vendor\/bin\/sail exec -T -e VITE_APP_NAME="\$VITE_APP_NAME" app npm run build/);
     assert.match(commands, /vendor\/bin\/sail artisan test --compact/);
     assert.match(commands, /DB_HOST=mysql/);
     assert.equal(job.steps.at(-1).if, 'always()');
@@ -137,4 +137,10 @@ test('deployment sends a multiline script using the SSH action script input', ()
     assert.equal(remote.with.key, '${{ secrets.SSH_PRIVATE_KEY }}');
     assert.equal(remote.with.command, undefined);
     assert.ok(remote.with.script.startsWith('set -eu\n'));
+});
+
+test('frontend build receives its display name independently of the CI application name', () => {
+    const build = workflow.jobs['test-build'].steps.find(step => step.name === 'Build frontend and generate route types');
+    assert.equal(build.env.VITE_APP_NAME, "${{ vars.VITE_APP_NAME || 'Age of Innovation' }}");
+    assert.match(build.run, /exec -T -e VITE_APP_NAME="\$VITE_APP_NAME" app npm run build/);
 });

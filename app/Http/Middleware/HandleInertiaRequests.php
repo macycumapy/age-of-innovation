@@ -40,6 +40,7 @@ class HandleInertiaRequests extends Middleware
         return [
             ...parent::share($request),
             'name' => config('app.name'),
+            'reverb' => config('reverb.client'),
             'auth' => [
                 'user' => $request->user(),
                 'canAccessAdmin' => $request->user()?->can('access-admin') ?? false,

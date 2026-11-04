@@ -6,14 +6,20 @@ import AuthLayout from '@/layouts/AuthLayout.vue';
 import SettingsLayout from '@/layouts/settings/Layout.vue';
 import { initializeFlashToast } from '@/lib/flashToast';
 
-configureEcho({
-    broadcaster: 'reverb',
-});
-
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
 
 createInertiaApp({
     title: (title) => (title ? `${title} - ${appName}` : appName),
+    withApp: (_app, { page }) => {
+        configureEcho({
+            broadcaster: 'reverb',
+            key: page.props.reverb.key,
+            wsHost: page.props.reverb.host,
+            wsPort: page.props.reverb.port,
+            wssPort: page.props.reverb.port,
+            forceTLS: page.props.reverb.scheme === 'https',
+        });
+    },
     layout: (name) => {
         switch (true) {
             case name === 'Welcome':
