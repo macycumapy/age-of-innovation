@@ -13,6 +13,7 @@ services:
             - '${VITE_PORT:-5173}:${VITE_PORT:-5173}'
         expose:
             - '9000'
+            - '9001'
         environment:
             WWWUSER: '${WWWUSER:-1000}'
             LARAVEL_SAIL: 1
@@ -23,6 +24,7 @@ services:
             SUPERVISOR_PHP_USER: 'root'
         volumes:
             - '.:/var/www/html'
+            - './docker/php/8.5/www.conf:/etc/php/8.5/fpm/pool.d/www.conf:ro'
         networks:
             - sail
         depends_on:
