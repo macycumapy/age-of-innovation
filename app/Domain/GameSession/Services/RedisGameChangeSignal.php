@@ -13,7 +13,7 @@ final class RedisGameChangeSignal implements GameChangeSignal
 
     public const int TTL_SECONDS = 86400;
 
-    public function __construct(private Factory $redis)
+    public function __construct(private Factory $redis, private GameWaitMetrics $metrics)
     {
     }
 
@@ -31,9 +31,16 @@ final class RedisGameChangeSignal implements GameChangeSignal
             }
 
             $cursor = is_array($entries) ? array_key_first($entries) : null;
+            if (! is_string($cursor)) {
+                $this->metrics->redisError($gameId, 'cursor');
 
-            return is_string($cursor) ? $cursor : null;
-        } catch (Throwable) {
+                return null;
+            }
+
+            return $cursor;
+        } catch (Throwable $exception) {
+            $this->metrics->redisError($gameId, 'cursor', $exception);
+
             return null;
         }
     }
@@ -56,14 +63,23 @@ final class RedisGameChangeSignal implements GameChangeSignal
                 return $cursor;
             }
             if (! is_array($streams)) {
+                $this->metrics->redisError($gameId, 'wait');
+
                 return null;
             }
 
             $entries = reset($streams);
             $nextCursor = is_array($entries) ? array_key_last($entries) : null;
+            if (! is_string($nextCursor)) {
+                $this->metrics->redisError($gameId, 'wait');
 
-            return is_string($nextCursor) ? $nextCursor : null;
-        } catch (Throwable) {
+                return null;
+            }
+
+            return $nextCursor;
+        } catch (Throwable $exception) {
+            $this->metrics->redisError($gameId, 'wait', $exception);
+
             return null;
         }
     }
@@ -75,13 +91,16 @@ final class RedisGameChangeSignal implements GameChangeSignal
         }
 
         try {
-            $this->redis->connection('game_signals')->command('eval', [<<<'LUA'
+            $result = $this->redis->connection('game_signals')->command('eval', [<<<'LUA'
                 redis.call('XADD', KEYS[1], 'MAXLEN', ARGV[1], '*', 'changed', '1')
                 redis.call('EXPIRE', KEYS[1], ARGV[2])
                 return 1
                 LUA, [$this->key($gameId), self::MAX_ENTRIES, self::TTL_SECONDS], 1]);
-        } catch (Throwable) {
-            // Notifications are optional; publishing must not fail a committed game action.
+            if ($result !== 1) {
+                $this->metrics->redisError($gameId, 'publish');
+            }
+        } catch (Throwable $exception) {
+            $this->metrics->redisError($gameId, 'publish', $exception);
         }
     }
 

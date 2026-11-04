@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature\Mcp;
 
 use App\Domain\GameSession\Services\GameChangeSignal;
+use App\Domain\GameSession\Services\GameWaitMetrics;
 use App\Domain\GameSession\Services\RedisGameChangeSignal;
 use App\Events\GameChanged;
 use App\Events\GamePlayersChanged;
@@ -38,7 +39,7 @@ final class RedisGameChangeSignalTest extends TestCase
         $this->redisConfiguration = config('database.redis');
         $this->redisConfiguration['options']['prefix'] = 'test:game-turn-signals:'.bin2hex(random_bytes(8)).':';
         $this->redis = new RedisManager($this->app, $this->redisConfiguration['client'], $this->redisConfiguration);
-        $this->signals = new RedisGameChangeSignal($this->redis);
+        $this->signals = new RedisGameChangeSignal($this->redis, app(GameWaitMetrics::class));
         $this->app->instance(GameChangeSignal::class, $this->signals);
     }
 
@@ -72,7 +73,8 @@ final class RedisGameChangeSignalTest extends TestCase
             $container->instance('config', new Illuminate\Config\Repository(['game-mcp' => ['wait' => ['enabled' => true]]]));
             Illuminate\Container\Container::setInstance($container);
             $redis = new Illuminate\Redis\RedisManager($container, $input['redis']['client'], $input['redis']);
-            $signals = new App\Domain\GameSession\Services\RedisGameChangeSignal($redis);
+            $metrics = new App\Domain\GameSession\Services\GameWaitMetrics(new Illuminate\Log\LogManager($container));
+            $signals = new App\Domain\GameSession\Services\RedisGameChangeSignal($redis, $metrics);
             echo "ready\n";
             flush();
             echo json_encode($signals->wait(1, '0-0', 2000), JSON_THROW_ON_ERROR)."\n";
@@ -115,7 +117,7 @@ final class RedisGameChangeSignalTest extends TestCase
         $factory = Mockery::mock(Factory::class);
         $factory->shouldNotReceive('connection');
 
-        $this->assertSame('0-0', (new RedisGameChangeSignal($factory))->wait(1, '0-0', 0));
+        $this->assertSame('0-0', (new RedisGameChangeSignal($factory, app(GameWaitMetrics::class)))->wait(1, '0-0', 0));
     }
 
     public function test_streams_are_bounded_and_expire(): void
@@ -161,7 +163,7 @@ final class RedisGameChangeSignalTest extends TestCase
     {
         $factory = Mockery::mock(Factory::class);
         $factory->shouldReceive('connection')->with('game_signals')->andThrow(new RuntimeException('Redis unavailable'));
-        $this->app->instance(GameChangeSignal::class, new RedisGameChangeSignal($factory));
+        $this->app->instance(GameChangeSignal::class, new RedisGameChangeSignal($factory, app(GameWaitMetrics::class)));
 
         $game = DB::transaction(function (): Game {
             $game = Game::factory()->create();
@@ -178,7 +180,7 @@ final class RedisGameChangeSignalTest extends TestCase
         $factory = Mockery::mock(Factory::class);
         $factory->shouldReceive('connection')->with('game_signals')->once()->andThrow(new RuntimeException('Redis unavailable'));
         $factory->shouldReceive('connection')->with('game_wait')->once()->andThrow(new RuntimeException('Redis unavailable'));
-        $signals = new RedisGameChangeSignal($factory);
+        $signals = new RedisGameChangeSignal($factory, app(GameWaitMetrics::class));
 
         $this->assertNull($signals->cursor(1));
         $this->assertNull($signals->wait(1, '0-0', 100));
@@ -189,7 +191,7 @@ final class RedisGameChangeSignalTest extends TestCase
         config(['game-mcp.wait.enabled' => false]);
         $factory = Mockery::mock(Factory::class);
         $factory->shouldNotReceive('connection');
-        $signals = new RedisGameChangeSignal($factory);
+        $signals = new RedisGameChangeSignal($factory, app(GameWaitMetrics::class));
         $signals->publish(1);
 
         $this->assertNull($signals->cursor(1));

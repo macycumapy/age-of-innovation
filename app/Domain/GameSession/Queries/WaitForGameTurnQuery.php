@@ -9,6 +9,7 @@ use App\Domain\GameSession\Data\GameTurnWaitResultData;
 use App\Domain\GameSession\Enums\GameTurnWaitReason;
 use App\Domain\GameSession\Services\GameChangeSignal;
 use App\Domain\GameSession\Services\GamePlayerResolver;
+use App\Domain\GameSession\Services\GameWaitMetrics;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Sleep;
@@ -24,6 +25,7 @@ final class WaitForGameTurnQuery
         private GetGameStateQuery $state,
         private GetLegalGameActionsQuery $actions,
         private GameChangeSignal $signals,
+        private GameWaitMetrics $metrics,
     ) {
     }
 
@@ -51,6 +53,10 @@ final class WaitForGameTurnQuery
             }
         }
 
+        $this->metrics->transport($gameId, $cursor === null ? 'poll' : 'redis', $cursor === null
+            ? (config('game-mcp.wait.enabled') ? 'redis_unavailable' : 'disabled')
+            : null);
+
         $remainingMilliseconds = $timeoutSeconds * 1000;
 
         while ($remainingMilliseconds > 0) {
@@ -67,6 +73,9 @@ final class WaitForGameTurnQuery
                 $nextCursor = $this->signals->wait($gameId, $cursor, $remainingMilliseconds);
                 if ($nextCursor === $cursor) {
                     $remainingMilliseconds = 0;
+                }
+                if ($nextCursor === null) {
+                    $this->metrics->transport($gameId, 'poll', 'redis_unavailable');
                 }
                 $cursor = $nextCursor;
             }
