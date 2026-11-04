@@ -6,14 +6,24 @@ namespace App\Observers;
 
 use App\Domain\Game\Enums\GameStatus;
 use App\Domain\GameEngine\Turns\Enums\GamePhase;
+use App\Events\GameListChanged;
 use App\Jobs\PlayAutomatedTurnJob;
 use App\Models\Game;
 use App\Models\GamePlayer;
 
 final class GameObserver
 {
+    public function created(Game $game): void
+    {
+        GameListChanged::dispatch();
+    }
+
     public function updated(Game $game): void
     {
+        if ($game->wasChanged(['status', 'round'])) {
+            GameListChanged::dispatch();
+        }
+
         if (! $game->wasChanged('active_game_player_id')
             || $game->active_game_player_id === null
             || $game->status !== GameStatus::Active
@@ -26,6 +36,11 @@ final class GameObserver
         if ($player instanceof GamePlayer && $player->bot_difficulty !== null) {
             PlayAutomatedTurnJob::dispatch($game->id, $player->id);
         }
+    }
+
+    public function deleted(Game $game): void
+    {
+        GameListChanged::dispatch();
     }
 
     private function supportsAutomatedDecision(Game $game): bool

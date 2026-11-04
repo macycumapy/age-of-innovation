@@ -14,8 +14,10 @@ final class GameChanged implements ShouldBroadcastNow
     use Dispatchable;
     use InteractsWithSockets;
 
-    public function __construct(public readonly int $gameId)
-    {
+    public function __construct(
+        public readonly int $gameId,
+        public readonly bool $deleted = false,
+    ) {
     }
 
     public function broadcastOn(): PrivateChannel

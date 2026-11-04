@@ -6,6 +6,7 @@ namespace App\Http\Controllers\Game;
 
 use App\Domain\Game\Actions\CreateGameAction;
 use App\Domain\Settings\Services\SettingsService;
+use App\Events\GameListChanged;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Game\StoreGameRequest;
 use App\Http\Resources\GameResource;
@@ -15,6 +16,7 @@ use App\Models\GameAction;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -25,10 +27,13 @@ class GameController extends Controller
         /** @var User $user */
         $user = $request->user();
 
-        $games = Game::query()->visibleSummariesFor($user)->get();
-
         return Inertia::render('games/Index', [
-            'games' => GameSummaryResource::collection($games),
+            'games' => Inertia::live(
+                fn (): AnonymousResourceCollection => GameSummaryResource::collection(
+                    Game::query()->visibleSummariesFor($user)->get(),
+                ),
+                on: GameListChanged::class,
+            ),
         ]);
     }
 

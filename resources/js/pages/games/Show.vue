@@ -65,7 +65,13 @@ const props = defineProps<{
 
 const page = usePage();
 
-useEcho(`games.${props.game.data.id}`, '.game.changed', () => {
+useEcho(`games.${props.game.data.id}`, '.game.changed', (event: { deleted?: boolean }) => {
+    if (event.deleted) {
+        router.visit(index());
+
+        return;
+    }
+
     router.reload({ only: ['game'] });
 });
 

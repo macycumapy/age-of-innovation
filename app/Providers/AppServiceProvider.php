@@ -11,8 +11,10 @@ use App\Events\GamePlayersChanged;
 use App\Mcp\Server\Services\GameWaitMetrics;
 use App\Mcp\Server\Services\RedisGameChangeSignal;
 use App\Models\Game;
+use App\Models\GamePlayer;
 use App\Models\User;
 use App\Observers\GameObserver;
+use App\Observers\GamePlayerObserver;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Date;
@@ -47,6 +49,7 @@ class AppServiceProvider extends ServiceProvider
         );
 
         Game::observe(GameObserver::class);
+        GamePlayer::observe(GamePlayerObserver::class);
 
         Event::listen([GameChanged::class, GamePlayersChanged::class], function (GameChanged|GamePlayersChanged $event): void {
             DB::afterCommit(fn () => $this->app->make(GameChangeSignal::class)->publish($event->gameId));

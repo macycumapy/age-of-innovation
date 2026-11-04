@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Game;
 
 use App\Domain\Game\Actions\RemoveGamePlayerAction;
+use App\Events\GameChanged;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Game\RemoveGamePlayerRequest;
 use App\Models\Game;
@@ -32,6 +33,8 @@ final class GamePlayerRemovalController extends Controller
             'message' => $isLeaving ? 'Вы покинули игру.' : 'Игрок исключён из игры.',
         ]);
 
-        return $this->gameChanged($game);
+        GameChanged::dispatch($game->id, deleted: ! Game::query()->whereKey($game->id)->exists());
+
+        return response()->noContent();
     }
 }
