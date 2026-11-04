@@ -1,8 +1,12 @@
 import stylistic from '@stylistic/eslint-plugin';
-import { defineConfigWithVueTs, vueTsConfigs } from '@vue/eslint-config-typescript';
+import { configureVueProject, defineConfigWithVueTs, vueTsConfigs } from '@vue/eslint-config-typescript';
 import prettier from 'eslint-config-prettier/flat';
 import importPlugin from 'eslint-plugin-import';
 import vue from 'eslint-plugin-vue';
+
+configureVueProject({
+    rootDir: 'resources/js',
+});
 
 const controlStatements = [
     'if',
@@ -78,6 +82,7 @@ export default defineConfigWithVueTs(
             'vendor',
             'node_modules',
             'public',
+            'storage',
             'bootstrap/ssr',
             'tailwind.config.js',
             'vite.config.ts',
