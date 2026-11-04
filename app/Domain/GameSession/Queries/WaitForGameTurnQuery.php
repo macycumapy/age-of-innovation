@@ -7,6 +7,7 @@ namespace App\Domain\GameSession\Queries;
 use App\Domain\Game\Enums\GameStatus;
 use App\Domain\GameSession\Data\GameTurnWaitResultData;
 use App\Domain\GameSession\Enums\GameTurnWaitReason;
+use App\Domain\GameSession\Services\GameChangeSignal;
 use App\Domain\GameSession\Services\GamePlayerResolver;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
@@ -22,6 +23,7 @@ final class WaitForGameTurnQuery
         private GamePlayerResolver $players,
         private GetGameStateQuery $state,
         private GetLegalGameActionsQuery $actions,
+        private GameChangeSignal $signals,
     ) {
     }
 
@@ -33,25 +35,56 @@ final class WaitForGameTurnQuery
 
         $deadline = hrtime(true) + $timeoutSeconds * 1_000_000_000;
 
-        for ($attempt = 0; ; $attempt++) {
-            $result = $this->status->execute($user, $gameId);
-            $gameId = $result->gameId;
+        $result = $this->checkForTurn($user, $gameId);
+        $gameId = $result->gameId;
 
-            if ($result->reason !== GameTurnWaitReason::Timeout) {
-                $result = $this->readyResult($user, $gameId);
-            }
-
-            if ($result->reason !== GameTurnWaitReason::Timeout) {
-                return $result;
-            }
-
-            if ($attempt >= $timeoutSeconds || hrtime(true) >= $deadline) {
-                return $result;
-            }
-
-            $remainingMicroseconds = max(0, (int) ceil(($deadline - hrtime(true)) / 1000));
-            Sleep::for(min(1_000_000, $remainingMicroseconds))->microseconds();
+        if ($result->reason !== GameTurnWaitReason::Timeout || $timeoutSeconds === 0) {
+            return $result;
         }
+
+        $cursor = $this->signals->cursor($gameId);
+        if ($cursor !== null) {
+            /** Capture the cursor before the last database check to retain concurrent notifications. */
+            $result = $this->checkForTurn($user, $gameId);
+            if ($result->reason !== GameTurnWaitReason::Timeout) {
+                return $result;
+            }
+        }
+
+        $remainingMilliseconds = $timeoutSeconds * 1000;
+
+        while ($remainingMilliseconds > 0) {
+            $remainingMilliseconds = min($remainingMilliseconds, max(0, (int) ceil(($deadline - hrtime(true)) / 1_000_000)));
+            if ($remainingMilliseconds === 0) {
+                return $this->checkForTurn($user, $gameId);
+            }
+
+            if ($cursor === null) {
+                $sleepMilliseconds = min(1000, $remainingMilliseconds);
+                Sleep::for($sleepMilliseconds)->milliseconds();
+                $remainingMilliseconds -= $sleepMilliseconds;
+            } else {
+                $nextCursor = $this->signals->wait($gameId, $cursor, $remainingMilliseconds);
+                if ($nextCursor === $cursor) {
+                    $remainingMilliseconds = 0;
+                }
+                $cursor = $nextCursor;
+            }
+
+            $result = $this->checkForTurn($user, $gameId);
+            if ($result->reason !== GameTurnWaitReason::Timeout) {
+                return $result;
+            }
+        }
+
+        return $result;
+    }
+
+    private function checkForTurn(User $user, ?int $gameId): GameTurnWaitResultData
+    {
+        $result = $this->status->execute($user, $gameId);
+
+        return $result->reason === GameTurnWaitReason::Timeout ? $result : $this->readyResult($user, $result->gameId);
     }
 
     private function readyResult(User $user, int $gameId): GameTurnWaitResultData

@@ -181,6 +181,32 @@ return [
             'backoff_cap' => env('REDIS_BACKOFF_CAP', 1000),
         ],
 
+        'game_signals' => [
+            'url' => env('REDIS_URL'),
+            'host' => env('REDIS_HOST', '127.0.0.1'),
+            'username' => env('REDIS_USERNAME'),
+            'password' => env('REDIS_PASSWORD'),
+            'port' => env('REDIS_PORT', '6379'),
+            'database' => env('REDIS_DB', '0'),
+            'persistent' => false,
+            'timeout' => 1.0,
+            'read_timeout' => 1.0,
+            'max_retries' => 0,
+        ],
+
+        'game_wait' => [
+            'url' => env('REDIS_URL'),
+            'host' => env('REDIS_HOST', '127.0.0.1'),
+            'username' => env('REDIS_USERNAME'),
+            'password' => env('REDIS_PASSWORD'),
+            'port' => env('REDIS_PORT', '6379'),
+            'database' => env('REDIS_DB', '0'),
+            'persistent' => false,
+            'timeout' => 1.0,
+            'read_timeout' => 35.0,
+            'max_retries' => 0,
+        ],
+
     ],
 
 ];
