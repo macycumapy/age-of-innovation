@@ -129,3 +129,12 @@ test('Docker actions use Node 24 versions', () => {
         }
     }
 });
+
+test('deployment sends a multiline script using the SSH action script input', () => {
+    const remote = workflow.jobs.deploy.steps.find(step => step.name === 'Run command on remote server');
+    assert.equal(remote.uses, 'appleboy/ssh-action@v1.2.0');
+    assert.equal(remote.with.username, '${{ vars.SSH_USER }}');
+    assert.equal(remote.with.key, '${{ secrets.SSH_PRIVATE_KEY }}');
+    assert.equal(remote.with.command, undefined);
+    assert.ok(remote.with.script.startsWith('set -eu\n'));
+});

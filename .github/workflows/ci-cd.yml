@@ -225,12 +225,13 @@ jobs:
           target: ${{ vars.PROJECT_FOLDER }}/.deploy/${{ github.run_id }}
 
       - name: Run command on remote server
-        uses: D3rHase/ssh-command-action@v0.2.2
+        uses: appleboy/ssh-action@v1.2.0
         with:
-          host: ${{vars.SSH_HOST}}
-          user: ${{vars.SSH_USER}}
-          private_key: ${{secrets.SSH_PRIVATE_KEY}}
-          command: |
+          host: ${{ vars.SSH_HOST }}
+          username: ${{ vars.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          command_timeout: 15m
+          script: |
             set -eu
             cd "${{ vars.PROJECT_FOLDER }}"
             git fetch origin main
